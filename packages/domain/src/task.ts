@@ -1,5 +1,6 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
+import type { DeviceTaskOwnership } from './device-task-context.js';
 
 export type TaskPhase =
   | 'queued'
@@ -39,6 +40,7 @@ export interface TaskCapabilityGap {
 }
 
 export interface AgentTask {
+  readonly deviceOwnership?: DeviceTaskOwnership;
   readonly taskId: string;
   readonly contextId: string;
   readonly userId: string;
@@ -259,6 +261,7 @@ function withoutSkillInputResolution(task: AgentTask): AgentTask {
 }
 
 export interface CreateAgentTaskInput {
+  readonly deviceOwnership?: DeviceTaskOwnership;
   readonly taskId: string;
   readonly contextId: string;
   readonly userId: string;
@@ -317,6 +320,21 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
 
 export function createAgentTask(input: CreateAgentTaskInput): AgentTask {
   return {
+    ...(input.deviceOwnership === undefined
+      ? {}
+      : {
+          deviceOwnership: Object.freeze({
+            deviceId: requireIdentifier(input.deviceOwnership.deviceId, 'DEVICE_ID_REQUIRED'),
+            bindingId: requireIdentifier(
+              input.deviceOwnership.bindingId,
+              'DEVICE_BINDING_REQUIRED',
+            ),
+            sdarServiceKey: requireIdentifier(
+              input.deviceOwnership.sdarServiceKey,
+              'SDAR_SERVICE_KEY_REQUIRED',
+            ),
+          }),
+        }),
     taskId: requireIdentifier(input.taskId, 'TASK_ID_REQUIRED'),
     contextId: requireIdentifier(input.contextId, 'CONTEXT_ID_REQUIRED'),
     userId: input.userId,

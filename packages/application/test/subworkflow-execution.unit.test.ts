@@ -80,7 +80,7 @@ function instance(instanceId: string, status: WorkflowInstance['status']): Workf
       : {}),
   };
 }
-function harness(status: WorkflowInstance['status'] = 'succeeded') {
+function harness(status: WorkflowInstance['status'] = 'succeeded', executionTaskId?: string) {
   const links = new Map<string, WorkflowChildCall>();
   const instances = new Map<string, WorkflowInstance>([['parent', instance('parent', 'running')]]);
   const calls: WorkflowChildCallRepository = {
@@ -108,10 +108,22 @@ function harness(status: WorkflowInstance['status'] = 'succeeded') {
       return Promise.resolve(result);
     },
   );
+  const savedPlans = new Map<string, WorkflowPlanRecord>();
+  const savePlan = vi.fn((value: WorkflowPlanRecord) => {
+    savedPlans.set(value.planId, value);
+    return Promise.resolve();
+  });
   const service = new SubworkflowExecutionService({
     calls,
     plans: {
-      findPlan: () => Promise.resolve(plan),
+      findPlan: (id) =>
+        Promise.resolve(
+          savedPlans.get(id) ??
+            (id === plan.planId
+              ? { ...plan, ...(executionTaskId === undefined ? {} : { executionTaskId }) }
+              : undefined),
+        ),
+      savePlan,
       findConfirmedDefinition: () => Promise.resolve(plan),
     },
     execution: {
@@ -121,10 +133,26 @@ function harness(status: WorkflowInstance['status'] = 'succeeded') {
     },
     clock: { now: () => timestamp },
   });
-  return { service, execute, resume, calls, instances };
+  return { service, execute, resume, calls, instances, savePlan, savedPlans };
 }
 
 describe('persistent ordinary subworkflows', () => {
+  it('materializes a Task-owned child plan without changing its confirmed definition', async () => {
+    const h = harness('succeeded', 'task-a');
+    await h.service.execute(input);
+    const saved = h.savePlan.mock.calls[0]?.[0];
+    expect(saved).toMatchObject({
+      executionTaskId: 'task-a',
+      sourceConfirmedPlanId: plan.planId,
+      definition: plan.definition,
+    });
+    expect(saved?.planId).not.toBe(plan.planId);
+    expect(plan.executionTaskId).toBeUndefined();
+    await h.service.execute(input);
+    expect(h.savePlan).toHaveBeenCalledOnce();
+    expect(h.execute).toHaveBeenCalledOnce();
+  });
+
   it('deduplicates one node run, creates the next loop child, and preserves caller context', async () => {
     const h = harness();
     const signal = new AbortController().signal;

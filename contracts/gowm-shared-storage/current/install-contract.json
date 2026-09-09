@@ -1,0 +1,410 @@
+{
+  "schema": "ugv_sdar",
+  "entries": [
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0001_sdar_v1_2_2_baseline.sql",
+      "checksum": "ee68cc6dc6122feb386871246c06d110bd4316910ada709dcfa4da283b9ac1c7"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0108_v123_cognitive_skeleton.up.sql",
+      "checksum": "f2c4eac257c7fb04f5c042d4234952923fd2deb6fb7b2de1f32d930296f1fdef"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0109_v123_capability_summary.up.sql",
+      "checksum": "9e5f15e3b777088dd5de1957da85d01d33f3a4829123f07968636a1ebe89e332"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0110_v123_capability_card.up.sql",
+      "checksum": "f8a084840b01b08a2b7e03f32f75fb226b1e90e681dfeb17829a6cb85dff0031"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0111_v123_task_understanding.up.sql",
+      "checksum": "6cb1e43cf3a307d874401aacf14fd0352421f68c3a95315eca4f1b2667c4b935"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0112_v123_interactive_goal.up.sql",
+      "checksum": "907590c3f10bb0f43dec591cc14757e697a0c11d041527c5088c234a3c190476"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0113_v123_interactive_planning.up.sql",
+      "checksum": "8f0fc225f323f6b6a588081e9e5475bc4e8ab324fcf8ca8965adfdc1fe6f6477"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0114_v123_planning_corrections.up.sql",
+      "checksum": "beaa2ae88952348650c849814f7fd7a6fe2597748f00e4f2ab356a1afdc9293a"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0115_v123_experience_episode.up.sql",
+      "checksum": "6ec5ccfb8d6e9aa7075448a19527d59c361e4d29a8e9469f371c6cff303fc8d8"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0116_v123_experience_observation.up.sql",
+      "checksum": "5440b1db9b51cacbb9a40c1dca520c6b006750af4a8f803eb060f31d4faccbfa"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0117_v123_experience_reflection.up.sql",
+      "checksum": "eeac8c3bf9a2dce92261e1f9970bd03f1b6637bda01cfeb8c1e702997a6864df"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0118_v123_task_type_induction.up.sql",
+      "checksum": "f388b8063ea69875e74bbe54a9f1be55fe9ef645d9748fdffc98a09f2f2ada3d"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0119_v123_capability_pattern_induction.up.sql",
+      "checksum": "3e143cd04d39763cc8c7624a568a1080cc2296bdd4669be72a0349b1c98b7f05"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0120_v123_knowledge_promotion.up.sql",
+      "checksum": "0aa5af69d5e3cace0b11a0ccf678d9bd8605f3798966430c3a3162bd54b68643"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0121_v123_knowledge_usage.up.sql",
+      "checksum": "066a085833d107e69da12c53b3387e2d0988e30977a06ab50f186059d7463a00"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0122_v123_experience_enriched_planning.up.sql",
+      "checksum": "bf190d20a4ca02d0f70d590af236ea556d11ee26feb06dcb644389b6c5dc1873"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0123_v123_cognitive_management_audit.up.sql",
+      "checksum": "e20aed2d7dc451ca73cc2a0137b31c44fefad2b6b65997fadac9b3cef5f0ad65"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0124_v123_replay_shadow_evidence.up.sql",
+      "checksum": "56f920b1c76dc2f7a17864788d7822b06fd978db1efbf1d8b26f848b477d8fa7"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0125_v13_artifact_authority.up.sql",
+      "checksum": "be4adead9cfbfffa2d192484af2e7b7d6c50c6a5d3200435bfe72c4f49551d2e"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0126_v13_experience_compilation.up.sql",
+      "checksum": "a861a87a6fa9e3f9bb81b616e463eba3fe247c3e1110d179b67a6e0283958239"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0127_v13_artifact_candidate_generation.up.sql",
+      "checksum": "72a04fa29e6be9146a5937a20d885534f7cc4e043895efbeeb506cc23a4c9a22"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0128_v13_candidate_generation_runtime.up.sql",
+      "checksum": "3f0afa552f307b3ced579bcf5f91f0924f6da8d04f08c212ed5444394fc12cda"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0129_v13_artifact_replay_validation.up.sql",
+      "checksum": "988207ee80cb0ca26bca0093d6d424fd097dc8546f071f2d6c114837f02c61dc"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0130_v13_artifact_shadow_governance.up.sql",
+      "checksum": "090ae67ca06546fc3aa88cd20e4f77d17378111d4290929a705b46b43563d628"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0131_v13_artifact_retrieval_audit.up.sql",
+      "checksum": "1d2c504783dfe78b157660f25d7b4bd86ed32c8915096c0dfeebe36d513a6796"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0132_v13_fast_gateway.up.sql",
+      "checksum": "9348ed528e8c0965b18bb4bca7f599bee91dd70e9c8190270e447ea722f47e66"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0133_v13_case_model_runtime.up.sql",
+      "checksum": "668481559734e14374446733b5a54da6388fc195bcff05be246ff4f8d0cd6b66"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0134_v13_artifact_management_projection.up.sql",
+      "checksum": "6acd63cd8e665cf462d58e4d852a3b8281d89801e5603ac343955221e54316a6"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0135_v14_runtime_configuration_lkg.up.sql",
+      "checksum": "474e86e844ee0b1f8983eebac81268ea24746bf4526e5540e43728ca56199e55"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0136_v14_model_control_governance.up.sql",
+      "checksum": "85913a937f7c2b6f638e5fc2eda50c17b3bf77a80b01621dba0377eac54f9803"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0137_v14_capability_readiness.up.sql",
+      "checksum": "ff72efc787092f540df37dca5c72c5f4c564817eff7ad50f406c5e94aeb9ebf6"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0138_v14_runtime_agent_card.up.sql",
+      "checksum": "30a4ca23577d43e33c496018f4eaaa3c7bb608143a0aa8bf72fec1b4d4700ac9"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0139_v14_task_capability_binding.up.sql",
+      "checksum": "e377f887827429579b39bea15636679f76563d619a29597b5cbb06c1e2722fa4"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0140_v14_skill_version_governance.up.sql",
+      "checksum": "1bf12fa6c70a395fdf14ae57ec33ddf299167c4ac25c3a6681c03047061a5ce4"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0141_v14_skill_import_idempotency.up.sql",
+      "checksum": "b1bcf3bc1d4b50fcc2e825deb52928406f43e3e97d250044cc53f0a2cd572f3b"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0142_v14_telemetry_export.up.sql",
+      "checksum": "4b62b9c39cfde3c7b751a78997825dd8bd7779f3e36f9a0df6175c87714ccc4a"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0143_v14_node_event_projection.up.sql",
+      "checksum": "0e022d3c5a27617ed5dc6f56eb7d67831f25b8de96253b238d7962edda2b28dd"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0144_v14_canonical_evidence.up.sql",
+      "checksum": "1d5a42b92df65bdc24c90f4aa9cc68ae1fc864f224ea0d08203c0350764bdce0"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0145_v14_artifact_match_exact_version.up.sql",
+      "checksum": "32c76d7d4ac62684f8f8396503924f3786eb871b37eb4d494194c8914db5326c"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0146_v14_evidence_export_observation_ledger.up.sql",
+      "checksum": "55fee1b16b440e40d13d462584192d4737ee21ebff677bd80dec1687e45bbad7"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0147_v14_evidence_coverage_authority.up.sql",
+      "checksum": "c23d3b95ee147a6c8e332c685f27ddbcea14d6bc7cdac73da1b9c2ebec5669f5"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0148_v14_evidence_operations_recovery.up.sql",
+      "checksum": "ec8c6a159d3bb417cd67600e67d85a02d641e3fa6d9d5d0bb8df24b2eae103e7"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0149_v14_deterministic_capability_execution_action.up.sql",
+      "checksum": "9a87e3f3d001f2482f6540984159d43d965e2daee283e841e660aaffa8d1675c"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0150_v14_cognitive_management_action_lease_recovery.up.sql",
+      "checksum": "97c7750502ce138240bdeb0dfbf0e070dd048935c30b57e887bfa9b0e398c97d"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0151_v14_capability_attempt_evidence_lineage.up.sql",
+      "checksum": "6b2c974639bfa56988f188e62b21a35f1cc5326a37eb70d72e8dba784a735db3"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0152_v14_mcp_execution_semantics_authority_repair.up.sql",
+      "checksum": "b3514d0e2b3ecddd53412d0991105853f7dfa4fbf8ecfdb17485c2dda5ef1e44"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0153_v14_initial_model_prompts.up.sql",
+      "checksum": "3ce918d939890923b291f3c63105e12bcfe6cb9c257fbc71ac98cf21249f3653"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0154_v14_initial_model_prompt_pointer_repair.up.sql",
+      "checksum": "c9fac930b8178f88ebc9a4c22458fdc604432d2be5111d9e1815cbb29b57a10b"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0155_v14_model_operation_routes.up.sql",
+      "checksum": "0b1d8acfcddc288ec4607c440710265a7c547f2f57dbf3e8ee85280577e95d53"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0156_v14_runtime_task_control_actions.up.sql",
+      "checksum": "a932198065ddd71b66d230ac513dbcdfd1269c80ef488ad9420397e35ef67da3"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0157_v14_governed_control_confirmation.up.sql",
+      "checksum": "6941ff1915b89cdca481af47546fbab815e1d0b54046bf74e7014167d3f55750"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0158_v14_governed_control_dispatch_consumption.up.sql",
+      "checksum": "31b732220b24fcbc9361d5ed8bf28613c69dc1d348a64c56b4090e84241ca91b"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0159_v14_remote_task_admission_recovery.up.sql",
+      "checksum": "75bda01e1935347eccbb66f5ca43c8ecff2c9aca1ebfb34ab95c635302a0be73"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0160_v14_remote_task_authority_snapshot.up.sql",
+      "checksum": "9797d5cb13f97c982db6b1ec18626594109c29eb33d86da82baecba8427f23af"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0161_v14_remote_task_cancellation_authority.up.sql",
+      "checksum": "417a56d1b3909fa36d2d90eb195c35e5affb826b72b111b3f11ada3dc78a3edb"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0162_v14_agent_task_revision_authority.up.sql",
+      "checksum": "dd60403b8abde4fe02a037061602d461b0b8009b44a3fd1b4087613738155b57"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0163_v14_initial_model_prompt_seed_repair.up.sql",
+      "checksum": "47a146379fb0730208f4c580b617e59db5dd10bf090cec0bf3b97fe3088b4c07"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0164_v14_governed_control_catalog_lineage.up.sql",
+      "checksum": "126ceda417eef24b51d612c0172ca8ed7de07356dce1f953136161ef73da7463"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0165_v14_remote_task_catalog_lineage.up.sql",
+      "checksum": "4afcd381404ff6190bb1b8a2a77fd078576ce0c25cf49b74c2d867ed17f2973e"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0166_v14_failed_remote_continuation_quarantine.up.sql",
+      "checksum": "cb33ad15f3d73d235954fe10fc65f18ad7dd904f14c6953cec750ffed50d414f"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0167_v14_task_capability_initial_plan_binding.up.sql",
+      "checksum": "4648de9911579914e0573e0f6d78fedd85fdecaa06c57cec35f1b9d8676760de"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0168_v14_failed_terminal_callback_quarantine.up.sql",
+      "checksum": "13d3a6654b303b8ca3880a879717d7983212b45ccb1a29a337bafac772586c64"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0169_v14_postfix_terminal_callback_quarantine.up.sql",
+      "checksum": "614b0753a4e37e2925242048da4e14a524a944c8affdf8b1a1d40db9daec0e6d"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0170_v14_terminal_guard_callback_quarantine.up.sql",
+      "checksum": "863a8815c86f22438d71c13a24f0875dcf86661d42608214200b3b291f1ddd17"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0171_v14_claimed_terminal_guard_quarantine.up.sql",
+      "checksum": "c8f72d9cda6157a6429ed00970f38b81c514e81771f1acbdd5da3786c8bb8430"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0172_v14_initial_task_admission.up.sql",
+      "checksum": "a1aee006b336cb9922d5b23cd0e7b8e1b3c379e67575fd13727d11801fe4d2cb"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0173_remote_task_accepted_substate.up.sql",
+      "checksum": "ea332d99ae33ccca77a7af72d6b2094bc53b3652411157f2ab2c24559da9447a"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0174_v14_evidence_delivery_origin.up.sql",
+      "checksum": "dde0f5552c1a1e04d46a729dfd82b51cfd204bdced949b4754278fbd088d9b75"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0175_v14_mcp_task_consumer_sync.up.sql",
+      "checksum": "a2510a8bd44525128af7bcdbf750edd816ac454e80536e6618b2512769a72953"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0176_v14_control_authority_kind.up.sql",
+      "checksum": "c5f83da17ec21a759cbd6ebd8ee38e45b9b12081d658f9a959705e3d8202ccee"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0177_v14_control_authority_kind_default.up.sql",
+      "checksum": "8806e28da2db96a425e5a3d9848b9e8596cd2e1bca1e81bd457e875d8797e507"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0178_v14_development_isolated_demo.up.sql",
+      "checksum": "fcb4e335b710105e5bdae39d722bd3292eeedfdd5104d671ccfbb0377d0b549d"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0179_v14_workflow_scoped_continuation.up.sql",
+      "checksum": "6fa5010e492a98ebe9a40a1b69e56e1549a7c612ef8a8c441f97490ee5dfb157"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0180_v14_workflow_child_call.up.sql",
+      "checksum": "92c738373295cb550284577271c09162126a7a09b18b6a57b5e0774aa2f10f99"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0181_v14_temporary_skill_terminal.up.sql",
+      "checksum": "c9abca0fb67f34fd5c1b090f6cbd34f4300140cf534a9a731715084d99672a4f"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0182_v14_configured_task_type.up.sql",
+      "checksum": "e4eaf0cc1a404d2443f792adb361284fa9e142a269a5ba1f6276639d51e2454e"
+    },
+    {
+      "family": "SDAR_RUNTIME",
+      "file": "0183_v14_capability_admission_receipt.up.sql",
+      "checksum": "cca48496974552a273710d42ed9bc2dcca29a1bb1d825278033863016ccaafb9"
+    },
+    {
+      "family": "GOWM_OVERLAY",
+      "file": "device_scope_v1.sql",
+      "checksum": "cd0468c421de6cf6b0a069d788f7b4937f74bac0d0a3729e85d1213f425294c5"
+    },
+    {
+      "family": "GOWM_OVERLAY",
+      "file": "scope_hardening_v1.sql",
+      "checksum": "1ad3150232a29f5cf04f5623f011afa64454dcd849571d6dbdb5b3de8e4212e5"
+    },
+    {
+      "family": "GOWM_OVERLAY",
+      "file": "additional_scope_v1.sql",
+      "checksum": "1b294e844f03bda8ae1c37e16e1994ff66760a9744e60dc14111abd9e4685920"
+    },
+    {
+      "family": "GOWM_OVERLAY",
+      "file": "derived_ownership_v1.sql",
+      "checksum": "bb590ee330a0af44b87fe93d8150a000039598837b77aa2e524ceca00e2036cd"
+    }
+  ]
+}

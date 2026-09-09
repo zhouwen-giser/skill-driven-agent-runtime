@@ -1,0 +1,5 @@
+{
+  "status": "NOT_RUN",
+  "required": false,
+  "reason": "This GOWM increment uses isolated local protocol fixtures. Earlier SMPP debugging is not current shared-storage interoperability evidence."
+}

@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "policy": "supported-non-weapon",
+  "skills": [
+    {
+      "skillId": "ugv.get-state",
+      "capabilityId": "vehicle.ugv.read-state",
+      "toolName": "vehicle_get_state"
+    },
+    {
+      "skillId": "ugv.get-capabilities",
+      "capabilityId": "vehicle.ugv.read-capabilities",
+      "toolName": "vehicle_get_capabilities"
+    },
+    {
+      "skillId": "ugv.get-payload-status",
+      "capabilityId": "vehicle.ugv.read-payload",
+      "toolName": "vehicle_get_payload_status"
+    },
+    {
+      "skillId": "ugv.get-targets",
+      "capabilityId": "vehicle.ugv.read-targets",
+      "toolName": "vehicle_get_targets"
+    },
+    {
+      "skillId": "ugv.navigate-route",
+      "capabilityId": "vehicle.ugv.navigate-route",
+      "toolName": "vehicle_navigate"
+    },
+    {
+      "skillId": "ugv.navigate-distance",
+      "capabilityId": "vehicle.ugv.navigate-distance",
+      "toolName": "vehicle_navigate"
+    },
+    {
+      "skillId": "ugv.return-home",
+      "capabilityId": "vehicle.ugv.return-home",
+      "toolName": "vehicle_navigate"
+    },
+    {
+      "skillId": "ugv.area-recon",
+      "capabilityId": "vehicle.ugv.recon",
+      "toolName": "vehicle_area_recon"
+    },
+    {
+      "skillId": "ugv.track-target",
+      "capabilityId": "vehicle.ugv.track-target",
+      "toolName": "vehicle_track_target"
+    },
+    {
+      "skillId": "ugv.control-gimbal",
+      "capabilityId": "vehicle.ugv.control-gimbal",
+      "toolName": "vehicle_control_gimbal"
+    },
+    {
+      "skillId": "ugv.emergency-stop",
+      "capabilityId": "vehicle.ugv.emergency-stop",
+      "toolName": "vehicle_emergency_stop"
+    },
+    {
+      "skillId": "embodied.move_to",
+      "capabilityId": "embodied.move",
+      "packageRoot": "skills/embodied.move_to",
+      "toolName": "vehicle_navigate"
+    },
+    {
+      "skillId": "embodied.area_patrol",
+      "capabilityId": "embodied.area_patrol",
+      "packageRoot": "skills/embodied.area_patrol",
+      "requiredCapabilities": ["embodied.inspect_area"],
+      "requiredSkills": ["embodied.move_to"]
+    }
+  ],
+  "excludedTools": ["vehicle_fire_weapon"]
+}

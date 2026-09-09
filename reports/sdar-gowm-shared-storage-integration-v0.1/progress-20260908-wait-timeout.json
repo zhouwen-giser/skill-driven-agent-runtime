@@ -1,0 +1,56 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "recordedAt": "2026-09-08T09:01:40.779075+00:00",
+  "implemented": [
+    "Normal wait-timeout sweep filters root Task by configured device/service before its existing atomic capability/input/event CTEs",
+    "Expiration projection returns the complete Task row, preserving device ownership and other existing Task lineage in committed callbacks",
+    "Explicit non-device sweep does not widen an empty device allowlist"
+  ],
+  "verification": [
+    {
+      "command": "pnpm exec vitest run --project unit packages/application/test/task-wait-timeout.unit.test.ts",
+      "exitCode": 0,
+      "tests": 1
+    },
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "exitCode": 0,
+      "run": "sdar-pg-0fbf52a9-2606-4c5e-8aec-40f182f97fb1",
+      "scenarioGroups": 18,
+      "acceptanceStatus": "INCOMPLETE"
+    },
+    {
+      "command": "pnpm exec eslint packages/persistence-postgres/src/repositories.ts packages/persistence-postgres/test/gowm-wait-timeout.postgres-cases.ts apps/server/src/runtime.ts",
+      "note": "Production files passed; test optional-chain diagnostic corrected and test file lint rerun passed",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    }
+  ],
+  "preservedFailures": [
+    {
+      "classification": "lint",
+      "message": "no-unnecessary-condition on expired[0]?.deviceOwnership after prior assertion narrowed the element",
+      "resolution": "Removed redundant optional chain without changing the assertion"
+    }
+  ],
+  "retentionInventoryNotes": {
+    "status": "PARTIAL",
+    "searched": "Task/Workflow/MCP native DELETE and expire/purge implementations; no claim of exhaustive worker coverage",
+    "adapted": "PostgresTaskWaitPolicyRepository.expireWaiting",
+    "stillToReview": [
+      "compiler/artifact-replay-validation-repository.ts purgeTenant/purgeExpired",
+      "compiler/experience-compilation-repositories.ts user/trace deletion",
+      "compiler/fast-gateway-repository.ts outbox/request deletion",
+      "subscription and business-event lifecycle writers"
+    ]
+  },
+  "limits": [
+    "Repository subset only; no normal Server/checkpoint/network protocol flow",
+    "18 scenario groups reuse earlier cases; not 18 acceptance items",
+    "Auxiliary Provider execution-link same-handle global unique-key gap remains INCOMPLETE",
+    "Other cleanup workers, event/subscription scope, frozen Schema/input mapping, final checks/resources and commit/push/Draft PR remain open"
+  ]
+}

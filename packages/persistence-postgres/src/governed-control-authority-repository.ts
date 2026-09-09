@@ -1,3 +1,4 @@
+import { decodeGowmWorkflowDefinition } from './gowm-workflow-definition.js';
 import type { Pool } from 'pg';
 
 import {
@@ -851,7 +852,7 @@ function assertExactUgvBindingInput(
   selected: SelectedTaskOperation,
 ): void {
   try {
-    const adapted = adapter.adapt(inputSnapshot);
+    const adapted = adapter.adapt(inputSnapshot, selected.resource.resourceId);
     const adaptedArgumentsHash = hashCanonicalEvidenceJson(adapted.providerArguments);
     if (
       adapted.argumentsHash !== selected.argumentsHash ||
@@ -981,7 +982,7 @@ function buildUgvAuthoritySnapshot(
     }),
     plan: Object.freeze({
       planId: row.plan_id,
-      definitionHash: canonicalHash(row.plan_definition),
+      definitionHash: canonicalHash(decodeGowmWorkflowDefinition(row.plan_definition)),
       confirmationStatus: row.plan_confirmation_status,
       selectedTaskOperationSnapshotHash: selected.snapshotHash,
     }),
@@ -1306,7 +1307,7 @@ function mapAuthority(row: GovernedControlRow): GovernedControlRuntimeAuthorityS
     plan: Object.freeze({
       planId: row.plan_id,
       confirmationStatus: row.plan_confirmation_status,
-      definitionHash: canonicalHash(row.plan_definition),
+      definitionHash: canonicalHash(decodeGowmWorkflowDefinition(row.plan_definition)),
     }),
     skill: Object.freeze({
       skillId: row.skill_id,

@@ -265,6 +265,7 @@ export class McpRegistryService {
     signal?: AbortSignal,
     context: McpCallContext = {},
   ): Promise<RecordedMcpInvocationOutcome> {
+    await this.#repository.assertTaskBindingForInvocation?.(context.taskId, serverId, arguments_);
     const runtimeAuthority = await this.#runtimeBindingAuthority.loadRuntimeAuthority(serverId);
     const { record, tools } = runtimeAuthority;
     const tool = tools.find((item) => item.toolName === toolName);
@@ -313,6 +314,7 @@ export class McpRegistryService {
       runtimeAuthority,
       providerBindingAuthority,
       startedAt,
+      tool,
     );
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
@@ -521,6 +523,11 @@ export class McpRegistryService {
     }>
   > {
     const identity = contract.logicalIdentity;
+    await this.#repository.assertTaskBindingForInvocation?.(
+      context.taskId,
+      identity.serverId,
+      contract.arguments,
+    );
     const dispatchStartedAt = Date.parse(contract.dispatchStartedAt);
     if (
       !Number.isFinite(dispatchStartedAt) ||
@@ -901,8 +908,8 @@ export class McpRegistryService {
   async delete(serverId: string): Promise<void> {
     const record = await this.#requireServer(serverId);
     const headers = this.#cipher.decrypt(record.encryptedCredential);
-    this.#frozenLifecycle?.disconnect?.({ endpoint: record.server.endpoint, headers });
     await this.#repository.deleteServer(serverId);
+    this.#frozenLifecycle?.disconnect?.({ endpoint: record.server.endpoint, headers });
     await this.#auditManagementOperation(serverId, 'delete', { disconnected: true });
   }
 
@@ -1193,6 +1200,7 @@ function remoteTaskAuthoritySnapshot(
   runtime: RuntimeMcpCatalogAuthority,
   provider: CurrentMcpProviderBindingAuthority | undefined,
   capturedAt: string,
+  tool: McpTool,
 ): RemoteTaskAuthoritySnapshot {
   return createRemoteTaskAuthoritySnapshot({
     schemaVersion: '1.0',
@@ -1206,6 +1214,7 @@ function remoteTaskAuthoritySnapshot(
       catalogRevision: runtime.catalogAuthority.catalogRevision,
       catalogChecksum: runtime.catalogAuthority.catalogChecksum,
       operationCount: runtime.catalogAuthority.operationCount,
+      toolInput: { operationName: tool.toolName, inputSchema: tool.inputSchema },
     },
     ...(provider === undefined
       ? {}
@@ -1513,6 +1522,7 @@ export type McpRegistryErrorCode =
   | 'MCP_RECONCILIATION_IDEMPOTENCY_REQUIRED'
   | 'MCP_TASK_CALL_PROFILE_CONFLICT'
   | 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'
+  | 'MCP_SHARED_HISTORY_RETENTION_REQUIRED'
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_ENABLED'
   | 'MCP_SERVER_NOT_FOUND'

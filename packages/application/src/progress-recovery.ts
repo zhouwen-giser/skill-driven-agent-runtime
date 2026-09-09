@@ -132,6 +132,9 @@ export class RecoveryCoordinator {
     const decision = createRecoveryDecision({
       recoveryDecisionId: this.#ids.nextRecoveryDecisionId(),
       planId: identity.planId,
+      ...(current.executionTaskId === undefined
+        ? {}
+        : { executionTaskId: current.executionTaskId }),
       ...(identity.skillGoalId === undefined ? {} : { skillGoalId: identity.skillGoalId }),
       ...(identity.attemptId === undefined ? {} : { attemptId: identity.attemptId }),
       ...selected,
@@ -144,6 +147,7 @@ export class RecoveryCoordinator {
 }
 
 export interface UserGoalRecoveryContext {
+  readonly executionTaskId?: string;
   readonly plan: UserGoalPlan;
   readonly contract: UserGoalCompletionContract;
   readonly skillGoal: SkillGoal;
@@ -155,9 +159,18 @@ export interface UserGoalRecoveryRepository extends RecoveryEvidenceRepository {
     workflowPlanId: string,
     agentTaskId: string,
   ): Promise<UserGoalRecoveryContext | undefined>;
-  findLatestProgress(planId: string): Promise<ProgressObservation | undefined>;
-  listSkillGoalOutcomeDecisions(planId: string): Promise<readonly OutcomeDecision[]>;
-  listValidCompletedEffects(goalId: string): Promise<readonly CompletedEffect[]>;
+  findLatestProgress(
+    planId: string,
+    executionTaskId?: string,
+  ): Promise<ProgressObservation | undefined>;
+  listSkillGoalOutcomeDecisions(
+    planId: string,
+    executionTaskId?: string,
+  ): Promise<readonly OutcomeDecision[]>;
+  listValidCompletedEffects(
+    goalId: string,
+    executionTaskId?: string,
+  ): Promise<readonly CompletedEffect[]>;
   supersedeAttemptForRecovery(
     planId: string,
     skillGoalId: string,
@@ -212,18 +225,23 @@ export class UserGoalRecoveryService {
     );
     if (context === undefined) return undefined;
     const [prior, effects, previous] = await Promise.all([
-      this.#repository.listSkillGoalOutcomeDecisions(context.plan.planId),
-      this.#repository.listValidCompletedEffects(context.plan.goalId),
-      this.#repository.findLatestProgress(context.plan.planId),
+      this.#repository.listSkillGoalOutcomeDecisions(context.plan.planId, input.agentTaskId),
+      this.#repository.listValidCompletedEffects(context.plan.goalId, input.agentTaskId),
+      this.#repository.findLatestProgress(context.plan.planId, input.agentTaskId),
     ]);
-    const current = progressVectorForRecovery({
-      context,
-      prior,
-      effects,
-      workflowOutcome: input.workflowOutcome,
-      workflowRemainingBudget: input.workflowRemainingBudget,
-      taskRemainingBudget: Math.max(0, this.#taskAttemptLimit - input.taskAttemptsConsumed),
-    });
+    const current: ProgressVector = {
+      ...progressVectorForRecovery({
+        context,
+        prior,
+        effects,
+        workflowOutcome: input.workflowOutcome,
+        workflowRemainingBudget: input.workflowRemainingBudget,
+        taskRemainingBudget: Math.max(0, this.#taskAttemptLimit - input.taskAttemptsConsumed),
+      }),
+      ...(context.executionTaskId === undefined
+        ? {}
+        : { executionTaskId: context.executionTaskId }),
+    };
     const proposedStrategyFingerprint = hashJson({
       schemaVersion: '1.0',
       planRevision: context.plan.revision,

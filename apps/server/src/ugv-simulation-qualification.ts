@@ -12,7 +12,6 @@ import {
 } from './ugv-move-skill-usage.js';
 
 const STATE_OPERATION = 'vehicle_get_state';
-const UGV_RESOURCE_ID = 'vehicle:ugv1';
 export const UGV_SIMULATION_QUALIFICATION_ID = /^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u;
 
 export interface UgvSimulationQualificationReceipt {
@@ -27,7 +26,7 @@ export interface UgvSimulationQualificationReceipt {
   readonly providerBindingId: string;
   readonly providerId: string;
   readonly operationName: typeof STATE_OPERATION;
-  readonly resourceId: typeof UGV_RESOURCE_ID;
+  readonly resourceId: string;
   readonly sourcePosition: Readonly<{ longitude: number; latitude: number }>;
 }
 
@@ -97,7 +96,7 @@ export class UgvSimulationQualificationService {
     const admitted = await this.#registry.callDetailed(
       authority.serverId,
       STATE_OPERATION,
-      ugvSimulationQualificationStateReadArguments(),
+      ugvSimulationQualificationStateReadArguments(authority.resourceId),
       undefined,
       {
         providerBindingId: authority.providerBindingId,
@@ -152,6 +151,7 @@ export class UgvSimulationQualificationService {
         simulationId,
         now,
         now,
+        authority,
       );
     } catch (error: unknown) {
       if (error instanceof UgvMoveSkillUsageError) {
@@ -179,7 +179,7 @@ export class UgvSimulationQualificationService {
       providerBindingId: authority.providerBindingId,
       providerId: authority.providerId,
       operationName: STATE_OPERATION,
-      resourceId: UGV_RESOURCE_ID,
+      resourceId: authority.resourceId,
       sourcePosition: validated.position,
     });
   }

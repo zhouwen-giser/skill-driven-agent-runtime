@@ -534,7 +534,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
     expect(assertCurrent).toHaveBeenCalledTimes(2);
     expect(checkTaskAvailability).toHaveBeenCalledTimes(2);
     expect(adapt).toHaveBeenCalledTimes(2);
-    expect(adapt).toHaveBeenCalledWith(ugvBindingInput());
+    expect(adapt).toHaveBeenCalledWith(ugvBindingInput(), selected.resource.resourceId);
     expect(query.mock.calls[0]?.[0]).toContain('binding.input_snapshot');
     expect(query.mock.calls[0]?.[0]).toContain(
       'count(*) OVER()::integer AS selected_reference_count',
@@ -602,7 +602,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
     await expect(reader.loadForIssue('task-uap-p2-b03')).rejects.toMatchObject({
       code: 'UGV_GOVERNED_CONTROL_PERSISTED_AUTHORITY_INVALID',
     });
-    expect(adapt).toHaveBeenCalledWith(inputSnapshot);
+    expect(adapt).toHaveBeenCalledWith(inputSnapshot, selected.resource.resourceId);
     expect(loadCapability).not.toHaveBeenCalled();
     expect(loadProviderBinding).not.toHaveBeenCalled();
     expect(loadRuntimeAuthority).not.toHaveBeenCalled();

@@ -33,6 +33,20 @@ describe('PostgresGovernedControlManagementAuthorityReader', () => {
     );
   });
 
+  it('hashes the native DSL after removing verified GOWM node aliases', async () => {
+    const definition = { nodes: [{ nodeId: 'move', type: 'mcp_tool' }] };
+    const row = {
+      ...authorityRow(),
+      plan_definition: { nodes: [{ ...definition.nodes[0], id: 'move' }] },
+    };
+    const reader = new PostgresGovernedControlManagementAuthorityReader({
+      query: vi.fn().mockResolvedValue({ rows: [row] }),
+    } as unknown as Pool);
+    await expect(reader.issueAuthority('task-1')).resolves.toMatchObject({
+      planHash: canonicalHash(definition),
+    });
+  });
+
   it('fails closed when provider references are not bound to the latest attempt', async () => {
     const row = authorityRow();
     const query = vi.fn(() =>

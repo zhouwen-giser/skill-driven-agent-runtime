@@ -3,7 +3,13 @@ import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { RedisConnection } from 'bullmq';
 const c = JSON.parse(await readFile('/run/sdar/environment.json', 'utf8'));
-const pool = new pg.Pool({ connectionString: c.SDAR_POSTGRES_URL });
+const pool = new pg.Pool({
+  connectionString:
+    c.SDAR_STORAGE_MODE === 'gowm-shared' ? c.GOWM_DATABASE_URL : c.SDAR_POSTGRES_URL,
+  ...(c.SDAR_STORAGE_MODE === 'gowm-shared'
+    ? { options: '-c search_path=ugv_sdar,public,pg_catalog' }
+    : {}),
+});
 const control = new pg.Pool({ connectionString: c.SDAR_CONTROL_DATABASE_URL });
 const connection = new RedisConnection({
   host: c.SDAR_REDIS_HOST,

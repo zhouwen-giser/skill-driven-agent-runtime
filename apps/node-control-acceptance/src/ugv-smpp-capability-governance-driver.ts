@@ -1,3 +1,4 @@
+import { explicitProviderJsonDictionaries } from './provider-json-schema.js';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -1523,7 +1524,9 @@ function buildSkillContract(
       : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
         ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
         : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
-  const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
+  const outputSchema = explicitProviderJsonDictionaries(
+    requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+  );
   const readOnly = spec.kind === 'read_only';
   const confirmation = readOnly
     ? []
@@ -1789,7 +1792,9 @@ function buildCapability(
         : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
           ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
           : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
-    outputSchema: requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+    outputSchema: explicitProviderJsonDictionaries(
+      requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+    ),
     successCriteria: [
       Object.freeze({ type: 'output_schema_valid', required: true }),
       Object.freeze({ type: 'resource_identity_matches_request', required: true }),
@@ -2353,14 +2358,24 @@ async function ensureHistoricalPointNavigationSuccessor(
       'POINT_NAVIGATION_CAPABILITY_AUTHORITY_MISSING',
       'A published historical embodied.move Capability is required for append-only succession.',
     );
-  const constraints = (latest.constraints ?? []).map((constraint) => {
-    const { type } = constraint;
-    if (type === 'provider_binding_policy')
-      return providerBindingConstraint(authority.binding, tool, 'vehicle:ugv1');
-    if (type === 'runtime_execution_mode_policy')
-      return runtimeExecutionModeConstraint(configuration);
-    return Object.freeze(structuredClone(constraint));
-  });
+  const constraints = (latest.constraints ?? [])
+    .filter(
+      (constraint) =>
+        constraint['type'] !== 'ugv_simulation_target_policy' ||
+        configuration.runtimeExecutionContext?.mode === 'simulation',
+    )
+    .map((constraint) => {
+      const { type } = constraint;
+      if (type === 'provider_binding_policy')
+        return providerBindingConstraint(
+          authority.binding,
+          tool,
+          configuration.resourceId ?? 'vehicle:ugv1',
+        );
+      if (type === 'runtime_execution_mode_policy')
+        return runtimeExecutionModeConstraint(configuration);
+      return Object.freeze(structuredClone(constraint));
+    });
   if (!constraints.some(({ type }) => type === 'provider_binding_policy'))
     fail(
       'POINT_NAVIGATION_PROVIDER_POLICY_MISSING',
@@ -2420,7 +2435,7 @@ async function ensureHistoricalPointNavigationSuccessor(
         mcpProviderBindingId: authority.binding.bindingId,
         localServerId: authority.binding.localServerId,
         mcpToolName: NAVIGATE_TOOL_NAME,
-        allowedResourceIds: Object.freeze(['vehicle:ugv1']),
+        allowedResourceIds: Object.freeze([configuration.resourceId ?? 'vehicle:ugv1']),
         requireActive: true,
         requireAvailable: true,
         requireUnexpiredFreshness: true,
@@ -2476,14 +2491,14 @@ async function ensureHistoricalPointNavigationSuccessor(
         'POINT_NAVIGATION_CAPABILITY_NOT_PUBLISHED',
         'Capability successor did not reach its exact published state.',
       );
-    await evaluatePointReadiness(
-      configuration,
-      capabilityVersion,
-      implementation.bindingId,
-      request,
-      pause,
-    );
   }
+  await evaluatePointReadiness(
+    configuration,
+    capabilityVersion,
+    `capability-binding-embodied.move-v${String(capabilityVersion)}`,
+    request,
+    pause,
+  );
 
   const exposure = await ensurePointExposure(configuration, published, request);
   return Object.freeze({

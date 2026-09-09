@@ -1,0 +1,13 @@
+{
+  "_exampleOnly": true,
+  "_notPublicA2AContract": true,
+  "deviceId": "TEST:device-A",
+  "dataScopeKey": "TEST:sdar-shared-storage",
+  "bindingId": "10000000-0000-4000-8000-000000000001",
+  "sdarServiceKey": "example-sdar-campus",
+  "smppServiceKey": "example-smpp-campus",
+  "providerId": "example-ugv-provider",
+  "resourceId": "vehicle:test-A",
+  "sdarMcpServerId": "example-mcp-server",
+  "agentProfileId": "sdar.ugv-agent"
+}

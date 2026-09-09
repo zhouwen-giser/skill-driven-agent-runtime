@@ -1,3 +1,6 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { taskChildScopeSql } from './gowm-work-scope.js';
+import { remoteTaskScopeSql, remoteTaskChildScopeSql } from './gowm-mcp-ownership.js';
 import type { Pool, QueryResultRow } from 'pg';
 
 import type {
@@ -57,18 +60,24 @@ interface LinkRow extends QueryResultRow {
 export class PostgresRemoteTaskReconciliationAttemptStore implements RemoteTaskReconciliationAttemptStore {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  readonly #deviceScope: DeviceWorkScope | undefined;
+
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async append(attempt: RemoteTaskReconciliationAttempt): Promise<RemoteTaskReconciliationAttempt> {
+    const owner = taskChildScopeSql(this.#deviceScope, 18, 'owner_intent');
     await this.#pool.query(
       `INSERT INTO remote_task_reconciliation_attempt(
          attempt_id,intent_id,logical_invocation_id,expected_intent_version,attempt_number,
          source_contract,request_hash,status,remote_task_id,
          external_execution_id,identity_validated,safe_error_code,started_at,completed_at,
          duration_ms,result_hash,version)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
+       WHERE EXISTS(SELECT 1 FROM remote_task_admission_intent owner_intent
+         WHERE owner_intent.intent_id=$2 AND owner_intent.logical_invocation_id=$3 AND ${owner.predicate})
        ON CONFLICT DO NOTHING`,
       [
         attempt.attemptId,
@@ -88,13 +97,15 @@ export class PostgresRemoteTaskReconciliationAttemptStore implements RemoteTaskR
         attempt.durationMs,
         attempt.resultHash,
         attempt.version,
+        ...owner.values,
       ],
     );
+    const scope = reconciliationScopeSql(this.#deviceScope, 4);
     const result = await this.#pool.query<AttemptRow>(
       `SELECT * FROM remote_task_reconciliation_attempt
-        WHERE attempt_id=$1 OR (intent_id=$2 AND attempt_number=$3)
+        WHERE (attempt_id=$1 OR (intent_id=$2 AND attempt_number=$3)) AND ${scope.predicate}
         ORDER BY attempt_id=$1 DESC LIMIT 1`,
-      [attempt.attemptId, attempt.intentId, attempt.attemptNumber],
+      [attempt.attemptId, attempt.intentId, attempt.attemptNumber, ...scope.values],
     );
     const current = result.rows[0] === undefined ? undefined : mapAttempt(result.rows[0]);
     if (current === undefined || canonicalHash(current) !== canonicalHash(attempt))
@@ -103,19 +114,26 @@ export class PostgresRemoteTaskReconciliationAttemptStore implements RemoteTaskR
   }
 
   async nextAttemptNumber(intentId: string): Promise<number> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'owner_intent');
     const result = await this.#pool.query<{ next_attempt: number | string }>(
-      `SELECT COALESCE(MAX(attempt_number),0)+1 AS next_attempt
-         FROM remote_task_reconciliation_attempt WHERE intent_id=$1`,
-      [intentId],
+      this.#deviceScope === undefined
+        ? `SELECT COALESCE(MAX(attempt_number),0)+1 AS next_attempt FROM remote_task_reconciliation_attempt WHERE intent_id=$1`
+        : `SELECT COALESCE(MAX(attempt.attempt_number),0)+1 AS next_attempt
+           FROM remote_task_admission_intent owner_intent LEFT JOIN remote_task_reconciliation_attempt attempt ON attempt.intent_id=owner_intent.intent_id
+           WHERE owner_intent.intent_id=$1 AND ${scope.predicate} GROUP BY owner_intent.intent_id`,
+      [intentId, ...scope.values],
     );
+    if (this.#deviceScope !== undefined && result.rows[0] === undefined)
+      throw new Error('REMOTE_TASK_RECONCILIATION_INTENT_SCOPE_DENIED');
     return Number(result.rows[0]?.next_attempt ?? 1);
   }
 
   async listByIntentId(intentId: string): Promise<readonly RemoteTaskReconciliationAttempt[]> {
+    const scope = reconciliationScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<AttemptRow>(
       `SELECT * FROM remote_task_reconciliation_attempt
-        WHERE intent_id=$1 ORDER BY attempt_number`,
-      [intentId],
+        WHERE intent_id=$1 AND ${scope.predicate} ORDER BY attempt_number`,
+      [intentId, ...scope.values],
     );
     return result.rows.map(mapAttempt);
   }
@@ -124,18 +142,25 @@ export class PostgresRemoteTaskReconciliationAttemptStore implements RemoteTaskR
 export class PostgresRemoteTaskProviderExecutionLinkStore implements RemoteTaskProviderExecutionLinkStore {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  readonly #deviceScope: DeviceWorkScope | undefined;
+
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async save(link: RemoteTaskProviderExecutionLink): Promise<RemoteTaskProviderExecutionLink> {
+    const owner = remoteTaskScopeSql(this.#deviceScope, 21, 'owner_binding');
     await this.#pool.query(
       `INSERT INTO remote_task_provider_execution_link(
          link_id,binding_id,logical_invocation_id,remote_task_id,provider_id,operation_name,
          runtime_server_id,provider_binding_id,provider_origin_type,smpp_source_id,
          external_server_id,execution_status,external_execution_id,mission_status,
          device_mission_id,provenance,source_contract,source_revision,observed_at,content_hash)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
+       WHERE (${this.#deviceScope === undefined ? 'TRUE' : 'FALSE'} OR EXISTS(SELECT 1 FROM remote_task_binding owner_binding
+         WHERE owner_binding.binding_id=$2 AND owner_binding.remote_task_id=$4 AND owner_binding.server_id=$7
+           AND owner_binding.operation_name=$6 AND ${owner.predicate}))
        ON CONFLICT DO NOTHING`,
       [
         link.linkId,
@@ -158,12 +183,18 @@ export class PostgresRemoteTaskProviderExecutionLinkStore implements RemoteTaskP
         link.sourceRevision,
         link.observedAt,
         link.contentHash,
+        ...owner.values,
       ],
+    );
+    const scope = remoteTaskChildScopeSql(
+      this.#deviceScope,
+      6,
+      'remote_task_provider_execution_link',
     );
     const result = await this.#pool.query<LinkRow>(
       `SELECT * FROM remote_task_provider_execution_link
-        WHERE link_id=$1 OR binding_id=$2 OR logical_invocation_id=$3
-           OR (remote_task_id=$4 AND runtime_server_id=$5)
+        WHERE (link_id=$1 OR binding_id=$2 OR logical_invocation_id=$3
+           OR (remote_task_id=$4 AND runtime_server_id=$5)) AND ${scope.predicate}
         ORDER BY link_id=$1 DESC LIMIT 1`,
       [
         link.linkId,
@@ -171,6 +202,7 @@ export class PostgresRemoteTaskProviderExecutionLinkStore implements RemoteTaskP
         link.logicalInvocationId,
         link.remoteTaskId,
         link.runtimeServerId,
+        ...scope.values,
       ],
     );
     const current = result.rows[0] === undefined ? undefined : mapLink(result.rows[0]);
@@ -180,9 +212,14 @@ export class PostgresRemoteTaskProviderExecutionLinkStore implements RemoteTaskP
   }
 
   async findByBindingId(bindingId: string): Promise<RemoteTaskProviderExecutionLink | undefined> {
+    const scope = remoteTaskChildScopeSql(
+      this.#deviceScope,
+      2,
+      'remote_task_provider_execution_link',
+    );
     const result = await this.#pool.query<LinkRow>(
-      'SELECT * FROM remote_task_provider_execution_link WHERE binding_id=$1',
-      [bindingId],
+      `SELECT * FROM remote_task_provider_execution_link WHERE binding_id=$1 AND ${scope.predicate}`,
+      [bindingId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapLink(result.rows[0]);
   }
@@ -242,4 +279,13 @@ function mapLink(row: LinkRow): RemoteTaskProviderExecutionLink {
 
 function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function reconciliationScopeSql(scope: DeviceWorkScope | undefined, firstParameter: number) {
+  const owner = taskChildScopeSql(scope, firstParameter, 'scope_intent');
+  if (scope === undefined) return owner;
+  return {
+    predicate: `EXISTS(SELECT 1 FROM remote_task_admission_intent scope_intent WHERE scope_intent.intent_id=remote_task_reconciliation_attempt.intent_id AND ${owner.predicate})`,
+    values: owner.values,
+  };
 }

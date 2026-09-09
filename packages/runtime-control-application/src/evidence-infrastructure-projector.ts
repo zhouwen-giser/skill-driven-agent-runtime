@@ -7,7 +7,7 @@ import {
   type EvidenceSourceCheckpoint,
 } from '../../domain/src/index.js';
 
-export const EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION = 'evidence-infrastructure/v1' as const;
+export const EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION = 'evidence-infrastructure/v2' as const;
 
 export const EVIDENCE_INFRASTRUCTURE_RECORD_TYPES = Object.freeze([
   'evidence.episode_manifest',
@@ -127,8 +127,14 @@ export class EvidenceInfrastructureProjector {
       snapshot.references,
     );
     const payload = payloadFor(partition.kind, snapshot.row);
+    const legacyRevision = sourceRevisionFor(partition.kind, snapshot.row, payload);
+    const scope = scopeFor(partition.kind, snapshot.row);
+    // Newly proven Task attribution is an append-only successor, never a rewrite
+    // of the unscoped source identity. Existing manifest identities stay stable.
     const sourceRevision = hashCanonicalEvidenceJson(
-      sourceRevisionFor(partition.kind, snapshot.row, payload),
+      partition.kind !== 'episode_manifest' && scope.taskId !== undefined
+        ? { attributionVersion: 2, taskId: scope.taskId, source: legacyRevision }
+        : legacyRevision,
     );
     const occurredAt = timestamp(snapshot.occurredAt, 'occurredAt');
     const recordedAt = timestamp(this.#clock.now(), 'recordedAt');
@@ -143,7 +149,7 @@ export class EvidenceInfrastructureProjector {
       observationGeneration: 1,
       evidenceRefs,
       artifactRefs: [],
-      ...scopeFor(partition.kind, snapshot.row),
+      ...scope,
       payload,
     });
 
@@ -367,6 +373,11 @@ function scopeFor(
   kind: EvidenceInfrastructureProjectionKind,
   row: EvidenceInfrastructureSourceRow,
 ): Readonly<{ episodeId?: string; taskId?: string }> {
+  const taskId = nullableText(row['task_id']);
+  if (taskId !== null) {
+    const episodeId = nullableText(row['episode_id']);
+    return { taskId, ...(episodeId === null ? {} : { episodeId }) };
+  }
   if (kind === 'episode_manifest') {
     return { episodeId: textValue(row, 'episode_id'), taskId: textValue(row, 'task_id') };
   }

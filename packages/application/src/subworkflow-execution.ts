@@ -33,7 +33,7 @@ export class SubworkflowExecutionService {
   constructor(
     private readonly dependencies: Readonly<{
       calls: WorkflowChildCallRepository;
-      plans: Pick<WorkflowPlanRepository, 'findConfirmedDefinition' | 'findPlan'>;
+      plans: Pick<WorkflowPlanRepository, 'findConfirmedDefinition' | 'findPlan' | 'savePlan'>;
       execution: Pick<WorkflowExecutionService, 'execute' | 'get' | 'resumeHumanConfirmation'>;
       clock: Clock;
     }>,
@@ -67,7 +67,7 @@ export class SubworkflowExecutionService {
     if (parent === undefined || !['running', 'paused', 'waiting_external'].includes(parent.status))
       throw new WorkflowChildCallError('WORKFLOW_CHILD_PARENT_NOT_ACTIVE');
     const existing = await calls.find(input.parentInstanceId, input.parentNodeRunId);
-    const plan =
+    let plan =
       existing === undefined
         ? await plans.findConfirmedDefinition(input.workflowDefinitionId, input.workflowVersion)
         : await plans.findPlan(existing.childPlanId);
@@ -81,6 +81,41 @@ export class SubworkflowExecutionService {
       existing !== undefined &&
       (existing.kind !== 'subworkflow' || existing.parentNodeId !== input.parentNodeId)
     )
+      throw new WorkflowChildCallError('WORKFLOW_CHILD_CALL_IDENTITY_CONFLICT');
+    const parentPlan = await plans.findPlan(parent.planId);
+    if (parentPlan === undefined)
+      throw new WorkflowChildCallError('WORKFLOW_CHILD_PARENT_NOT_ACTIVE');
+    const executionTaskId = parentPlan.executionTaskId;
+    if (
+      executionTaskId !== undefined &&
+      input.continuationAuthority !== undefined &&
+      input.continuationAuthority.agentTaskId !== executionTaskId
+    )
+      throw new WorkflowChildCallError('WORKFLOW_CHILD_CALL_IDENTITY_CONFLICT');
+    if (existing === undefined && executionTaskId !== undefined) {
+      const executionPlanId = `plan-subworkflow-${key}`;
+      const prepared = await plans.findPlan(executionPlanId);
+      if (prepared !== undefined) {
+        if (
+          prepared.executionTaskId !== executionTaskId ||
+          (prepared.sourceConfirmedPlanId !== plan.planId && prepared.planId !== plan.planId) ||
+          canonicalHash(prepared.definition) !== canonicalHash(plan.definition) ||
+          prepared.confirmationStatus !== 'confirmed'
+        )
+          throw new WorkflowChildCallError('WORKFLOW_CHILD_CALL_IDENTITY_CONFLICT');
+        plan = prepared;
+      } else {
+        const source = plan;
+        plan = {
+          ...source,
+          planId: executionPlanId,
+          executionTaskId,
+          sourceConfirmedPlanId: source.planId,
+          createdAt: clock.now(),
+        };
+        await plans.savePlan(plan);
+      }
+    } else if (existing !== undefined && executionTaskId !== plan.executionTaskId)
       throw new WorkflowChildCallError('WORKFLOW_CHILD_CALL_IDENTITY_CONFLICT');
     const link =
       existing ??

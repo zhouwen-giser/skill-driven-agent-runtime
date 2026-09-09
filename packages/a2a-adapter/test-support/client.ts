@@ -1,4 +1,5 @@
 import { SendMessageRequest, TaskState } from '@a2a-js/sdk';
+import { ClientFactory } from '@a2a-js/sdk/client';
 
 import type { A2AHttpEndpointHandle } from '../src/http-endpoint.js';
 
@@ -13,6 +14,25 @@ export interface A2ATestTaskSnapshot {
 /** Keeps SDK request normalization inside the A2A adapter boundary for cross-package tests. */
 export function createA2ATestSendMessageBody(input: unknown): unknown {
   return SendMessageRequest.toJSON(SendMessageRequest.fromJSON(input));
+}
+
+/** Real official HTTP client, exposing only core test identities across the adapter boundary. */
+export async function submitA2ATestMessageAtUrl(
+  baseUrl: string,
+  input: unknown,
+): Promise<Readonly<{ id: string; contextId: string }>> {
+  const client = await new ClientFactory().createFromUrl(baseUrl);
+  const result = await client.sendMessage(SendMessageRequest.fromJSON(input));
+  if (!('id' in result) || result.status === undefined) throw new Error('A2A_TEST_EXPECTED_TASK');
+  return { id: result.id, contextId: result.contextId };
+}
+
+export async function cancelA2ATestTaskAtUrl(
+  baseUrl: string,
+  id: string,
+): Promise<A2ATestTaskSnapshot> {
+  const client = await new ClientFactory().createFromUrl(baseUrl);
+  return snapshot(await client.cancelTask({ tenant: '', id, metadata: {} }));
 }
 
 export async function submitA2ATestTask(

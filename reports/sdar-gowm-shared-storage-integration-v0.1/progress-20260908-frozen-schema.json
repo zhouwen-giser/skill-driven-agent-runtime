@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "scope": "Frozen admitted Tool Schema and DISPATCHED target extraction increment",
+  "repositoryRun": "sdar-pg-f899c0bf-1a98-40e5-941f-eb0ecacdf301",
+  "runtimeRun": "gowm-runtime-3772c61d-eaf1-4348-bbcd-c5fe273d244a",
+  "commands": [
+    {
+      "command": "source .state/gowm-storage/test.env (export); pnpm exec tsx scripts/gowm-storage-postgres.mts",
+      "result": "PASS: 20 groups; changed catalog does not change frozen targets; missing snapshot rejects and rolls back Binding"
+    },
+    {
+      "command": "pnpm exec vitest run --project unit packages/domain/test/remote-task-authority.unit.test.ts packages/application/test/frozen-mcp-registry.unit.test.ts packages/application/test/remote-task-admission-recovery.unit.test.ts --maxWorkers=2",
+      "result": "PASS: 41 tests"
+    },
+    {
+      "command": "source .state/gowm-storage/runtime-test.env (export); pnpm exec tsx scripts/gowm-runtime-execution.mts --remote",
+      "result": "PASS: two completed Tasks, two MCP calls, persisted tool schema, succeeded continuation, cleanupErrors=[]"
+    }
+  ],
+  "staticChecks": "PASS: typecheck, focused ESLint, architecture 937 files; formatting applied",
+  "preservedFailures": [
+    "Missing-schema negative case inserted its durable invocation before an earlier five-invocation count assertion. Moved independent negative case after existing count assertions; did not weaken count or delete receipt. Failed database report retained."
+  ],
+  "remaining": [
+    "Normal delayed canonical parent link and targets combined business chain",
+    "Other worker/retention scope and evidence projection gaps",
+    "Auxiliary Provider link global unique-key contract gap",
+    "Final full package requirements, cleanup and commit/push/Draft PR"
+  ]
+}

@@ -5,6 +5,20 @@ import { UgvNaturalLanguageCapabilityAdmissionResolver } from '../src/ugv-natura
 const resolver = resolverFor(2);
 
 describe('UGV natural-language Capability admission', () => {
+  it('uses the public Exposure resource for benchmark natural-language requests', async () => {
+    const site = resolverFor(1, 'vehicle:ugv');
+    const result = await site.resolve({
+      messageText: 'Move the UGV to longitude 106.8, latitude 29.7.',
+      userId: 'benchmark',
+      clientRequestId: 'site-benchmark',
+      receivedAt: '2026-09-09T00:00:00.000Z',
+    });
+    expect(result?.capabilityInput).toEqual({
+      resourceId: 'vehicle:ugv',
+      target: { x: 106.8, y: 29.7, frame: 'WGS84' },
+    });
+  });
+
   it('deterministically resolves an English SACS text request without private metadata', async () => {
     const resolved = await resolver.resolve({
       messageText: 'Move the UGV to WGS84 lon: 106.81344630, lat: 29.72034353, alt: 500.000.',
@@ -104,10 +118,18 @@ describe('UGV natural-language Capability admission', () => {
   });
 });
 
-function resolverFor(exposureVersion: number): UgvNaturalLanguageCapabilityAdmissionResolver {
+function resolverFor(
+  exposureVersion: number,
+  resourceId = 'vehicle:ugv1',
+): UgvNaturalLanguageCapabilityAdmissionResolver {
   return new UgvNaturalLanguageCapabilityAdmissionResolver({
     exposures: {
-      findCurrent: (exposureId) => Promise.resolve({ exposureId, exposureVersion }),
+      findCurrent: (exposureId) =>
+        Promise.resolve({
+          exposureId,
+          exposureVersion,
+          requestSchema: { properties: { resourceId: { const: resourceId } } },
+        }),
     },
   });
 }

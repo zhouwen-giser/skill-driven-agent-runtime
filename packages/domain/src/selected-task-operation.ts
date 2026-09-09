@@ -175,7 +175,7 @@ export function createSelectedTaskOperation(
     input.task.bindingId.trim() === '' ||
     input.task.bindingId !== input.providerBinding.bindingId ||
     input.providerBinding.bindingId.trim() === '' ||
-    input.provider.providerId !== 'isr.vehicle.ugv.ugv1' ||
+    !/^isr\.vehicle\.ugv\.[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(input.provider.providerId) ||
     input.provider.providerType !== 'isr.vehicle.ugv' ||
     input.provider.providerVersion !== '1.0.0' ||
     !/^[0-9a-f]{64}$/u.test(input.provider.manifestHash) ||
@@ -222,7 +222,7 @@ export function createSelectedTaskOperation(
       input.resource.resourceId,
     ) ||
     different(input.resource.resourceType, 'vehicle') ||
-    input.resource.resourceId !== 'vehicle:ugv1' ||
+    !/^vehicle:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(input.resource.resourceId) ||
     !isExactNavigateArguments(input.resolvedArguments, input.resource.resourceId) ||
     different(input.server.protocolMode, 'frozen_v1') ||
     !validExecution(input.execution) ||

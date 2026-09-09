@@ -19,6 +19,26 @@ import {
 import { selectedUgvTaskOperation } from './ugv-move-workflow-test-fixture.js';
 
 describe('UGV move formal Skill Usage adapter', () => {
+  it.each([false, true])('uses the frozen GOWM resource for Skill Usage (live=%s)', (live) => {
+    const original = capabilityBinding({ live, omitTargetPolicy: live });
+    const { bindingHash: _hash, ...draft } = JSON.parse(
+      JSON.stringify(original).replaceAll('vehicle:ugv1', 'vehicle:ugv'),
+    ) as TaskCapabilityBinding;
+    void _hash;
+    const site = createTaskCapabilityBinding(draft);
+    expect(
+      resolveUgvMoveSkillUsageContext({ binding: site, authority: capabilityAuthority(site) })
+        .taskAvailabilityArguments,
+    ).toMatchObject({ value: { resourceId: 'vehicle:ugv' } });
+    const wrong = createTaskCapabilityBinding({
+      ...draft,
+      inputSnapshot: { ...skillInput(), resourceId: 'vehicle:ugv1' },
+    });
+    expect(() =>
+      resolveUgvMoveSkillUsageContext({ binding: wrong, authority: capabilityAuthority(wrong) }),
+    ).toThrow();
+  });
+
   it('projects the exact alias resolution into formal ready Task binding evidence', async () => {
     const selected = selectedUgvTaskOperation();
     const resolve = vi.fn().mockResolvedValue({
@@ -319,7 +339,11 @@ function deriveTarget() {
 }
 
 function targetPolicy() {
-  return createUgvSimulationTargetPolicy({ policyId: POLICY_ID, revision: 2 });
+  return createUgvSimulationTargetPolicy({
+    resourceId: 'vehicle:ugv1',
+    policyId: POLICY_ID,
+    revision: 2,
+  });
 }
 
 function capabilityBinding(

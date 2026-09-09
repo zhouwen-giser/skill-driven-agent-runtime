@@ -80,16 +80,21 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
     input: RuntimeSkillProviderDependencyPolicyInput,
   ): RuntimeSkillProviderDependencyAssessment {
     const implementation = input.implementation;
+    const resourceId = record(
+      record(record(input.definition.inputSchema)?.['properties'])?.['resourceId'],
+    )?.['const'];
     const applies =
       input.definition.capabilityId === 'embodied.move' ||
       (implementation.implementationId === 'embodied.move_to' &&
         implementation.implementationVersion === '1');
     if (!applies) return NOT_APPLICABLE;
     if (
+      !nonEmpty(resourceId) ||
+      resourceId.length > 256 ||
       input.definition.capabilityId !== 'embodied.move' ||
       !isAppendOnlyUgvCapabilityVersion(input.definition) ||
       input.definition.status !== 'published' ||
-      !exactUgvDefinitionPromises(input.definition) ||
+      !exactUgvDefinitionPromises(input.definition, resourceId) ||
       input.implementations.length !== 1 ||
       !sameCanonical(input.implementations[0], implementation) ||
       implementation.capabilityId !== input.definition.capabilityId ||
@@ -119,8 +124,12 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
     )
       return DENIED;
 
-    const requirement = exactUgvProviderOverride(implementation.providerPolicyOverride);
-    const expected = exactUgvCapabilityConstraints(input.definition.constraints, requirement);
+    const requirement = exactUgvProviderOverride(implementation.providerPolicyOverride, resourceId);
+    const expected = exactUgvCapabilityConstraints(
+      input.definition.constraints,
+      requirement,
+      resourceId,
+    );
     if (requirement === undefined || expected === undefined) return DENIED;
 
     return Object.freeze({
@@ -141,7 +150,10 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
   }
 }
 
-function exactUgvDefinitionPromises(definition: NodeCapabilityDefinitionVersion): boolean {
+function exactUgvDefinitionPromises(
+  definition: NodeCapabilityDefinitionVersion,
+  resourceId: string,
+): boolean {
   return (
     definition.riskLevel === 'high' &&
     sameCanonical(definition.supportedModes, ['plan_confirmed', 'remote_task']) &&
@@ -166,7 +178,7 @@ function exactUgvDefinitionPromises(definition: NodeCapabilityDefinitionVersion)
       additionalProperties: false,
       required: ['resourceId', 'target'],
       properties: {
-        resourceId: { const: 'vehicle:ugv1' },
+        resourceId: { const: resourceId },
         target: {
           type: 'object',
           additionalProperties: false,
@@ -184,7 +196,7 @@ function exactUgvDefinitionPromises(definition: NodeCapabilityDefinitionVersion)
       additionalProperties: false,
       required: ['resourceId', 'status', 'finalPosition'],
       properties: {
-        resourceId: { const: 'vehicle:ugv1' },
+        resourceId: { const: resourceId },
         status: { const: 'completed' },
         finalPosition: {
           type: 'object',
@@ -201,9 +213,12 @@ function exactUgvDefinitionPromises(definition: NodeCapabilityDefinitionVersion)
   );
 }
 
-function exactUgvProviderOverride(value: unknown): ExactMcpProviderBindingPolicy | undefined {
+function exactUgvProviderOverride(
+  value: unknown,
+  resourceId: string,
+): ExactMcpProviderBindingPolicy | undefined {
   const raw = record(value);
-  if (raw === undefined || !sameCanonical(raw['allowedResourceIds'], ['vehicle:ugv1']))
+  if (raw === undefined || !sameCanonical(raw['allowedResourceIds'], [resourceId]))
     return undefined;
   const parsed = parseMcpProviderBindingPolicyOverride(raw);
   const requirement = parsed.requirements[0];
@@ -214,6 +229,7 @@ function exactUgvProviderOverride(value: unknown): ExactMcpProviderBindingPolicy
 function exactUgvCapabilityConstraints(
   constraints: NodeCapabilityDefinitionVersion['constraints'],
   requirement: ExactMcpProviderBindingPolicy | undefined,
+  resourceId: string,
 ): RuntimeSkillProviderExpectedBindingAuthority | undefined {
   if (constraints === undefined || requirement === undefined) return undefined;
   const allowedTypes = new Set([...UGV_BASE_CONSTRAINT_TYPES, UGV_SIMULATION_TARGET_POLICY_TYPE]);
@@ -250,7 +266,7 @@ function exactUgvCapabilityConstraints(
       type: 'resource_policy',
       identifierAuthority: 'public_smpp_tool_schema',
       selection: 'exact_value',
-      allowedResourceIds: ['vehicle:ugv1'],
+      allowedResourceIds: [resourceId],
       downstreamResourceBinding: 'forbidden',
     }) ||
     !sameCanonical(exactSkill, {
@@ -273,9 +289,9 @@ function exactUgvCapabilityConstraints(
       remoteTaskTerminalEvidenceRequired: true,
     }) ||
     executionMode === undefined ||
-    !exactModeSpecificTargetPolicy(executionMode, target) ||
+    !exactModeSpecificTargetPolicy(executionMode, target, resourceId) ||
     provider === undefined ||
-    !exactProviderConstraint(provider, requirement)
+    !exactProviderConstraint(provider, requirement, resourceId)
   )
     return undefined;
   return Object.freeze({
@@ -313,6 +329,7 @@ function exactRuntimeMode(
 function exactModeSpecificTargetPolicy(
   executionMode: 'simulation' | 'live',
   target: Readonly<Record<string, unknown>> | undefined,
+  resourceId: string,
 ): boolean {
   if (executionMode === 'live') return target === undefined;
   return sameCanonical(target, {
@@ -320,7 +337,7 @@ function exactModeSpecificTargetPolicy(
     policyId: 'ugv-agent-profile/explicit-wgs84-target',
     revision: 2,
     executionMode: 'simulation',
-    resourceId: 'vehicle:ugv1',
+    resourceId: resourceId,
     frame: 'WGS84',
     targetAuthority: 'task_capability_input_snapshot',
     targetDerivation: 'forbidden',
@@ -333,13 +350,14 @@ function exactModeSpecificTargetPolicy(
 function exactProviderConstraint(
   value: Readonly<Record<string, unknown>>,
   requirement: ExactMcpProviderBindingPolicy,
+  resourceId: string,
 ): boolean {
   return (
     value['type'] === 'provider_binding_policy' &&
     value['mcpProviderBindingId'] === requirement.mcpProviderBindingId &&
     value['localServerId'] === requirement.localServerId &&
     value['mcpToolName'] === requirement.mcpToolName &&
-    sameCanonical(value['allowedResourceIds'], ['vehicle:ugv1']) &&
+    sameCanonical(value['allowedResourceIds'], [resourceId]) &&
     positiveInteger(value['bindingRevision']) &&
     nonEmpty(value['catalogRevision']) &&
     typeof value['catalogChecksum'] === 'string' &&
@@ -348,7 +366,8 @@ function exactProviderConstraint(
 }
 
 function isAppendOnlyUgvCapabilityVersion(definition: NodeCapabilityDefinitionVersion): boolean {
-  if (!positiveInteger(definition.version) || definition.version < 2) return false;
+  if (!positiveInteger(definition.version)) return false;
+  if (definition.version === 1) return definition.previousVersion === undefined;
   return definition.version === 2 || definition.previousVersion === definition.version - 1;
 }
 

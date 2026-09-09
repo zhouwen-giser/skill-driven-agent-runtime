@@ -14,6 +14,9 @@ export function normalizeUserId(userId: string | undefined): string {
 export function requireIdentifier(
   value: string,
   code:
+    | 'DEVICE_ID_REQUIRED'
+    | 'DEVICE_BINDING_REQUIRED'
+    | 'SDAR_SERVICE_KEY_REQUIRED'
     | 'CONTEXT_ID_REQUIRED'
     | 'GOAL_ID_REQUIRED'
     | 'MCP_SERVER_ID_REQUIRED'

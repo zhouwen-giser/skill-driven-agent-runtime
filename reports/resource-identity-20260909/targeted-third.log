@@ -1,0 +1,30 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/server/test/ugv-move-binding.unit.test.ts (29 tests | 1 failed) 2914ms
+     × accepts the recorded sz-gowm SMPP contracts without any Device call 356ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/server/test/ugv-move-binding.unit.test.ts > UGV move governed Task binding > accepts the recorded sz-gowm SMPP contracts without any Device call
+UgvMoveBindingError: Every UGV navigation candidate has Schema drift.
+ ❯ fail apps/server/src/ugv-move-binding.ts:1078:9
+    1076|
+    1077| function fail(code: UgvMoveBindingErrorCode, message: string): never {
+    1078|   throw new UgvMoveBindingError(code, message);
+       |         ^
+    1079| }
+    1080|
+ ❯ failForRejectedCandidates apps/server/src/ugv-move-binding.ts:1025:12
+ ❯ UgvMoveTaskBindingResolver.#requireCompatibleCandidate apps/server/src/ugv-move-binding.ts:389:34
+ ❯ UgvMoveTaskBindingResolver.resolve apps/server/src/ugv-move-binding.ts:130:19
+ ❯ apps/server/test/ugv-move-binding.unit.test.ts:57:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 13 passed (14)
+      Tests  1 failed | 219 passed (220)
+   Start at  17:46:14
+   Duration  6.66s (transform 21.31s, setup 0ms, import 33.67s, tests 7.28s, environment 2ms)
+

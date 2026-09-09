@@ -1,0 +1,76 @@
+{
+  "run": "gowm-runtime-48906c1a-ee38-471c-854d-1f82b48f6791",
+  "mcpOutcome": "task_success",
+  "scenario": "cancel",
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote cancellation/process-loss/reconnection combinations",
+    "Normal Polygon/LineString and target revision/rollback combinations",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "retiredPriorFixtureTypes": 1,
+  "cancellation:gowm-runtime-48906c1a-ee38-471c-854d-1f82b48f6791-a": {
+    "device_id": "gowm-runtime-48906c1a-ee38-471c-854d-1f82b48f6791-a",
+    "protocol_status": "cancelled",
+    "local_state": "terminal_event_pending",
+    "delivery_status": "acknowledged",
+    "provider_terminal_status": "cancelled",
+    "requests": 1,
+    "attempts": 1,
+    "invocations": 1
+  },
+  "cancellation:gowm-runtime-48906c1a-ee38-471c-854d-1f82b48f6791-b": {
+    "device_id": "gowm-runtime-48906c1a-ee38-471c-854d-1f82b48f6791-b",
+    "protocol_status": "cancelled",
+    "local_state": "terminal_event_pending",
+    "delivery_status": "acknowledged",
+    "provider_terminal_status": "cancelled",
+    "requests": 1,
+    "attempts": 1,
+    "invocations": 1
+  },
+  "taskIds": [
+    "fe9fb489-c270-4b41-9d4b-4b5306ab03ac",
+    "7183ad61-bdb6-446c-956e-5562a2da30a3"
+  ],
+  "modelStages": [
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding"
+  ],
+  "modelFixtureFailures": [
+    "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'failed'\n- 'succeeded'\n"
+  ],
+  "toolCalls": 2,
+  "cleanupErrors": []
+}

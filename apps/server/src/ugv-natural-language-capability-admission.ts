@@ -6,7 +6,7 @@ import type {
 } from '../../../packages/application/src/index.js';
 
 import { UGV_AGENT_PROFILE_EXPOSURE_ID } from './ugv-agent-profile.js';
-import { adaptUgvMoveInput, UGV_MOVE_RESOURCE_ID } from './ugv-move-input-adapter.js';
+import { adaptUgvMoveInput, ugvResourceIdFromSchema } from './ugv-move-input-adapter.js';
 
 const NUMBER = '[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:e[+-]?[0-9]+)?';
 const LONGITUDE = new RegExp(
@@ -29,14 +29,19 @@ export class UgvNaturalLanguageCapabilityAdmissionResolver implements NaturalLan
   readonly #exposures: Readonly<{
     findCurrent(
       exposureId: string,
-    ): Promise<Readonly<{ exposureId: string; exposureVersion: number }> | undefined>;
+    ): Promise<
+      Readonly<{ exposureId: string; exposureVersion: number; requestSchema: unknown }> | undefined
+    >;
   }>;
 
   constructor(dependencies: {
     exposures: Readonly<{
       findCurrent(
         exposureId: string,
-      ): Promise<Readonly<{ exposureId: string; exposureVersion: number }> | undefined>;
+      ): Promise<
+        | Readonly<{ exposureId: string; exposureVersion: number; requestSchema: unknown }>
+        | undefined
+      >;
     }>;
   }) {
     this.#exposures = dependencies.exposures;
@@ -69,11 +74,12 @@ export class UgvNaturalLanguageCapabilityAdmissionResolver implements NaturalLan
         'UGV_NATURAL_LANGUAGE_REQUEST_ID_INVALID',
         'Natural-language UGV admission requires one bounded stable client request identity.',
       );
+    const resourceId = ugvResourceIdFromSchema(currentExposure.requestSchema);
     const capabilityInput = Object.freeze({
-      resourceId: UGV_MOVE_RESOURCE_ID,
+      resourceId,
       target: Object.freeze({ x: longitude, y: latitude, frame: 'WGS84' as const }),
     });
-    adaptUgvMoveInput(capabilityInput);
+    adaptUgvMoveInput(capabilityInput, resourceId);
     const idempotencyKey = `nlcap-${createHash('sha256')
       .update(`ugv-agent-profile:${clientRequestId}`)
       .digest('hex')}`;

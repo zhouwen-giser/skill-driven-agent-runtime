@@ -28,7 +28,7 @@ import {
   type UserGoalPlan,
 } from '../../../packages/domain/src/index.js';
 
-import { adaptUgvMoveInput, UGV_MOVE_RESOURCE_ID } from './ugv-move-input-adapter.js';
+import { adaptUgvMoveInput, ugvResourceIdFromBinding } from './ugv-move-input-adapter.js';
 
 const CAPABILITY_ID = 'embodied.move';
 const SKILL_ID = 'embodied.move_to';
@@ -285,7 +285,7 @@ export function assertUgvAgentProfileMoveInputAuthority(
   if (
     selected.skill.skillId !== SKILL_ID ||
     selected.skill.version !== SKILL_VERSION ||
-    selected.resource.resourceId !== UGV_MOVE_RESOURCE_ID ||
+    selected.resource.resourceId !== expected.adapted.resourceId ||
     selected.argumentsHash !== expected.adapted.argumentsHash ||
     hashCanonicalEvidenceJson(selected.resolvedArguments) !==
       hashCanonicalEvidenceJson(expected.adapted.providerArguments)
@@ -412,7 +412,7 @@ function assertExactTaskAndSkillIdentity(
 }
 
 function snapshotInputAuthority(binding: TaskCapabilityBinding) {
-  const adapted = adaptUgvMoveInput(binding.inputSnapshot);
+  const adapted = adaptUgvMoveInput(binding.inputSnapshot, ugvResourceIdFromBinding(binding));
   return Object.freeze({
     adapted,
     inputHash: hashCanonicalEvidenceJson(binding.inputSnapshot),
@@ -420,7 +420,7 @@ function snapshotInputAuthority(binding: TaskCapabilityBinding) {
 }
 
 function goalContractFields(task: AgentTask, binding: TaskCapabilityBinding, inputHash: string) {
-  const target = adaptUgvMoveInput(binding.inputSnapshot).target;
+  const target = adaptUgvMoveInput(binding.inputSnapshot, ugvResourceIdFromBinding(binding)).target;
   const executionMode = exactExecutionMode(binding);
   if (executionMode === undefined) {
     fail(
@@ -430,7 +430,7 @@ function goalContractFields(task: AgentTask, binding: TaskCapabilityBinding, inp
   }
   return Object.freeze({
     title: GOAL_TITLE,
-    description: `Move ${UGV_MOVE_RESOURCE_ID} to the capability-authorized ${target.frame} point (${String(target.longitude)}, ${String(target.latitude)}) under the frozen ${executionMode} execution contract and prove final position.`,
+    description: `Move ${ugvResourceIdFromBinding(binding)} to the capability-authorized ${target.frame} point (${String(target.longitude)}, ${String(target.latitude)}) under the frozen ${executionMode} execution contract and prove final position.`,
     constraints: Object.freeze([
       'policy.confirmation=required',
       UGV_NAVIGATE_REPLAY_CONSTRAINT,

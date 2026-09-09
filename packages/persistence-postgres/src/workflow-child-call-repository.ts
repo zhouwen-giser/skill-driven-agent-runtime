@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { workflowPlanScopeSql } from './gowm-workflow-ownership.js';
 import { WorkflowChildCallError } from '../../domain/src/index.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type { WorkflowChildCallRepository } from '../../application/src/ports.js';
@@ -15,33 +17,81 @@ interface ChildRow extends QueryResultRow {
 }
 
 export class PostgresWorkflowChildCallRepository implements WorkflowChildCallRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {}
   async save(record: WorkflowChildCall): Promise<WorkflowChildCall> {
-    return saveWorkflowChildCall(this.pool, record);
+    if (this.deviceScope === undefined) return saveWorkflowChildCall(this.pool, record);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const scope = workflowPlanScopeSql(this.deviceScope, 4);
+      const owner = await client.query(
+        `SELECT workflow_plan.plan_id FROM workflow_instance parent
+          JOIN workflow_plan ON workflow_plan.plan_id=parent.plan_id
+          JOIN workflow_plan child ON child.plan_id=$2
+        WHERE parent.instance_id=$1 AND ${scope.predicate}
+          AND child.device_id IS NOT DISTINCT FROM workflow_plan.device_id
+          AND child.gowm_task_id IS NOT DISTINCT FROM workflow_plan.gowm_task_id
+          AND ($3::text IS NULL OR EXISTS(SELECT 1 FROM workflow_instance ci
+            WHERE ci.instance_id=$3 AND ci.plan_id=child.plan_id))
+        FOR KEY SHARE OF workflow_plan,child`,
+        [
+          record.parentInstanceId,
+          record.childPlanId,
+          record.childInstanceId ?? null,
+          ...scope.values,
+        ],
+      );
+      if (owner.rowCount !== 1) throw new Error('WORKFLOW_CHILD_DEVICE_SCOPE_DENIED');
+      const saved = await saveWorkflowChildCall(client, record);
+      await client.query('COMMIT');
+      return saved;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   async find(
     parentInstanceId: string,
     parentNodeRunId: string,
   ): Promise<WorkflowChildCall | undefined> {
+    const scope = this.scope(3);
     const result = await this.pool.query<ChildRow>(
-      'SELECT * FROM workflow_child_call WHERE parent_instance_id=$1 AND parent_node_run_id=$2',
-      [parentInstanceId, parentNodeRunId],
+      `SELECT * FROM workflow_child_call WHERE parent_instance_id=$1 AND parent_node_run_id=$2 AND ${scope.predicate}`,
+      [parentInstanceId, parentNodeRunId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapChild(result.rows[0]);
   }
   async findByChildInstanceId(childInstanceId: string): Promise<WorkflowChildCall | undefined> {
+    const scope = this.scope(2);
     const result = await this.pool.query<ChildRow>(
-      'SELECT * FROM workflow_child_call WHERE child_instance_id=$1',
-      [childInstanceId],
+      `SELECT * FROM workflow_child_call WHERE child_instance_id=$1 AND ${scope.predicate}`,
+      [childInstanceId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapChild(result.rows[0]);
   }
   async listByParent(parentInstanceId: string): Promise<readonly WorkflowChildCall[]> {
+    const scope = this.scope(2);
     const result = await this.pool.query<ChildRow>(
-      'SELECT * FROM workflow_child_call WHERE parent_instance_id=$1 ORDER BY created_at,call_id',
-      [parentInstanceId],
+      `SELECT * FROM workflow_child_call WHERE parent_instance_id=$1 AND ${scope.predicate} ORDER BY created_at,call_id`,
+      [parentInstanceId, ...scope.values],
     );
     return result.rows.map(mapChild);
+  }
+  private scope(first: number) {
+    const filter = workflowPlanScopeSql(this.deviceScope, first);
+    return {
+      values: filter.values,
+      predicate:
+        this.deviceScope === undefined
+          ? 'TRUE'
+          : `EXISTS(SELECT 1 FROM workflow_instance parent JOIN workflow_plan ON workflow_plan.plan_id=parent.plan_id
+        WHERE parent.instance_id=workflow_child_call.parent_instance_id AND ${filter.predicate})`,
+    };
   }
 }
 

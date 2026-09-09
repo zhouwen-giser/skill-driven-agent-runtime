@@ -1,0 +1,29 @@
+{
+  "owner": "SDAR GOWM shared storage Goal",
+  "container": "sdar-gowm-integration-test-20260908",
+  "database": "sdar_gowm_integration_test",
+  "bind": "127.0.0.1:55490",
+  "environmentFile": ".state/gowm-storage/test.env (ignored, credentials not in reports)",
+  "postgres": "18.6",
+  "pgvector": "0.8.6",
+  "upstreamCheckout": "/tmp/sdar-gowm-contract-a1a86186",
+  "upstreamCommit": "a1a86186ea866911124de72374e17fe19897fa9e",
+  "dependencyReuse": "read-only symlink to existing GOWM node_modules in temporary checkout",
+  "bootstrap": "locked upstream scripts/business-storage/bootstrap-test.ts",
+  "install": "locked upstream scripts/business-storage/cli.ts install --domain all",
+  "extensionSetup": "Existing same-base GOWM test container pgvector files copied read-only to this owned test container; no image publication or project dependency change",
+  "extensionHashes": {
+    "sdar-gowm-vector.so": "edc8e4e108603e7496d22dadb8cf1182ee43a2c2f62efc33344fabe2adf5739d",
+    "sdar-gowm-vector.control": "f1e1717c0c1da9c200ff3a53acf1d14eba5e3f70da928a723b247b0b1059417d",
+    "sdar-gowm-vector--0.8.6.sql": "7fb5bb279ef83bf9204bfac7405bb5c9a05e49f5ac7d64d1eb4464d103b80f32"
+  },
+  "status": "running for remaining Goal tests; must inspect live container before reuse and clean only owned resources at final delivery",
+  "normalRuntimeFixture": {
+    "database": "sdar_gowm_runtime_test",
+    "redisContainer": "sdar-gowm-runtime-redis-20260908",
+    "redisBind": "127.0.0.1:56490",
+    "redisImage": "redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+    "provisioner": "scripts/gowm-runtime-test-database.mts",
+    "status": "retained isolated fixture resources; cleanup pending final delivery"
+  }
+}

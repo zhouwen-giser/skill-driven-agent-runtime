@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "scope": "Planning correction/interaction Repository and normal dual-device remote completion subset",
+  "repositoryRun": "sdar-pg-b778058e-2b17-4e89-808b-5210039ed297",
+  "runtimeRun": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f",
+  "commands": [
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "result": "PASS: 20 scenario groups; planning correction/episode device ownership, scoped task/user/tenant reads, duplicate rejection, revisions and transactional outbox counts"
+    },
+    {
+      "command": "pnpm exec vitest run --project unit packages/application/test/planning-correction.unit.test.ts --maxWorkers=2",
+      "result": "PASS: 3 tests"
+    },
+    {
+      "command": "timeout --signal=TERM --kill-after=5s 120s node --env-file=.state/gowm-storage/runtime-test.env --import tsx scripts/gowm-runtime-execution.mts --remote",
+      "result": "PASS: two completed Tasks; two tool calls total; each native Remote Binding completed/reentered, one 2.0 terminal snapshot and one succeeded attempt; budget MCP=1; terminal planning interaction saved with matching device and exact outcome reference; cleanupErrors=[]"
+    }
+  ],
+  "staticChecks": "PASS: final typecheck, focused ESLint and architecture across 937 TS source files",
+  "decisions": [
+    "Derive native device_id inside existing planning correction/episode transaction from scoped locked Task before idempotency lookup; no Domain SDK fields or GOWM DDL change",
+    "All task/user/tenant and episode queries in this repository use the same native Task scope",
+    "Configure isolated fixture task wait policy through normal management API to existing baseline 300 seconds; no business threshold change",
+    "Task terminal commit precedes worker final acknowledgement; bounded observation waits for exact reentered+succeeded before strict snapshot/attempt assertions"
+  ],
+  "preservedFailures": [
+    "Earlier normal terminal episode write rejected by GOWM provenance trigger; fixed missing device_id writer",
+    "Remote test outcome variable shadowed the mode parameter; typecheck exposed it. Runs lacking remote:* details are not the full Remote assertion evidence",
+    "After shadowing correction, run gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b observed terminal_event_claimed before worker acknowledgement; strict assertion retained after bounded observation"
+  ],
+  "remaining": [
+    "canonical_mcp_task_id intentionally null without synthetic SMPP parent; normal delayed canonical test pending",
+    "Remote duplicate/expired callbacks, process-loss, cancellation and combination cases remain",
+    "Frozen Schema provenance, targets through normal path, all cognitive/background/retention consumers remain",
+    "Evidence projection_failed/durable issue warning persists; do not claim full closure",
+    "Auxiliary Provider-link global unique-key contract gap remains",
+    "Final prescribed gates, resource cleanup, commit/push/Draft PR remain pending"
+  ]
+}

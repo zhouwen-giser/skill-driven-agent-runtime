@@ -1,0 +1,92 @@
+$ vitest run --project unit --exclude packages/application/test/fast-gateway-p10.unit.test.ts && pnpm test:unit:performance
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"completed","databaseReads":1,"wakeLatencyMs":1}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"awaiting_user_input","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"capability_gap","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.single-performance","environment":"vitest-node-local","waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":3,"elapsedMs":264}
+{"event":"a2a.wait.missed-notification-recovery","environment":"vitest-node-local","safetyPollIntervalMs":100,"databaseReads":1,"deterministicTimeoutRelease":true}
+{"event":"a2a.wait.performance","environment":"vitest-node-local","concurrentWaiters":20,"waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":61,"elapsedMs":289,"closeElapsedMs":0}
+ ❯ |unit| packages/persistence-postgres/test/governed-control-authority-repository.unit.test.ts (13 tests | 2 failed) 84ms
+     × combines one persisted Selected/confirmation snapshot with refreshed mutable authority 36ms
+     × rejects raw Binding target A against persisted Selected target B before mutable reads 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/persistence-postgres/test/governed-control-authority-repository.unit.test.ts > PostgresUgvGovernedControlAuthorityReader > combines one persisted Selected/confirmation snapshot with refreshed mutable authority
+AssertionError: expected "vi.fn()" to be called with arguments: [ Array(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+@@ -5,6 +5,7 @@
+        "frame": "WGS84",
+        "x": 112,
+        "y": 28,
+      },
+    },
++   "vehicle:ugv1",
+  ]
+
+  2nd vi.fn() call:
+
+@@ -5,6 +5,7 @@
+        "frame": "WGS84",
+        "x": 112,
+        "y": 28,
+      },
+    },
++   "vehicle:ugv1",
+  ]
+
+
+Number of calls: 2
+
+ ❯ packages/persistence-postgres/test/governed-control-authority-repository.unit.test.ts:537:19
+    535|     expect(checkTaskAvailability).toHaveBeenCalledTimes(2);
+    536|     expect(adapt).toHaveBeenCalledTimes(2);
+    537|     expect(adapt).toHaveBeenCalledWith(ugvBindingInput(), selected.res…
+       |                   ^
+    538|     expect(query.mock.calls[0]?.[0]).toContain('binding.input_snapshot…
+    539|     expect(query.mock.calls[0]?.[0]).toContain(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |unit| packages/persistence-postgres/test/governed-control-authority-repository.unit.test.ts > PostgresUgvGovernedControlAuthorityReader > rejects raw Binding target A against persisted Selected target B before mutable reads
+AssertionError: expected "vi.fn()" to be called with arguments: [ Array(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+@@ -5,6 +5,7 @@
+        "frame": "WGS84",
+        "x": 113,
+        "y": 29,
+      },
+    },
++   "vehicle:ugv1",
+  ]
+
+
+Number of calls: 1
+
+ ❯ packages/persistence-postgres/test/governed-control-authority-repository.unit.test.ts:605:19
+    603|       code: 'UGV_GOVERNED_CONTROL_PERSISTED_AUTHORITY_INVALID',
+    604|     });
+    605|     expect(adapt).toHaveBeenCalledWith(inputSnapshot, selected.resourc…
+       |                   ^
+    606|     expect(loadCapability).not.toHaveBeenCalled();
+    607|     expect(loadProviderBinding).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 291 passed (292)
+      Tests  2 failed | 2535 passed (2537)
+   Start at  17:52:03
+   Duration  69.58s (transform 70.17s, setup 0ms, import 516.32s, tests 119.96s, environment 93ms)
+
+[ELIFECYCLE] Command failed with exit code 1.

@@ -4,6 +4,11 @@
 
 ## 本项目许可证
 
+GOWM shared business storage contract is an MIT reference pinned to
+`a1a86186ea866911124de72374e17fe19897fa9e`; selected DDL and derived consumption
+metadata retain attribution and LICENSE in `contracts/gowm-shared-storage/current`.
+See `docs/gowm-shared-storage/OSS_INTAKE.md`. No runtime dependency or migration owner is added.
+
 Skill-Driven Agent Runtime 由 zhouwen 以 Apache License 2.0 发布，SPDX 标识为
 `Apache-2.0`。标准许可证全文见 `LICENSE`，归属声明见 `NOTICE`；第三方依赖继续按
 `THIRD_PARTY_NOTICES.md`、SBOM 和本台账各自的许可证处理。

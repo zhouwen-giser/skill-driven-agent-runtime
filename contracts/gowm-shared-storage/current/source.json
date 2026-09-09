@@ -1,0 +1,368 @@
+{
+  "repository": "https://github.com/zhouwen-giser/geospatial-operational-world-model",
+  "commit": "a1a86186ea866911124de72374e17fe19897fa9e",
+  "usage": "Read-only contract reference; never execute these DDL files in SDAR startup",
+  "license": "MIT",
+  "files": [
+    {
+      "sourcePath": "LICENSE",
+      "path": "LICENSE",
+      "sha256": "1b712f796950a9c2fd5e90441c36315fefe28ee18da64099b89a10653cdfa88a"
+    },
+    {
+      "sourcePath": "database/migrations/078_device_shared_business_storage.sql",
+      "path": "078_device_shared_business_storage.sql",
+      "sha256": "efcc7a866c9777394dc5cd9f256d8a786385881c25e513a3310efb71454f88bc"
+    },
+    {
+      "sourcePath": "database/shared-business-storage/overlays/ugv_sdar.sql",
+      "path": "ugv_sdar.sql",
+      "sha256": "cd0468c421de6cf6b0a069d788f7b4937f74bac0d0a3729e85d1213f425294c5"
+    },
+    {
+      "sourcePath": "database/shared-business-storage/overlays/sdar-hardening.sql",
+      "path": "sdar-hardening.sql",
+      "sha256": "1ad3150232a29f5cf04f5623f011afa64454dcd849571d6dbdb5b3de8e4212e5"
+    },
+    {
+      "sourcePath": "database/shared-business-storage/overlays/sdar-additional.sql",
+      "path": "sdar-additional.sql",
+      "sha256": "1b294e844f03bda8ae1c37e16e1994ff66760a9744e60dc14111abd9e4685920"
+    },
+    {
+      "sourcePath": "database/shared-business-storage/overlays/sdar-derived-ownership.sql",
+      "path": "sdar-derived-ownership.sql",
+      "sha256": "bb590ee330a0af44b87fe93d8150a000039598837b77aa2e524ceca00e2036cd"
+    },
+    {
+      "sourcePath": "database/shared-business-storage/overlays/read-model.sql",
+      "path": "read-model.sql",
+      "sha256": "57ecb4fd1883e5adac488a0a5938d0ffac810f19d91e26ae193c08706cd76a7f"
+    }
+  ],
+  "sdarBaseline": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
+  "nativeSources": [
+    {
+      "path": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+      "sha256": "b61980356fdea6cf79dcada4d857a6eccf8d5620b5f10ae18cebcf547535757b"
+    },
+    {
+      "path": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+      "sha256": "39f60b1666fffd2d0ffb9f12fdc4ad7caf0b6433b17987a69a1b508d3bbc18f6"
+    },
+    {
+      "path": "infra/postgres/migrations/0109_v123_capability_summary.up.sql",
+      "sha256": "25d3b8d70432a24664e8a43a888793280472f320799203eb0264669512afd0f8"
+    },
+    {
+      "path": "infra/postgres/migrations/0110_v123_capability_card.up.sql",
+      "sha256": "3f7d50ae0084319c6ee023d98685c7f9af518078139ae1ae19813ea42b76b69c"
+    },
+    {
+      "path": "infra/postgres/migrations/0111_v123_task_understanding.up.sql",
+      "sha256": "ef0159870809d22cc7a43ece0fc43285ddb7de5b8d055e7ae5726d063d8770b9"
+    },
+    {
+      "path": "infra/postgres/migrations/0112_v123_interactive_goal.up.sql",
+      "sha256": "bd17b165dca0ce4ee900727e8a96072b6a6478f714b3056e8c8feeed0b509a02"
+    },
+    {
+      "path": "infra/postgres/migrations/0113_v123_interactive_planning.up.sql",
+      "sha256": "a2a8c43b98841b90bb7b153ddebba72fabf1d595f636f84946fb59df97d07c55"
+    },
+    {
+      "path": "infra/postgres/migrations/0114_v123_planning_corrections.up.sql",
+      "sha256": "400d6f370713a2e526f93d4ec8778939df90590307bef2863e4db584945aa98d"
+    },
+    {
+      "path": "infra/postgres/migrations/0115_v123_experience_episode.up.sql",
+      "sha256": "5ceb47d045177e8623e0b6ac15dc2bf8c9bdb4073e0458f28f18bcfa5d224820"
+    },
+    {
+      "path": "infra/postgres/migrations/0116_v123_experience_observation.up.sql",
+      "sha256": "70ec8d6d287a12cdf624f333774cbab6266a53cdc67a18b7560fd01d3d18aaa3"
+    },
+    {
+      "path": "infra/postgres/migrations/0117_v123_experience_reflection.up.sql",
+      "sha256": "d9c3f79c416fd6e499d19cea1523966c6ed029f192d4c9b3e3fbac8d44e12655"
+    },
+    {
+      "path": "infra/postgres/migrations/0118_v123_task_type_induction.up.sql",
+      "sha256": "8c119ae4ce08bf3a403c6101e5b5182c4a555b2b938732af7984d03a893c7eec"
+    },
+    {
+      "path": "infra/postgres/migrations/0119_v123_capability_pattern_induction.up.sql",
+      "sha256": "44bbcdbafa662b5ea43a220177f01214f877f829700a79de7728ee8910d4a08b"
+    },
+    {
+      "path": "infra/postgres/migrations/0120_v123_knowledge_promotion.up.sql",
+      "sha256": "e571dfe013c3c8aca4c8725377e7e598f55001741e20bcb1b0fbd554d78b7a51"
+    },
+    {
+      "path": "infra/postgres/migrations/0121_v123_knowledge_usage.up.sql",
+      "sha256": "a95729f756bc969c22b6d48ae0e3b482e8d4b685d0a702ef32802c21f618e55c"
+    },
+    {
+      "path": "infra/postgres/migrations/0122_v123_experience_enriched_planning.up.sql",
+      "sha256": "1be7a4d93b955543e65cd15f03a7daf59cd1ae4c6a4199466bfb9be669e610a3"
+    },
+    {
+      "path": "infra/postgres/migrations/0123_v123_cognitive_management_audit.up.sql",
+      "sha256": "ba0be21b13515a498a2a38127ca0a8e3face8d26ac764bb7b6314b0ba174651f"
+    },
+    {
+      "path": "infra/postgres/migrations/0124_v123_replay_shadow_evidence.up.sql",
+      "sha256": "550f6f510c54b1fc297c4565440c627f627ba0dfb8462f8ed4d2fc39f05642a2"
+    },
+    {
+      "path": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+      "sha256": "50cb5041aca0be044010fe69c360fbbe3f6664e61fecf0c68b452ebf94b834f0"
+    },
+    {
+      "path": "infra/postgres/migrations/0126_v13_experience_compilation.up.sql",
+      "sha256": "e9745ae06fa6478511b28f39567ef3ec9b596a4df47b254303c50b068fe27bcf"
+    },
+    {
+      "path": "infra/postgres/migrations/0127_v13_artifact_candidate_generation.up.sql",
+      "sha256": "421fc69129a7042e26eca0fbb76058028c4c737af6524a6a0473a671e15e360a"
+    },
+    {
+      "path": "infra/postgres/migrations/0128_v13_candidate_generation_runtime.up.sql",
+      "sha256": "dddf4c43d0ba766785d782def8ecbac0e4ba1dd81e73857be5e87cf76a6650be"
+    },
+    {
+      "path": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+      "sha256": "ef8add2fd264db9e18d81286690bc0629a4c32bc360e1c36705ab741813f8672"
+    },
+    {
+      "path": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+      "sha256": "d84d353e19a4961c61934d8c276265350d6d250c31beab54356b6b672b29d5b2"
+    },
+    {
+      "path": "infra/postgres/migrations/0131_v13_artifact_retrieval_audit.up.sql",
+      "sha256": "16923d7899c5f7722c73f312cea6008c0e4bfd8463e8a99489264c490ab96031"
+    },
+    {
+      "path": "infra/postgres/migrations/0132_v13_fast_gateway.up.sql",
+      "sha256": "14656b722bd5178db24df6c4e517e41214e5b2192e16ba2fa628587ce6ab32d8"
+    },
+    {
+      "path": "infra/postgres/migrations/0133_v13_case_model_runtime.up.sql",
+      "sha256": "9719368d9dcb66786ca7504cf73ca7f48f43c664db6b3d2be69db6d07d40e7ec"
+    },
+    {
+      "path": "infra/postgres/migrations/0134_v13_artifact_management_projection.up.sql",
+      "sha256": "2581263fccd401d0f1e27d33b1f7d4c64e05f8c556c4125fd1315e36a9d7fd16"
+    },
+    {
+      "path": "infra/postgres/migrations/0135_v14_runtime_configuration_lkg.up.sql",
+      "sha256": "3b20aa79e1662de60c7b6ded4fe6f16a6d45c4ec765a80ca613fd4e73c102f84"
+    },
+    {
+      "path": "infra/postgres/migrations/0136_v14_model_control_governance.up.sql",
+      "sha256": "7bf07dcd554956a49fcef8c898c9e3792746450e2d595e0061b6ec52228cf27f"
+    },
+    {
+      "path": "infra/postgres/migrations/0137_v14_capability_readiness.up.sql",
+      "sha256": "6d69c45bb5dcfed155a6103f31be1d534b516a39335b9077a1de87a5b121e8c6"
+    },
+    {
+      "path": "infra/postgres/migrations/0138_v14_runtime_agent_card.up.sql",
+      "sha256": "953af24e41dfd1b65b97c73bdbcab434677f44e1a77a30ebafc735593eecec0c"
+    },
+    {
+      "path": "infra/postgres/migrations/0139_v14_task_capability_binding.up.sql",
+      "sha256": "d1368d7044dbc3522033893b7f184006ac55121a2958f054c4e1eec85d54cbf7"
+    },
+    {
+      "path": "infra/postgres/migrations/0140_v14_skill_version_governance.up.sql",
+      "sha256": "2e23d0cda9de61d3bbcac4e6aa5488ca7c66b0bc71fe2d7605fb11a705be9aaa"
+    },
+    {
+      "path": "infra/postgres/migrations/0141_v14_skill_import_idempotency.up.sql",
+      "sha256": "b249f770ebeb015985520ad5249c5fb43759839bb915411819b160a9b242132a"
+    },
+    {
+      "path": "infra/postgres/migrations/0142_v14_telemetry_export.up.sql",
+      "sha256": "37e945ac16c7340212b2c904659122aac15a7bacac36d4a3e79db43873124985"
+    },
+    {
+      "path": "infra/postgres/migrations/0143_v14_node_event_projection.up.sql",
+      "sha256": "d365fa192bf02b09626986e5bcfa675323df74f5906b62e759d73189479eb053"
+    },
+    {
+      "path": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+      "sha256": "e392350bb10f3ce7036b054b13cc99a38ad07028b4caf46d74031cdaefd59148"
+    },
+    {
+      "path": "infra/postgres/migrations/0145_v14_artifact_match_exact_version.up.sql",
+      "sha256": "0a2479f28d821d1377ce8d7cff2c088349b4d81f2e09bd8cf5f887f9dcd8b533"
+    },
+    {
+      "path": "infra/postgres/migrations/0146_v14_evidence_export_observation_ledger.up.sql",
+      "sha256": "3cf32c81936caca44ec007ebe25c89cf55cbb7f25469046d9df389e3d790626e"
+    },
+    {
+      "path": "infra/postgres/migrations/0147_v14_evidence_coverage_authority.up.sql",
+      "sha256": "a68543b8e6825938f6455b691eb738afafb874f5223749b2dd036213a076aa5c"
+    },
+    {
+      "path": "infra/postgres/migrations/0148_v14_evidence_operations_recovery.up.sql",
+      "sha256": "153bbea71c4184b0fdee0f1dfa8037dc51559675c137e48e63aa6b2cf5f6ae93"
+    },
+    {
+      "path": "infra/postgres/migrations/0149_v14_deterministic_capability_execution_action.up.sql",
+      "sha256": "c6ee18a7c4a574c179e9a69d063bff446465e15381bc848262a8b56bff42d4c0"
+    },
+    {
+      "path": "infra/postgres/migrations/0150_v14_cognitive_management_action_lease_recovery.up.sql",
+      "sha256": "0042b630e9354549034ec835839d3d755b7ade523d484ca4bf4747b424223770"
+    },
+    {
+      "path": "infra/postgres/migrations/0151_v14_capability_attempt_evidence_lineage.up.sql",
+      "sha256": "d32e7b88ba3ed7a4c1daeb3b66a2777cc2aaeadafd8dbb4839c8b5f289d29e1c"
+    },
+    {
+      "path": "infra/postgres/migrations/0152_v14_mcp_execution_semantics_authority_repair.up.sql",
+      "sha256": "32e300aca3629b1d5e32ff36c8c8ac3c65faf384cd71d1f201e4124ce729ddfe"
+    },
+    {
+      "path": "infra/postgres/migrations/0153_v14_initial_model_prompts.up.sql",
+      "sha256": "96042b748916d19690f93677c669201a1fe4c397b1e64a9dcf16723ab79645fa"
+    },
+    {
+      "path": "infra/postgres/migrations/0154_v14_initial_model_prompt_pointer_repair.up.sql",
+      "sha256": "d16e5cee048418bdc5946e1c393e04aca209d23a28fcdc16edd6cce2dbf97255"
+    },
+    {
+      "path": "infra/postgres/migrations/0155_v14_model_operation_routes.up.sql",
+      "sha256": "6575056f911f0a90bb94e65ece0acb0527d71d71310e7b12e9bd5323663779dc"
+    },
+    {
+      "path": "infra/postgres/migrations/0156_v14_runtime_task_control_actions.up.sql",
+      "sha256": "5e8847680e93ca257b134e80bf20ca5c6857bde5f8cbf7b37d17beafd8a45700"
+    },
+    {
+      "path": "infra/postgres/migrations/0157_v14_governed_control_confirmation.up.sql",
+      "sha256": "22b88f9aea1e3950bf85709ae00fbb821829b55d208508ac9211998fdd691cb2"
+    },
+    {
+      "path": "infra/postgres/migrations/0158_v14_governed_control_dispatch_consumption.up.sql",
+      "sha256": "efa979df4688291d02e588543df2299d1ce6b04aa02920ed3d13599561d0acac"
+    },
+    {
+      "path": "infra/postgres/migrations/0159_v14_remote_task_admission_recovery.up.sql",
+      "sha256": "cfbf8c8d1c5efc56b904f70d69a28d7580200108ebd7af580a9b61d51d116265"
+    },
+    {
+      "path": "infra/postgres/migrations/0160_v14_remote_task_authority_snapshot.up.sql",
+      "sha256": "781ded978b84d7de78abe2e656ebd4e401e96fb37b3705d7d6eceaf376d89aae"
+    },
+    {
+      "path": "infra/postgres/migrations/0161_v14_remote_task_cancellation_authority.up.sql",
+      "sha256": "374db492fe1b7da8dafc62f250383ca9676d494311cf8521fea186acd1cd370f"
+    },
+    {
+      "path": "infra/postgres/migrations/0162_v14_agent_task_revision_authority.up.sql",
+      "sha256": "7deb27c298220d91a144685d0dbfe9c091fbe2cd36b1fe1b995fe1261f3b87d0"
+    },
+    {
+      "path": "infra/postgres/migrations/0163_v14_initial_model_prompt_seed_repair.up.sql",
+      "sha256": "a6f9b32770b10990f63be8e4e79c20c3fccce0c4322f5354827b00576669a088"
+    },
+    {
+      "path": "infra/postgres/migrations/0164_v14_governed_control_catalog_lineage.up.sql",
+      "sha256": "d8e2f11e3b79b4b749cae4dd451e09288a7c2c505c467a749d525c1742be8f0d"
+    },
+    {
+      "path": "infra/postgres/migrations/0165_v14_remote_task_catalog_lineage.up.sql",
+      "sha256": "6c3a2022bd49e58d8805294dfe92caa00aba960df5736dbacb0f979027e2dfe7"
+    },
+    {
+      "path": "infra/postgres/migrations/0166_v14_failed_remote_continuation_quarantine.up.sql",
+      "sha256": "c5790fa3b4d341e03a5f18d72605e5764f06a59dc14578b678378be565be81bd"
+    },
+    {
+      "path": "infra/postgres/migrations/0167_v14_task_capability_initial_plan_binding.up.sql",
+      "sha256": "b5e500f8763453f56ef0ddc7f8daeed370b02fa4db2a7046abaed4272bf2c3a9"
+    },
+    {
+      "path": "infra/postgres/migrations/0168_v14_failed_terminal_callback_quarantine.up.sql",
+      "sha256": "ffa8428a1a04978bdd954fbba412c8377d71c6c1d0d949ba13bbac14ffa36315"
+    },
+    {
+      "path": "infra/postgres/migrations/0169_v14_postfix_terminal_callback_quarantine.up.sql",
+      "sha256": "0440d1bdb1bc6be3784b26b0beaedc7514f038a8c7b0dafa2e9801af947bd2b2"
+    },
+    {
+      "path": "infra/postgres/migrations/0170_v14_terminal_guard_callback_quarantine.up.sql",
+      "sha256": "9e3c7211d524778228c5fc2d311516d7813b989bf9bc4f0e75a20349695cb72e"
+    },
+    {
+      "path": "infra/postgres/migrations/0171_v14_claimed_terminal_guard_quarantine.up.sql",
+      "sha256": "7ae93d578dff176024b7cbe746736bf71029acd72666d3fc9a3e67b64090ceba"
+    },
+    {
+      "path": "infra/postgres/migrations/0172_v14_initial_task_admission.up.sql",
+      "sha256": "83de8269dc2efd70ad831eb9ad0c61ffbb93dfb6a562736f67fe2b5e9c9c88ce"
+    },
+    {
+      "path": "infra/postgres/migrations/0173_remote_task_accepted_substate.up.sql",
+      "sha256": "16bf69a669c876ba6c1f5fc80ee5b8d741da706486950674b0b9a6d538b717d5"
+    },
+    {
+      "path": "infra/postgres/migrations/0174_v14_evidence_delivery_origin.up.sql",
+      "sha256": "24769cbf3921d4e352a1978a4320f2e8e0d0a750f29394aa634f2257b2ed0ef6"
+    },
+    {
+      "path": "infra/postgres/migrations/0175_v14_mcp_task_consumer_sync.up.sql",
+      "sha256": "84c65d107cf042d4165e79a838bf6b268e4445c899c5a58193609724774828af"
+    },
+    {
+      "path": "infra/postgres/migrations/0176_v14_control_authority_kind.up.sql",
+      "sha256": "7ebcfe2921468efea766a4e97dea249ebf5e6d942e4cdecf326d6eecca6e1863"
+    },
+    {
+      "path": "infra/postgres/migrations/0177_v14_control_authority_kind_default.up.sql",
+      "sha256": "4cad5cb502b608a18305ee696fd6b42ec905035cded4ba6ed993d6e13bd1bb6a"
+    },
+    {
+      "path": "infra/postgres/migrations/0178_v14_development_isolated_demo.up.sql",
+      "sha256": "e34f2e9c5ffd5e953d9a64ca70cea5ef6cb31fad5b30fca708bdee72efe6d4f8"
+    },
+    {
+      "path": "infra/postgres/migrations/0179_v14_workflow_scoped_continuation.up.sql",
+      "sha256": "a1c239a28ef58b1c56c066a1bf91410bab1fb872cb6177fdc5bb6ac11a6c0853"
+    },
+    {
+      "path": "infra/postgres/migrations/0180_v14_workflow_child_call.up.sql",
+      "sha256": "838afa06d37824247c31f2f55329be441f534bf7581be2ae7f6f84602baa412e"
+    },
+    {
+      "path": "infra/postgres/migrations/0181_v14_temporary_skill_terminal.up.sql",
+      "sha256": "7867ef7f9f1ec56df9081e3e1c81a1fcdec324cda725f813fa7ccaba20c22db8"
+    },
+    {
+      "path": "infra/postgres/migrations/0182_v14_configured_task_type.up.sql",
+      "sha256": "ec9c40e31ff3781ecd111f7eeb089839d66da76f5e8f42f828b6218020483d82"
+    },
+    {
+      "path": "infra/postgres/migrations/0183_v14_capability_admission_receipt.up.sql",
+      "sha256": "cb7775a55cf9002b3bb3317b9d88e47d2c8982bf994abeeb5c171fe1f949f35b"
+    }
+  ],
+  "derivedFiles": [
+    {
+      "path": "install-contract.json",
+      "sha256": "f35dd4549b5bdf8bcd08cf94e6d3ce5306fc5470067ddafc8b918ba16f17e149"
+    },
+    {
+      "path": "expected-consumption.json",
+      "sha256": "22b009e7913baa78706f3e0440c7f0857f291085b95a4a639502253ca390f910"
+    },
+    {
+      "path": "native-tables.json",
+      "sha256": "722ad3b8080167ecc72d5381179cc720106feed79cc05d9b8afb76238f037590"
+    }
+  ]
+}

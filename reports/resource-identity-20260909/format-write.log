@@ -1,0 +1,40 @@
+apps/server/src/ugv-agent-profile-admission.ts 194ms (unchanged)
+apps/server/src/ugv-agent-profile-catalog.ts 22ms (unchanged)
+apps/server/src/ugv-agent-profile.ts 63ms (unchanged)
+apps/server/src/ugv-live-side-effect-gate.ts 5ms (unchanged)
+apps/server/src/ugv-move-binding.ts 146ms
+apps/server/src/ugv-move-input-adapter.ts 12ms
+apps/server/src/ugv-move-position-result.ts 45ms (unchanged)
+apps/server/src/ugv-move-skill-usage.ts 69ms
+apps/server/src/ugv-move-terminal-outcome.ts 99ms
+apps/server/src/ugv-move-workflow-authority.ts 22ms (unchanged)
+apps/server/src/ugv-move-workflow-evidence.ts 56ms (unchanged)
+apps/server/src/ugv-move-workflow.ts 64ms (unchanged)
+apps/server/src/ugv-natural-language-capability-admission.ts 16ms
+apps/server/src/ugv-simulation-qualification.ts 13ms (unchanged)
+apps/server/src/ugv-simulation-side-effect-gate.ts 5ms (unchanged)
+apps/server/src/ugv-unknown-availability-policy.ts 2ms (unchanged)
+packages/domain/src/selected-task-operation.ts 37ms (unchanged)
+packages/application/src/governed-control-ugv-authority.ts 60ms
+packages/persistence-postgres/src/governed-control-authority-repository.ts 99ms (unchanged)
+apps/server/test/ugv-agent-profile-admission.unit.test.ts 39ms (unchanged)
+apps/server/test/ugv-agent-profile-card.unit.test.ts 12ms (unchanged)
+apps/server/test/ugv-agent-profile-execution.integration.test.ts 125ms
+apps/server/test/ugv-agent-profile-runtime.integration.test.ts 28ms (unchanged)
+apps/server/test/ugv-agent-profile-test-fixture.ts 8ms (unchanged)
+apps/server/test/ugv-agent-profile.unit.test.ts 28ms (unchanged)
+apps/server/test/ugv-live-side-effect-gate.unit.test.ts 5ms (unchanged)
+apps/server/test/ugv-move-binding.unit.test.ts 122ms (unchanged)
+apps/server/test/ugv-move-input-adapter.unit.test.ts 15ms
+apps/server/test/ugv-move-position-result.unit.test.ts 48ms (unchanged)
+apps/server/test/ugv-move-skill-usage.unit.test.ts 28ms
+apps/server/test/ugv-move-terminal-outcome.unit.test.ts 58ms
+apps/server/test/ugv-move-workflow-authority.unit.test.ts 24ms (unchanged)
+apps/server/test/ugv-move-workflow-continuation.integration.test.ts 115ms (unchanged)
+apps/server/test/ugv-move-workflow-evidence.unit.test.ts 66ms (unchanged)
+apps/server/test/ugv-move-workflow-test-fixture.ts 19ms (unchanged)
+apps/server/test/ugv-move-workflow.unit.test.ts 60ms (unchanged)
+apps/server/test/ugv-natural-language-capability-admission.unit.test.ts 9ms
+apps/server/test/ugv-simulation-qualification.unit.test.ts 30ms
+apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts 7ms (unchanged)
+apps/server/test/ugv-unknown-availability-policy.unit.test.ts 5ms (unchanged)

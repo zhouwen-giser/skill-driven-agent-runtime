@@ -127,3 +127,23 @@ Redis 必须保持 AOF。磁盘满/MISCONF 时恢复磁盘和 AOF 健康，不�
 `up` 输出源 revision、实际镜像 ID 和访问地址；若从带修改的工作树构建，Git revision 不是该工作树的完整身份，应同时保留包 manifest 的 sourceHash。
 
 本轮仅开展直接相关的开发功能验证；qualification/production 完整门禁留待后续阶段。
+
+## sz-gowm 共享业务数据库
+
+显式配置 `SDAR_STORAGE_MODE=gowm-shared`、`GOWM_DATABASE_URL`、
+`SDAR_CONTROL_DATABASE_URL`、`SDAR_DEPLOY_EXTERNAL_NETWORK`。共享模式不创建 PostgreSQL
+容器或卷；Control URL 必须指向独立管理数据库。现有 GOWM 正式安装器必须先安装
+`ugv_sdar`，Runtime 只读校验合同、不执行业务迁移。设置 `SDAR_SERVICE_KEY`、
+`SDAR_ALLOWED_DEVICE_IDS`、`SDAR_DEVICE_ID`、`SDAR_DATA_SCOPE_KEY` 明确现场归属。
+GOWM 管理的 `ugv_sdar_app` 连接仅存放于服务器私有配置，不能放入部署包。
+
+
+治理初始化默认开启。`SDAR_UGV_CATALOG_PROFILE` 默认为 `ugv-v1-11`；固定 sz-gowm
+上游使用 `ugv-v1-10`（不包含 laser range），两种配置均要求工具合同精确匹配。
+初始化清单在 `capability-manifest.json`。Source、Provider、治理发布、内置依赖、公开 Card
+任一阶段失败均返回非零，显式关闭则报告 `started_governance_disabled`。
+巡逻 Skill 的 `embodied.inspect_area` 依赖由后续 GOWM 提供，目前保留阻塞；其余能力的
+非空数量不能替代完整清单验收。启动检查不执行设备动作。
+
+UGV 部署可运行只读身份自检：`docker compose exec runtime node deploy/development/verify-resource-identity.mjs`。
+它比较公开 Exposure、部署资源配置、当前 Provider Binding/Catalog 和 Runtime 输入适配，不请求可用性、不派发 Device Tool、不创建任务。失败返回非零及脱敏阶段码；成功不等同真实移动任务完成。主机端口重映射不影响容器内自检。

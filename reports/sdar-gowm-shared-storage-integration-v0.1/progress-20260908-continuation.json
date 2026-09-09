@@ -1,0 +1,58 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "recordedAt": "2026-09-08T08:46:32.058320+00:00",
+  "implemented": [
+    "Continuation snapshot save validates Task/Plan/Instance/Control ownership; reads and lifecycle transitions inherit Task scope",
+    "Inbox/control claim, finish/defer and continuation attempt reads/writes are scoped; attempts must reference an actual snapshot wait Binding",
+    "Snapshot and attempt idempotency compare canonical content rather than JSON property order; changed content remains a conflict",
+    "Normal Server supplies its immutable DeviceWorkScope to the continuation repository"
+  ],
+  "verification": [
+    {
+      "command": "pnpm exec vitest run --project unit packages/application/test/remote-task-continuation.unit.test.ts packages/application/test/remote-task-input.unit.test.ts",
+      "exitCode": 0,
+      "tests": 20
+    },
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "exitCode": 0,
+      "run": "sdar-pg-5ccc6343-6e43-478e-9b4b-2582af98032d",
+      "scenarioGroups": 16,
+      "report": "postgres-sdar-pg-5ccc6343-6e43-478e-9b4b-2582af98032d.json"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint packages/persistence-postgres/src/gowm-continuation-scope.ts packages/persistence-postgres/src/workflow-continuation-repository.ts packages/persistence-postgres/test/gowm-continuation.postgres-cases.ts packages/persistence-postgres/test/gowm-remote.postgres-cases.ts apps/server/src/runtime.ts",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/check-architecture.mjs",
+      "exitCode": 0,
+      "sourceFiles": 930
+    }
+  ],
+  "preservedFailures": [
+    {
+      "error": "The continuation snapshot identity is already bound to different evidence.",
+      "classification": "real idempotency defect",
+      "cause": "PostgreSQL JSON readback and mapped objects may use different property insertion order",
+      "resolution": "Compare existing canonicalHash values, preserving historical snapshot JSON/hash and rejecting changed evidence"
+    },
+    {
+      "error": "remote_task_control_continuation_claim_token_idx",
+      "classification": "fixture",
+      "cause": "Static claim token collided with retained historical test rows",
+      "resolution": "Per-event/run token; no deletion or weakening of uniqueness"
+    }
+  ],
+  "limits": [
+    "Repository-only PostgreSQL evidence, not checkpoint execution, normal Server or network MCP proof",
+    "Continuation fixture explicitly uses identifiable legacy schema 1.0 snapshots and synthetic control events; it does not prove scoped 2.0 LangGraph resume",
+    "All earlier scenario groups rerun together; do not sum their counts as distinct AC coverage",
+    "Remaining reconciliation/subscription/business-event/retention scopes, frozen invocation target Schema, full normal Server protocol stub, required regressions, cleanup and single-repository delivery remain open",
+    "Only SDAR modified; no GOWM/SMPP changes, shared deployment or external model/device calls. Owned test DB retained; connection pools closed"
+  ]
+}

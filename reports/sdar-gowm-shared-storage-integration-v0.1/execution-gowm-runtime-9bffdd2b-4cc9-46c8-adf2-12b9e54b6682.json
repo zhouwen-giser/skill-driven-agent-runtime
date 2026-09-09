@@ -1,0 +1,20 @@
+{
+  "run": "gowm-runtime-9bffdd2b-4cc9-46c8-adf2-12b9e54b6682",
+  "status": "FAIL",
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "error": "{\"deviceOwnership\":{\"deviceId\":\"gowm-runtime-9bffdd2b-4cc9-46c8-adf2-12b9e54b6682-a\",\"bindingId\":\"103221cd-adcb-4fcd-aa37-fa3f20863278\",\"sdarServiceKey\":\"sdar-test\"},\"taskId\":\"82ba5674-f939-4549-af91-18074c225a74\",\"contextId\":\"54eb0105-29f7-44ad-b4ba-ab6c6eed5a22\",\"userId\":\"anonymous\",\"requestText\":\"Read synthetic device gowm-runtime-9bffdd2b-4cc9-46c8-adf2-12b9e54b6682-a state once\",\"requestMetadata\":{\"io.sdar/deviceId\":\"gowm-runtime-9bffdd2b-4cc9-46c8-adf2-12b9e54b6682-a\",\"structured_input\":{\"resourceId\":\"gowm-runtime-9bffdd2b-4cc9-46c8-adf2-12b9e54b6682-a\"}},\"phase\":\"failed\",\"phaseMessage\":\"Task preparation failed with MODEL_INVOCATION_FAILED: Configured stage model invocation failed.\",\"createdAt\":\"2026-09-08T09:35:27.957Z\",\"updatedAt\":\"2026-09-08T09:35:28.137Z\"}\n+ actual - expected\n\n+ 'failed'\n- 'awaiting_plan_confirmation'\n",
+  "taskIds": [
+    "82ba5674-f939-4549-af91-18074c225a74"
+  ],
+  "modelStages": [
+    "embedding",
+    "embedding",
+    "task_understanding",
+    "embedding"
+  ],
+  "modelFixtureFailures": [
+    "GOWM_MODEL_STAGE_NOT_IMPLEMENTED:decide_task_intent"
+  ],
+  "toolCalls": 0
+}

@@ -1,0 +1,95 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "recordedAt": "2026-09-08T07:27:38.801758+00:00",
+  "implemented": [
+    "Validated x-sdar-targets Schema metadata; exact field extraction; Point/Polygon/LineString; explicit CRS and deferred Workflow references",
+    "Formal SkillInputResolution REQUESTED and Plan PLANNED writes share their native transaction; exact parent Task scope; source schema hash and persistent diagnostics",
+    "Exact owner/role/path conflict detection, transaction lock and identical replay reuse; Input/Plan/supersession rollback",
+    "Lossless GOWM node aliases and normalized Plan/confirmation/physical-evidence reader hashes; legacy id-only governance preserved"
+  ],
+  "commands": [
+    {
+      "command": "pnpm test:gowm-storage:unit",
+      "exitCode": 0,
+      "tests": 34
+    },
+    {
+      "command": "vitest unit: gowm-targets, gowm-workflow-ownership, governed-control-management-authority-reader, governed-control-authority-repository, task-capability-physical-evidence-repository; contract: workflow-dsl-schema",
+      "exitCode": 0,
+      "tests": 39,
+      "note": "Includes overlap with GOWM unit suite; do not sum as unique tests"
+    },
+    {
+      "command": "pnpm typecheck (includes new PostgreSQL helper)",
+      "exitCode": 0
+    },
+    {
+      "command": "eslint changed target/alias/authority/schema/Repository source and target tests",
+      "exitCode": 0
+    },
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "exitCode": 0,
+      "run": "sdar-pg-3e3d56c4-c474-40e2-aaba-d5e179f5419f",
+      "scenarioGroups": 7,
+      "scope": "production Repository subset; not normal Server or real MCP execution"
+    },
+    {
+      "command": "pnpm verify:architecture",
+      "exitCode": 0,
+      "sourceFiles": 919
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "failuresPreserved": [
+    {
+      "command": "first PostgreSQL rerun",
+      "exitCode": 1,
+      "cause": "MCP_SERVER_SERVICE_CONFLICT in directory fixture: static server ID across independent SMPP service keys; fixed unique per-run directory identity, no GOWM change"
+    },
+    {
+      "command": "second PostgreSQL target run",
+      "exitCode": 1,
+      "cause": "skill_input_resolution has no device_id column in pinned contract; preserve native table and validate scope through task_id. runtime_event uses the same parent rule."
+    },
+    {
+      "command": "first adjacent unit/contract regression",
+      "exitCode": 1,
+      "passed": 36,
+      "failed": 2,
+      "cause": "Initial alias decoder rejected old id-only governance records; decoder now recognizes only equal dual-field aliases. Original assertions retained."
+    },
+    {
+      "command": "initial lint",
+      "exitCode": 1,
+      "cause": "Deprecated Zod finite(), non-null assertion, redundant client condition; corrected without weaker validation"
+    },
+    {
+      "command": "typecheck after including PostgreSQL helper",
+      "exitCode": 2,
+      "cause": "Synthetic Skill omitted required autoConfirmPlan; fixture explicitly sets false"
+    },
+    {
+      "command": "PostgreSQL helper lint",
+      "exitCode": 1,
+      "cause": "numeric template expression; explicit String(index) preserves test identity"
+    }
+  ],
+  "remaining": [
+    "Validated admission inputs and existing UGV semantic mappings",
+    "Actual resolved arguments and DISPATCHED NODE_RUN targets from real Remote Binding",
+    "Invocation attribution, delayed canonical matching and complete background scope",
+    "Normal Server/LangGraph/Frozen MCP dual-device tests and restricted PostgreSQL roles",
+    "All required acceptance scenarios, final prescribed regressions, reports, commit/push/Draft PR"
+  ],
+  "resources": {
+    "testDatabase": "sdar_gowm_integration_test",
+    "ownedContainer": "sdar-gowm-integration-test-20260908",
+    "poolCleanup": "all script exits call pool.end in finally",
+    "container": "retained running for next Goal increment; not final cleanup proof"
+  },
+  "retrospective": "Read consumed columns from the pinned catalog before editing writers; keep new PostgreSQL helpers in the main TS/lint scope. Reuse the installed isolated DB; only rerun the affected behavior and adjacent suites, not upstream bootstrap or a full release gate."
+}

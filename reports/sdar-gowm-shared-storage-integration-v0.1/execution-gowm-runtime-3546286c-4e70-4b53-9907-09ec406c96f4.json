@@ -1,0 +1,244 @@
+{
+  "run": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4",
+  "mcpOutcome": "task_success",
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote waiting/canonical/recovery",
+    "targets in normal execution",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "retiredPriorFixtureTypes": 15,
+  "lineage:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+      "count": "5"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a": {
+    "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-5402cb98-761d-4967-b96e-a1e20b88da87",
+    "revision": 1
+  },
+  "frozenTool:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a": {
+    "operation": "task_success",
+    "inputSchemaHash": "c4dee21ccf2f4b158fe468457559508fed40b94e2b073d462a3cb7640794d378"
+  },
+  "canonical:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a": {
+    "source": "independent_local_synthetic_peer",
+    "deviceId": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+    "remoteTaskId": "f80843ff-4f31-4a48-94f1-ce7a06fbe719",
+    "canonicalMcpTaskId": "f80843ff-4f31-4a48-94f1-ce7a06fbe719",
+    "linkedAfterTerminal": true,
+    "unchangedVersion": "6",
+    "unchangedRuntimeRevision": "3",
+    "consumerSmppDml": false,
+    "additionalToolCalls": 0
+  },
+  "remote:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a": {
+    "binding": {
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-a",
+      "smpp_service_key": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4",
+      "protocol_status": "completed",
+      "local_state": "reentered",
+      "canonical_mcp_task_id": null
+    },
+    "snapshots": [
+      {
+        "schema_version": "2.0",
+        "lifecycle": "terminal",
+        "workflow_instance_id": "instance-control-task-5402cb98-761d-4967-b96e-a1e20b88da87-0-ebb19aaa-1fc5-40fa-9eeb-00247a324797"
+      }
+    ],
+    "attempts": [
+      {
+        "status": "succeeded",
+        "error_code": null
+      }
+    ]
+  },
+  "lineage:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+      "count": "5"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b": {
+    "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-29b7d2db-6d56-436a-b0c9-ababe6d09a2e",
+    "revision": 1
+  },
+  "frozenTool:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b": {
+    "operation": "task_success",
+    "inputSchemaHash": "c4dee21ccf2f4b158fe468457559508fed40b94e2b073d462a3cb7640794d378"
+  },
+  "canonical:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b": {
+    "source": "independent_local_synthetic_peer",
+    "deviceId": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+    "remoteTaskId": "fd870a76-f99e-4ee1-9d4f-4f684cea24bd",
+    "canonicalMcpTaskId": "fd870a76-f99e-4ee1-9d4f-4f684cea24bd",
+    "linkedAfterTerminal": true,
+    "unchangedVersion": "6",
+    "unchangedRuntimeRevision": "5",
+    "consumerSmppDml": false,
+    "additionalToolCalls": 0
+  },
+  "remote:gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b": {
+    "binding": {
+      "device_id": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4-b",
+      "smpp_service_key": "gowm-runtime-3546286c-4e70-4b53-9907-09ec406c96f4",
+      "protocol_status": "completed",
+      "local_state": "reentered",
+      "canonical_mcp_task_id": null
+    },
+    "snapshots": [
+      {
+        "schema_version": "2.0",
+        "lifecycle": "terminal",
+        "workflow_instance_id": "instance-control-task-29b7d2db-6d56-436a-b0c9-ababe6d09a2e-0-8a79dbea-cd7b-4c05-878b-ad9ff2ef173c"
+      }
+    ],
+    "attempts": [
+      {
+        "status": "succeeded",
+        "error_code": null
+      }
+    ]
+  },
+  "taskIds": [
+    "5402cb98-761d-4967-b96e-a1e20b88da87",
+    "29b7d2db-6d56-436a-b0c9-ababe6d09a2e"
+  ],
+  "modelStages": [
+    "embedding",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "experience_reflection",
+    "embedding",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "experience_reflection",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 2,
+  "cleanupErrors": []
+}

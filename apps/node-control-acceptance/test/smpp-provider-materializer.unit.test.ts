@@ -57,6 +57,40 @@ describe('generic SMPP Provider materializer', () => {
     });
   });
 
+  it('refreshes an expired discovered catalog before reconciling an existing binding', async () => {
+    const api = new FakeApis({ existing: true });
+    api.runtimeExpired = true;
+    const report = await materializeSmppProviders(configuration(), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+    expect(api.commands).toEqual(['runtime:refresh', 'control:refresh']);
+    expect(report.providers[0]).toMatchObject({
+      runtimeAction: 'refreshed',
+      runtimeToolRevision: 2,
+      bindingRevision: 2,
+    });
+    api.commands.length = 0;
+    await materializeSmppProviders(configuration(), { fetch: api.fetch, now: () => NOW });
+    expect(api.commands).toEqual([]);
+  });
+
+  it('adopts an expired existing MCP server into an empty governance directory', async () => {
+    const api = new FakeApis({ runtimeOnly: true });
+    api.runtimeExpired = true;
+    const report = await materializeSmppProviders(configuration(), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+    expect(api.commands).toEqual(['runtime:refresh', 'control:import', 'control:refresh']);
+    expect(report.providers[0]).toMatchObject({
+      action: 'created',
+      runtimeAction: 'refreshed',
+      runtimeToolRevision: 2,
+      bindingRevision: 2,
+    });
+  });
+
   it('rejects zero or multiple matches for the exact Source tuple before mutation', async () => {
     for (const candidates of [[], [candidate(), candidate()]]) {
       const api = new FakeApis();
@@ -232,6 +266,7 @@ class FakeApis {
   candidates: unknown[] = [candidate()];
   runtimeEndpoint = candidate().serverEndpoint;
   runtimeSemanticsUnknown = false;
+  runtimeExpired = false;
   bindingCatalogDrift = false;
   bindingCatalogChecksumOverride: string | undefined;
   providerCatalog: typeof PROVIDER_CATALOG | null = PROVIDER_CATALOG;
@@ -239,7 +274,8 @@ class FakeApis {
   #runtimeRevision: number | undefined;
   #semanticsOverridden = false;
 
-  constructor(options: Readonly<{ existing?: boolean }> = {}) {
+  constructor(options: Readonly<{ existing?: boolean; runtimeOnly?: boolean }> = {}) {
+    if (options.runtimeOnly) this.#runtimeRevision = 1;
     if (options.existing === true) {
       this.#bindingRevision = 1;
       this.#runtimeRevision = 1;
@@ -259,11 +295,16 @@ class FakeApis {
           this.#runtimeRevision === undefined
             ? []
             : [
-                runtimeListedServer(
-                  this.#runtimeRevision,
-                  this.runtimeEndpoint,
-                  this.providerCatalog,
-                ),
+                (() => {
+                  const server = runtimeListedServer(
+                    this.#runtimeRevision,
+                    this.runtimeEndpoint,
+                    this.providerCatalog,
+                  );
+                  if (this.runtimeExpired)
+                    server.currentDiscovery.validUntil = '2026-08-11T00:00:00.000Z';
+                  return server;
+                })(),
               ],
       });
     if (url.pathname === '/api/v1/mcp/servers' && init?.method === 'POST') {
@@ -279,6 +320,7 @@ class FakeApis {
     if (url.pathname.endsWith('/tools')) return json(200, { items: this.runtimeTools() });
     if (url.pathname.endsWith('/refresh') && url.pathname.includes('/mcp/servers/')) {
       this.#runtimeRevision = (this.#runtimeRevision ?? 0) + 1;
+      this.runtimeExpired = false;
       this.commands.push('runtime:refresh');
       return json(200, this.runtimeResult(this.#runtimeRevision));
     }

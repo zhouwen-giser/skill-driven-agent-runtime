@@ -1,0 +1,138 @@
+{
+  "observedAt": "2026-09-08",
+  "sources": [
+    {
+      "id": "S01",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "docs/shared-business-storage-handoff/sdar-handoff.md",
+      "supports": "SDAR接入职责、设备字段、初始Admission、canonical及事件范围",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/docs/shared-business-storage-handoff/sdar-handoff.md"
+    },
+    {
+      "id": "S02",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "docs/shared-business-storage-handoff/repository-adaptation-matrix.md",
+      "supports": "真实Repository位置、共享Goal定义和来源表归属",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/docs/shared-business-storage-handoff/repository-adaptation-matrix.md"
+    },
+    {
+      "id": "S03",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "database/shared-business-storage/overlays/ugv_sdar.sql",
+      "supports": "Task/Plan/Instance/Invocation/Remote Binding新增列及约束",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/database/shared-business-storage/overlays/ugv_sdar.sql"
+    },
+    {
+      "id": "S04",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "database/shared-business-storage/overlays/sdar-hardening.sql",
+      "supports": "归属不可变与nullable父子归属",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/database/shared-business-storage/overlays/sdar-hardening.sql"
+    },
+    {
+      "id": "S05",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "database/shared-business-storage/overlays/sdar-additional.sql",
+      "supports": "Admission与Remote Binding partial unique、canonical触发器",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/database/shared-business-storage/overlays/sdar-additional.sql"
+    },
+    {
+      "id": "S06",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "database/shared-business-storage/overlays/sdar-derived-ownership.sql",
+      "supports": "无硬FK来源记录与订阅current/generation",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/database/shared-business-storage/overlays/sdar-derived-ownership.sql"
+    },
+    {
+      "id": "S07",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "database/shared-business-storage/overlays/read-model.sql",
+      "supports": "GOWM steps/targets/lineage真实读取结构",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/database/shared-business-storage/overlays/read-model.sql"
+    },
+    {
+      "id": "S08",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "packages/integrations/device-business-storage/src/repository.ts",
+      "supports": "目标owner验证及resolveRemoteTask/读取接口",
+      "note": "本轮读取190–390行；较早对话中读取了目标与owner部分，执行任务须完整读取当前版本",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/packages/integrations/device-business-storage/src/repository.ts"
+    },
+    {
+      "id": "S09",
+      "repository": "zhouwen-giser/geospatial-operational-world-model",
+      "ref": "48cebb862e992579b801590385b4373b10422d52",
+      "path": "docs/shared-business-storage-handoff/connection-examples.env",
+      "supports": "固定search_path与verify-only接线方式",
+      "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/blob/48cebb862e992579b801590385b4373b10422d52/docs/shared-business-storage-handoff/connection-examples.env"
+    },
+    {
+      "id": "S10",
+      "repository": "zhouwen-giser/skill-driven-agent-runtime",
+      "ref": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
+      "path": "package.json",
+      "supports": "pnpm脚本、版本与Node要求",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/cb50da8ec8d160a673852be8bcdfc3bb094f5ce5/package.json"
+    },
+    {
+      "id": "S11",
+      "repository": "zhouwen-giser/skill-driven-agent-runtime",
+      "ref": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
+      "path": "apps/server/src/runtime.ts",
+      "supports": "正常运行时装配位置",
+      "note": "本轮读取1–240行；迁移具体逻辑由上游交接确认，Codex需检查完整实际函数",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/cb50da8ec8d160a673852be8bcdfc3bb094f5ce5/apps/server/src/runtime.ts"
+    },
+    {
+      "id": "S12",
+      "repository": "zhouwen-giser/skill-driven-agent-runtime",
+      "ref": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
+      "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+      "supports": "现有Remote Task字段、协议和Authority模型",
+      "note": "本轮读取1–230行；全部SQL路径由实施时盘点",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/cb50da8ec8d160a673852be8bcdfc3bb094f5ce5/packages/persistence-postgres/src/remote-task-repository.ts"
+    },
+    {
+      "id": "S13",
+      "repository": "zhouwen-giser/skill-driven-agent-runtime",
+      "ref": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
+      "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+      "supports": "Continuation及重复Node Run/循环状态",
+      "note": "本轮读取1–170行",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/cb50da8ec8d160a673852be8bcdfc3bb094f5ce5/packages/persistence-postgres/src/workflow-continuation-repository.ts"
+    },
+    {
+      "id": "S14",
+      "repository": "zhouwen-giser/skill-driven-agent-runtime",
+      "ref": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
+      "path": "packages/persistence-postgres/src/repositories.ts",
+      "supports": "实际Repository集合和事务上下文入口",
+      "note": "本轮读取1–140行；不声称已逐条审计全部SQL",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/cb50da8ec8d160a673852be8bcdfc3bb094f5ce5/packages/persistence-postgres/src/repositories.ts"
+    },
+    {
+      "id": "S15",
+      "url": "https://node-postgres.com/features/transactions",
+      "supports": "同一个client承担全部事务语句，不用pool.query跨连接事务"
+    },
+    {
+      "id": "S16",
+      "url": "https://www.postgresql.org/docs/17/ddl-schemas.html",
+      "supports": "固定Schema/search_path与应用命名空间"
+    }
+  ],
+  "parallelTaskPackage": {
+    "name": "SMPP_GOWM_Shared_Storage_Integration_v0.1_Codex_Goal.zip",
+    "scope": "只参考交接/边界，不作为SDAR运行时依赖",
+    "sha256": "713a0b49a2e339976a00a9159b1daf05f2d02471ecbae1e3c9fb7e37d437abad"
+  },
+  "projectTestsExecuted": false
+}

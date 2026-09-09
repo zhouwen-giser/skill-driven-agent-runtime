@@ -253,11 +253,13 @@ export class WorkflowPlannerService {
           contractedCandidate,
           validation,
           this.#clock.now(),
+          input.taskId,
         ),
       );
       if (validation.valid && validation.definition !== undefined) {
         const readiness = await this.#readiness?.assess({
           planId: input.planId,
+          ...(input.taskId === undefined ? {} : { executionTaskId: input.taskId }),
           ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
           ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
           attempt,
@@ -274,6 +276,7 @@ export class WorkflowPlannerService {
         }
         const plan: WorkflowPlanRecord = {
           planId: input.planId,
+          ...(input.taskId === undefined ? {} : { executionTaskId: input.taskId }),
           ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
           ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
           goalId: input.goalId,
@@ -318,6 +321,7 @@ export class WorkflowPlannerService {
     }
     await this.#repository.savePlan({
       planId: input.planId,
+      ...(input.taskId === undefined ? {} : { executionTaskId: input.taskId }),
       ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
       ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
       goalId: input.goalId,
@@ -500,9 +504,11 @@ function toAttempt(
   candidate: unknown,
   validation: WorkflowValidationResult,
   createdAt: string,
+  executionTaskId?: string,
 ): WorkflowPlanAttempt {
   return {
     planId,
+    ...(executionTaskId === undefined ? {} : { executionTaskId }),
     ...(skillGoalId === undefined ? {} : { skillGoalId }),
     ...(skillAttemptId === undefined ? {} : { skillAttemptId }),
     goalContract,

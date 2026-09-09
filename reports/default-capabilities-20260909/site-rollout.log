@@ -1,0 +1,33 @@
+{"tasks":0,"remote_tasks":0,"pending_dispatch":0,"activeQueue":0,"leases":0,"aof":"enabled/writable","status":"idle"}
+{"status":"GOVERNANCE_CONFIGURATION_READY","secretsPrinted":false}
+ Container sdar-sz-gowm-control-api-1 Recreate 
+ Container sdar-sz-gowm-redis-1 Recreate 
+ Container sdar-sz-gowm-redis-1 Recreated 
+ Container sdar-sz-gowm-control-api-1 Recreated 
+ Container sdar-sz-gowm-runtime-1 Recreate 
+ Container sdar-sz-gowm-control-worker-1 Recreate 
+ Container sdar-sz-gowm-control-worker-1 Recreated 
+ Container sdar-sz-gowm-runtime-1 Recreated 
+ Container sdar-sz-gowm-redis-1 Starting 
+ Container sdar-sz-gowm-control-api-1 Starting 
+ Container sdar-sz-gowm-redis-1 Started 
+ Container sdar-sz-gowm-control-api-1 Started 
+ Container sdar-sz-gowm-control-api-1 Waiting 
+ Container sdar-sz-gowm-control-api-1 Waiting 
+ Container sdar-sz-gowm-control-api-1 Healthy 
+ Container sdar-sz-gowm-control-api-1 Healthy 
+ Container sdar-sz-gowm-control-worker-1 Starting 
+ Container sdar-sz-gowm-runtime-1 Starting 
+ Container sdar-sz-gowm-control-worker-1 Started 
+ Container sdar-sz-gowm-runtime-1 Started 
+ Container sdar-sz-gowm-runtime-1 Waiting 
+ Container sdar-sz-gowm-redis-1 Waiting 
+ Container sdar-sz-gowm-control-api-1 Waiting 
+ Container sdar-sz-gowm-control-worker-1 Waiting 
+ Container sdar-sz-gowm-redis-1 Healthy 
+ Container sdar-sz-gowm-control-api-1 Healthy 
+ Container sdar-sz-gowm-control-worker-1 Healthy 
+ Container sdar-sz-gowm-runtime-1 Healthy 
+{"status":"PASS","policies":3,"serverId":"smpp-sz-gowm","toolCount":10,"deviceCalls":0}
+{"status":"failed","completedStages":["source"],"blocked":[],"deviceCalls":0,"source":{"schemaVersion":"sdar.ugv-smpp-source-bootstrap/v1","status":"passed","evidenceClass":"real_public_api","observedAt":"2026-09-09T07:07:50.846Z","sourceAction":"created","sourceIdentitySha256":"ee849a323e66df0d3893d37f385e2ee6b60d0ef9dac7e4fccc196883b55f29fe","intendedTupleSha256":"12c02bc6654bf233ffa21fae7532f7479b52c7f8b1ffc327c09070e5c2acba9b","authenticationMode":"none","sourceSyncMode":"poll","sourceRevision":1,"snapshotRevision":1,"snapshotChecksum":"6382d801dd9f190cfa6162ec029df48be1a51cdad84ceda0f1e7a7c84375afd9","snapshotValidUntil":"2026-09-09T07:12:51.106Z","nativeRegistryRevision":1,"nativeRegistryChecksum":"e079b2422b295a265bc7943b50294501307145d5e5f66c595607c30ba81f2700","registryProjectionContract":"sdar-registry-v1","candidateCount":1,"initialSyncOutcome":"applied","conditionalSyncOutcome":"not_modified","conditionalValidity":"extended","checks":["public_source_list_and_direct_read","immutable_source_configuration","source_active_current_pointer","sync_operation_succeeded","exact_ugv_only_candidate_tuple","projection_and_native_lineage_complete","persisted_snapshot_fresh","conditional_304_audit_outcome","conditional_revision_checksum_lineage_unchanged","conditional_validity_not_shortened"],"redaction":{"secretsIncluded":false,"credentialReferencesIncluded":false,"endpointsIncluded":false,"entityIdsIncluded":false}},"failedStage":"provider","reasonCode":"DRIVER_CONFIGURATION_INVALID"}
+{"status": "GOVERNANCE_BOOTSTRAP_RESULT", "exitCode": 1, "deviceCalls": 0}

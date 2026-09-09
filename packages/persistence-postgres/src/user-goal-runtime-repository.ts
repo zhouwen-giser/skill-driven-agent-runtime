@@ -1,3 +1,10 @@
+import { requireOutcomeTask, requireLayeredOutcomeSource } from './gowm-outcome-scope.js';
+import { taskDeviceScopeSql } from './gowm-work-scope.js';
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import {
+  businessEventSubscriptionScope,
+  businessEventChildScope,
+} from './gowm-business-event-scope.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import type {
@@ -31,6 +38,7 @@ interface CurrentPlanRow extends PlanRow {
 }
 
 interface OutcomeContextRow extends QueryResultRow {
+  device_id?: string | null;
   plan_json: UserGoalPlan;
   contract_json: UserGoalCompletionContract;
   skill_goal_json: SkillGoal;
@@ -58,6 +66,8 @@ interface AttemptRow extends QueryResultRow {
 }
 
 interface SubscriptionRow extends QueryResultRow {
+  device_id?: string | null;
+  smpp_service_key?: string | null;
   subscription_id: string;
   provider_id: string;
   stream_id: string;
@@ -90,7 +100,10 @@ interface BusinessEventInboxRow extends QueryResultRow {
 export class PostgresUserGoalRuntimeRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -512,9 +525,10 @@ export class PostgresUserGoalRuntimeRepository {
   }
 
   async findOutcomeContext(workflowPlanId: string, agentTaskId: string) {
+    const scope = taskDeviceScopeSql(this.deviceScope, 3, 'task');
     const result = await this.#pool.query<OutcomeContextRow>(
       `SELECT user_plan.plan_json,user_contract.contract_json,
-              skill_goal.contract_json AS skill_goal_json,attempt.attempt_json
+              skill_goal.contract_json AS skill_goal_json,attempt.attempt_json${this.deviceScope === undefined ? '' : ',task.device_id'}
        FROM workflow_plan workflow
        JOIN agent_task task ON task.task_id=$2 AND task.plan_id=workflow.plan_id
        JOIN skill_attempt attempt
@@ -524,13 +538,19 @@ export class PostgresUserGoalRuntimeRepository {
        JOIN user_goal_contract user_contract
          ON user_contract.goal_id=user_plan.goal_id
         AND user_contract.goal_version=user_plan.goal_version
-       WHERE workflow.plan_id=$1`,
-      [workflowPlanId, agentTaskId],
+       WHERE workflow.plan_id=$1 AND ${scope.predicate}`,
+      [workflowPlanId, agentTaskId, ...scope.values],
     );
     const row = result.rows[0];
     return row === undefined
       ? undefined
       : {
+          ...(this.deviceScope === undefined
+            ? {}
+            : {
+                executionTaskId: agentTaskId,
+                ...(row.device_id == null ? {} : { executionDeviceId: row.device_id }),
+              }),
           plan: row.plan_json,
           contract: row.contract_json,
           skillGoal: row.skill_goal_json,
@@ -565,6 +585,7 @@ export class PostgresUserGoalRuntimeRepository {
   async saveOutcomeDecisions(planId: string, decisions: readonly OutcomeDecision[]): Promise<void> {
     await withTransaction(this.#pool, async (client) => {
       for (const decision of decisions) {
+        await requireOutcomeTask(client, this.deviceScope, decision.executionTaskId, planId);
         const result = await client.query(
           `INSERT INTO outcome_decision(outcome_decision_id,level,subject_id,plan_id,status,
              confidence,decision_json,created_at)
@@ -588,11 +609,28 @@ export class PostgresUserGoalRuntimeRepository {
     });
   }
 
-  async listSkillGoalOutcomeDecisions(planId: string): Promise<readonly OutcomeDecision[]> {
+  async listSkillGoalOutcomeDecisions(
+    planId: string,
+    executionTaskId?: string,
+  ): Promise<readonly OutcomeDecision[]> {
+    const scope = taskDeviceScopeSql(this.deviceScope, 3, 'source');
     const result = await this.#pool.query<OutcomeDecisionRow>(
-      `SELECT decision_json FROM outcome_decision
-       WHERE plan_id=$1 AND level='skill_goal' ORDER BY created_at,outcome_decision_id`,
-      [planId],
+      `SELECT decision_json FROM outcome_decision decision
+       WHERE plan_id=$1 AND level='skill_goal'
+       ${
+         this.deviceScope === undefined
+           ? ''
+           : `AND EXISTS(SELECT 1 FROM agent_task source
+         WHERE source.task_id=decision.decision_json->>'executionTaskId' AND ${scope.predicate}
+           AND ($2::text IS NULL OR EXISTS(SELECT 1 FROM agent_task target WHERE target.task_id=$2
+             AND source.device_id IS NOT DISTINCT FROM target.device_id
+             AND source.sdar_service_key IS NOT DISTINCT FROM target.sdar_service_key)))`
+       }
+       ORDER BY created_at,outcome_decision_id`,
+      [
+        planId,
+        ...(this.deviceScope === undefined ? [] : [executionTaskId ?? null, ...scope.values]),
+      ],
     );
     return result.rows.map((row) => row.decision_json);
   }
@@ -639,6 +677,13 @@ export class PostgresUserGoalRuntimeRepository {
     )
       throw new Error('USER_GOAL_WORKING_OUTCOME_INVALID');
     await withTransaction(this.#pool, async (client) => {
+      requireLayeredOutcomeSource(this.deviceScope, layered, layered.taskGoalContract.agentTaskId);
+      await requireOutcomeTask(
+        client,
+        this.deviceScope,
+        layered.taskGoalContract.agentTaskId,
+        layered.userGoalPlanId,
+      );
       const contract = await client.query(
         `INSERT INTO task_goal_contract(task_goal_contract_id,attempt_id,agent_task_id,
            contract_hash,contract_json,created_at)
@@ -730,6 +775,19 @@ export class PostgresUserGoalRuntimeRepository {
     if (observation.planId !== decision.planId) throw new Error('RECOVERY_PROGRESS_PLAN_MISMATCH');
     try {
       await withTransaction(this.#pool, async (client) => {
+        if (this.deviceScope !== undefined) {
+          const taskId = observation.vector.executionTaskId;
+          if (taskId === undefined || decision.executionTaskId !== taskId)
+            throw new Error('RECOVERY_EXECUTION_TASK_REQUIRED');
+          const scope = taskDeviceScopeSql(this.deviceScope, 3, 'task');
+          const owner = await client.query(
+            `SELECT task.task_id FROM agent_task task JOIN user_goal_plan plan
+              ON plan.goal_id=task.goal_id AND plan.goal_version=task.goal_version
+              WHERE task.task_id=$1 AND plan.plan_id=$2 AND ${scope.predicate} FOR KEY SHARE OF task`,
+            [taskId, observation.planId, ...scope.values],
+          );
+          if (owner.rowCount !== 1) throw new Error('RECOVERY_TASK_DEVICE_SCOPE_DENIED');
+        }
         const progress = await client.query(
           `INSERT INTO progress_observation(
              progress_observation_id,plan_id,classification,vector_json,observed_at)
@@ -779,14 +837,44 @@ export class PostgresUserGoalRuntimeRepository {
     }
   }
 
-  async findLatestProgress(planId: string): Promise<ProgressObservation | undefined> {
+  async findLatestProgress(
+    planId: string,
+    executionTaskId?: string,
+  ): Promise<ProgressObservation | undefined> {
+    const scope = taskDeviceScopeSql(this.deviceScope, 3, 'source');
     const result = await this.#pool.query<ProgressObservationRow>(
       `SELECT progress_observation_id,plan_id,classification,vector_json,observed_at
-       FROM progress_observation WHERE plan_id=$1
+       FROM progress_observation progress WHERE plan_id=$1
+         ${
+           this.deviceScope === undefined
+             ? ''
+             : `AND EXISTS(SELECT 1 FROM agent_task source
+           WHERE source.task_id=progress.vector_json->>'executionTaskId' AND ${scope.predicate}
+             AND ($2::text IS NULL OR EXISTS(SELECT 1 FROM agent_task target WHERE target.task_id=$2
+               AND source.device_id IS NOT DISTINCT FROM target.device_id
+               AND source.sdar_service_key IS NOT DISTINCT FROM target.sdar_service_key)))`
+         }
        ORDER BY observed_at DESC,progress_observation_id DESC LIMIT 1`,
-      [planId],
+      [
+        planId,
+        ...(this.deviceScope === undefined ? [] : [executionTaskId ?? null, ...scope.values]),
+      ],
     );
     const row = result.rows[0];
+    if (this.deviceScope !== undefined && executionTaskId !== undefined) {
+      const unknown = await this.#pool.query(
+        `SELECT 1 FROM progress_observation progress
+          WHERE plan_id=$1 AND NOT (vector_json ? 'executionTaskId')
+            AND ($6::timestamptz IS NULL OR observed_at >= $6::timestamptz)
+            AND EXISTS(SELECT 1 FROM agent_task source WHERE source.task_id=$2 AND ${scope.predicate}) LIMIT 1`,
+        [planId, executionTaskId, ...scope.values, row?.observed_at ?? null],
+      );
+      if (unknown.rowCount !== 0)
+        throw new UserGoalRuntimePersistenceError(
+          'RECOVERY_PROGRESS_SOURCE_UNPROVEN',
+          'Historical progress has no verifiable Task source.',
+        );
+    }
     return row === undefined
       ? undefined
       : {
@@ -800,6 +888,13 @@ export class PostgresUserGoalRuntimeRepository {
 
   async saveCompletedEffect(effect: CompletedEffect): Promise<void> {
     await withTransaction(this.#pool, async (client) => {
+      await requireOutcomeTask(
+        client,
+        this.deviceScope,
+        effect.executionTaskId,
+        effect.planId,
+        effect.goalId,
+      );
       const goal = await client.query(`SELECT goal_id FROM goal WHERE goal_id=$1 FOR UPDATE`, [
         effect.goalId,
       ]);
@@ -807,8 +902,12 @@ export class PostgresUserGoalRuntimeRepository {
       if (effect.status === 'invalidated') {
         if (effect.predecessorEffectId === undefined)
           throw new Error('COMPLETED_EFFECT_INVALIDATION_PREDECESSOR_REQUIRED');
-        const predecessor = await client.query<{ goal_id: string; effect_fingerprint: string }>(
-          `SELECT goal_id,effect_fingerprint FROM completed_effect
+        const predecessor = await client.query<{
+          goal_id: string;
+          effect_fingerprint: string;
+          execution_task_id: string | null;
+        }>(
+          `SELECT goal_id,effect_fingerprint,effect_json->>'executionTaskId' AS execution_task_id FROM completed_effect
            WHERE completed_effect_id=$1 FOR UPDATE`,
           [effect.predecessorEffectId],
         );
@@ -817,6 +916,18 @@ export class PostgresUserGoalRuntimeRepository {
           predecessor.rows[0].effect_fingerprint !== effect.effectFingerprint
         )
           throw new Error('COMPLETED_EFFECT_INVALIDATION_PREDECESSOR_MISMATCH');
+        if (this.deviceScope !== undefined) {
+          const predecessorTask = predecessor.rows[0].execution_task_id;
+          const sameDevice = await client.query(
+            `SELECT 1 FROM agent_task source JOIN agent_task target
+              ON source.device_id IS NOT DISTINCT FROM target.device_id
+              AND source.sdar_service_key IS NOT DISTINCT FROM target.sdar_service_key
+             WHERE source.task_id=$1 AND target.task_id=$2`,
+            [predecessorTask, effect.executionTaskId],
+          );
+          if (sameDevice.rowCount !== 1)
+            throw new Error('COMPLETED_EFFECT_PREDECESSOR_DEVICE_MISMATCH');
+        }
       } else {
         const duplicate = await client.query(
           `SELECT completed_effect_id FROM completed_effect
@@ -849,27 +960,77 @@ export class PostgresUserGoalRuntimeRepository {
     });
   }
 
-  async listValidCompletedEffects(goalId: string): Promise<readonly CompletedEffect[]> {
+  async listValidCompletedEffects(
+    goalId: string,
+    executionTaskId?: string,
+  ): Promise<readonly CompletedEffect[]> {
+    const scope = taskDeviceScopeSql(this.deviceScope, 3, 'source');
     const result = await this.#pool.query<CompletedEffectRow>(
       `SELECT effect.effect_json FROM completed_effect effect
        WHERE effect.goal_id=$1 AND effect.status IN ('observed','verified')
+         ${
+           this.deviceScope === undefined
+             ? ''
+             : `AND EXISTS(SELECT 1 FROM agent_task source
+           WHERE source.task_id=effect.effect_json->>'executionTaskId' AND ${scope.predicate}
+             AND ($2::text IS NULL OR EXISTS(SELECT 1 FROM agent_task target WHERE target.task_id=$2
+               AND source.device_id IS NOT DISTINCT FROM target.device_id
+               AND source.sdar_service_key IS NOT DISTINCT FROM target.sdar_service_key)))`
+         }
          AND NOT EXISTS (
            SELECT 1 FROM completed_effect invalidation
            WHERE invalidation.predecessor_effect_id=effect.completed_effect_id
              AND invalidation.status='invalidated')
        ORDER BY effect.created_at,effect.completed_effect_id`,
-      [goalId],
+      [
+        goalId,
+        ...(this.deviceScope === undefined ? [] : [executionTaskId ?? null, ...scope.values]),
+      ],
     );
     return result.rows.map((row) => row.effect_json);
   }
 
+  async listBusinessEventDeviceChannels(
+    providerId: string,
+  ): Promise<readonly BusinessEventSubscription['deviceIdentity'][]> {
+    if (this.deviceScope === undefined) return [undefined];
+    const rows = await this.#pool.query<{ device_id: string; smpp_service_key: string }>(
+      `SELECT DISTINCT device_id,smpp_service_key FROM gowm_device.device_service_binding
+       WHERE sdar_mcp_server_id=$1 AND device_id=ANY($2::text[]) AND sdar_service_key=$3
+         AND valid_to IS NULL ORDER BY device_id,smpp_service_key LIMIT 257`,
+      [providerId, this.deviceScope.allowedDeviceIds, this.deviceScope.sdarServiceKey],
+    );
+    if (rows.rows.length > 256) throw new Error('BUSINESS_EVENTS_MAX_SUBSCRIPTIONS_EXCEEDED');
+    if (rows.rows.length > 0)
+      return rows.rows.map((row) => ({
+        deviceId: row.device_id,
+        smppServiceKey: row.smpp_service_key,
+      }));
+    if (!this.deviceScope.includeNonDevice) return [];
+    const bound = await this.#pool.query(
+      'SELECT 1 FROM gowm_device.device_service_binding WHERE sdar_mcp_server_id=$1 LIMIT 1',
+      [providerId],
+    );
+    return bound.rowCount === 0 ? [null] : [];
+  }
+
   async saveBusinessEventSubscription(subscription: BusinessEventSubscription): Promise<void> {
-    await this.#pool.query(
+    if (this.deviceScope !== undefined && subscription.deviceIdentity === undefined)
+      throw new Error('BUSINESS_EVENT_DEVICE_IDENTITY_REQUIRED');
+    const shared = this.deviceScope !== undefined;
+    const filter = businessEventSubscriptionScope(this.deviceScope, 13, 'candidate');
+    const written = await this.#pool.query(
       `INSERT INTO business_event_subscription(
          subscription_id,provider_id,stream_id,generation,status,
          last_durably_admitted_sequence,last_processed_sequence,last_replayable_sequence,
-         created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8::numeric,$9,$10)
+         created_at,updated_at${shared ? ',device_id,smpp_service_key' : ''})
+       ${
+         shared
+           ? `SELECT $1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8::numeric,$9::timestamptz,$10::timestamptz,$11,$12
+         FROM (SELECT $11::text AS device_id,$12::text AS smpp_service_key,$2::text AS provider_id) candidate
+         WHERE ${filter.predicate}`
+           : 'VALUES($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8::numeric,$9,$10)'
+       }
        ON CONFLICT(subscription_id) DO UPDATE SET
          status=EXCLUDED.status,
          last_durably_admitted_sequence=GREATEST(business_event_subscription.last_durably_admitted_sequence,EXCLUDED.last_durably_admitted_sequence),
@@ -879,7 +1040,8 @@ export class PostgresUserGoalRuntimeRepository {
          updated_at=EXCLUDED.updated_at
        WHERE business_event_subscription.provider_id=EXCLUDED.provider_id
          AND business_event_subscription.stream_id=EXCLUDED.stream_id
-         AND business_event_subscription.generation=EXCLUDED.generation`,
+         AND business_event_subscription.generation=EXCLUDED.generation
+         ${shared ? 'AND business_event_subscription.device_id IS NOT DISTINCT FROM EXCLUDED.device_id AND business_event_subscription.smpp_service_key IS NOT DISTINCT FROM EXCLUDED.smpp_service_key' : ''}`,
       [
         subscription.subscriptionId,
         subscription.providerId,
@@ -891,29 +1053,65 @@ export class PostgresUserGoalRuntimeRepository {
         subscription.lastReplayableSequence ?? null,
         subscription.createdAt,
         subscription.updatedAt,
+        ...(shared
+          ? [
+              subscription.deviceIdentity?.deviceId ?? null,
+              subscription.deviceIdentity?.smppServiceKey ?? null,
+              ...filter.values,
+            ]
+          : []),
       ],
     );
+    if (written.rowCount !== 1)
+      throw new Error('BUSINESS_EVENT_SUBSCRIPTION_SCOPE_OR_IDENTITY_CONFLICT');
   }
 
   async findCurrentBusinessEventSubscription(
     providerId: string,
+    deviceIdentity?: BusinessEventSubscription['deviceIdentity'],
   ): Promise<BusinessEventSubscription | undefined> {
+    if (this.deviceScope !== undefined && deviceIdentity === undefined)
+      throw new Error('BUSINESS_EVENT_DEVICE_IDENTITY_REQUIRED');
+    const filter = businessEventSubscriptionScope(this.deviceScope, 4);
     const result = await this.#pool.query<SubscriptionRow>(
-      `SELECT * FROM business_event_subscription
-       WHERE provider_id=$1 AND status='current'
+      `SELECT * FROM business_event_subscription WHERE provider_id=$1 AND status='current'
+       ${this.deviceScope === undefined ? '' : `AND device_id IS NOT DISTINCT FROM $2::text AND smpp_service_key IS NOT DISTINCT FROM $3::text AND ${filter.predicate}`}
        ORDER BY generation DESC LIMIT 1`,
-      [providerId],
+      [
+        providerId,
+        ...(this.deviceScope === undefined
+          ? []
+          : [
+              deviceIdentity?.deviceId ?? null,
+              deviceIdentity?.smppServiceKey ?? null,
+              ...filter.values,
+            ]),
+      ],
     );
     return result.rows[0] === undefined ? undefined : subscriptionFromRow(result.rows[0]);
   }
 
   async findLatestBusinessEventSubscription(
     providerId: string,
+    deviceIdentity?: BusinessEventSubscription['deviceIdentity'],
   ): Promise<BusinessEventSubscription | undefined> {
+    if (this.deviceScope !== undefined && deviceIdentity === undefined)
+      throw new Error('BUSINESS_EVENT_DEVICE_IDENTITY_REQUIRED');
+    const filter = businessEventSubscriptionScope(this.deviceScope, 4);
     const result = await this.#pool.query<SubscriptionRow>(
-      `SELECT * FROM business_event_subscription
-       WHERE provider_id=$1 ORDER BY generation DESC LIMIT 1`,
-      [providerId],
+      `SELECT * FROM business_event_subscription WHERE provider_id=$1
+       ${this.deviceScope === undefined ? '' : `AND device_id IS NOT DISTINCT FROM $2::text AND smpp_service_key IS NOT DISTINCT FROM $3::text AND ${filter.predicate}`}
+       ORDER BY generation DESC LIMIT 1`,
+      [
+        providerId,
+        ...(this.deviceScope === undefined
+          ? []
+          : [
+              deviceIdentity?.deviceId ?? null,
+              deviceIdentity?.smppServiceKey ?? null,
+              ...filter.values,
+            ]),
+      ],
     );
     return result.rows[0] === undefined ? undefined : subscriptionFromRow(result.rows[0]);
   }
@@ -921,10 +1119,11 @@ export class PostgresUserGoalRuntimeRepository {
   async listBusinessEventSubscriptions(
     limit: number,
   ): Promise<readonly BusinessEventSubscription[]> {
+    const filter = businessEventSubscriptionScope(this.deviceScope, 2);
     const result = await this.#pool.query<SubscriptionRow>(
-      `SELECT * FROM business_event_subscription
+      `SELECT * FROM business_event_subscription WHERE ${filter.predicate}
        ORDER BY updated_at DESC,subscription_id DESC LIMIT $1`,
-      [limit],
+      [limit, ...filter.values],
     );
     return result.rows.map(subscriptionFromRow);
   }
@@ -932,9 +1131,10 @@ export class PostgresUserGoalRuntimeRepository {
   async findBusinessEventSubscription(
     subscriptionId: string,
   ): Promise<BusinessEventSubscription | undefined> {
+    const filter = businessEventSubscriptionScope(this.deviceScope, 2);
     const result = await this.#pool.query<SubscriptionRow>(
-      'SELECT * FROM business_event_subscription WHERE subscription_id=$1',
-      [subscriptionId],
+      `SELECT * FROM business_event_subscription WHERE subscription_id=$1 AND ${filter.predicate}`,
+      [subscriptionId, ...filter.values],
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
@@ -945,10 +1145,11 @@ export class PostgresUserGoalRuntimeRepository {
     record: BusinessEventContinuityRecord,
   ): Promise<Readonly<{ created: boolean }>> {
     return withTransaction(this.#pool, async (client) => {
+      const filter = businessEventSubscriptionScope(this.deviceScope, 2);
       const subscription = await client.query<{ stream_id: string }>(
         `SELECT stream_id FROM business_event_subscription
-         WHERE subscription_id=$1 FOR UPDATE`,
-        [record.subscriptionId],
+         WHERE subscription_id=$1 AND ${filter.predicate} FOR UPDATE`,
+        [record.subscriptionId, ...filter.values],
       );
       if (subscription.rows[0]?.stream_id !== record.previousStreamId)
         throw new UserGoalRuntimePersistenceError(
@@ -994,12 +1195,17 @@ export class PostgresUserGoalRuntimeRepository {
     updatedAt: string,
     lastReplayableSequence?: string,
   ): Promise<void> {
+    const filter = businessEventSubscriptionScope(
+      this.deviceScope,
+      5,
+      'business_event_subscription',
+    );
     const result = await this.#pool.query(
       `UPDATE business_event_subscription SET status=$2,
          last_replayable_sequence=COALESCE($3::numeric,last_replayable_sequence),
          lock_version=lock_version+1,updated_at=$4
-       WHERE subscription_id=$1`,
-      [subscriptionId, status, lastReplayableSequence ?? null, updatedAt],
+       WHERE subscription_id=$1 AND ${filter.predicate}`,
+      [subscriptionId, status, lastReplayableSequence ?? null, updatedAt, ...filter.values],
     );
     if (result.rowCount !== 1)
       throw new UserGoalRuntimePersistenceError(
@@ -1012,9 +1218,10 @@ export class PostgresUserGoalRuntimeRepository {
     record: BusinessEventInboxRecord,
   ): Promise<Readonly<{ created: boolean }>> {
     return withTransaction(this.#pool, async (client) => {
+      const filter = businessEventSubscriptionScope(this.deviceScope, 2);
       const subscription = await client.query(
-        'SELECT subscription_id FROM business_event_subscription WHERE subscription_id=$1 FOR UPDATE',
-        [record.subscriptionId],
+        `SELECT subscription_id FROM business_event_subscription WHERE subscription_id=$1 AND ${filter.predicate} FOR UPDATE`,
+        [record.subscriptionId, ...filter.values],
       );
       if (subscription.rowCount !== 1)
         throw new UserGoalRuntimePersistenceError(
@@ -1072,13 +1279,14 @@ export class PostgresUserGoalRuntimeRepository {
   }
 
   async markBusinessEventProcessed(inboxId: string, processedAt: string): Promise<void> {
+    const filter = businessEventChildScope(this.deviceScope, 3, 'business_event_inbox');
     await withTransaction(this.#pool, async (client) => {
       const event = await client.query<{ subscription_id: string; sequence: string }>(
         `UPDATE business_event_inbox
          SET status='processed',processed_at=$2,error_code=NULL
-         WHERE inbox_id=$1 AND status IN ('admitted','processing','retryable_failed')
+         WHERE inbox_id=$1 AND ${filter.predicate} AND status IN ('admitted','processing','retryable_failed')
          RETURNING subscription_id,sequence::text`,
-        [inboxId, processedAt],
+        [inboxId, processedAt, ...filter.values],
       );
       const row = event.rows[0];
       if (row === undefined)
@@ -1099,18 +1307,19 @@ export class PostgresUserGoalRuntimeRepository {
   async claimBusinessEventInbox(limit: number): Promise<readonly BusinessEventInboxRecord[]> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 256)
       throw new Error('BUSINESS_EVENT_CLAIM_LIMIT_INVALID');
+    const filter = businessEventChildScope(this.deviceScope, 2, 'business_event_inbox');
     return withTransaction(this.#pool, async (client) => {
       const result = await client.query<BusinessEventInboxRow>(
         `WITH candidates AS (
            SELECT inbox_id FROM business_event_inbox
-           WHERE status IN ('admitted','retryable_failed')
+           WHERE ${filter.predicate} AND status IN ('admitted','retryable_failed')
            ORDER BY admitted_at,sequence LIMIT $1 FOR UPDATE SKIP LOCKED)
          UPDATE business_event_inbox event
          SET status='processing',attempt_count=attempt_count+1,error_code=NULL
          FROM candidates WHERE event.inbox_id=candidates.inbox_id
          RETURNING event.inbox_id,event.subscription_id,event.event_id,event.sequence::text,
            event.envelope_hash,event.envelope_json,event.status,event.admitted_at`,
-        [limit],
+        [limit, ...filter.values],
       );
       return result.rows.map(inboxFromRow);
     });
@@ -1121,11 +1330,12 @@ export class PostgresUserGoalRuntimeRepository {
     errorCode: string,
     retryable: boolean,
   ): Promise<void> {
+    const filter = businessEventChildScope(this.deviceScope, 4, 'business_event_inbox');
     const result = await this.#pool.query(
       `UPDATE business_event_inbox
        SET status=$2,error_code=$3
-       WHERE inbox_id=$1 AND status='processing'`,
-      [inboxId, retryable ? 'retryable_failed' : 'terminal_failed', errorCode],
+       WHERE inbox_id=$1 AND ${filter.predicate} AND status='processing'`,
+      [inboxId, retryable ? 'retryable_failed' : 'terminal_failed', errorCode, ...filter.values],
     );
     if (result.rowCount !== 1)
       throw new UserGoalRuntimePersistenceError(
@@ -1138,21 +1348,23 @@ export class PostgresUserGoalRuntimeRepository {
     subscriptionId: string,
     eventId: string,
   ): Promise<BusinessEventInboxRecord | undefined> {
+    const filter = businessEventChildScope(this.deviceScope, 3, 'business_event_inbox');
     const result = await this.#pool.query<BusinessEventInboxRow>(
       `SELECT inbox_id,subscription_id,event_id,sequence::text,envelope_hash,envelope_json,
          status,admitted_at FROM business_event_inbox
-       WHERE subscription_id=$1 AND event_id=$2`,
-      [subscriptionId, eventId],
+       WHERE subscription_id=$1 AND event_id=$2 AND ${filter.predicate}`,
+      [subscriptionId, eventId, ...filter.values],
     );
     return result.rows[0] === undefined ? undefined : inboxFromRow(result.rows[0]);
   }
 
   async listBusinessEventInbox(limit: number): Promise<readonly BusinessEventInboxRecord[]> {
+    const filter = businessEventChildScope(this.deviceScope, 2, 'business_event_inbox');
     const result = await this.#pool.query<BusinessEventInboxRow>(
       `SELECT inbox_id,subscription_id,event_id,sequence::text,envelope_hash,envelope_json,
-         status,admitted_at FROM business_event_inbox
+         status,admitted_at FROM business_event_inbox WHERE ${filter.predicate}
        ORDER BY admitted_at DESC,inbox_id DESC LIMIT $1`,
-      [limit],
+      [limit, ...filter.values],
     );
     return result.rows.map(inboxFromRow);
   }
@@ -1160,69 +1372,79 @@ export class PostgresUserGoalRuntimeRepository {
   async saveBusinessEventRelationProjection(
     projection: BusinessEventRelationProjection,
   ): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO event_relation_projection(
+    await withTransaction(this.#pool, async (client) => {
+      await this.#requireEventInbox(client, projection.inboxId);
+      await client.query(
+        `INSERT INTO event_relation_projection(
          relation_projection_id,inbox_id,status,relation_hash,relation_json,created_at)
        VALUES($1,$2,$3,$4,$5::jsonb,$6)
        ON CONFLICT(inbox_id,relation_hash) DO NOTHING`,
-      [
-        projection.relationProjectionId,
-        projection.inboxId,
-        projection.status,
-        projection.relationHash,
-        JSON.stringify(projection),
-        projection.createdAt,
-      ],
-    );
+        [
+          projection.relationProjectionId,
+          projection.inboxId,
+          projection.status,
+          projection.relationHash,
+          JSON.stringify(projection),
+          projection.createdAt,
+        ],
+      );
+    });
   }
 
   async saveEventImpactAssessment(assessment: EventImpactAssessment): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO event_impact_assessment(
+    await withTransaction(this.#pool, async (client) => {
+      await this.#requireEventInbox(client, assessment.inboxId);
+      await client.query(
+        `INSERT INTO event_impact_assessment(
          assessment_id,inbox_id,classification,confidence,goal_id,plan_id,skill_goal_id,
          action,assessment_json,created_at)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
        ON CONFLICT(inbox_id) DO NOTHING`,
-      [
-        assessment.assessmentId,
-        assessment.inboxId,
-        assessment.classification,
-        assessment.confidence,
-        assessment.goalId ?? null,
-        assessment.planId ?? null,
-        assessment.skillGoalId ?? null,
-        assessment.action,
-        JSON.stringify(assessment),
-        assessment.createdAt,
-      ],
-    );
+        [
+          assessment.assessmentId,
+          assessment.inboxId,
+          assessment.classification,
+          assessment.confidence,
+          assessment.goalId ?? null,
+          assessment.planId ?? null,
+          assessment.skillGoalId ?? null,
+          assessment.action,
+          JSON.stringify(assessment),
+          assessment.createdAt,
+        ],
+      );
+    });
   }
 
   async saveEventIncident(incident: EventIncident): Promise<Readonly<{ created: boolean }>> {
-    const result = await this.#pool.query(
-      `INSERT INTO event_incident(
+    return withTransaction(this.#pool, async (client) => {
+      await this.#requireIncidentSubscription(client, incident);
+      const result = await client.query(
+        `INSERT INTO event_incident(
          incident_id,provider_id,stream_id,dedupe_key,incident_kind,agent_task_id,
          incident_json,created_at)
        VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
        ON CONFLICT(dedupe_key) DO NOTHING`,
-      [
-        incident.incidentId,
-        incident.providerId,
-        incident.streamId,
-        incident.dedupeKey,
-        incident.incidentKind,
-        incident.agentTaskId ?? null,
-        JSON.stringify(incident),
-        incident.createdAt,
-      ],
-    );
-    return { created: result.rowCount === 1 };
+        [
+          incident.incidentId,
+          incident.providerId,
+          incident.streamId,
+          incident.dedupeKey,
+          incident.incidentKind,
+          incident.agentTaskId ?? null,
+          JSON.stringify(incident),
+          incident.createdAt,
+        ],
+      );
+      return { created: result.rowCount === 1 };
+    });
   }
 
   async findEventIncidentByDedupeKey(dedupeKey: string): Promise<EventIncident | undefined> {
+    const filter = this.#eventProjectionScope('incident', 2);
     const result = await this.#pool.query<{ incident_json: EventIncident }>(
-      'SELECT incident_json FROM event_incident WHERE dedupe_key=$1',
-      [dedupeKey],
+      `SELECT incident_json FROM event_incident WHERE dedupe_key=$1 AND ${filter.predicate}`,
+      [dedupeKey, ...filter.values],
     );
     return result.rows[0]?.incident_json;
   }
@@ -1232,34 +1454,94 @@ export class PostgresUserGoalRuntimeRepository {
     agentTaskId: string,
     incident: EventIncident,
   ): Promise<void> {
-    const result = await this.#pool.query(
-      `UPDATE event_incident SET agent_task_id=$2,incident_json=$3::jsonb
-       WHERE dedupe_key=$1 AND (agent_task_id IS NULL OR agent_task_id=$2)`,
-      [dedupeKey, agentTaskId, JSON.stringify(incident)],
-    );
-    if (result.rowCount !== 1)
-      throw new UserGoalRuntimePersistenceError(
-        'BUSINESS_EVENT_INCIDENT_TASK_ATTACH_CONFLICT',
-        'Incident task authority was already attached or the incident does not exist.',
+    await withTransaction(this.#pool, async (client) => {
+      await this.#requireIncidentSubscription(client, incident, agentTaskId);
+      const filter = this.#eventProjectionScope('incident', 4);
+      const result = await client.query(
+        `UPDATE event_incident SET agent_task_id=$2,incident_json=$3::jsonb
+       WHERE dedupe_key=$1 AND ${filter.predicate} AND (agent_task_id IS NULL OR agent_task_id=$2)
+         AND (incident_json-'agentTaskId')=($3::jsonb-'agentTaskId')`,
+        [dedupeKey, agentTaskId, JSON.stringify(incident), ...filter.values],
       );
+      if (result.rowCount !== 1)
+        throw new UserGoalRuntimePersistenceError(
+          'BUSINESS_EVENT_INCIDENT_TASK_ATTACH_CONFLICT',
+          'Incident task authority was already attached or the incident does not exist.',
+        );
+    });
   }
 
   async listEventImpactAssessments(limit: number): Promise<readonly EventImpactAssessment[]> {
+    const filter = this.#eventProjectionScope('assessment', 2);
     const result = await this.#pool.query<{ assessment_json: EventImpactAssessment }>(
-      `SELECT assessment_json FROM event_impact_assessment
+      `SELECT assessment_json FROM event_impact_assessment WHERE ${filter.predicate}
        ORDER BY created_at DESC,assessment_id DESC LIMIT $1`,
-      [limit],
+      [limit, ...filter.values],
     );
     return result.rows.map((row) => row.assessment_json);
   }
 
   async listEventIncidents(limit: number): Promise<readonly EventIncident[]> {
+    const filter = this.#eventProjectionScope('incident', 2);
     const result = await this.#pool.query<{ incident_json: EventIncident }>(
-      `SELECT incident_json FROM event_incident
+      `SELECT incident_json FROM event_incident WHERE ${filter.predicate}
        ORDER BY created_at DESC,incident_id DESC LIMIT $1`,
-      [limit],
+      [limit, ...filter.values],
     );
     return result.rows.map((row) => row.incident_json);
+  }
+  async #requireEventInbox(client: PoolClient, inboxId: string): Promise<void> {
+    if (this.deviceScope === undefined) return;
+    const filter = businessEventChildScope(this.deviceScope, 2, 'inbox');
+    const owned = await client.query(
+      `SELECT 1 FROM business_event_inbox inbox WHERE inbox_id=$1 AND ${filter.predicate} FOR KEY SHARE OF inbox`,
+      [inboxId, ...filter.values],
+    );
+    if (owned.rowCount !== 1) throw new Error('BUSINESS_EVENT_INBOX_SCOPE_DENIED');
+  }
+
+  #eventProjectionScope(kind: 'incident' | 'assessment', first: number) {
+    const filter = businessEventSubscriptionScope(this.deviceScope, first, 'source_subscription');
+    if (this.deviceScope === undefined) return filter;
+    const source =
+      kind === 'incident'
+        ? `source_subscription.subscription_id=event_incident.incident_json->>'subscriptionId' AND source_subscription.provider_id=event_incident.provider_id AND source_subscription.stream_id=event_incident.stream_id`
+        : 'source_subscription.subscription_id=(SELECT source_inbox.subscription_id FROM business_event_inbox source_inbox WHERE source_inbox.inbox_id=event_impact_assessment.inbox_id)';
+    return {
+      ...filter,
+      predicate: `EXISTS(SELECT 1 FROM business_event_subscription source_subscription WHERE ${source} AND ${filter.predicate})`,
+    };
+  }
+
+  async #requireIncidentSubscription(
+    client: PoolClient,
+    incident: EventIncident,
+    taskId = incident.agentTaskId,
+  ): Promise<void> {
+    if (this.deviceScope === undefined) return;
+    if (incident.subscriptionId === undefined)
+      throw new Error('BUSINESS_EVENT_INCIDENT_SUBSCRIPTION_REQUIRED');
+    const filter = businessEventSubscriptionScope(this.deviceScope, 4, 'source_subscription');
+    const owned = await client.query(
+      `SELECT 1 FROM business_event_subscription source_subscription
+      WHERE subscription_id=$1 AND provider_id=$2 AND stream_id=$3 AND ${filter.predicate}
+      ${
+        taskId === undefined
+          ? ''
+          : `AND EXISTS(SELECT 1 FROM agent_task t LEFT JOIN gowm_device.device_service_binding d ON d.binding_id=t.gowm_binding_id
+        WHERE t.task_id=$7 AND t.device_id IS NOT DISTINCT FROM source_subscription.device_id
+          AND ((t.device_id IS NULL AND t.sdar_service_key IS NULL) OR (t.sdar_service_key=$5 AND d.smpp_service_key=source_subscription.smpp_service_key)))`
+      }
+      FOR KEY SHARE OF source_subscription`,
+      [
+        incident.subscriptionId,
+        incident.providerId,
+        incident.streamId,
+        ...filter.values,
+        ...(taskId === undefined ? [] : [taskId]),
+      ],
+    );
+    if (owned.rowCount !== 1) throw new Error('BUSINESS_EVENT_INCIDENT_SCOPE_DENIED');
   }
 }
 
@@ -1335,7 +1617,16 @@ function isPostgresError(error: unknown, code: string): boolean {
 }
 
 function subscriptionFromRow(row: SubscriptionRow): BusinessEventSubscription {
+  if ((row.device_id == null) !== (row.smpp_service_key == null))
+    throw new Error('BUSINESS_EVENT_SUBSCRIPTION_DEVICE_IDENTITY_INVALID');
+  const deviceIdentity =
+    row.device_id != null && row.smpp_service_key != null
+      ? { deviceId: row.device_id, smppServiceKey: row.smpp_service_key }
+      : row.device_id === undefined
+        ? undefined
+        : null;
   return {
+    ...(deviceIdentity === undefined ? {} : { deviceIdentity }),
     subscriptionId: row.subscription_id,
     providerId: row.provider_id,
     streamId: row.stream_id,

@@ -1,0 +1,31 @@
+$ eslint .
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/united/package.mjs
+  8:22  error  'URL' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/reports/sz-gowm-deployment-20260909/bootstrap-runtime.mjs
+   5:38  error  'fetch' is not defined    no-undef
+   8:16  error  'fetch' is not defined    no-undef
+  11:1   error  'console' is not defined  no-undef
+  14:16  error  'fetch' is not defined    no-undef
+  16:2   error  'console' is not defined  no-undef
+  18:65  error  'console' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/reports/sz-gowm-deployment-20260909/verify-device.mjs
+   8:2    error  'console' is not defined  no-undef
+  10:15   error  'fetch' is not defined    no-undef
+  11:70   error  'fetch' is not defined    no-undef
+  11:148  error  'console' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/reports/sz-gowm-deployment-20260909/verify-site.mjs
+  11:2    error  'console' is not defined      no-undef
+  14:16   error  'fetch' is not defined        no-undef
+  14:34   error  'AbortSignal' is not defined  no-undef
+  14:63   error  'console' is not defined      no-undef
+  16:19   error  'fetch' is not defined        no-undef
+  16:331  error  'AbortSignal' is not defined  no-undef
+  17:1    error  'console' is not defined      no-undef
+
+✖ 18 problems (18 errors, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

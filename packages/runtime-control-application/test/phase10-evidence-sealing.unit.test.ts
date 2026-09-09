@@ -158,7 +158,7 @@ describe('Phase 10 evidence sealing', () => {
       sourceRecordId,
       sourcePartition: evidenceInfrastructureSourcePartition('quality_issue', sourceRecordId),
     };
-    const snapshot: EvidenceInfrastructureSnapshot = {
+    let snapshot: EvidenceInfrastructureSnapshot = {
       partition,
       occurredAt: '2026-08-10T02:02:00.000Z',
       references: [],
@@ -224,8 +224,23 @@ describe('Phase 10 evidence sealing', () => {
       sourcePartition: partition.sourcePartition,
       lastSourceRecordId: sourceRecordId,
       lastPayloadHash: records[0]?.payloadHash,
-      projectorVersion: 'evidence-infrastructure/v1',
+      projectorVersion: 'evidence-infrastructure/v2',
     });
+
+    const legacyRecord = records[0];
+    if (checkpoint === undefined) throw new Error('Projection must persist a checkpoint');
+    snapshot = { ...snapshot, checkpoint, row: { ...snapshot.row, task_id: 'task-phase10' } };
+    const attributed = await projector.projectPartition(partition);
+    expect(attributed.skipped).toBe(false);
+    expect(records).toHaveLength(2);
+    expect(records[1]).toMatchObject({ taskId: 'task-phase10', episodeId: 'episode-phase10' });
+    expect(records[1]?.recordId).not.toBe(legacyRecord?.recordId);
+    expect(records[1]?.sourceRevision).not.toBe(legacyRecord?.sourceRevision);
+    expect(records[0]).toBe(legacyRecord);
+    expect(legacyRecord?.taskId).toBeUndefined();
+    snapshot = { ...snapshot, checkpoint };
+    expect((await projector.projectPartition(partition)).skipped).toBe(true);
+    expect(records).toHaveLength(2);
   });
 });
 

@@ -1,0 +1,153 @@
+$ node scripts/test-e2e.mjs
+Reusing operator-managed PostgreSQL and Redis; Docker lifecycle commands are disabled.
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":1,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":2,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"9f42ff23-69ed-4289-a075-83bb5b5719cf","workflowPlanId":"plan-task-9f42ff23-69ed-4289-a075-83bb5b5719cf-3cc645cb-d8f1-41d3-b3d4-e08c0c16415f","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"95d56101-46db-4e84-ae4d-efada3764929","workflowPlanId":"plan-task-95d56101-46db-4e84-ae4d-efada3764929-cef75474-8492-45fb-9ac1-ce78c797b94a","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"71426dc4-36b4-48af-af57-f8991b1c1316","workflowPlanId":"plan-task-71426dc4-36b4-48af-af57-f8991b1c1316-f1e1f76e-d562-4f4f-951a-9239811ccc58","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"b7dbc367-aea1-498a-8f19-82ec71b9055e","workflowPlanId":"plan-task-b7dbc367-aea1-498a-8f19-82ec71b9055e-74d2ba58-a018-49de-b759-3b3bc91d5206","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"b07e6f29-9679-4b8b-8e17-5f20c6ce069d","workflowPlanId":"plan-task-b07e6f29-9679-4b8b-8e17-5f20c6ce069d-c0e6a335-48ab-4d5b-963e-b97dc13ae32e","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"aace09d8-149e-4359-97be-7ed46ff9bb35","workflowPlanId":"plan-task-aace09d8-149e-4359-97be-7ed46ff9bb35-a612d026-91e8-4b10-b614-d365588e228a","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"2c50c665-01a2-4e24-9887-f2b2a9d4b575","workflowPlanId":"plan-task-2c50c665-01a2-4e24-9887-f2b2a9d4b575-adb95687-8160-4a84-8f29-c6ca2b59dc67","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"39bc284d-77cc-4953-9de6-67a773b65f2a","workflowPlanId":"plan-task-39bc284d-77cc-4953-9de6-67a773b65f2a-c34002b2-9b80-49c4-be71-ed304e7fb129","errorCode":"RESULT_SCHEMA_MISMATCH","errorSummary":"Structured result does not conform to the Skill output schema."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":38,"reconciled":23,"alreadyConverged":1,"nonTerminal":14,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-09-09T10:00:18.997Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+
+ Test Files  6 passed (6)
+      Tests  74 passed | 1 skipped (75)
+   Start at  17:59:26
+   Duration  82.35s (transform 5.11s, setup 0ms, import 16.93s, tests 64.40s, environment 1ms)
+
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"phase13.performance.append_raw_metrics","appendP95RawMs":5.464355000000069,"appendSamplesMs":[4.234633000000031,5.171056999999564,4.6865060000000085,4.272372999999789,5.327236000000994,4.317379000000074,6.563281000000643,8.42612200000076,4.5182089999998425,3.9685580000004848,7.027903000000151,3.7599200000004203,4.004243999999744,6.051472000001013,4.124472999999853,4.223486000000776,5.544456999999966,5.097361000000092,4.60086500000034,3.9626160000007076,4.0918430000001536,4.131996000000072,4.281870999999228,4.0803259999993315,3.967393999999331,3.82698899999923,5.464355000000069,3.969121999998606,3.9335510000000795,4.335530999998809,4.039228000001458,3.5303810000004887,3.8135719999991124,4.437931999998909,4.204221999998481,3.7099550000002637,4.0498960000004445,4.07731799999965,3.1557709999997314,3.7637370000011288,3.711742999999842,4.759571999999025,4.329815000000963,3.662249000000884,4.44694200000049,4.575549999999566,3.5056560000011814,3.728021999999328,3.806910000001153,3.826850999999806,5.421268999998574,5.2313409999987925,4.352453999999852,3.985184000001027,3.5413340000013704,3.9134269999995013,3.4492540000010194,4.021730000000389,3.7337950000001,4.784504999999626,3.8873469999998633,3.8036100000008446,4.4811150000005,3.6024639999995998,4.004264000001058,4.041886999999406,3.8943730000009964,3.3764700000010635,3.4049379999996745,3.703899000000092,4.027627000001303,4.427364000001035,3.387577000001329,3.5965000000014697,4.993725000000268,4.072259999999005,3.8793879999993806,4.145741000000271,5.017036000001099,3.944366000001537,3.70487299999877,3.5795280000002094,4.525773999999728,3.9005969999998342,3.189306000000215,3.714173000000301,4.191774999999325,3.4781270000003133,3.4911540000011883,3.1893459999992047,4.138633999999001,3.8037030000014056,4.066404000001057,4.634632000001147,3.461610999998811,3.791465000000244,3.8582839999999123,3.8593130000008387,3.741790999998557,3.9187499999989086],"appendTailMs":[5.171056999999564,5.2313409999987925,5.327236000000994,5.421268999998574,5.464355000000069,5.544456999999966,6.051472000001013,6.563281000000643,7.027903000000151,8.42612200000076],"evidenceOutboxRowCount":"110","forwardReferencePlan":[{"Plan":{"Node Type":"Seq Scan","Parallel Aware":false,"Async Capable":false,"Relation Name":"evidence_outbox","Alias":"evidence_outbox","Startup Cost":0,"Total Cost":13.81,"Plan Rows":1,"Plan Width":32,"Actual Startup Time":0.056,"Actual Total Time":0.056,"Actual Rows":0,"Actual Loops":1,"Filter":"(evidence_refs ? 'phase13-diagnostic-record-id'::text)","Rows Removed by Filter":110,"Shared Hit Blocks":13,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning":{"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.041,"Triggers":[],"Execution Time":0.063}]}
+{"event":"evidence_projection.items_deferred","failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":66,"reconciled":66,"alreadyConverged":0,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":120,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":100,"reconciled":34,"alreadyConverged":66,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":164,"reconciled":64,"alreadyConverged":100,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":197,"reconciled":32,"alreadyConverged":164,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":216,"reconciled":19,"alreadyConverged":196,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"phase13.performance.raw_metrics","baselineP95RawMs":2098.3563319999957,"evidenceEnabledP95RawMs":2228.8825450000004,"regressionRawPercent":6.220402655615544,"baselineWindowMediansRawMs":[441.1846974999971,454.08656149999297,888.3391609999962],"baselineMedianDriftRawPercent":67.26535377928329,"appendP95RawMs":5.464355000000069,"appendSamplesMs":[4.234633000000031,5.171056999999564,4.6865060000000085,4.272372999999789,5.327236000000994,4.317379000000074,6.563281000000643,8.42612200000076,4.5182089999998425,3.9685580000004848,7.027903000000151,3.7599200000004203,4.004243999999744,6.051472000001013,4.124472999999853,4.223486000000776,5.544456999999966,5.097361000000092,4.60086500000034,3.9626160000007076,4.0918430000001536,4.131996000000072,4.281870999999228,4.0803259999993315,3.967393999999331,3.82698899999923,5.464355000000069,3.969121999998606,3.9335510000000795,4.335530999998809,4.039228000001458,3.5303810000004887,3.8135719999991124,4.437931999998909,4.204221999998481,3.7099550000002637,4.0498960000004445,4.07731799999965,3.1557709999997314,3.7637370000011288,3.711742999999842,4.759571999999025,4.329815000000963,3.662249000000884,4.44694200000049,4.575549999999566,3.5056560000011814,3.728021999999328,3.806910000001153,3.826850999999806,5.421268999998574,5.2313409999987925,4.352453999999852,3.985184000001027,3.5413340000013704,3.9134269999995013,3.4492540000010194,4.021730000000389,3.7337950000001,4.784504999999626,3.8873469999998633,3.8036100000008446,4.4811150000005,3.6024639999995998,4.004264000001058,4.041886999999406,3.8943730000009964,3.3764700000010635,3.4049379999996745,3.703899000000092,4.027627000001303,4.427364000001035,3.387577000001329,3.5965000000014697,4.993725000000268,4.072259999999005,3.8793879999993806,4.145741000000271,5.017036000001099,3.944366000001537,3.70487299999877,3.5795280000002094,4.525773999999728,3.9005969999998342,3.189306000000215,3.714173000000301,4.191774999999325,3.4781270000003133,3.4911540000011883,3.1893459999992047,4.138633999999001,3.8037030000014056,4.066404000001057,4.634632000001147,3.461610999998811,3.791465000000244,3.8582839999999123,3.8593130000008387,3.741790999998557,3.9187499999989086],"appendTailMs":[5.171056999999564,5.2313409999987925,5.327236000000994,5.421268999998574,5.464355000000069,5.544456999999966,6.051472000001013,6.563281000000643,7.027903000000151,8.42612200000076]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":240,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+ ❯ |e2e| packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts (64 tests | 1 failed | 63 skipped) 222654ms
+     × keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds 169209ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |e2e| packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts > A2A TaskService endpoint with real PostgreSQL and Redis > keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds
+AssertionError: expected 67.26535377928329 to be less than or equal to 15
+ ❯ packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts:6853:47
+    6851|         }
+    6852|         expect(receivedRecords).toBeGreaterThan(0);
+    6853|         expect(baselineMedianDriftRawPercent).toBeLessThanOrEqual(15);
+       |                                               ^
+    6854|         expect(regressionRawPercent).toBeLessThanOrEqual(10);
+    6855|         expect(appendP95RawMs).toBeLessThanOrEqual(20);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 63 skipped (64)
+   Start at  18:00:49
+   Duration  229.86s (transform 4.92s, setup 0ms, import 7.04s, tests 222.65s, environment 0ms)
+
+file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/test-e2e.mjs:77
+  if (result.status !== 0) throw new Error(`E2E_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+                                 ^
+
+Error: E2E_COMMAND_FAILED: /home/zhouwen/.local/share/nodejs/node-v22.23.1-linux-x64/bin/node node_modules/vitest/vitest.mjs run --project e2e packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds
+    at run (file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/test-e2e.mjs:77:34)
+    at file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/test-e2e.mjs:48:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.1
+[ELIFECYCLE] Command failed with exit code 1.

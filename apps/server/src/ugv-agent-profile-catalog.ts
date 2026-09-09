@@ -1,5 +1,3 @@
-export const UGV_RESOURCE_ID = 'vehicle:ugv1' as const;
-
 export type UgvReviewedToolName =
   | 'vehicle_get_state'
   | 'vehicle_get_capabilities'

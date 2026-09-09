@@ -1,0 +1,18 @@
+$ eslint .
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/test/ugv-agent-profile-admission.unit.test.ts
+  56:26  error  '_hash' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/test/ugv-move-input-adapter.unit.test.ts
+  20:53  error  `toThrowError` is deprecated. Use `toThrow` instead  @typescript-eslint/no-deprecated
+  23:87  error  `toThrowError` is deprecated. Use `toThrow` instead  @typescript-eslint/no-deprecated
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/test/ugv-move-skill-usage.unit.test.ts
+  24:26  error  '_hash' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/test/ugv-move-terminal-outcome.unit.test.ts
+  484:24  error  '_hash' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 5 problems (5 errors, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

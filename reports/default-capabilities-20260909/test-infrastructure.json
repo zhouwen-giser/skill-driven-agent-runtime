@@ -1,0 +1,12 @@
+[
+  {
+    "container": "sdar-governance-test-postgres",
+    "image": "sdar-development-postgres:17",
+    "imageId": "sha256:e4494f45cebe57cd6f5be1199818308794bdc8b65f3b560637f82daeb0f17162"
+  },
+  {
+    "container": "sdar-governance-test-redis",
+    "image": "redis:7-alpine",
+    "imageId": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
+  }
+]

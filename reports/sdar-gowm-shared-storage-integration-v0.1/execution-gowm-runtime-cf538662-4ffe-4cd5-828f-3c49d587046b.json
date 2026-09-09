@@ -1,0 +1,78 @@
+{
+  "run": "gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b",
+  "mcpOutcome": "task_success",
+  "scenario": "parent-cancel",
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote cancellation/process-loss/reconnection combinations",
+    "Normal Polygon/LineString and target revision/rollback combinations",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "retiredPriorFixtureTypes": 1,
+  "parentCancellation:gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b-a": {
+    "task": {
+      "phase": "canceled",
+      "device_id": "gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b-a"
+    },
+    "instances": [
+      {
+        "status": "canceled",
+        "device_id": "gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b-a"
+      }
+    ]
+  },
+  "parentCancellation:gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b-b": {
+    "task": {
+      "phase": "canceled",
+      "device_id": "gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b-b"
+    },
+    "instances": [
+      {
+        "status": "canceled",
+        "device_id": "gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b-b"
+      }
+    ]
+  },
+  "taskIds": [
+    "565322d1-d3de-456c-a70d-99328eedf9a2",
+    "74400b7a-02f5-4dd1-8a93-baccd684accb"
+  ],
+  "modelStages": [
+    "embedding",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 2,
+  "cleanupErrors": []
+}

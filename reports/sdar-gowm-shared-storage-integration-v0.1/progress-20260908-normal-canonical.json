@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "scope": "Normal Server dual-device delayed canonical association and GOWM read-model increment",
+  "runtimeRun": "gowm-runtime-d0036451-a307-4ac1-8088-36f8039ac18f",
+  "commands": [
+    {
+      "command": "source .state/gowm-storage/runtime-test.env (export); pnpm exec tsx scripts/gowm-runtime-execution.mts --remote",
+      "result": "PASS: both Tasks complete before synthetic parents exist; ordinary Server reconciler links exact UUID/device/service; two MCP calls total; unchanged Binding version and Runtime revision; GOWM lineage view returns correct device/MCP identity; cleanupErrors=[]"
+    },
+    {
+      "command": "pnpm exec vitest run --project contract packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/mcp-adapter/test/frozen-v1-registry.contract.test.ts --maxWorkers=2",
+      "result": "PASS: 22 tests"
+    }
+  ],
+  "staticChecks": "PASS: final typecheck, focused ESLint, architecture across 938 TypeScript files; formatting and git diff --check",
+  "failuresRetained": [
+    {
+      "run": "gowm-runtime-b1b2394d-47c5-4374-9ca7-d47ece6e0c80",
+      "reason": "15 prior active fixture Task Types and equal synthetic embeddings crowded bounded recall. Current type was absent; model fixture rejected before tool calls. Retire only prior isolated configured test registrations through governance API; preserve history and recall limit."
+    }
+  ],
+  "boundaries": [
+    "Native parent is written by independent explicitly isolated peer; SDAR consumer INSERT/UPDATE/DELETE permissions all false",
+    "No production writer or GOWM/SMPP changes; existing repository reconciler is invoked only by normal Server",
+    "Provider execution and Mission are absent; official view correctly retains PROVIDER_PENDING",
+    "Default opaque mock handles unchanged; UUID option only explicitly selected in this synthetic test"
+  ],
+  "remaining": [
+    "Full target role/geometry business chain including synchronous calls",
+    "Cancellation/process loss/subscription combinations and all background/retention scopes",
+    "Auxiliary Provider-link native global key contract gap",
+    "Final required gates and reports, resource cleanup, commit/push/Draft PR"
+  ]
+}

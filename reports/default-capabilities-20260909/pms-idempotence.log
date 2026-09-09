@@ -1,0 +1,2 @@
+{"status": "PMS_CONFIGURATION_PREPARED", "identity": {"providerId": "isr.vehicle.ugv.ugv", "deploymentId": "smpp-sz-gowm", "instanceId": "smpp-sz-gowm-runtime", "environment": "development", "adapterEndpoint": "adapter:7010", "controlEndpoint": "http://smpp-gowm-runtime-1:8080", "advertisedEndpoint": "http://smpp-gowm-runtime-1:8080", "resourceId": "vehicle:ugv"}, "deviceCalls": 0}
+{"status":"PMS_RUNTIME_REGISTERED","providerId":"isr.vehicle.ugv.ugv","deploymentId":"smpp-sz-gowm","instanceId":"smpp-sz-gowm-runtime","deviceCalls":0}

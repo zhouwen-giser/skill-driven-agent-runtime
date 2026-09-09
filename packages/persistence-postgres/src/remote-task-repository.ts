@@ -1,3 +1,8 @@
+import { resolveGowmCanonicalMcpLink } from './gowm-canonical-mcp-link.js';
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { readGowmMcpOwner, remoteTaskScopeSql } from './gowm-mcp-ownership.js';
+import { writeGowmTargets } from './gowm-targets.js';
+import { extractStructuredTargets } from '../../domain/src/structured-target.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
@@ -120,6 +125,10 @@ const RemoteTaskAuthoritySnapshotSchema = z
         catalogRevision: z.string().min(1),
         catalogChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
         operationCount: z.number().int().positive(),
+        toolInput: z
+          .object({ operationName: z.string().min(1), inputSchema: z.json() })
+          .strict()
+          .optional(),
       })
       .strict(),
     providerBinding: z
@@ -143,6 +152,9 @@ const RemoteTaskAuthoritySnapshotSchema = z
   .strict();
 
 interface RemoteTaskBindingRow extends QueryResultRow {
+  device_id?: string | null;
+  smpp_service_key?: string | null;
+  canonical_mcp_task_id?: string | null;
   binding_id: string;
   server_id: string;
   operation_name: string;
@@ -246,9 +258,12 @@ interface RemoteTaskProtocolAttemptRow extends QueryResultRow {
 
 export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
+  #canonicalCursor: string | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async admit(
@@ -256,6 +271,22 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     acceptedObservationId: string,
   ): Promise<Readonly<{ binding: RemoteTaskBinding; created: boolean }>> {
     return withTransaction(this.#pool, async (client) => {
+      const owner =
+        this.#deviceScope === undefined
+          ? undefined
+          : await readGowmMcpOwner(
+              client,
+              this.#deviceScope,
+              binding.agentTaskId,
+              binding.serverId,
+            );
+      if (owner !== undefined) await this.#validateAdmission(client, binding);
+      const conflictKey =
+        owner === undefined
+          ? '(server_id,remote_task_id)'
+          : owner.deviceId === null
+            ? '(server_id,remote_task_id) WHERE device_id IS NULL'
+            : '(device_id,smpp_service_key,server_id,remote_task_id) WHERE device_id IS NOT NULL';
       const inserted = await client.query<RemoteTaskBindingRow>(
         `INSERT INTO remote_task_binding (
            binding_id,server_id,operation_name,remote_task_id,agent_task_id,context_id,
@@ -269,17 +300,21 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
            provider_substate,remote_revision,last_provider_updated_at,local_state,
            requested_timing_json,execution_mode,simulation_id,authority_snapshot_json,credential_revision,
            session_revision,poll_interval_ms,next_poll_at,poll_attempt,
-           provider_failure_count,created_at,updated_at,version)
+           provider_failure_count,created_at,updated_at,version${owner === undefined ? '' : ',device_id,smpp_service_key'})
          VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
            $21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34::jsonb,$35,$36,$37::jsonb,
-           $38,$39,$40,$41,$42,$43,$44,$45,$46)
-         ON CONFLICT (server_id,remote_task_id) DO NOTHING
+           $38,$39,$40,$41,$42,$43,$44,$45,$46${owner === undefined ? '' : ',$47,$48'})
+         ON CONFLICT ${conflictKey} DO NOTHING
          RETURNING *`,
-        bindingInsertParameters(binding),
+        [
+          ...bindingInsertParameters(binding),
+          ...(owner === undefined ? [] : [owner.deviceId, owner.smppServiceKey]),
+        ],
       );
       const insertedRow = inserted.rows[0];
       if (insertedRow !== undefined) {
+        if (owner?.deviceId != null) await this.#saveTargets(client, binding);
         await insertObservation(client, {
           observationId: acceptedObservationId,
           bindingId: binding.bindingId,
@@ -309,11 +344,21 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
           accepted: true,
           observedAt: binding.createdAt,
         });
+        if (this.#deviceScope !== undefined) {
+          await resolveGowmCanonicalMcpLink(client, this.#deviceScope, binding.bindingId);
+          const current = await lockBinding(client, binding.bindingId, this.#deviceScope);
+          if (current === undefined) throw new Error('REMOTE_TASK_ADMISSION_LOST');
+          return { binding: current, created: true };
+        }
         return { binding: mapBinding(insertedRow), created: true };
       }
       const existing = await client.query<RemoteTaskBindingRow>(
-        'SELECT * FROM remote_task_binding WHERE server_id=$1 AND remote_task_id=$2 FOR UPDATE',
-        [binding.serverId, binding.remoteTaskId],
+        `SELECT * FROM remote_task_binding WHERE server_id=$1 AND remote_task_id=$2 ${owner === undefined ? '' : 'AND device_id IS NOT DISTINCT FROM $3::text AND smpp_service_key IS NOT DISTINCT FROM $4::text'} FOR UPDATE`,
+        [
+          binding.serverId,
+          binding.remoteTaskId,
+          ...(owner === undefined ? [] : [owner.deviceId, owner.smppServiceKey]),
+        ],
       );
       const row = existing.rows[0];
       if (row === undefined) throw new Error('REMOTE_TASK_BINDING_CONFLICT_NOT_FOUND');
@@ -329,9 +374,10 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
   }
 
   async findById(bindingId: string): Promise<RemoteTaskBinding | undefined> {
+    const filter = remoteTaskScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<RemoteTaskBindingRow>(
-      'SELECT * FROM remote_task_binding WHERE binding_id=$1',
-      [bindingId],
+      `SELECT * FROM remote_task_binding WHERE binding_id=$1 AND ${filter.predicate}`,
+      [bindingId, ...filter.values],
     );
     return result.rows[0] === undefined ? undefined : mapBinding(result.rows[0]);
   }
@@ -339,10 +385,24 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
   async findByRemoteIdentity(
     serverId: string,
     remoteTaskId: string,
+    deviceIdentity?: RemoteTaskBinding['deviceIdentity'],
   ): Promise<RemoteTaskBinding | undefined> {
+    if (this.#deviceScope !== undefined && deviceIdentity === undefined)
+      throw new Error('REMOTE_TASK_DEVICE_IDENTITY_REQUIRED');
+    const shared = this.#deviceScope !== undefined;
+    const filter = remoteTaskScopeSql(this.#deviceScope, shared ? 5 : 3);
     const result = await this.#pool.query<RemoteTaskBindingRow>(
-      'SELECT * FROM remote_task_binding WHERE server_id=$1 AND remote_task_id=$2',
-      [serverId, remoteTaskId],
+      `SELECT * FROM remote_task_binding WHERE server_id=$1 AND remote_task_id=$2
+         ${shared ? 'AND device_id IS NOT DISTINCT FROM $3::text AND smpp_service_key IS NOT DISTINCT FROM $4::text' : ''}
+         AND ${filter.predicate}`,
+      [
+        serverId,
+        remoteTaskId,
+        ...(shared
+          ? [deviceIdentity?.deviceId ?? null, deviceIdentity?.smppServiceKey ?? null]
+          : []),
+        ...filter.values,
+      ],
     );
     return result.rows[0] === undefined ? undefined : mapBinding(result.rows[0]);
   }
@@ -352,10 +412,11 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     limit: number,
     afterBindingId?: string,
   ): Promise<readonly RemoteTaskBinding[]> {
+    const filter = remoteTaskScopeSql(this.#deviceScope, 4);
     const safeLimit = Math.max(1, Math.min(1_000, Math.trunc(limit)));
     const result = await this.#pool.query<RemoteTaskBindingRow>(
       `SELECT * FROM remote_task_binding
-       WHERE local_state IN ('polling','cancel_observing')
+       WHERE ${filter.predicate} AND local_state IN ('polling','cancel_observing')
          AND (invalidated_at IS NULL OR local_state='cancel_observing')
          AND terminal_at IS NULL
          AND next_poll_at IS NOT NULL
@@ -364,20 +425,21 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
          AND ($2::text IS NULL OR binding_id > $2)
        ORDER BY binding_id
        LIMIT $3`,
-      [now, afterBindingId ?? null, safeLimit],
+      [now, afterBindingId ?? null, safeLimit, ...filter.values],
     );
     return result.rows.map(mapBinding);
   }
 
   async listActiveByServer(serverId: string, limit: number): Promise<readonly RemoteTaskBinding[]> {
+    const filter = remoteTaskScopeSql(this.#deviceScope, 3);
     const safeLimit = Math.max(1, Math.min(256, Math.trunc(limit)));
     const result = await this.#pool.query<RemoteTaskBindingRow>(
       `SELECT * FROM remote_task_binding
-       WHERE server_id=$1 AND protocol_contract_json->>'mode'='frozen_v1'
+       WHERE server_id=$1 AND ${filter.predicate} AND protocol_contract_json->>'mode'='frozen_v1'
          AND terminal_at IS NULL AND invalidated_at IS NULL
          AND local_state IN ('polling','cancel_observing','awaiting_input')
        ORDER BY binding_id LIMIT $2`,
-      [serverId, safeLimit],
+      [serverId, safeLimit, ...filter.values],
     );
     return result.rows.map(mapBinding);
   }
@@ -391,18 +453,26 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       expiresAt: string;
     }>,
   ): Promise<RemoteTaskPollClaimResult> {
+    const filter = remoteTaskScopeSql(this.#deviceScope, 6);
     const result = await this.#pool.query<RemoteTaskBindingRow>(
       `UPDATE remote_task_binding
        SET poll_claim_token=$3,poll_claimed_at=$4,poll_claim_expires_at=$5,
            poll_attempt=poll_attempt+1,updated_at=$4,version=version+1
-       WHERE binding_id=$1 AND version=$2
+       WHERE binding_id=$1 AND version=$2 AND ${filter.predicate}
          AND local_state IN ('polling','cancel_observing')
          AND (invalidated_at IS NULL OR local_state='cancel_observing')
          AND terminal_at IS NULL
          AND next_poll_at IS NOT NULL AND next_poll_at <= $4
          AND (poll_claim_expires_at IS NULL OR poll_claim_expires_at <= $4)
        RETURNING *`,
-      [input.bindingId, input.expectedVersion, input.claimToken, input.claimedAt, input.expiresAt],
+      [
+        input.bindingId,
+        input.expectedVersion,
+        input.claimToken,
+        input.claimedAt,
+        input.expiresAt,
+        ...filter.values,
+      ],
     );
     const row = result.rows[0];
     if (row !== undefined) return { claimed: true, binding: mapBinding(row) };
@@ -435,7 +505,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     }>,
   ): Promise<RemoteTaskMutationResult> {
     return withTransaction(this.#pool, async (client) => {
-      const locked = await lockBinding(client, input.bindingId);
+      const locked = await lockBinding(client, input.bindingId, this.#deviceScope);
       if (locked === undefined) return { applied: false, reason: 'missing' };
       const claimValid =
         locked.version === input.expectedVersion &&
@@ -604,7 +674,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     }>,
   ): Promise<RemoteTaskMutationResult> {
     return withTransaction(this.#pool, async (client) => {
-      const locked = await lockBinding(client, input.bindingId);
+      const locked = await lockBinding(client, input.bindingId, this.#deviceScope);
       if (locked === undefined) return { applied: false, reason: 'missing' };
       if (locked.version !== input.expectedVersion)
         return { applied: false, reason: isObservationActive(locked) ? 'stale' : 'closed' };
@@ -733,7 +803,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     }>,
   ): Promise<RemoteTaskMutationResult> {
     return withTransaction(this.#pool, async (client) => {
-      const locked = await lockBinding(client, input.bindingId);
+      const locked = await lockBinding(client, input.bindingId, this.#deviceScope);
       if (locked === undefined) return { applied: false, reason: 'missing' };
       if (!matchesActiveClaim(locked, input.expectedVersion, input.claimToken)) {
         await insertProtocolAttempt(client, input.protocolAttempt);
@@ -785,7 +855,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     }>,
   ): Promise<RemoteTaskMutationResult> {
     return withTransaction(this.#pool, async (client) => {
-      const locked = await lockBinding(client, input.bindingId);
+      const locked = await lockBinding(client, input.bindingId, this.#deviceScope);
       if (locked === undefined) return { applied: false, reason: 'missing' };
       if (!matchesActiveClaim(locked, input.expectedVersion, input.claimToken)) {
         await insertProtocolAttempt(client, input.protocolAttempt);
@@ -833,7 +903,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     }>,
   ): Promise<RemoteTaskMutationResult> {
     return withTransaction(this.#pool, async (client) => {
-      const locked = await lockBinding(client, input.bindingId);
+      const locked = await lockBinding(client, input.bindingId, this.#deviceScope);
       if (locked === undefined) return { applied: false, reason: 'missing' };
       if (!matchesActiveClaim(locked, input.expectedVersion, input.claimToken)) {
         await insertProtocolAttempt(client, input.protocolAttempt);
@@ -893,6 +963,8 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
   }
 
   async listObservations(bindingId: string): Promise<readonly RemoteTaskObservation[]> {
+    if (this.#deviceScope !== undefined && (await this.findById(bindingId)) === undefined)
+      return [];
     const result = await this.#pool.query<RemoteTaskObservationRow>(
       'SELECT * FROM remote_task_observation WHERE binding_id=$1 ORDER BY sequence',
       [bindingId],
@@ -901,6 +973,8 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
   }
 
   async listControlEvents(bindingId: string): Promise<readonly RemoteTaskControlEvent[]> {
+    if (this.#deviceScope !== undefined && (await this.findById(bindingId)) === undefined)
+      return [];
     const result = await this.#pool.query<RemoteTaskControlEventRow>(
       'SELECT * FROM remote_task_control_event WHERE binding_id=$1 ORDER BY created_at,event_id',
       [bindingId],
@@ -909,11 +983,93 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
   }
 
   async listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]> {
+    if (this.#deviceScope !== undefined && (await this.findById(bindingId)) === undefined)
+      return [];
     const result = await this.#pool.query<RemoteTaskProtocolAttemptRow>(
       'SELECT * FROM remote_task_protocol_attempt WHERE binding_id=$1 ORDER BY started_at,attempt_id',
       [bindingId],
     );
     return result.rows.map(mapProtocolAttempt);
+  }
+  async reconcileCanonicalLinks(
+    limit: number,
+  ): Promise<Readonly<{ examined: number; linked: number }>> {
+    if (this.#deviceScope === undefined) return { examined: 0, linked: 0 };
+    const scope = this.#deviceScope;
+    const filter = remoteTaskScopeSql(scope, 3);
+    const batch = await this.#pool.query<{ binding_id: string }>(
+      `SELECT binding_id FROM remote_task_binding WHERE canonical_mcp_task_id IS NULL AND device_id IS NOT NULL
+         AND ($1::text IS NULL OR binding_id>$1) AND ${filter.predicate} ORDER BY binding_id LIMIT $2`,
+      [
+        this.#canonicalCursor ?? null,
+        Math.max(1, Math.min(256, Math.trunc(limit))),
+        ...filter.values,
+      ],
+    );
+    let linked = 0;
+    for (const row of batch.rows) {
+      const result = await withTransaction(this.#pool, (client) =>
+        resolveGowmCanonicalMcpLink(client, scope, row.binding_id),
+      );
+      if (result === 'linked') linked++;
+      this.#canonicalCursor = row.binding_id;
+    }
+    if (batch.rows.length === 0) this.#canonicalCursor = undefined;
+    return { examined: batch.rows.length, linked };
+  }
+
+  async #validateAdmission(client: PoolClient, binding: RemoteTaskBinding): Promise<void> {
+    const row = await client.query(
+      `SELECT 1 FROM mcp_invocation m
+      JOIN workflow_instance i ON i.instance_id=$5 JOIN workflow_plan p ON p.plan_id=i.plan_id
+      WHERE m.invocation_id=$1 AND m.task_id=$2 AND m.server_id=$3 AND m.tool_name=$4
+        AND p.plan_id=$6 AND (p.gowm_task_id=$2 OR (p.gowm_task_id IS NULL AND p.device_id IS NULL))
+        AND m.context_id=$7 AND m.result_json->'remoteTask'->>'remoteTaskId'=$8`,
+      [
+        binding.mcpInvocationId,
+        binding.agentTaskId,
+        binding.serverId,
+        binding.operationName,
+        binding.workflowInstanceId,
+        binding.workflowPlanId,
+        binding.contextId,
+        binding.remoteTaskId,
+      ],
+    );
+    if (row.rowCount !== 1) throw new Error('REMOTE_TASK_ADMISSION_LINEAGE_MISMATCH');
+  }
+
+  async #saveTargets(client: PoolClient, binding: RemoteTaskBinding): Promise<void> {
+    if (this.#deviceScope === undefined) return;
+    const toolInput = binding.authoritySnapshot?.runtime.toolInput;
+    if (toolInput?.operationName !== binding.operationName)
+      throw new Error('REMOTE_TASK_INVOCATION_FROZEN_SCHEMA_MISSING');
+    const row = await client.query<{ arguments_json: unknown }>(
+      `SELECT arguments_json FROM mcp_invocation WHERE invocation_id=$1`,
+      [binding.mcpInvocationId],
+    );
+    const input = row.rows[0];
+    if (input === undefined) throw new Error('REMOTE_TASK_INVOCATION_SCHEMA_MISSING');
+    await writeGowmTargets(
+      client,
+      this.#deviceScope,
+      binding.agentTaskId,
+      {
+        kind: 'NODE_RUN',
+        role: 'DISPATCHED',
+        key: {
+          bindingId: binding.bindingId,
+          instanceId: binding.workflowInstanceId,
+          nodeId: binding.workflowNodeId,
+          nodeRunId: binding.workflowNodeRunId,
+        },
+      },
+      extractStructuredTargets(toolInput.inputSchema, input.arguments_json),
+      {
+        invocationId: binding.mcpInvocationId,
+        inputSchemaHash: canonicalHash(toolInput.inputSchema),
+      },
+    );
   }
 }
 
@@ -971,10 +1127,12 @@ function bindingInsertParameters(binding: RemoteTaskBinding): unknown[] {
 async function lockBinding(
   client: PoolClient,
   bindingId: string,
+  scope?: DeviceWorkScope,
 ): Promise<RemoteTaskBinding | undefined> {
+  const filter = remoteTaskScopeSql(scope, 2);
   const result = await client.query<RemoteTaskBindingRow>(
-    'SELECT * FROM remote_task_binding WHERE binding_id=$1 FOR UPDATE',
-    [bindingId],
+    `SELECT * FROM remote_task_binding WHERE binding_id=$1 AND ${filter.predicate} FOR UPDATE`,
+    [bindingId, ...filter.values],
   );
   return result.rows[0] === undefined ? undefined : mapBinding(result.rows[0]);
 }
@@ -1237,6 +1395,18 @@ function taskExpiry(snapshot: RemoteTaskSnapshot): string | null {
 function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
   return {
     bindingId: row.binding_id,
+    ...(row.device_id === undefined
+      ? {}
+      : {
+          deviceIdentity:
+            row.device_id === null
+              ? null
+              : {
+                  deviceId: row.device_id,
+                  smppServiceKey: requiredSmppService(row.smpp_service_key),
+                },
+        }),
+    ...(row.canonical_mcp_task_id == null ? {} : { canonicalMcpTaskId: row.canonical_mcp_task_id }),
     serverId: row.server_id,
     operationName: row.operation_name,
     remoteTaskId: row.remote_task_id,
@@ -1501,4 +1671,10 @@ export class RemoteTaskPersistenceError extends Error {
     this.name = 'RemoteTaskPersistenceError';
     this.code = code;
   }
+}
+
+function requiredSmppService(value: string | null | undefined): string {
+  if (typeof value !== 'string' || value.length === 0)
+    throw new Error('REMOTE_TASK_DEVICE_SERVICE_REQUIRED');
+  return value;
 }

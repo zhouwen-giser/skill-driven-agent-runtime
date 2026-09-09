@@ -1,0 +1,27 @@
+Scope: all 2 workspace projects
+[ERR_SQLITE_ERROR] unable to open database file
+
+pnpm: unable to open database file
+    at file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:54418:19
+    at sqliteRetry (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:54328:14)
+    at StoreIndex.openDatabase (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:54417:9)
+    at new StoreIndex (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:54402:14)
+    at createNewStoreController (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:161839:83)
+    at async installDeps (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:195655:17)
+    at async file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:304415:19
+    at async main4 (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:304383:30)
+    at async runPnpm (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:304656:5)
+    at async file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:304649:3
+[ERROR] Command failed with exit code 1: /home/zhouwen/.local/share/nodejs/node-v22.23.1-linux-x64/bin/node /home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/bin/pnpm.mjs install
+
+pnpm: Command failed with exit code 1: /home/zhouwen/.local/share/nodejs/node-v22.23.1-linux-x64/bin/node /home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/bin/pnpm.mjs install
+    at getFinalError (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:34109:14)
+    at makeError (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:36416:21)
+    at getSyncResult (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:38260:10)
+    at spawnSubprocessSync (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:38220:14)
+    at execaCoreSync (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:38150:23)
+    at callBoundExeca (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:40678:23)
+    at boundExeca (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:40655:49)
+    at sync (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:40814:10)
+    at runPnpmCli (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:245099:5)
+    at runDepsStatusCheck (file:///home/zhouwen/.cache/node/corepack/v1/pnpm/11.7.0/dist/pnpm.mjs:246833:7)

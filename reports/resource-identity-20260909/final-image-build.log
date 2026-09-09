@@ -1,0 +1,72 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 612B done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 122B done
+#3 DONE 0.1s
+
+#4 [build 1/8] FROM docker.io/library/node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+#4 resolve docker.io/library/node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 0.1s done
+#4 DONE 0.1s
+
+#5 [internal] load build context
+#5 transferring context: 27.11MB 0.5s done
+#5 DONE 0.6s
+
+#6 [build 3/8] RUN npm install --global pnpm@11.7.0
+#6 CACHED
+
+#7 [build 4/8] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+#7 CACHED
+
+#8 [build 5/8] COPY apps/console/package.json apps/console/package.json
+#8 CACHED
+
+#9 [build 2/8] WORKDIR /app
+#9 CACHED
+
+#10 [build 6/8] RUN pnpm install --frozen-lockfile
+#10 CACHED
+
+#11 [build 7/8] COPY . .
+#11 DONE 1.0s
+
+#12 [build 8/8] RUN pnpm build
+#12 0.943 $ tsc -p tsconfig.build.json && pnpm --dir apps/console build
+#12 43.44 $ tsc -b && vite build
+#12 49.81 vite v8.1.4 building client environment for production...
+#12 49.84 [2Ktransforming...✓ 32 modules transformed.
+#12 50.11 rendering chunks...
+#12 50.27 computing gzip size...
+#12 50.29 dist/index.html                   0.47 kB │ gzip:  0.30 kB
+#12 50.29 dist/assets/index-BroyGNYG.css   14.19 kB │ gzip:  3.88 kB
+#12 50.29 dist/assets/index-DwqO-FGV.js   311.50 kB │ gzip: 88.23 kB │ map: 1,201.63 kB
+#12 50.29 
+#12 50.29 ✓ built in 474ms
+#12 DONE 50.7s
+
+#9 [build 2/8] WORKDIR /app
+#9 CACHED
+
+#13 [stage-1 3/3] COPY --from=build /app /app
+#13 DONE 4.3s
+
+#14 exporting to image
+#14 exporting layers
+#14 exporting layers 12.6s done
+#14 exporting manifest sha256:4e000ef4c4970a075c370120d7cd931a0af78f42b8206520fc4574cf5b6a2257 0.1s done
+#14 exporting config sha256:2657a541cfdb065e801273644aa2deb47281957845f9273cb1c951a2d2962aa7 0.0s done
+#14 exporting attestation manifest sha256:d63a2a59345ae0f8173e976b2aa50c1cffbb2dd8263a952582c7cf60f7b6f93a
+#14 exporting attestation manifest sha256:d63a2a59345ae0f8173e976b2aa50c1cffbb2dd8263a952582c7cf60f7b6f93a 0.1s done
+#14 exporting manifest list sha256:d66e6f5e655de100d62442b8112dbb86ce44664450d80f1124421f380a3151f3
+#14 exporting manifest list sha256:d66e6f5e655de100d62442b8112dbb86ce44664450d80f1124421f380a3151f3 0.0s done
+#14 naming to docker.io/library/sdar-sz-gowm:governance-81e64ef90f96 0.0s done
+#14 unpacking to docker.io/library/sdar-sz-gowm:governance-81e64ef90f96
+#14 unpacking to docker.io/library/sdar-sz-gowm:governance-81e64ef90f96 4.5s done
+#14 DONE 17.4s

@@ -1,0 +1,4 @@
+apps/node-control-acceptance/src/provider-json-schema.ts(39,5): error TS2542: Index signature in type 'Readonly<Record<string, unknown>>' only permits reading.
+apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts(1795,5): error TS2322: Type 'Readonly<Record<string, unknown>>' is not assignable to type 'JsonObject'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type 'JsonValue'.

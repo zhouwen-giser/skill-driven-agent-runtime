@@ -1,3 +1,4 @@
+import siteContracts from './fixtures/sz-gowm-ugv-resource-contracts.json' with { type: 'json' };
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -37,6 +38,57 @@ const MANIFEST_HASH = 'b'.repeat(64);
 const REGISTRY_CHECKSUM = 'c'.repeat(64);
 
 describe('UGV move governed Task binding', () => {
+  it('accepts the recorded sz-gowm SMPP contracts without any Device call', async () => {
+    const tool = (name: string, original: McpTool): McpTool => {
+      const contract = siteContracts.find((item) => item.toolName === name);
+      if (contract === undefined) throw new Error('SITE_CONTRACT_MISSING');
+      // Read-only server snapshot: validated by the production resolver and AJV below.
+      return { ...original, ...contract } as McpTool;
+    };
+    const site = await fixture({
+      siteIdentity: true,
+      mutateNavigate: (original) => tool('vehicle_navigate', original),
+      mutateGetState: (original) => tool('vehicle_get_state', original),
+    });
+    const requestInput = {
+      ...remapIdentity(request(), true),
+      executionContext: { mode: 'live' as const },
+    };
+    const resolved = await site.resolver.resolve(requestInput);
+    expect(resolved.selected.resource.resourceId).toBe('vehicle:ugv');
+    expect(resolved.selected.provider.providerId).toBe('isr.vehicle.ugv.ugv');
+    expect(resolved.selected.execution.mode).toBe('live');
+    expect(site.availability).toHaveBeenCalledOnce();
+  });
+
+  it('resolves the GOWM/SMPP site resource through the full binding and domain validation chain', async () => {
+    const site = await fixture({ siteIdentity: true });
+    const input = remapIdentity(request(), true);
+    const resolved = await site.resolver.resolve(input);
+    expect(resolved.selected.resource.resourceId).toBe('vehicle:ugv');
+    expect(resolved.selected.provider.providerId).toBe('isr.vehicle.ugv.ugv');
+    expect(resolved.selected.resolvedArguments).toMatchObject({ resourceId: 'vehicle:ugv' });
+    expect(resolved.selected.finalStateRead.resolvedArguments).toMatchObject({
+      resourceId: 'vehicle:ugv',
+    });
+    const { snapshotHash, ...draft } = resolved.selected;
+    expect(createSelectedTaskOperation(draft).snapshotHash).toBe(snapshotHash);
+    expect(site.availability).toHaveBeenCalledOnce();
+    await expect(site.resolver.resolveQualificationAuthority()).resolves.toMatchObject({
+      resourceId: 'vehicle:ugv',
+      providerId: 'isr.vehicle.ugv.ugv',
+    });
+    expect(site.availability).toHaveBeenCalledOnce();
+  });
+
+  it('rejects the obsolete resource before availability when only the site resource is governed', async () => {
+    const site = await fixture({ siteIdentity: true });
+    await expect(site.resolver.resolve(request())).rejects.toMatchObject({
+      code: 'UGV_PROFILE_SCHEMA_DRIFT',
+    });
+    expect(site.availability).not.toHaveBeenCalled();
+  });
+
   it('resolves the profile-only alias to one authority-exact point-navigation operation', async () => {
     const runtimeFixture = await fixture();
 
@@ -238,6 +290,7 @@ describe('UGV move governed Task binding', () => {
       serverId: 'ugv-runtime-1',
       providerBindingId: 'binding-ugv-runtime-1',
       providerId: 'isr.vehicle.ugv.ugv1',
+      resourceId: 'vehicle:ugv1',
     });
     expect(runtimeFixture.listCandidates).toHaveBeenCalledOnce();
     expect(runtimeFixture.listCandidates).toHaveBeenCalledWith('vehicle_navigate');
@@ -327,7 +380,7 @@ describe('UGV move governed Task binding', () => {
     });
 
     await expect(runtimeFixture.resolver.resolveQualificationAuthority()).rejects.toMatchObject({
-      code: 'UGV_PROFILE_BINDING_NOT_FOUND',
+      code: 'UGV_PROFILE_PROVIDER_IDENTITY_INVALID',
     });
     expect(runtimeFixture.availability).not.toHaveBeenCalled();
   });
@@ -799,6 +852,7 @@ describe('UGV move governed Task binding', () => {
 });
 
 interface FixtureOptions {
+  readonly siteIdentity?: boolean;
   readonly serverIds?: readonly string[];
   readonly availabilityValidUntil?: string;
   readonly bindingAvailabilityValidUntil?: string;
@@ -824,11 +878,17 @@ async function fixture(options: FixtureOptions = {}) {
   let currentTime = NOW;
   const serverIds = options.serverIds ?? ['ugv-runtime-1'];
   const runtimes = new Map(
-    serverIds.map((serverId) => runtime(serverId, options.mutateNavigate, options.mutateGetState)),
+    serverIds.map((serverId) =>
+      runtime(serverId, options.mutateNavigate, options.mutateGetState, options.siteIdentity),
+    ),
   );
   const bindings = new Map(
     [...runtimes.entries()].map(([serverId, value]) => {
-      const binding = providerBinding(value.record.server, value.catalogAuthority);
+      const binding = providerBinding(
+        value.record.server,
+        value.catalogAuthority,
+        options.siteIdentity,
+      );
       const withExpiry =
         options.bindingAvailabilityValidUntil === undefined
           ? binding
@@ -930,38 +990,48 @@ function runtime(
   serverId: string,
   mutateNavigate?: (tool: McpTool) => McpTool,
   mutateGetState?: (tool: McpTool) => McpTool,
+  siteIdentity = false,
 ) {
-  const snapshot: McpProtocolDiscoverySnapshot = {
-    snapshotId: `snapshot-${serverId}`,
-    serverId,
-    protocolMode: 'frozen_v1',
-    protocolVersion: '2025-03-26',
-    baselineSha256: 'a'.repeat(64),
-    supportedVersions: Object.freeze(['2025-03-26']),
-    capabilities: Object.freeze({
-      extensions: Object.freeze({
-        'io.sdar/providerCatalog': Object.freeze({
-          providerId: 'isr.vehicle.ugv.ugv1',
-          providerType: 'isr.vehicle.ugv',
-          providerVersion: '1.0.0',
-          manifestHash: MANIFEST_HASH,
+  const snapshot: McpProtocolDiscoverySnapshot = remapIdentity(
+    {
+      snapshotId: `snapshot-${serverId}`,
+      serverId,
+      protocolMode: 'frozen_v1',
+      protocolVersion: '2025-03-26',
+      baselineSha256: 'a'.repeat(64),
+      supportedVersions: Object.freeze(['2025-03-26']),
+      capabilities: Object.freeze({
+        extensions: Object.freeze({
+          'io.sdar/providerCatalog': Object.freeze({
+            providerId: 'isr.vehicle.ugv.ugv1',
+            providerType: 'isr.vehicle.ugv',
+            providerVersion: '1.0.0',
+            manifestHash: MANIFEST_HASH,
+          }),
         }),
       }),
-    }),
-    serverInfo: Object.freeze({ name: 'ugv-smpp', version: '1.0.0' }),
-    providerCatalog: Object.freeze({
-      providerId: 'isr.vehicle.ugv.ugv1',
-      providerType: 'isr.vehicle.ugv',
-      providerVersion: '1.0.0',
-      manifestHash: MANIFEST_HASH,
-    }),
-    taskNotifications: true,
-    discoveredAt: NOW,
-    validUntil: VALID_UNTIL,
-    toolRevision: 9,
-  };
-  const navigate = mutateNavigate?.(navigateTool(serverId)) ?? navigateTool(serverId);
-  const getState = mutateGetState?.(stateTool(serverId)) ?? stateTool(serverId);
+      serverInfo: Object.freeze({ name: 'ugv-smpp', version: '1.0.0' }),
+      providerCatalog: Object.freeze({
+        providerId: 'isr.vehicle.ugv.ugv1',
+        providerType: 'isr.vehicle.ugv',
+        providerVersion: '1.0.0',
+        manifestHash: MANIFEST_HASH,
+      }),
+      taskNotifications: true,
+      discoveredAt: NOW,
+      validUntil: VALID_UNTIL,
+      toolRevision: 9,
+    },
+    siteIdentity,
+  );
+  const navigate = remapIdentity(
+    mutateNavigate?.(navigateTool(serverId)) ?? navigateTool(serverId),
+    siteIdentity,
+  );
+  const getState = remapIdentity(
+    mutateGetState?.(stateTool(serverId)) ?? stateTool(serverId),
+    siteIdentity,
+  );
   const tools = Object.freeze([navigate, getState]);
   const catalogAuthority = deriveFrozenMcpCatalogAuthority(snapshot, tools, 9);
   const server: McpServer = {
@@ -990,39 +1060,43 @@ function runtime(
 function providerBinding(
   server: McpServer,
   catalog: ReturnType<typeof deriveFrozenMcpCatalogAuthority>,
+  siteIdentity = false,
 ): CurrentMcpProviderBindingAuthoritySnapshot {
-  return {
-    observedAt: NOW,
-    binding: {
-      bindingId: `binding-${server.serverId}`,
-      revision: 7,
-      localServerId: server.serverId,
-      originType: 'smpp_registry',
-      providerId: 'isr.vehicle.ugv.ugv1',
-      externalProviderId: 'isr.vehicle.ugv.ugv1',
-      externalServerId: 'ugv-provider-server',
-      registryRevision: 11,
-      registryChecksum: REGISTRY_CHECKSUM,
-      catalogRevision: catalog.catalogRevision,
-      catalogChecksum: catalog.catalogChecksum,
-      endpointRef: server.endpoint,
-      availabilityStatus: 'available' as const,
-      availabilityValidUntil: VALID_UNTIL,
-      catalogObservedAt: NOW,
-      operationCount: catalog.operationCount,
+  return remapIdentity(
+    {
+      observedAt: NOW,
+      binding: {
+        bindingId: `binding-${server.serverId}`,
+        revision: 7,
+        localServerId: server.serverId,
+        originType: 'smpp_registry',
+        providerId: 'isr.vehicle.ugv.ugv1',
+        externalProviderId: 'isr.vehicle.ugv.ugv1',
+        externalServerId: 'ugv-provider-server',
+        registryRevision: 11,
+        registryChecksum: REGISTRY_CHECKSUM,
+        catalogRevision: catalog.catalogRevision,
+        catalogChecksum: catalog.catalogChecksum,
+        endpointRef: server.endpoint,
+        availabilityStatus: 'available' as const,
+        availabilityValidUntil: VALID_UNTIL,
+        catalogObservedAt: NOW,
+        operationCount: catalog.operationCount,
+      },
+      sourceCandidateLineage: {
+        smppSourceId: 'smpp-source-1',
+        externalProviderId: 'isr.vehicle.ugv.ugv1',
+        externalServerId: 'ugv-provider-server',
+        registryRevision: 11,
+        registryChecksum: REGISTRY_CHECKSUM,
+        nativeRevision: 3,
+        nativeChecksum: 'd'.repeat(64),
+        projectionContract: 'sdar-registry-v1',
+        candidateEndpoint: server.endpoint,
+      },
     },
-    sourceCandidateLineage: {
-      smppSourceId: 'smpp-source-1',
-      externalProviderId: 'isr.vehicle.ugv.ugv1',
-      externalServerId: 'ugv-provider-server',
-      registryRevision: 11,
-      registryChecksum: REGISTRY_CHECKSUM,
-      nativeRevision: 3,
-      nativeChecksum: 'd'.repeat(64),
-      projectionContract: 'sdar-registry-v1',
-      candidateEndpoint: server.endpoint,
-    },
-  };
+    siteIdentity,
+  );
 }
 
 function taskCandidate(serverId: string, tool: McpTool): McpTaskOperationCandidate {
@@ -1316,4 +1390,14 @@ function request() {
 function required<T>(value: T | undefined): T {
   if (value === undefined) throw new Error('TEST_FIXTURE_VALUE_REQUIRED');
   return value;
+}
+
+function remapIdentity<T>(value: T, siteIdentity: boolean): T {
+  return siteIdentity
+    ? (JSON.parse(
+        JSON.stringify(value)
+          .replaceAll('isr.vehicle.ugv.ugv1', 'isr.vehicle.ugv.ugv')
+          .replaceAll('vehicle:ugv1', 'vehicle:ugv'),
+      ) as T)
+    : value;
 }

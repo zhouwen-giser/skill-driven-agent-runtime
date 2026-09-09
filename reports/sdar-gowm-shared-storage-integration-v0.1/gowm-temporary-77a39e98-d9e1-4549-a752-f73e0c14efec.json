@@ -1,0 +1,24 @@
+{
+  "run": "gowm-temporary-77a39e98-d9e1-4549-a752-f73e0c14efec",
+  "status": "INCOMPLETE",
+  "results": [
+    {
+      "taskId": "gowm-temporary-77a39e98-d9e1-4549-a752-f73e0c14efec-0",
+      "deviceId": "gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-a",
+      "scopedCreateAndRead": "PASS",
+      "terminalError": "TASK_PROVENANCE_DEVICE_MISMATCH",
+      "phase": "queued",
+      "skillStatus": "active",
+      "experience": null
+    },
+    {
+      "taskId": "gowm-temporary-77a39e98-d9e1-4549-a752-f73e0c14efec-1",
+      "deviceId": "gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-b",
+      "scopedCreateAndRead": "PASS",
+      "terminalError": "TASK_PROVENANCE_DEVICE_MISMATCH",
+      "phase": "queued",
+      "skillStatus": "active",
+      "experience": null
+    }
+  ]
+}

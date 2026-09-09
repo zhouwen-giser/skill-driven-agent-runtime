@@ -1,0 +1,503 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "reviewedAt": "2026-09-08",
+  "scope": "Current delivery review in progress; original 45 required items retained",
+  "items": [
+    {
+      "id": "A01",
+      "title": "只修改SDAR并保持GOWM/SMPP等仓库只读",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A02",
+      "title": "读取当前有效GOWM功能分支与SDAR基线",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A03",
+      "title": "固定ugv_sdar，无每实例业务库/导出/双写",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A04",
+      "title": "共享启动只验证，不执行原生迁移/建表/重置",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A05",
+      "title": "独立管理库和扩展命名空间保持边界",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A06",
+      "title": "同事务同client且无全局currentDevice",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A07",
+      "title": "显式设备/服务绑定解析与历史上下文恢复",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A08",
+      "title": "agent_task三字段与非设备NULL语义正确",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A09",
+      "title": "初始Admission内部主键和设备partial幂等正确",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A10",
+      "title": "原生Task revision/command authority保留",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A11",
+      "title": "共享Goal/Skill与设备执行Plan区分",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A12",
+      "title": "Workflow完整定义和未执行分支保留",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A13",
+      "title": "Instance/NodeRun/Retry/子Workflow身份不合并",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "普通子工作流暂停恢复、Skill 子执行有 PG/LangGraph 分项证据；全部 NodeRun/Retry 组合未完整验证。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A14",
+      "title": "A2A投影与管理读取按设备且协议保持",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A15",
+      "title": "任务结构化输入/源引用和原参数完整保存",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A16",
+      "title": "Point/Polygon及计划节点目标明确关联",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A17",
+      "title": "未知或局部CRS不伪装WGS84",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A18",
+      "title": "目标版本/幂等/事务回滚正确",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A19",
+      "title": "只写SDAR owner，不代写MCP/Provider目标",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A20",
+      "title": "同步MCP调用不伪造Remote Binding",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A21",
+      "title": "Invocation/Remote Binding保留完整执行关联",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A22",
+      "title": "Remote Task设备及非设备partial身份键正确",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "原生 Remote partial 身份已有分项验证；辅助 Provider link 全局唯一键存在已复现上游缺口。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A23",
+      "title": "canonical关联只接受同设备服务明确父身份",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A24",
+      "title": "延迟父发布允许NULL且受控补齐",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A25",
+      "title": "opaque remote/父缺失不猜测、不伪造成功",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A26",
+      "title": "补canonical不新增MCP任务或写ugv_smpp",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A27",
+      "title": "input/cancel/通知使用原远端身份",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A28",
+      "title": "所有实际claim/poll/recovery限定设备范围",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "worker-scope-inventory.json 仍有 partial/open，不能声称所有消费者已完整证明。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A29",
+      "title": "竞争领取/过期接管/旧token拒绝正确",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A30",
+      "title": "正常进程重启恢复不重复执行",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "仓储进程丢失恢复范围及幂等已验证；正常进程实际重启后不重复派发仍缺完整证据。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A31",
+      "title": "Continuation等待/循环/并行状态保留",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "2.0 continuation 正常 Remote 链已通过；循环/并行恢复全部组合未证明。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A32",
+      "title": "业务事件current/generation包含设备服务范围",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A33",
+      "title": "事件收件箱/游标/continuity按subscription继承",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A34",
+      "title": "无硬Task FK的来源表设备字段完整适配",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "临时 Skill 原生终态触发器遗漏 experience.device_id，终态事务回滚；配置/共享来源仍有开放项。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A35",
+      "title": "绑定变更不改变历史归属和authority snapshot",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A36",
+      "title": "缓存/队列/MCP client路由不串设备",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "正常双设备链有证据；缓存、队列及共享服务协调全面覆盖尚未闭合。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A37",
+      "title": "过期和清理不删除核心业务历史链",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "多项范围/保留回归通过，全部清理入口尚未完成证明。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A38",
+      "title": "正常server装配真实使用共享Repository",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A39",
+      "title": "实际PostgreSQL双设备回读完整",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A40",
+      "title": "协议桩与真实SMPP测试明确分开",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A41",
+      "title": "当前确认/开发默认/非设备与管理功能不退化",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "本轮 351 个 unit/contract 文件、3064 项测试通过；旧启动模型路由告警仍存在，全部管理/非设备运行组合未完成证明。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A42",
+      "title": "typecheck/lint/test/build及协议架构检查通过",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "typecheck、lint、build、架构/协议、3064 项 unit/contract 均通过；迁移脚本因 Docker EPERM 退出 1，不能判定全项通过。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md",
+        "reports/sdar-gowm-shared-storage-integration-v0.1/development-checks/"
+      ]
+    },
+    {
+      "id": "A43",
+      "title": "新增离线检查和无Docker smoke帮助可用",
+      "required": true,
+      "status": "PARTIAL_NOT_FINAL_VERIFIED",
+      "conclusion": "实现和历史分项记录见追踪矩阵/ExecPlan；尚未完成当前源码逐项最终判定，不把历史 PASS 复制为本次结果。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A44",
+      "title": "最终报告准确区分SOURCE/DEV/INCOMPLETE",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "本文件为当前明确未完成的验收索引，最终报告尚待本轮检查汇总。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    },
+    {
+      "id": "A45",
+      "title": "只生成单仓提交和Draft PR交付，不自动发布",
+      "required": true,
+      "status": "INCOMPLETE",
+      "conclusion": "实现提交 83286afe607a59d9d05e06cd589d549d6549a122 已推送指定功能分支；Draft PR 因自动审批拒绝正文公开披露而未创建。待用户明确授权，不以推送代替 PR 交付。",
+      "evidenceIndex": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"
+      ]
+    }
+  ]
+}

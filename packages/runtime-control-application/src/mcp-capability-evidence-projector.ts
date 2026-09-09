@@ -293,7 +293,7 @@ export class McpCapabilityEvidenceProjector {
             logicalInvocationId,
             identityHash: value(row, 'logical_identity_hash'),
             invocationId: value(row, 'invocation_id'),
-            argumentsHash: value(row, 'arguments_hash'),
+            argumentsHash: evidenceArgumentsHash(text(row, 'arguments_hash')),
             identityContract: identity,
           },
           refs: snapshot.invocations.some(
@@ -1083,4 +1083,11 @@ class FrozenBindingEvidenceError extends Error {
   constructor() {
     super('Frozen remote-task Provider authority is invalid.');
   }
+}
+
+/** Admission persists raw SHA-256 hex; Evidence uses the qualified digest notation. */
+function evidenceArgumentsHash(value: string): string {
+  if (/^[0-9a-f]{64}$/u.test(value)) return `sha256:${value}`;
+  if (/^sha256:[0-9a-f]{64}$/u.test(value)) return value;
+  throw new Error('MCP_ARGUMENTS_HASH_EVIDENCE_INVALID');
 }

@@ -5,7 +5,9 @@ dist/
 coverage/
 .env
 .state/
-artifacts/development/
+artifacts/
 *.log
 reports/**/raw/
 .codex/
+__pycache__/
+*.pyc

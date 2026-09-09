@@ -39,6 +39,7 @@ export interface BusinessEventRemoteBindingRepository {
   findByRemoteIdentity(
     serverId: string,
     remoteTaskId: string,
+    deviceIdentity?: BusinessEventSubscription['deviceIdentity'],
   ): Promise<RemoteTaskBinding | undefined>;
 }
 
@@ -146,9 +147,28 @@ export class TaskImpactAssessmentService implements BusinessEventProcessor {
     const bindings = Object.freeze(
       (
         await Promise.all(
-          [...new Set(taskIds)].map((taskId) =>
-            this.#bindings.findByRemoteIdentity(subscription.providerId, taskId),
-          ),
+          [...new Set(taskIds)].map(async (taskId) => {
+            const binding = await this.#bindings.findByRemoteIdentity(
+              subscription.providerId,
+              taskId,
+              subscription.deviceIdentity,
+            );
+            if (
+              binding !== undefined &&
+              (binding.serverId !== subscription.providerId ||
+                binding.remoteTaskId !== taskId ||
+                (subscription.deviceIdentity !== undefined &&
+                  (binding.deviceIdentity?.deviceId !== subscription.deviceIdentity?.deviceId ||
+                    binding.deviceIdentity?.smppServiceKey !==
+                      subscription.deviceIdentity?.smppServiceKey ||
+                    (subscription.deviceIdentity === null && binding.deviceIdentity !== null))))
+            )
+              throw impactError(
+                'BUSINESS_EVENT_REMOTE_DEVICE_IDENTITY_MISMATCH',
+                'Remote Task does not belong to the durable subscription channel.',
+              );
+            return binding;
+          }),
         )
       ).filter((binding): binding is RemoteTaskBinding => binding !== undefined),
     );
@@ -298,6 +318,7 @@ export interface EventRecoveryControlPort {
       summary: string;
       relatedGoalIds: readonly string[];
       contextId: string;
+      deviceIdentity?: BusinessEventSubscription['deviceIdentity'];
     }>,
   ): Promise<string>;
 }
@@ -488,6 +509,9 @@ export class EventImpactRecoveryService implements BusinessEventRecoveryPort {
     const goalIds = [...new Set(context.bindings.map((binding) => binding.goalId))].sort();
     const dedupeKey = this.#hash({
       providerId: context.subscription.providerId,
+      ...(context.subscription.deviceIdentity === undefined
+        ? {}
+        : { subscriptionId: context.subscription.subscriptionId }),
       streamId: context.event.streamId,
       eventId: context.event.eventId,
       goalIds,
@@ -495,6 +519,9 @@ export class EventImpactRecoveryService implements BusinessEventRecoveryPort {
     const incident = createEventIncident({
       incidentId: this.#nextIncidentId(),
       providerId: context.subscription.providerId,
+      ...(context.subscription.deviceIdentity === undefined
+        ? {}
+        : { subscriptionId: context.subscription.subscriptionId }),
       streamId: context.event.streamId,
       dedupeKey,
       incidentKind: 'cross_goal',
@@ -517,6 +544,9 @@ export class EventImpactRecoveryService implements BusinessEventRecoveryPort {
       summary: `Business Event ${context.event.eventType} affects multiple User Goals.`,
       relatedGoalIds: goalIds,
       contextId: context.bindings[0]?.contextId ?? `incident-${dedupeKey.slice(7, 23)}`,
+      ...(context.subscription.deviceIdentity === undefined
+        ? {}
+        : { deviceIdentity: context.subscription.deviceIdentity }),
     });
     const attached = createEventIncident({ ...reservedIncident, agentTaskId: taskId });
     await this.#events.attachEventIncidentTask(dedupeKey, taskId, attached);
@@ -524,14 +554,20 @@ export class EventImpactRecoveryService implements BusinessEventRecoveryPort {
 }
 
 export class ContinuityImpactService {
-  readonly #events: Pick<BusinessEventImpactRepository, 'saveEventIncident'>;
+  readonly #events: Pick<
+    BusinessEventImpactRepository,
+    'saveEventIncident' | 'findBusinessEventSubscription'
+  >;
   readonly #clock: Clock;
   readonly #nextIncidentId: () => string;
   readonly #hash: (value: unknown) => string;
 
   constructor(
     input: Readonly<{
-      events: Pick<BusinessEventImpactRepository, 'saveEventIncident'>;
+      events: Pick<
+        BusinessEventImpactRepository,
+        'saveEventIncident' | 'findBusinessEventSubscription'
+      >;
       clock: Clock;
       nextIncidentId(): string;
       hash(value: unknown): string;
@@ -547,12 +583,27 @@ export class ContinuityImpactService {
     record: BusinessEventContinuityRecord,
     providerId: string,
   ): Promise<Readonly<{ created: boolean }>> {
+    const subscription = await this.#events.findBusinessEventSubscription(record.subscriptionId);
+    if (
+      subscription?.providerId !== providerId ||
+      subscription.streamId !== record.previousStreamId
+    )
+      throw impactError(
+        'BUSINESS_EVENT_CONTINUITY_SUBSCRIPTION_MISMATCH',
+        'Continuity requires its durable subscription authority.',
+      );
+    const source =
+      subscription.deviceIdentity === undefined
+        ? {}
+        : { subscriptionId: subscription.subscriptionId };
     return this.#events.saveEventIncident(
       createEventIncident({
+        ...source,
         incidentId: this.#nextIncidentId(),
         providerId,
         streamId: record.previousStreamId,
         dedupeKey: this.#hash({
+          ...source,
           providerId,
           previousStreamId: record.previousStreamId,
           newStreamId: record.newStreamId,

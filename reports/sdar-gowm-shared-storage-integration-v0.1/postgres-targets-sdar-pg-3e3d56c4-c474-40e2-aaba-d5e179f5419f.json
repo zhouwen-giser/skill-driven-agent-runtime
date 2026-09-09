@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "scope": "Repository subset only; normal Server/MCP smoke remains pending",
+  "run": "sdar-pg-3e3d56c4-c474-40e2-aaba-d5e179f5419f",
+  "results": [
+    {
+      "scenario": "Read-only contract verification restores the business search_path",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Two devices share a Goal and persist Task/Plan/Attempt/Instance/Native Event through production repositories",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Scoped reads exclude the other device; GOWM read model sees both native Tasks",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Native input/Plan transactions bind distinct Polygon REQUESTED and Point/LineString PLANNED owners; DSL aliases round-trip",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Concurrent identical targets reuse geometry; conflicting inputs roll back; other-device input reads/writes are denied",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Missing CRS records a persistent diagnostic without geometry; successor Plan preserves local coordinates and prior targets",
+      "status": "PASS"
+    },
+    {
+      "scenario": "PostGIS rejects self-intersecting geometry and rolls back native Input/Plan writes and supersession with no orphan target",
+      "status": "PASS"
+    }
+  ]
+}

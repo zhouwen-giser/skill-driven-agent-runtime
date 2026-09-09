@@ -1,0 +1,26 @@
+{
+  "run": "gowm-events-147d9fdf-37bf-46e2-a8b1-99ac9574f0b9",
+  "status": "PASS",
+  "scope": "Normal Server event protocol fixture; no model or device execution",
+  "subscriptions": [
+    {
+      "subscription_id": "business-event-subscription-a5d48474-36c9-4a35-a391-6135ef690c1f",
+      "device_id": "gowm-events-147d9fdf-37bf-46e2-a8b1-99ac9574f0b9-a",
+      "smpp_service_key": "gowm-events-147d9fdf-37bf-46e2-a8b1-99ac9574f0b9",
+      "last_durably_admitted_sequence": "1",
+      "last_processed_sequence": "1",
+      "inbox_count": 1,
+      "assessment_count": 1
+    },
+    {
+      "subscription_id": "business-event-subscription-4ad27f4c-6585-4e27-b2c1-477f7070c00a",
+      "device_id": "gowm-events-147d9fdf-37bf-46e2-a8b1-99ac9574f0b9-b",
+      "smpp_service_key": "gowm-events-147d9fdf-37bf-46e2-a8b1-99ac9574f0b9",
+      "last_durably_admitted_sequence": "1",
+      "last_processed_sequence": "1",
+      "inbox_count": 1,
+      "assessment_count": 1
+    }
+  ],
+  "cleanupErrors": []
+}

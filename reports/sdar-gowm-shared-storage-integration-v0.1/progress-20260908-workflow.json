@@ -1,0 +1,73 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "implemented": [
+    "executionTaskId on real planner attempts, finalized plans and manual revisions",
+    "GOWM planning root before attempt in same transaction; only unfinished root can be finalized",
+    "Workflow instance and native node event device attribution from persisted parent",
+    "Plan and instance/event scoped reads and plan confirmation correlation"
+  ],
+  "commands": [
+    {
+      "command": "Workflow planner/revision + GOWM workflow ownership unit suites",
+      "exitCode": 0,
+      "passed": 25
+    },
+    {
+      "command": "pnpm test:gowm-storage:unit",
+      "exitCode": 0,
+      "passed": 26
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "GOWM pinned bootstrap-test.ts",
+      "exitCode": 0
+    },
+    {
+      "command": "GOWM pinned cli.ts install --domain all",
+      "exitCode": 0
+    },
+    {
+      "command": "SDAR gowm-storage.mts verify (owned isolated DB)",
+      "exitCode": 0
+    },
+    {
+      "command": "SDAR gowm-storage-postgres.mts (owned isolated DB)",
+      "exitCode": 0,
+      "scope": "production Repository subset, three scenario groups"
+    }
+  ],
+  "failuresPreserved": [
+    {
+      "command": "initial typecheck",
+      "exitCode": 2,
+      "cause": "duplicate local filter introduced during scope edit; removed"
+    },
+    {
+      "command": "initial lint",
+      "exitCode": 1,
+      "cause": "new test mock async/no-unused argument issues; corrected"
+    },
+    {
+      "command": "initial upstream bootstrap",
+      "exitCode": 1,
+      "cause": "local PostgreSQL/PostGIS base image lacked pgvector; installed existing test pgvector 0.8.6 files into only this owned container"
+    },
+    {
+      "command": "initial SDAR verify",
+      "exitCode": 1,
+      "cause": "408 catalog-deparser qualification differences; matched upstream SET LOCAL search_path=pg_catalog,public and kept exact checks"
+    }
+  ],
+  "remaining": [
+    "Normal Server/MCP protocol-stub smoke",
+    "Full device ownership of adjacent writers and recovery paths",
+    "Target geometry transactions",
+    "Delayed canonical link",
+    "Initial admission real concurrency and rollback",
+    "Role separation, cancellation, subscriptions, retention",
+    "Complete required test scenarios and final single-repo delivery"
+  ]
+}

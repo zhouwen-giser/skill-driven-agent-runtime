@@ -1,0 +1,6 @@
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/node-control-acceptance/src/provider-json-schema.ts
+  35:7  error  Unnecessary conditional, value is always falsy  @typescript-eslint/no-unnecessary-condition
+
+✖ 1 problem (1 error, 0 warnings)
+

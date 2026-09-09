@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+
+ Test Files  2 passed (2)
+      Tests  41 passed (41)
+   Start at  15:16:01
+   Duration  5.06s (transform 4.52s, setup 0ms, import 6.09s, tests 2.10s, environment 0ms)
+

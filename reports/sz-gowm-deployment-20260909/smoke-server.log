@@ -1,0 +1,30 @@
+$ node scripts/smoke-server.mjs
+$ tsc -p tsconfig.build.json && pnpm --dir apps/console build
+$ tsc -b && vite build
+vite v8.1.4 building client environment for production...
+[2Ktransforming...✓ 32 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.47 kB │ gzip:  0.30 kB
+dist/assets/index-BroyGNYG.css   14.19 kB │ gzip:  3.88 kB
+dist/assets/index-DwqO-FGV.js   311.50 kB │ gzip: 88.23 kB │ map: 1,201.63 kB
+
+✓ built in 266ms
+Reusing operator-managed PostgreSQL and Redis; Docker lifecycle commands are disabled.
+/home/zhouwen/web-download/skill-driven-agent-runtime/node_modules/.pnpm/pg-pool@3.14.0_pg@8.22.0/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+Error: connect EPERM 127.0.0.1:55432 - Local (undefined:undefined)
+    at /home/zhouwen/web-download/skill-driven-agent-runtime/node_modules/.pnpm/pg-pool@3.14.0_pg@8.22.0/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/smoke-server.mjs:151:5 {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 55432
+}
+
+Node.js v22.23.1
+[ELIFECYCLE] Command failed with exit code 1.

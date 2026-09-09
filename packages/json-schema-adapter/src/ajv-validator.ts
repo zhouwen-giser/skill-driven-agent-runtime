@@ -1,3 +1,4 @@
+import { StructuredTargetMappingSchema } from '../../domain/src/structured-target.js';
 import { Ajv } from 'ajv/dist/ajv.js';
 import { Ajv2020, type ErrorObject, type ValidateFunction } from 'ajv/dist/2020.js';
 import { z } from 'zod';
@@ -29,6 +30,14 @@ export class AjvJsonSchemaValidator implements JsonSchemaValidator {
       validateSchema: true,
     });
     for (const ajv of [this.#ajv2020, this.#ajvDraft7]) {
+      ajv.addKeyword({
+        keyword: 'x-sdar-targets',
+        schemaType: 'array',
+        compile: (mapping: unknown) => {
+          StructuredTargetMappingSchema.parse(mapping);
+          return () => true;
+        },
+      });
       ajv.addKeyword({
         keyword: 'x-sdar-max-depth',
         schemaType: 'number',

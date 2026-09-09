@@ -1,0 +1,2 @@
+$ node --import tsx scripts/gowm-storage.mts check
+{"status":"PASS","scope":"offline-contract-integrity-only","upstreamCommit":"a1a86186ea866911124de72374e17fe19897fa9e","checked":87}

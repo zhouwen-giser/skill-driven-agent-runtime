@@ -1,0 +1,78 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "scope": "P0/P1 initial increment only",
+  "commands": [
+    {
+      "command": "task package verify_package.py <package-directory>",
+      "exitCode": 0,
+      "result": "PASS: 35 files, 45 acceptance items, 48 required scenarios; project tests not executed by package verifier"
+    },
+    {
+      "command": "pnpm test:gowm-storage:unit",
+      "exitCode": 0,
+      "result": "14 passed / 2 files"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "eslint modified TypeScript files",
+      "exitCode": 0,
+      "result": "PASS after local lint fixes"
+    },
+    {
+      "command": "pnpm verify:architecture",
+      "exitCode": 0,
+      "result": "PASS: 908 TypeScript source files"
+    },
+    {
+      "command": "pnpm verify:licenses",
+      "exitCode": 0,
+      "result": "PASS existing npm dependency/license inventory"
+    },
+    {
+      "command": "pnpm gowm-storage:check",
+      "exitCode": 0,
+      "result": "PASS: 87 reference/native hashes; integrity only"
+    },
+    {
+      "command": "pnpm gowm-storage:smoke --help",
+      "exitCode": 0,
+      "result": "PASS without database or Docker"
+    },
+    {
+      "command": "pnpm gowm-storage:verify",
+      "exitCode": 2,
+      "result": "NOT_RUN: no explicit isolated test DB environment"
+    }
+  ],
+  "earlierFailures": [
+    {
+      "command": "verify_package.py --help",
+      "exitCode": 1,
+      "reason": "Verifier accepts a positional directory, not --help; correct package command passed."
+    },
+    {
+      "command": "tsx scripts/gowm-storage.mts check",
+      "exitCode": 1,
+      "reason": "Sandbox EPERM on tsx CLI IPC; node --import tsx runs without auxiliary listener."
+    },
+    {
+      "command": "eslint initial files",
+      "exitCode": 1,
+      "reason": "8 lint errors in newly added tests/types; corrected, rerun passed."
+    }
+  ],
+  "notYetVerified": [
+    "Server startup against installed GOWM database",
+    "All Task/admission and workflow ownership paths",
+    "Target transactions",
+    "Canonical evidence and delayed resolution",
+    "Worker/subscription/evidence scope",
+    "Dual-device normal Server protocol peer flow",
+    "Final full requested development regressions",
+    "Single-repository commit and Draft PR"
+  ]
+}

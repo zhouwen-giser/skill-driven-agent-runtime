@@ -1,0 +1,38 @@
+[
+  {
+    "command": "pnpm format:check",
+    "exitCode": 0
+  },
+  {
+    "command": "pnpm lint",
+    "exitCode": 1
+  },
+  {
+    "command": "pnpm typecheck",
+    "exitCode": 0
+  },
+  {
+    "command": "pnpm test:unit",
+    "exitCode": 1
+  },
+  {
+    "command": "pnpm test:integration",
+    "exitCode": 0
+  },
+  {
+    "command": "pnpm test:contract",
+    "exitCode": 0
+  },
+  {
+    "command": "pnpm test:e2e",
+    "exitCode": 1
+  },
+  {
+    "command": "pnpm build",
+    "exitCode": 0
+  },
+  {
+    "command": "pnpm smoke:server",
+    "exitCode": 0
+  }
+]

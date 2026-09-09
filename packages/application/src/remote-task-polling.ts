@@ -357,6 +357,7 @@ export class RemoteTaskReconciler {
   }
 
   async reconcile(limit = 100): Promise<RemoteTaskReconciliationResult> {
+    await this.#repository.reconcileCanonicalLinks?.(limit);
     const now = this.#clock.now();
     const bindings = await this.#repository.listRequiringPoll(now, limit);
     let scheduled = 0;

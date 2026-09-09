@@ -26,6 +26,8 @@ import type { GoalCancellationRepository } from './ports.js';
 import { SkillGoalJudge, TaskGoalJudge, UserGoalJudge } from './outcome-judges.js';
 
 export interface UserGoalOutcomeContext {
+  readonly executionTaskId?: string;
+  readonly executionDeviceId?: string;
   readonly plan: UserGoalPlan;
   readonly contract: UserGoalCompletionContract;
   readonly skillGoal: SkillGoal;
@@ -37,7 +39,10 @@ export interface UserGoalOutcomeRepository {
     workflowPlanId: string,
     agentTaskId: string,
   ): Promise<UserGoalOutcomeContext | undefined>;
-  listSkillGoalOutcomeDecisions(planId: string): Promise<readonly OutcomeDecision[]>;
+  listSkillGoalOutcomeDecisions(
+    planId: string,
+    executionTaskId?: string,
+  ): Promise<readonly OutcomeDecision[]>;
   commitWorkingOutcome(layered: RuntimeLayeredOutcomeCommit, updatedAt: string): Promise<void>;
 }
 
@@ -160,7 +165,10 @@ export class UserGoalPlanController {
       [taskDecision],
       workflow,
     );
-    const prior = await this.#outcomes.listSkillGoalOutcomeDecisions(context.plan.planId);
+    const prior = await this.#outcomes.listSkillGoalOutcomeDecisions(
+      context.plan.planId,
+      context.executionTaskId,
+    );
     const userDecision = new UserGoalJudge({ ids, now: () => createdAt }).judge(context.contract, [
       ...prior.filter((item) => item.subjectId !== skillDecision.subjectId),
       skillDecision,
@@ -169,9 +177,9 @@ export class UserGoalPlanController {
       userGoalPlanId: context.plan.planId,
       taskGoalContract: taskContract,
       taskGoalContractHash: hashJson(taskContract),
-      taskDecision,
-      skillDecision,
-      userDecision,
+      taskDecision: withExecutionTask(taskDecision, context.executionTaskId),
+      skillDecision: withExecutionTask(skillDecision, context.executionTaskId),
+      userDecision: withExecutionTask(userDecision, context.executionTaskId),
       skillAttemptId: context.attempt.attemptId,
       skillGoalId: context.skillGoal.skillGoalId,
       completedEffects:
@@ -183,12 +191,18 @@ export class UserGoalPlanController {
                   'completed-effect',
                   `${input.controlId}:${String(input.round.roundIndex)}:${effectRef}`,
                 ),
+                ...(context.executionTaskId === undefined
+                  ? {}
+                  : { executionTaskId: context.executionTaskId }),
                 goalId: context.plan.goalId,
                 planId: context.plan.planId,
                 skillGoalId: context.skillGoal.skillGoalId,
                 status: 'verified',
                 effectFingerprint: hashJson({
-                  schemaVersion: '1.0',
+                  schemaVersion: context.executionDeviceId === undefined ? '1.0' : '2.0',
+                  ...(context.executionDeviceId === undefined
+                    ? {}
+                    : { deviceId: context.executionDeviceId }),
                   goalId: context.plan.goalId,
                   effectRef,
                 }),
@@ -250,4 +264,8 @@ function canonicalJson(value: unknown): string {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
     .join(',')}}`;
+}
+
+function withExecutionTask(decision: OutcomeDecision, taskId: string | undefined): OutcomeDecision {
+  return taskId === undefined ? decision : { ...decision, executionTaskId: taskId };
 }

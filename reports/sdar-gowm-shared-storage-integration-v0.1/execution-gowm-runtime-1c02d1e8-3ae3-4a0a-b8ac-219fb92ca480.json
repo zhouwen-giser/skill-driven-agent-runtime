@@ -1,0 +1,225 @@
+{
+  "run": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480",
+  "mcpOutcome": "immediate_success",
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote cancellation/process-loss/reconnection combinations",
+    "targets in normal execution",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "retiredPriorFixtureTypes": 1,
+  "lineage:gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a",
+      "count": "4"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a": {
+    "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-83fff25b-de63-4e9e-8ab3-a94e533679ae",
+    "revision": 1
+  },
+  "targets:gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-a": [
+    {
+      "usage_role": "PLANNED",
+      "owner_kind": "PLAN_NODE",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "nodeId": "read",
+        "planId": "plan-task-83fff25b-de63-4e9e-8ab3-a94e533679ae-cb4581db-0952-4d90-9e5b-979eae2185d4"
+      }
+    },
+    {
+      "usage_role": "REQUESTED",
+      "owner_kind": "TASK",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "taskId": "83fff25b-de63-4e9e-8ab3-a94e533679ae"
+      }
+    }
+  ],
+  "lineage:gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b",
+      "count": "4"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b": {
+    "device_id": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-68c3ab46-4d63-4ae2-a9da-96fe09f3582e",
+    "revision": 1
+  },
+  "targets:gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480-b": [
+    {
+      "usage_role": "PLANNED",
+      "owner_kind": "PLAN_NODE",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "nodeId": "read",
+        "planId": "plan-task-68c3ab46-4d63-4ae2-a9da-96fe09f3582e-ae8f4200-6d24-42e6-b293-f41f1a877e2a"
+      }
+    },
+    {
+      "usage_role": "REQUESTED",
+      "owner_kind": "TASK",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "taskId": "68c3ab46-4d63-4ae2-a9da-96fe09f3582e"
+      }
+    }
+  ],
+  "taskIds": [
+    "83fff25b-de63-4e9e-8ab3-a94e533679ae",
+    "68c3ab46-4d63-4ae2-a9da-96fe09f3582e"
+  ],
+  "modelStages": [
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "goal_evaluation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 2,
+  "cleanupErrors": []
+}

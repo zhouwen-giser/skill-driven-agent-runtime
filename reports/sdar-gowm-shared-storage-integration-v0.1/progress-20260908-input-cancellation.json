@@ -1,0 +1,71 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "recordedAt": "2026-09-08T08:35:22.680896+00:00",
+  "implemented": [
+    "Remote cancellation parent locks, reads, delivery scans, claims, outcome writes, provider terminal reconciliation and attempts inherit immutable Binding/Task scope",
+    "Remote input activation authority, link/outcome/attempt reads and writes inherit Binding scope; attempted cross-parent audit writes reject before insert",
+    "Task input request/response/queued attempt reads and mutations are scoped; answer transaction validates all response/attempt identities",
+    "Pinned GOWM source workflow plus an exact remote_task_input_link round-trips to Domain remote_task in normal reads, answer handling and queued attempt recovery; ordinary workflow source remains unchanged",
+    "Normal Server and lifecycle-query nested repositories receive the configured device scope"
+  ],
+  "verification": [
+    {
+      "command": "pnpm exec vitest run --project unit packages/application/test/remote-task-cancellation.unit.test.ts packages/application/test/remote-task-input.unit.test.ts packages/application/test/task-service.unit.test.ts packages/domain/test/remote-task-input.unit.test.ts packages/persistence-postgres/test/runtime-recovery-admission-intent.unit.test.ts",
+      "exitCode": 0,
+      "tests": 67
+    },
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "exitCode": 0,
+      "scenarioGroups": 15,
+      "run": "sdar-pg-0a79a630-3525-406d-81e5-c28d2ac53927",
+      "report": "postgres-sdar-pg-0a79a630-3525-406d-81e5-c28d2ac53927.json"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint packages/persistence-postgres/src/{gowm-work-scope,repositories,gowm-mcp-ownership,remote-task-cancellation-repository,remote-task-input-repository,remote-task-lifecycle-query}.ts packages/persistence-postgres/test/gowm-{input,cancellation,remote,recovery}.postgres-cases.ts apps/server/src/runtime.ts",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint packages/persistence-postgres/src/repositories.ts packages/persistence-postgres/test/gowm-input.postgres-cases.ts",
+      "exitCode": 0,
+      "note": "Rechecked after final response/attempt identity guard"
+    },
+    {
+      "command": "node scripts/check-architecture.mjs",
+      "exitCode": 0,
+      "sourceFiles": 928
+    }
+  ],
+  "preservedFailures": [
+    {
+      "constraint": "remote_task_control_event_check",
+      "classification": "fixture",
+      "resolution": "Seed processed events with both claimed_at and processed_at; unchanged constraint"
+    },
+    {
+      "constraint": "task_input_request_source_check",
+      "classification": "real pinned contract mismatch",
+      "resolution": "Shared Remote input writes workflow and the native remote link atomically; Application projection restores source from the exact native relation. No GOWM DDL change."
+    },
+    {
+      "constraint": "remote_task_binding_next_poll_state_check",
+      "classification": "fixture",
+      "resolution": "Durable awaiting_input state has next_poll_at=NULL; no constraint relaxation"
+    },
+    {
+      "constraint": "task_input_request_one_waiting_per_task_idx",
+      "classification": "fixture",
+      "resolution": "Use formal cancelPending to close prior input before testing an ordinary workflow request; preserve one-waiting invariant"
+    }
+  ],
+  "limits": [
+    "True PostgreSQL with restricted SDAR consumer; synthetic durable input boundary, not network tasks/update/cancel or normal Server full flow",
+    "Actual input activation from a claimed continuation still needs the normal Server/continuation test; current input fixture starts with a persisted input request/link",
+    "Other continuation/reconciliation/subscription/event/retention scopes, frozen invocation target Schema, admission/UGV mapping, normal Server protocol stub and final deliverables remain open",
+    "No external model/device/shared deployment or other repository changes; owned database retained for subsequent tests, final cleanup not yet claimed"
+  ]
+}

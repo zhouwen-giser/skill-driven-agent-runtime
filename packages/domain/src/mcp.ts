@@ -91,6 +91,7 @@ export interface McpDependencyWarning {
 
 export type McpInvocationStatus = 'succeeded' | 'failed' | 'canceled';
 export interface McpInvocation {
+  readonly deviceId?: string;
   readonly invocationId: string;
   readonly taskId?: string;
   readonly capabilityAttemptId?: string;

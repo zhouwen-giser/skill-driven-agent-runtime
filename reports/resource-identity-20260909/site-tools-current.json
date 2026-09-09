@@ -1,0 +1,2227 @@
+{
+  "items": [
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_area_recon",
+      "description": "Run local electro-optical reconnaissance.",
+      "inputSchema": {
+        "type": "object",
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "scanMode"
+              ],
+              "properties": {
+                "scanMode": {
+                  "const": "circular"
+                }
+              }
+            },
+            "else": {
+              "required": [
+                "area"
+              ],
+              "properties": {
+                "area": {}
+              }
+            },
+            "then": {}
+          }
+        ],
+        "required": [
+          "resourceId",
+          "scanMode"
+        ],
+        "properties": {
+          "area": {
+            "type": "object",
+            "required": [
+              "polygon"
+            ],
+            "properties": {
+              "polygon": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "latitude",
+                    "longitude"
+                  ],
+                  "properties": {
+                    "latitude": {
+                      "type": "number",
+                      "maximum": 90,
+                      "minimum": -90
+                    },
+                    "longitude": {
+                      "type": "number",
+                      "maximum": 180,
+                      "minimum": -180
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "minItems": 3
+              }
+            },
+            "additionalProperties": false
+          },
+          "scanMode": {
+            "enum": [
+              "area",
+              "circular"
+            ],
+            "type": "string"
+          },
+          "reconType": {
+            "oneOf": [
+              {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4
+                ],
+                "type": "integer"
+              },
+              {
+                "enum": [
+                  "adaptive",
+                  "visible",
+                  "infrared",
+                  "dc"
+                ],
+                "type": "string"
+              }
+            ]
+          },
+          "scanCount": {
+            "type": "integer",
+            "maximum": 1000,
+            "minimum": 0
+          },
+          "scanPitch": {
+            "type": "number",
+            "maximum": 90,
+            "minimum": -90
+          },
+          "scanSpeed": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "regionType": {
+            "enum": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "type": "integer"
+          },
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "targetTypes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxItems": 128
+          },
+          "lockDurationLimitSec": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleTaskResultV1",
+            "required": [
+              "resourceId",
+              "status",
+              "observedAt"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "completed",
+                  "failed",
+                  "cancelled",
+                  "timeout"
+                ],
+                "type": "string"
+              },
+              "coverage": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "progress": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scanMode": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "exception": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "missionId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "outOfRange": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              },
+              "cameraFault": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "coverability": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timeAuthority": {
+                "type": "string"
+              },
+              "observationIsNew": {
+                "type": "boolean"
+              },
+              "snapshotRevision": {
+                "type": "string"
+              },
+              "correlationStrength": {
+                "enum": [
+                  "STRICT_CORRELATED",
+                  "WEAK_UNCORRELATED",
+                  "MISMATCH",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              "observedTargetCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "terminalMotionStatus": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "task_required",
+        "availability": "dynamic",
+        "supportsScheduling": true,
+        "supportsMaxElapsed": true,
+        "supportsCancellation": true,
+        "supportsPauseResume": true,
+        "supportsObservations": true,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_control_gimbal",
+      "description": "Run a finite absolute, relative, or reset electro-optical gimbal adjustment.",
+      "inputSchema": {
+        "type": "object",
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "mode": {
+                  "const": "reset"
+                }
+              }
+            },
+            "else": {
+              "anyOf": [
+                {
+                  "required": [
+                    "yaw"
+                  ],
+                  "properties": {
+                    "yaw": {}
+                  }
+                },
+                {
+                  "required": [
+                    "pitch"
+                  ],
+                  "properties": {
+                    "pitch": {}
+                  }
+                },
+                {
+                  "required": [
+                    "deltaZoom"
+                  ],
+                  "properties": {
+                    "deltaZoom": {}
+                  }
+                }
+              ]
+            },
+            "then": {}
+          }
+        ],
+        "required": [
+          "resourceId",
+          "mode"
+        ],
+        "properties": {
+          "yaw": {
+            "type": "number",
+            "maximum": 180,
+            "minimum": -180
+          },
+          "mode": {
+            "enum": [
+              "absolute",
+              "relative",
+              "reset"
+            ],
+            "type": "string"
+          },
+          "pitch": {
+            "type": "number",
+            "maximum": 90,
+            "minimum": -90
+          },
+          "yawSpeed": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "deltaZoom": {
+            "type": "number"
+          },
+          "pitchSpeed": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleTaskResultV1",
+            "required": [
+              "resourceId",
+              "status",
+              "observedAt"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "completed",
+                  "failed",
+                  "cancelled",
+                  "timeout"
+                ],
+                "type": "string"
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "task_required",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": true,
+        "supportsCancellation": true,
+        "supportsPauseResume": false,
+        "supportsObservations": true,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_emergency_stop",
+      "description": "Preempt and stop only this UGV's local tracks.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId"
+        ],
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleTaskResultV1",
+            "required": [
+              "resourceId",
+              "status",
+              "observedAt"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "stopped",
+                  "timeout",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              },
+              "eoTaskState": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "missionState": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "finalSpeedKmh": {
+                "type": "number",
+                "minimum": 0
+              },
+              "targetUnlocked": {
+                "type": "boolean"
+              },
+              "weaponTaskState": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "snapshotRevision": {
+                "type": "string"
+              },
+              "reconMotionStatus": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "observationAuthority": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "task_required",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": true,
+        "supportsCancellation": false,
+        "supportsPauseResume": false,
+        "supportsObservations": true,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_fire_weapon",
+      "description": "Execute one confirmed local fire-control cycle without hit, damage or destruction semantics.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId",
+          "targetId",
+          "engagementMode",
+          "requireConfirmation"
+        ],
+        "properties": {
+          "targetId": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "approvalRef": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "engagementMode": {
+            "const": "single"
+          },
+          "requireConfirmation": {
+            "const": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleTaskResultV1",
+            "required": [
+              "resourceId",
+              "status",
+              "observedAt"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "fire_command_accepted",
+                  "fire_command_rejected",
+                  "fire_cycle_completed",
+                  "target_not_found",
+                  "target_not_locked",
+                  "out_of_range",
+                  "out_of_fov",
+                  "no_ammo_reported_by_weapon",
+                  "weapon_fault",
+                  "friendly_target_rejected",
+                  "timeout",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "task_required",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": true,
+        "supportsCancellation": true,
+        "supportsPauseResume": false,
+        "supportsObservations": true,
+        "supportsInputRequired": true,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_get_capabilities",
+      "description": "Read device-reported UGV capability facts without inventing unsupported limits.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId"
+        ],
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleCapabilitiesV1",
+            "required": [
+              "resourceId",
+              "source",
+              "available",
+              "navigation",
+              "payload",
+              "provenance",
+              "deviceReported",
+              "engineeringProfile",
+              "observedAt"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "const": "device_mcp"
+              },
+              "payload": {
+                "type": "object",
+                "required": [
+                  "reconnaissance",
+                  "gimbal",
+                  "targetTracking",
+                  "laserRange"
+                ],
+                "properties": {
+                  "gimbal": {
+                    "type": "object",
+                    "required": [
+                      "supported",
+                      "modes",
+                      "manualYawSweep",
+                      "continuousPitchSweep"
+                    ],
+                    "properties": {
+                      "modes": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "uniqueItems": true
+                      },
+                      "supported": {
+                        "type": "boolean"
+                      },
+                      "manualYawSweep": {
+                        "type": "boolean"
+                      },
+                      "continuousPitchSweep": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "laserRange": {
+                    "type": "boolean"
+                  },
+                  "reconnaissance": {
+                    "type": "object",
+                    "required": [
+                      "area",
+                      "circular",
+                      "scanModes",
+                      "movingWhileRecon"
+                    ],
+                    "properties": {
+                      "area": {
+                        "type": "boolean"
+                      },
+                      "circular": {
+                        "type": "boolean"
+                      },
+                      "scanModes": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      },
+                      "movingWhileRecon": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "targetTracking": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "navigation": {
+                "type": "object",
+                "required": [
+                  "point",
+                  "route",
+                  "distance",
+                  "returnHome",
+                  "pauseResumeCancel",
+                  "planningDensities",
+                  "supportsRoadNetworkPlanning"
+                ],
+                "properties": {
+                  "point": {
+                    "type": "boolean"
+                  },
+                  "route": {
+                    "type": "boolean"
+                  },
+                  "distance": {
+                    "type": "boolean"
+                  },
+                  "returnHome": {
+                    "type": "boolean"
+                  },
+                  "needPlanDefault": {
+                    "type": "boolean"
+                  },
+                  "pauseResumeCancel": {
+                    "type": "boolean"
+                  },
+                  "planningDensities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "supportsRoadNetworkPlanning": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "provenance": {
+                "type": "object",
+                "required": [
+                  "available",
+                  "navigation",
+                  "payload",
+                  "deviceReported",
+                  "engineeringProfile"
+                ],
+                "properties": {
+                  "payload": {
+                    "type": "object",
+                    "required": [
+                      "reconnaissance",
+                      "gimbal",
+                      "targetTracking",
+                      "laserRange"
+                    ],
+                    "properties": {
+                      "gimbal": {
+                        "type": "object",
+                        "required": [
+                          "supported",
+                          "modes",
+                          "manualYawSweep",
+                          "continuousPitchSweep"
+                        ],
+                        "properties": {
+                          "modes": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          },
+                          "supported": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          },
+                          "manualYawSweep": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          },
+                          "continuousPitchSweep": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "laserRange": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "reconnaissance": {
+                        "type": "object",
+                        "required": [
+                          "area",
+                          "circular",
+                          "scanModes",
+                          "movingWhileRecon"
+                        ],
+                        "properties": {
+                          "area": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          },
+                          "circular": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          },
+                          "scanModes": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          },
+                          "movingWhileRecon": {
+                            "enum": [
+                              "device_reported",
+                              "contract_inferred",
+                              "managed_configuration",
+                              "unverified"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "targetTracking": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "available": {
+                    "enum": [
+                      "device_reported",
+                      "contract_inferred",
+                      "managed_configuration",
+                      "unverified"
+                    ],
+                    "type": "string"
+                  },
+                  "navigation": {
+                    "type": "object",
+                    "required": [
+                      "point",
+                      "route",
+                      "distance",
+                      "returnHome",
+                      "pauseResumeCancel",
+                      "planningDensities",
+                      "supportsRoadNetworkPlanning",
+                      "needPlanDefault"
+                    ],
+                    "properties": {
+                      "point": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "route": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "distance": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "returnHome": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "needPlanDefault": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "pauseResumeCancel": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "planningDensities": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      },
+                      "supportsRoadNetworkPlanning": {
+                        "enum": [
+                          "device_reported",
+                          "contract_inferred",
+                          "managed_configuration",
+                          "unverified"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "deviceReported": {
+                    "enum": [
+                      "device_reported",
+                      "contract_inferred",
+                      "managed_configuration",
+                      "unverified"
+                    ],
+                    "type": "string"
+                  },
+                  "engineeringProfile": {
+                    "enum": [
+                      "device_reported",
+                      "contract_inferred",
+                      "managed_configuration",
+                      "unverified"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              },
+              "deviceReported": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "engineeringProfile": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "synchronous_only",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": false,
+        "supportsCancellation": false,
+        "supportsPauseResume": false,
+        "supportsObservations": false,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_get_payload_status",
+      "description": "Read local UGV payload, gimbal, laser and task status.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId"
+        ],
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "synchronous_only",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": false,
+        "supportsCancellation": false,
+        "supportsPauseResume": false,
+        "supportsObservations": false,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_get_state",
+      "description": "Read the normalized local UGV state without referee or global-truth data.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId"
+        ],
+        "properties": {
+          "include": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "chassis",
+                "payload",
+                "health",
+                "targets"
+              ],
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleStateV1",
+            "required": [
+              "identity",
+              "connectivity",
+              "freshness",
+              "revision",
+              "observedAt",
+              "mqttIngressSequence"
+            ],
+            "properties": {
+              "health": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "chassis": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "identity": {
+                "type": "object",
+                "required": [
+                  "providerId",
+                  "resourceId",
+                  "vehicleType",
+                  "executionMode"
+                ],
+                "properties": {
+                  "providerId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "resourceId": {
+                    "type": "string",
+                    "const": "vehicle:ugv"
+                  },
+                  "vehicleType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "executionMode": {
+                    "enum": [
+                      "simulation",
+                      "live"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "revision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "freshness": {
+                "type": "object",
+                "properties": {
+                  "healthObservedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "targetObservedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "chassisObservedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "missionObservedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "payloadObservedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "positionObservedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "connectivity": {
+                "type": "object",
+                "required": [
+                  "mqttConnected",
+                  "deviceMcpConnected"
+                ],
+                "properties": {
+                  "mqttConnected": {
+                    "type": "boolean"
+                  },
+                  "packetLossRate": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "deviceAvailable": {
+                    "type": "boolean"
+                  },
+                  "deviceMcpConnected": {
+                    "type": "boolean"
+                  },
+                  "averageRoundTripTimeMs": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "mqttIngressSequence": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "synchronous_only",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": false,
+        "supportsCancellation": false,
+        "supportsPauseResume": false,
+        "supportsObservations": false,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_get_targets",
+      "description": "Read targets observed by local UGV sensors only.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId"
+        ],
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "resourceId",
+              "targets",
+              "freshness",
+              "observedAt"
+            ],
+            "properties": {
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "freshness": {
+                "type": "object"
+              },
+              "observedAt": {
+                "type": "string"
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "read_only",
+        "execution": "synchronous",
+        "cancellation": "unsupported",
+        "idempotency": "server_managed",
+        "replay": "allowed",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "synchronous_only",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": false,
+        "supportsCancellation": false,
+        "supportsPauseResume": false,
+        "supportsObservations": false,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_navigate",
+      "description": "Run a point, route, distance or return-home chassis mission.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId",
+          "mission"
+        ],
+        "properties": {
+          "density": {
+            "enum": [
+              "adaptive",
+              "dense",
+              "medium",
+              "sparse"
+            ],
+            "type": "string"
+          },
+          "mission": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "type",
+                  "target"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "point"
+                  },
+                  "target": {
+                    "type": "object",
+                    "required": [
+                      "latitude",
+                      "longitude"
+                    ],
+                    "properties": {
+                      "altitude": {
+                        "type": "number"
+                      },
+                      "latitude": {
+                        "type": "number",
+                        "maximum": 90,
+                        "minimum": -90
+                      },
+                      "longitude": {
+                        "type": "number",
+                        "maximum": 180,
+                        "minimum": -180
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type",
+                  "waypoints"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "route"
+                  },
+                  "waypoints": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "latitude",
+                        "longitude"
+                      ],
+                      "properties": {
+                        "altitude": {
+                          "type": "number"
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "maximum": 90,
+                          "minimum": -90
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "maximum": 180,
+                          "minimum": -180
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "maxItems": 1024,
+                    "minItems": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type",
+                  "direction",
+                  "distanceM"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "distance"
+                  },
+                  "direction": {
+                    "enum": [
+                      "forward",
+                      "backward",
+                      "left",
+                      "right"
+                    ],
+                    "type": "string"
+                  },
+                  "distanceM": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "return_home"
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "planningMode": {
+            "enum": [
+              "auto",
+              "road_network",
+              "direct"
+            ],
+            "type": "string"
+          },
+          "speedLimitKmh": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "stopOnObstacle": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleTaskResultV1",
+            "required": [
+              "resourceId",
+              "status",
+              "observedAt"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "completed",
+                  "failed",
+                  "cancelled",
+                  "timeout"
+                ],
+                "type": "string"
+              },
+              "missionId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              },
+              "endPosition": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "missionState": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "finalSpeedKmh": {
+                "type": "number",
+                "minimum": 0
+              },
+              "startPosition": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "finalHeadingDeg": {
+                "type": "number"
+              },
+              "snapshotRevision": {
+                "type": "string"
+              },
+              "positionAuthority": {
+                "type": "object",
+                "required": [
+                  "field",
+                  "topic",
+                  "observedAt",
+                  "timeAuthority",
+                  "cursor"
+                ],
+                "properties": {
+                  "field": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "topic": {
+                    "type": "string"
+                  },
+                  "cursor": {
+                    "type": "string"
+                  },
+                  "observedAt": {
+                    "type": "string"
+                  },
+                  "timeAuthority": {
+                    "enum": [
+                      "source",
+                      "ingest"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "requestedDistanceM": {
+                "type": "number",
+                "minimum": 0
+              },
+              "correlationStrength": {
+                "enum": [
+                  "STRICT_CORRELATED",
+                  "WEAK_UNCORRELATED",
+                  "MISMATCH",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              "observationAuthority": {
+                "type": "string"
+              },
+              "observedDisplacementM": {
+                "type": "number",
+                "minimum": 0
+              },
+              "stationaryAtCompletion": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "displacementUnavailableReason": {
+                "enum": [
+                  "POSITION_AUTHORITY_MISMATCH"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "task_required",
+        "availability": "dynamic",
+        "supportsScheduling": true,
+        "supportsMaxElapsed": true,
+        "supportsCancellation": true,
+        "supportsPauseResume": true,
+        "supportsObservations": true,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    },
+    {
+      "serverId": "smpp-sz-gowm",
+      "toolName": "vehicle_track_target",
+      "description": "Track a locally observed target and fail locally when lock is lost.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resourceId",
+          "targetId"
+        ],
+        "properties": {
+          "targetId": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "resourceId": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "VehicleTaskResultV1",
+            "required": [
+              "resourceId",
+              "status",
+              "observedAt"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "target_locked",
+                  "target_lost",
+                  "cancelled",
+                  "timeout"
+                ],
+                "type": "string"
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "resourceId": {
+                "type": "string",
+                "const": "vehicle:ugv"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "outcome",
+              "reasonCode",
+              "retryable",
+              "completedAt"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "protocolMode": "frozen_v1",
+      "adminExecutionSemanticsOverride": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "executionSemantics": {
+        "effect": "side_effecting",
+        "execution": "task_required",
+        "cancellation": "task_cancel",
+        "idempotency": "server_managed",
+        "replay": "forbidden",
+        "source": "admin_override"
+      },
+      "taskExecutionProfile": {
+        "profileVersion": "1.0",
+        "taskBehavior": "task_required",
+        "availability": "dynamic",
+        "supportsScheduling": false,
+        "supportsMaxElapsed": true,
+        "supportsCancellation": true,
+        "supportsPauseResume": false,
+        "supportsObservations": true,
+        "supportsInputRequired": false,
+        "idempotency": "server_managed"
+      },
+      "discoveredAt": "2026-09-09T02:39:52.754Z"
+    }
+  ]
+}

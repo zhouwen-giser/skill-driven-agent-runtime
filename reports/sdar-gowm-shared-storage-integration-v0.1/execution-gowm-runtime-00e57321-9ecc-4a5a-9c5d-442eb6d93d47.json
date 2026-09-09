@@ -1,0 +1,50 @@
+{
+  "run": "gowm-runtime-00e57321-9ecc-4a5a-9c5d-442eb6d93d47",
+  "mcpOutcome": "task_success",
+  "scenario": "cancel",
+  "status": "FAIL",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote cancellation/process-loss/reconnection combinations",
+    "Normal Polygon/LineString and target revision/rollback combinations",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "retiredPriorFixtureTypes": 1,
+  "error": "{\"deviceOwnership\":{\"deviceId\":\"gowm-runtime-00e57321-9ecc-4a5a-9c5d-442eb6d93d47-a\",\"bindingId\":\"3520f4dd-ee33-47e5-9648-98a452214205\",\"sdarServiceKey\":\"sdar-test\"},\"taskId\":\"962ebb41-94d8-4bea-b1ed-f77c7eb0baad\",\"contextId\":\"edb85825-93cc-4763-9921-6577092d6e1f\",\"userId\":\"anonymous\",\"requestText\":\"Read synthetic device gowm-runtime-00e57321-9ecc-4a5a-9c5d-442eb6d93d47-a state once\",\"requestMetadata\":{\"io.sdar/deviceId\":\"gowm-runtime-00e57321-9ecc-4a5a-9c5d-442eb6d93d47-a\",\"structured_input\":{\"target\":{\"x\":12,\"y\":34,\"frame\":\"LOCAL:synthetic-grid\"},\"resourceId\":\"gowm-runtime-00e57321-9ecc-4a5a-9c5d-442eb6d93d47-a\"}},\"phase\":\"awaiting_plan_confirmation\",\"phaseMessage\":\"Plan confirmation required.\",\"goalId\":\"goal-70cf961e-a990-4010-b408-938743a51396\",\"goalVersion\":1,\"planId\":\"plan-task-962ebb41-94d8-4bea-b1ed-f77c7eb0baad-c76ca78e-05bc-4e2c-afaa-d6406f533298\",\"selectedSkillId\":\"gowm-runtime-00e57321-9ecc-4a5a-9c5d-442eb6d93d47-skill\",\"selectedSkillVersion\":1,\"skillSelectionId\":\"skill-selection-2061e338-11ac-4842-94bd-639fd7ede085\",\"userGoalPlanId\":\"user-goal-plan-b136b2ce-c518-4566-a716-32fa978124c1\",\"skillGoalId\":\"user-goal-plan-b136b2ce-c518-4566-a716-32fa978124c1:skill-goal:1\",\"skillAttemptId\":\"skill-attempt-2616dec7-b648-4306-b45e-7cc9cabb971d\",\"skillExecutionContractId\":\"skill-execution-contract-6a5b0f93-d44d-42fa-9603-995f717f4658\",\"skillInputResolutionId\":\"skill-input-resolution-939cde7f-91cd-4c8f-9a26-4e74fc5de07d\",\"createdAt\":\"2026-09-08T13:31:39.985Z\",\"updatedAt\":\"2026-09-08T13:31:42.865Z\"}\n+ actual - expected\n\n+ 'awaiting_plan_confirmation'\n- 'failed'\n",
+  "taskIds": [
+    "962ebb41-94d8-4bea-b1ed-f77c7eb0baad"
+  ],
+  "modelStages": [
+    "embedding",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "goal_evaluation",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 1,
+  "cleanupErrors": []
+}

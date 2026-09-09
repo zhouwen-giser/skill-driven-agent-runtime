@@ -41,6 +41,32 @@ beforeAll(async () => {
 });
 
 describe('UGV Agent Profile Skill Provider dependency policy', () => {
+  it('authorizes the exact initial contract and a consistently bound site resource without a UGV ID whitelist', () => {
+    const initial = input();
+    const data = JSON.parse(
+      JSON.stringify(initial).replaceAll('vehicle:ugv1', 'vehicle:ugv'),
+    ) as RuntimeSkillProviderDependencyPolicyInput;
+    const definition = { ...data.definition, version: 1 };
+    delete (definition as { previousVersion?: number }).previousVersion;
+    const implementation = { ...data.implementation, capabilityVersion: 1 };
+    expect(
+      new UgvAgentProfileSkillProviderDependencyPolicy().assess({
+        ...data,
+        definition,
+        implementation,
+        implementations: [implementation],
+      }).decision,
+    ).toBe('authorized');
+    expect(
+      new UgvAgentProfileSkillProviderDependencyPolicy().assess({
+        ...data,
+        definition: { ...definition, previousVersion: 1 },
+        implementation,
+        implementations: [implementation],
+      }).decision,
+    ).toBe('denied');
+  });
+
   it('authorizes the exact immutable Skill package and seven frozen Capability constraints', () => {
     const assessment = new UgvAgentProfileSkillProviderDependencyPolicy().assess(input());
 

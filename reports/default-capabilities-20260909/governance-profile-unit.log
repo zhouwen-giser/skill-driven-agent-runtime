@@ -1,0 +1,41 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts (6 tests | 1 failed) 81ms
+     × accepts the explicitly selected upstream ten-tool profile and rejects drift 11ms
+ ❯ |unit| apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts (15 tests | 1 failed) 1636ms
+     × publishes all governed surfaces while keeping weapon invocation readiness restricted 116ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts > UGV SMPP Capability and Skill governance driver > publishes all governed surfaces while keeping weapon invocation readiness restricted
+ReferenceError: explicit is not defined
+ ❯ apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts:115:12
+    113|       restrictionReason: 'STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED',
+    114|     });
+    115|     expect(explicit.implementation('embodied.move')).toMatchObject({
+       |            ^
+    116|       providerPolicyOverride: { allowedResourceIds: ['vehicle:ugv2'] },
+    117|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |unit| apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts > UGV SMPP Provider materialization wrapper > accepts the explicitly selected upstream ten-tool profile and rejects drift
+UgvSmppProviderMaterializationError: Control and Runtime operation counts differ.
+ ❯ materializeUgvSmppProvider apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:174:13
+    172|   } catch (error) {
+    173|     if (error instanceof SmppProviderMaterializationError)
+    174|       throw new UgvSmppProviderMaterializationError(error.code, error.…
+       |             ^
+    175|     throw error;
+    176|   }
+ ❯ apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts:121:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 19 passed (21)
+   Start at  15:02:33
+   Duration  5.07s (transform 3.41s, setup 0ms, import 4.59s, tests 1.72s, environment 0ms)
+

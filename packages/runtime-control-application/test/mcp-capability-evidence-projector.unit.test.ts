@@ -1,3 +1,5 @@
+import { getEvidenceRecordSchema } from '../../domain/src/index.js';
+import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import { describe, expect, it } from 'vitest';
 
 import type {
@@ -67,6 +69,16 @@ describe('McpCapabilityEvidenceProjector', () => {
     });
 
     const result = await projector.projectTask('task-evidence');
+    const logical = writer.records.find(
+      (record) => record.recordType === 'mcp_task.logical_invocation',
+    );
+    expect(logical?.payload).toMatchObject({ argumentsHash: `sha256:${'2'.repeat(64)}` });
+    expect(
+      new AjvJsonSchemaValidator({ strict: false }).validate(
+        getEvidenceRecordSchema('mcp_task.logical_invocation'),
+        logical,
+      ),
+    ).toEqual({ valid: true, errors: [] });
 
     expect(new Set(writer.records.map((record) => record.recordType))).toEqual(
       new Set([

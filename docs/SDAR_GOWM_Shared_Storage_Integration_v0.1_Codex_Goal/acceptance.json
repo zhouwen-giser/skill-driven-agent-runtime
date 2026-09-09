@@ -1,0 +1,575 @@
+{
+  "version": "1.0",
+  "status": "DESIGN_NOT_EXECUTED",
+  "items": [
+    {
+      "id": "A01",
+      "title": "只修改SDAR并保持GOWM/SMPP等仓库只读",
+      "phase": "P0",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "changed-files与边界检查",
+      "scenarioIds": [
+        "T43"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A02",
+      "title": "读取当前有效GOWM功能分支与SDAR基线",
+      "phase": "P0",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "来源commit、实际DDL和矩阵",
+      "scenarioIds": [
+        "T01"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A03",
+      "title": "固定ugv_sdar，无每实例业务库/导出/双写",
+      "phase": "P1",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "连接配置及全部生产Pool盘点",
+      "scenarioIds": [
+        "T03",
+        "T45"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A04",
+      "title": "共享启动只验证，不执行原生迁移/建表/重置",
+      "phase": "P1",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "启动SQL/代码路径检查",
+      "scenarioIds": [
+        "T01",
+        "T02"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A05",
+      "title": "独立管理库和扩展命名空间保持边界",
+      "phase": "P1",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "Node Control配置回归及pgvector查询",
+      "scenarioIds": [
+        "T03",
+        "T46"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A06",
+      "title": "同事务同client且无全局currentDevice",
+      "phase": "P1",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "事务失败/多连接测试",
+      "scenarioIds": [
+        "T03",
+        "T42"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A07",
+      "title": "显式设备/服务绑定解析与历史上下文恢复",
+      "phase": "P1",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "入口和恢复场景",
+      "scenarioIds": [
+        "T04",
+        "T38",
+        "T39"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A08",
+      "title": "agent_task三字段与非设备NULL语义正确",
+      "phase": "P2",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "根Task和子记录回读",
+      "scenarioIds": [
+        "T05",
+        "T06",
+        "T10"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A09",
+      "title": "初始Admission内部主键和设备partial幂等正确",
+      "phase": "P2",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "同设备重放/跨设备同key/不同参数",
+      "scenarioIds": [
+        "T07",
+        "T08",
+        "T09",
+        "T10"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A10",
+      "title": "原生Task revision/command authority保留",
+      "phase": "P2",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "合法和非法修订测试",
+      "scenarioIds": [
+        "T11"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A11",
+      "title": "共享Goal/Skill与设备执行Plan区分",
+      "phase": "P2",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "双设备复用定义",
+      "scenarioIds": [
+        "T12"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A12",
+      "title": "Workflow完整定义和未执行分支保留",
+      "phase": "P2",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "definition和GOWM steps回读",
+      "scenarioIds": [
+        "T13",
+        "T44"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A13",
+      "title": "Instance/NodeRun/Retry/子Workflow身份不合并",
+      "phase": "P2",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "重复node多个run证据",
+      "scenarioIds": [
+        "T14",
+        "T34"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A14",
+      "title": "A2A投影与管理读取按设备且协议保持",
+      "phase": "P2",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "实际Task读取和更新",
+      "scenarioIds": [
+        "T15",
+        "T46"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A15",
+      "title": "任务结构化输入/源引用和原参数完整保存",
+      "phase": "P3",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "Skill input与Invocation参数回读",
+      "scenarioIds": [
+        "T16",
+        "T17"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A16",
+      "title": "Point/Polygon及计划节点目标明确关联",
+      "phase": "P3",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "Task/Plan/Node目标数据",
+      "scenarioIds": [
+        "T16",
+        "T17",
+        "T20"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A17",
+      "title": "未知或局部CRS不伪装WGS84",
+      "phase": "P3",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "原始参数与normalization状态",
+      "scenarioIds": [
+        "T18"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A18",
+      "title": "目标版本/幂等/事务回滚正确",
+      "phase": "P3",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "重放、修改、回滚场景",
+      "scenarioIds": [
+        "T19"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A19",
+      "title": "只写SDAR owner，不代写MCP/Provider目标",
+      "phase": "P3",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "owner域与权限检查",
+      "scenarioIds": [
+        "T20",
+        "T43"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A20",
+      "title": "同步MCP调用不伪造Remote Binding",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "同步工具真实处理",
+      "scenarioIds": [
+        "T21"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A21",
+      "title": "Invocation/Remote Binding保留完整执行关联",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "Task→Plan→Run→Invocation→Remote回读",
+      "scenarioIds": [
+        "T22"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A22",
+      "title": "Remote Task设备及非设备partial身份键正确",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "同server/remote跨设备测试",
+      "scenarioIds": [
+        "T23"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A23",
+      "title": "canonical关联只接受同设备服务明确父身份",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "父先到和身份冲突",
+      "scenarioIds": [
+        "T24",
+        "T27"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A24",
+      "title": "延迟父发布允许NULL且受控补齐",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "回执先到、父晚到",
+      "scenarioIds": [
+        "T25",
+        "T28"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A25",
+      "title": "opaque remote/父缺失不猜测、不伪造成功",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "待关联状态和原协议结果",
+      "scenarioIds": [
+        "T26"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A26",
+      "title": "补canonical不新增MCP任务或写ugv_smpp",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "调用计数及生产角色权限",
+      "scenarioIds": [
+        "T25",
+        "T28",
+        "T43"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A27",
+      "title": "input/cancel/通知使用原远端身份",
+      "phase": "P4",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "输入、取消双设备流程",
+      "scenarioIds": [
+        "T29"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A28",
+      "title": "所有实际claim/poll/recovery限定设备范围",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "worker scope矩阵和实际SQL",
+      "scenarioIds": [
+        "T30",
+        "T31"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A29",
+      "title": "竞争领取/过期接管/旧token拒绝正确",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "双连接并发",
+      "scenarioIds": [
+        "T31",
+        "T32"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A30",
+      "title": "正常进程重启恢复不重复执行",
+      "phase": "P6",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "重启前后Task/Invocation/call count",
+      "scenarioIds": [
+        "T33"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A31",
+      "title": "Continuation等待/循环/并行状态保留",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "Continuation版本和run身份",
+      "scenarioIds": [
+        "T34"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A32",
+      "title": "业务事件current/generation包含设备服务范围",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "同provider不同设备订阅",
+      "scenarioIds": [
+        "T35"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A33",
+      "title": "事件收件箱/游标/continuity按subscription继承",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "去重和旧代事件测试",
+      "scenarioIds": [
+        "T36"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A34",
+      "title": "无硬Task FK的来源表设备字段完整适配",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "逐表映射清单及真实写入",
+      "scenarioIds": [
+        "T37"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A35",
+      "title": "绑定变更不改变历史归属和authority snapshot",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "旧Task继续、新Task新绑定",
+      "scenarioIds": [
+        "T38",
+        "T39"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A36",
+      "title": "缓存/队列/MCP client路由不串设备",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "并发上下文与重启",
+      "scenarioIds": [
+        "T40",
+        "T33"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A37",
+      "title": "过期和清理不删除核心业务历史链",
+      "phase": "P5",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "执行现有cleanup后的回读",
+      "scenarioIds": [
+        "T41"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A38",
+      "title": "正常server装配真实使用共享Repository",
+      "phase": "P6",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "start:server路径及完整开发链",
+      "scenarioIds": [
+        "T45"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A39",
+      "title": "实际PostgreSQL双设备回读完整",
+      "phase": "P6",
+      "required": true,
+      "verificationLayer": "DATABASE",
+      "evidence": "数据库测试与GOWM views结果",
+      "scenarioIds": [
+        "T05",
+        "T44"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A40",
+      "title": "协议桩与真实SMPP测试明确分开",
+      "phase": "P6",
+      "required": true,
+      "verificationLayer": "RUNTIME",
+      "evidence": "测试角色、同伴类型和报告",
+      "scenarioIds": [
+        "T43",
+        "T45",
+        "T48"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A41",
+      "title": "当前确认/开发默认/非设备与管理功能不退化",
+      "phase": "P7",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "受影响现有回归",
+      "scenarioIds": [
+        "T46",
+        "T47"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A42",
+      "title": "typecheck/lint/test/build及协议架构检查通过",
+      "phase": "P7",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "真实命令与exit code",
+      "scenarioIds": [
+        "T47"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A43",
+      "title": "新增离线检查和无Docker smoke帮助可用",
+      "phase": "P7",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "命令执行记录",
+      "scenarioIds": [
+        "T01",
+        "T48"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A44",
+      "title": "最终报告准确区分SOURCE/DEV/INCOMPLETE",
+      "phase": "P7",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "报告、测试数量、NOT_RUN理由",
+      "scenarioIds": [
+        "T48"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "A45",
+      "title": "只生成单仓提交和Draft PR交付，不自动发布",
+      "phase": "P7",
+      "required": true,
+      "verificationLayer": "SOURCE",
+      "evidence": "实际commit/PR或权限限制说明",
+      "scenarioIds": [],
+      "status": "NOT_RUN"
+    }
+  ]
+}

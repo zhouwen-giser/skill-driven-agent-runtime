@@ -1,7 +1,14 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { remoteTaskChildScopeSql } from './gowm-mcp-ownership.js';
+import {
+  continuationScopeSql,
+  continuationAttemptScopeSql,
+  assertContinuationOwner,
+} from './gowm-continuation-scope.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
-import type { WorkflowContinuationRepository } from '../../application/src/index.js';
+import { canonicalHash, type WorkflowContinuationRepository } from '../../application/src/index.js';
 import {
   assertWorkflowContinuationSuccessor,
   snapshotWorkflowScopes,
@@ -126,6 +133,7 @@ interface WorkflowContinuationAttemptRow extends QueryResultRow {
 }
 
 interface RemoteTaskWaitAuthorityRow extends QueryResultRow {
+  agent_task_id: string;
   workflow_instance_id: string;
   workflow_node_id: string;
   workflow_node_run_id: string;
@@ -151,19 +159,25 @@ interface ContinuationControlRow extends QueryResultRow {
 export class PostgresWorkflowContinuationRepository implements WorkflowContinuationRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  readonly #deviceScope: DeviceWorkScope | undefined;
+
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async saveSnapshot(snapshot: WorkflowContinuationSnapshot): Promise<void> {
     const validated = createWorkflowContinuationSnapshot(snapshot);
     await withTransaction(this.#pool, async (client) => {
+      if (this.#deviceScope !== undefined)
+        await assertContinuationOwner(client, this.#deviceScope, validated);
+      const scope = continuationScopeSql(this.#deviceScope, 2);
       const currentResult = await client.query<WorkflowContinuationSnapshotRow>(
         `SELECT * FROM workflow_continuation_snapshot
-         WHERE continuation_id=$1
+         WHERE continuation_id=$1 AND ${scope.predicate}
          ORDER BY state_version DESC
          LIMIT 1 FOR UPDATE`,
-        [validated.continuationId],
+        [validated.continuationId, ...scope.values],
       );
       const currentRow = currentResult.rows[0];
       if (currentRow === undefined) {
@@ -175,7 +189,7 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
       } else {
         const current = mapSnapshot(currentRow);
         if (current.snapshotId === validated.snapshotId) {
-          if (JSON.stringify(current) !== JSON.stringify(validated))
+          if (canonicalHash(current) !== canonicalHash(validated))
             throw new WorkflowContinuationPersistenceError(
               'WORKFLOW_CONTINUATION_IDEMPOTENCY_CONFLICT',
               'The continuation snapshot identity is already bound to different evidence.',
@@ -223,9 +237,10 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
     updatedAt: string,
   ): Promise<WorkflowContinuationSnapshot> {
     return withTransaction(this.#pool, async (client) => {
+      const scope = continuationScopeSql(this.#deviceScope, 2);
       const locked = await client.query<WorkflowContinuationSnapshotRow>(
-        'SELECT * FROM workflow_continuation_snapshot WHERE snapshot_id=$1 FOR UPDATE',
-        [snapshotId],
+        `SELECT * FROM workflow_continuation_snapshot WHERE snapshot_id=$1 AND ${scope.predicate} FOR UPDATE`,
+        [snapshotId, ...scope.values],
       );
       const row = locked.rows[0];
       if (row?.lifecycle !== expected)
@@ -253,19 +268,21 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
   }
 
   async findById(snapshotId: string): Promise<WorkflowContinuationSnapshot | undefined> {
+    const scope = continuationScopeSql(this.#deviceScope, 2, 'workflow_continuation_snapshot');
     const result = await this.#pool.query<WorkflowContinuationSnapshotRow>(
-      'SELECT * FROM workflow_continuation_snapshot WHERE snapshot_id=$1',
-      [snapshotId],
+      `SELECT * FROM workflow_continuation_snapshot WHERE snapshot_id=$1 AND ${scope.predicate}`,
+      [snapshotId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapSnapshot(result.rows[0]);
   }
 
   async findCurrent(workflowInstanceId: string): Promise<WorkflowContinuationSnapshot | undefined> {
+    const scope = continuationScopeSql(this.#deviceScope, 2, 'workflow_continuation_snapshot');
     const result = await this.#pool.query<WorkflowContinuationSnapshotRow>(
       `SELECT * FROM workflow_continuation_snapshot
-       WHERE workflow_instance_id=$1 AND lifecycle='active'
+       WHERE workflow_instance_id=$1 AND lifecycle='active' AND ${scope.predicate}
        ORDER BY state_version DESC LIMIT 1`,
-      [workflowInstanceId],
+      [workflowInstanceId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapSnapshot(result.rows[0]);
   }
@@ -278,10 +295,11 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
       nodeId: string;
     }>,
   ): Promise<WorkflowContinuationSnapshot | undefined> {
+    const scope = continuationScopeSql(this.#deviceScope, 5, 'snapshot');
     const result = await this.#pool.query<WorkflowContinuationSnapshotRow>(
       `SELECT *
          FROM workflow_continuation_snapshot AS snapshot
-        WHERE snapshot.workflow_instance_id=$1
+        WHERE snapshot.workflow_instance_id=$1 AND ${scope.predicate}
           AND EXISTS (
             SELECT 1
               FROM jsonb_array_elements(snapshot.state_json->'waitingNodeRuns') AS candidate
@@ -291,19 +309,20 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
           )
         ORDER BY snapshot.state_version DESC
         LIMIT 1`,
-      [workflowInstanceId, wait.kind, wait.sourceId, wait.nodeId],
+      [workflowInstanceId, wait.kind, wait.sourceId, wait.nodeId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapSnapshot(result.rows[0]);
   }
 
   async findCurrentByBinding(bindingId: string): Promise<WorkflowContinuationSnapshot | undefined> {
+    const scope = continuationScopeSql(this.#deviceScope, 2, 'snapshot');
     const result = await this.#pool.query<WorkflowContinuationSnapshotRow>(
       `SELECT snapshot.*
        FROM workflow_continuation_snapshot snapshot
        JOIN workflow_continuation_wait_binding wait ON wait.snapshot_id=snapshot.snapshot_id
-       WHERE wait.binding_id=$1 AND snapshot.lifecycle='active'
+       WHERE wait.binding_id=$1 AND snapshot.lifecycle='active' AND ${scope.predicate}
        ORDER BY snapshot.state_version DESC LIMIT 1`,
-      [bindingId],
+      [bindingId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapSnapshot(result.rows[0]);
   }
@@ -313,6 +332,7 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
     limit: number,
     afterEventId?: string,
   ): Promise<readonly RemoteTaskControlEvent[]> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 4, 'event');
     const result = await this.#pool.query<ContinuationControlRow>(
       `SELECT event.*
        FROM remote_task_control_event event
@@ -330,10 +350,11 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
              WHERE attempt.event_id=event.event_id
            )
          )
+         AND ${scope.predicate}
          AND ($3::text IS NULL OR event.event_id > $3)
        ORDER BY event.event_id
        LIMIT $2`,
-      [now, boundedLimit(limit), afterEventId ?? null],
+      [now, boundedLimit(limit), afterEventId ?? null, ...scope.values],
     );
     return result.rows.map(mapControl);
   }
@@ -347,9 +368,10 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
     }>,
   ): Promise<RemoteTaskControlEvent | undefined> {
     return withTransaction(this.#pool, async (client) => {
+      const scope = remoteTaskChildScopeSql(this.#deviceScope, 2, 'remote_task_control_event');
       const locked = await client.query<ContinuationControlRow>(
-        'SELECT * FROM remote_task_control_event WHERE event_id=$1 FOR UPDATE',
-        [input.eventId],
+        `SELECT * FROM remote_task_control_event WHERE event_id=$1 AND ${scope.predicate} FOR UPDATE`,
+        [input.eventId, ...scope.values],
       );
       const event = locked.rows[0];
       if (event === undefined) return undefined;
@@ -422,12 +444,20 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
     )
       throw new Error('WORKFLOW_CONTINUATION_BINDING_DISPOSITION_STATUS_INVALID');
     await withTransaction(this.#pool, async (client) => {
+      const scope = remoteTaskChildScopeSql(this.#deviceScope, 6, 'remote_task_control_event');
       const result = await client.query<{ binding_id: string }>(
         `UPDATE remote_task_control_event
          SET status=$3,processed_at=$4,error_code=$5
-         WHERE event_id=$1 AND status='claimed' AND continuation_claim_token=$2
+         WHERE event_id=$1 AND status='claimed' AND continuation_claim_token=$2 AND ${scope.predicate}
          RETURNING binding_id`,
-        [input.eventId, input.claimToken, input.status, input.processedAt, input.errorCode ?? null],
+        [
+          input.eventId,
+          input.claimToken,
+          input.status,
+          input.processedAt,
+          input.errorCode ?? null,
+          ...scope.values,
+        ],
       );
       if (result.rowCount !== 1)
         throw new WorkflowContinuationPersistenceError(
@@ -460,13 +490,14 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
     }>,
   ): Promise<void> {
     await withTransaction(this.#pool, async (client) => {
+      const scope = remoteTaskChildScopeSql(this.#deviceScope, 4, 'remote_task_control_event');
       const result = await client.query<{ binding_id: string }>(
         `UPDATE remote_task_control_event
          SET status='pending',claimed_at=NULL,processed_at=NULL,error_code=$3,
              continuation_claim_token=NULL,continuation_claim_expires_at=NULL
-         WHERE event_id=$1 AND status='claimed' AND continuation_claim_token=$2
+         WHERE event_id=$1 AND status='claimed' AND continuation_claim_token=$2 AND ${scope.predicate}
          RETURNING binding_id`,
-        [input.eventId, input.claimToken, input.errorCode],
+        [input.eventId, input.claimToken, input.errorCode, ...scope.values],
       );
       if (result.rowCount !== 1)
         throw new WorkflowContinuationPersistenceError(
@@ -490,17 +521,28 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
 
   async saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void> {
     const validated = createWorkflowContinuationAttempt(attempt);
+    const scope = continuationScopeSql(this.#deviceScope, 13, 'scope_snapshot');
     const result = await this.#pool.query<WorkflowContinuationAttemptRow>(
       `INSERT INTO workflow_continuation_attempt (
          attempt_id,event_id,snapshot_id,continuation_id,workflow_instance_id,
          snapshot_state_version,claim_token,status,created_at,started_at,completed_at,error_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12
+       WHERE EXISTS(SELECT 1 FROM workflow_continuation_snapshot scope_snapshot
+         JOIN remote_task_control_event scope_event ON scope_event.event_id=$2
+         JOIN remote_task_binding scope_binding ON scope_binding.binding_id=scope_event.binding_id
+         WHERE scope_snapshot.snapshot_id=$3 AND scope_snapshot.continuation_id=$4
+           AND scope_snapshot.workflow_instance_id=$5 AND scope_snapshot.state_version=$6
+           AND scope_binding.agent_task_id=scope_snapshot.agent_task_id
+           AND scope_binding.workflow_instance_id=scope_snapshot.workflow_instance_id
+           AND EXISTS(SELECT 1 FROM workflow_continuation_wait_binding scope_wait
+             WHERE scope_wait.snapshot_id=scope_snapshot.snapshot_id AND scope_wait.binding_id=scope_binding.binding_id)
+           AND ${scope.predicate})
        ON CONFLICT (attempt_id) DO NOTHING RETURNING *`,
-      attemptParameters(validated),
+      [...attemptParameters(validated), ...scope.values],
     );
     if (result.rowCount === 1) return;
     const existing = await this.findAttempt(validated.attemptId);
-    if (existing === undefined || JSON.stringify(existing) !== JSON.stringify(validated))
+    if (existing === undefined || canonicalHash(existing) !== canonicalHash(validated))
       throw new WorkflowContinuationPersistenceError(
         'WORKFLOW_CONTINUATION_IDEMPOTENCY_CONFLICT',
         'The continuation attempt identity is already bound to different evidence.',
@@ -512,10 +554,11 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
     expectedStatus: WorkflowContinuationAttemptStatus,
   ): Promise<void> {
     const validated = createWorkflowContinuationAttempt(attempt);
+    const scope = continuationAttemptScopeSql(this.#deviceScope, 8);
     const result = await this.#pool.query(
       `UPDATE workflow_continuation_attempt
        SET status=$3,started_at=$4,completed_at=$5,error_code=$6
-       WHERE attempt_id=$1 AND claim_token=$2 AND status=$7`,
+       WHERE attempt_id=$1 AND claim_token=$2 AND status=$7 AND ${scope.predicate}`,
       [
         validated.attemptId,
         validated.claimToken,
@@ -524,6 +567,7 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
         validated.completedAt ?? null,
         validated.errorCode ?? null,
         expectedStatus,
+        ...scope.values,
       ],
     );
     if (result.rowCount !== 1)
@@ -534,9 +578,10 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
   }
 
   async findAttempt(attemptId: string): Promise<WorkflowContinuationAttempt | undefined> {
+    const scope = continuationAttemptScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<WorkflowContinuationAttemptRow>(
-      'SELECT * FROM workflow_continuation_attempt WHERE attempt_id=$1',
-      [attemptId],
+      `SELECT * FROM workflow_continuation_attempt WHERE attempt_id=$1 AND ${scope.predicate}`,
+      [attemptId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapAttempt(result.rows[0]);
   }
@@ -544,19 +589,21 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
   async findLatestAttemptByEvent(
     eventId: string,
   ): Promise<WorkflowContinuationAttempt | undefined> {
+    const scope = continuationAttemptScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<WorkflowContinuationAttemptRow>(
       `SELECT * FROM workflow_continuation_attempt
-       WHERE event_id=$1 ORDER BY created_at DESC,attempt_id DESC LIMIT 1`,
-      [eventId],
+       WHERE event_id=$1 AND ${scope.predicate} ORDER BY created_at DESC,attempt_id DESC LIMIT 1`,
+      [eventId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapAttempt(result.rows[0]);
   }
 
   async listAttempts(workflowInstanceId: string): Promise<readonly WorkflowContinuationAttempt[]> {
+    const scope = continuationAttemptScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<WorkflowContinuationAttemptRow>(
       `SELECT * FROM workflow_continuation_attempt
-       WHERE workflow_instance_id=$1 ORDER BY created_at,attempt_id`,
-      [workflowInstanceId],
+       WHERE workflow_instance_id=$1 AND ${scope.predicate} ORDER BY created_at,attempt_id`,
+      [workflowInstanceId, ...scope.values],
     );
     return result.rows.map(mapAttempt);
   }
@@ -622,13 +669,14 @@ async function assertWaitBindingsAvailable(
   for (const wait of snapshot.waitingNodeRuns) {
     if (wait.kind !== 'remote_task') continue;
     const bindingResult = await client.query<RemoteTaskWaitAuthorityRow>(
-      `SELECT workflow_instance_id,workflow_node_id,workflow_node_run_id
+      `SELECT agent_task_id,workflow_instance_id,workflow_node_id,workflow_node_run_id
        FROM remote_task_binding WHERE binding_id=$1 FOR UPDATE`,
       [wait.sourceId],
     );
     const binding = bindingResult.rows[0];
     if (
-      binding?.workflow_instance_id !== snapshot.workflowInstanceId ||
+      binding?.agent_task_id !== snapshot.agentTaskId ||
+      binding.workflow_instance_id !== snapshot.workflowInstanceId ||
       binding.workflow_node_id !== wait.nodeId ||
       binding.workflow_node_run_id !== wait.nodeRunId
     )

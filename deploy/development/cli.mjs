@@ -116,7 +116,10 @@ try {
         compose(current.composePath, ['images']);
         console.log(
           JSON.stringify({
-            status: 'started',
+            status:
+              config.SDAR_UGV_BOOTSTRAP_ENABLED === 'YES'
+                ? 'started'
+                : 'started_governance_disabled',
             sourceRevision: revision,
             management: `http://${config.SDAR_DEPLOY_PUBLIC_HOST}:${config.SDAR_MANAGEMENT_PORT}`,
             a2a: `http://${config.SDAR_DEPLOY_PUBLIC_HOST}:${config.SDAR_A2A_PORT}`,

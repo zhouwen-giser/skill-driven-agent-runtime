@@ -1,0 +1,8 @@
+$ eslint .
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/node-control-acceptance/test/ugv-smpp-source-bootstrap-driver.unit.test.ts
+  24:20  error  'url' may use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

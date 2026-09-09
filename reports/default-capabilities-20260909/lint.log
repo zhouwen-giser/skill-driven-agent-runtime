@@ -1,0 +1,10 @@
+$ eslint .
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/test/default-capability-bootstrap.unit.test.ts
+  17:22  error  Async arrow function has no 'await' expression  @typescript-eslint/require-await
+  53:47  error  Async arrow function has no 'await' expression  @typescript-eslint/require-await
+  70:47  error  Async arrow function has no 'await' expression  @typescript-eslint/require-await
+
+✖ 3 problems (3 errors, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

@@ -1,0 +1,4093 @@
+[
+  {
+    "schema": "ugv_sdar",
+    "table": "agent_task",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "task_id",
+      "context_id",
+      "user_id",
+      "phase",
+      "phase_message",
+      "goal_id",
+      "goal_version",
+      "output_text",
+      "output_structured",
+      "error_code",
+      "created_at",
+      "updated_at",
+      "request_text",
+      "request_metadata",
+      "plan_id",
+      "capability_gap_json",
+      "selected_skill_id",
+      "selected_skill_version",
+      "skill_selection_id",
+      "temporary_skill_id",
+      "skill_input_resolution_id",
+      "user_goal_plan_id",
+      "skill_goal_id",
+      "skill_attempt_id",
+      "skill_execution_contract_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "conversation_context",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "context_id",
+      "user_id",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evaluation_influence",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "influence_id",
+      "report_id",
+      "task_id",
+      "experience_id",
+      "skill_observation_id",
+      "workflow_disposition",
+      "workflow_template_id",
+      "workflow_template_version",
+      "prompt_disposition",
+      "prompt_id",
+      "prompt_version",
+      "prompt_stage",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evolution_experience",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "experience_id",
+      "control_id",
+      "round_index",
+      "task_id",
+      "context_id",
+      "goal_id",
+      "goal_json",
+      "workflow_json",
+      "instance_id",
+      "skill_versions_json",
+      "tools_json",
+      "input_json",
+      "result_json",
+      "errors_json",
+      "evaluation_json",
+      "successful",
+      "duration_ms",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evolution_policy",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "singleton",
+      "success_threshold",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evolution_trigger",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "trigger_id",
+      "capability_fingerprint",
+      "experience_id",
+      "successful_experience_count",
+      "configured_threshold",
+      "decision",
+      "candidate_id",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "external_task_projection",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "protocol",
+      "task_id",
+      "context_id",
+      "state",
+      "status_timestamp",
+      "document_json",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "goal_id",
+      "context_id",
+      "version",
+      "title",
+      "description",
+      "constraints_json",
+      "success_criteria_json",
+      "status",
+      "previous_goal_id",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal_cancellation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "cancellation_id",
+      "goal_id",
+      "goal_version",
+      "reason",
+      "canceled_task_ids_json",
+      "invalidated_plan_ids_json",
+      "canceled_instance_ids_json",
+      "warnings_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal_input_inference",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "inference_id",
+      "task_id",
+      "context_id",
+      "outcome",
+      "decision_summary",
+      "used_sources_json",
+      "inferred_goal_json",
+      "clarification_question",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal_patch",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "patch_id",
+      "goal_id",
+      "from_version",
+      "to_version",
+      "instruction",
+      "changes_json",
+      "decision_summary",
+      "compensation_warnings_json",
+      "invalidated_plan_ids_json",
+      "invalidated_instance_ids_json",
+      "new_plan_id",
+      "before_goal_json",
+      "after_goal_json",
+      "created_at",
+      "triggering_task_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal_transition",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "transition_id",
+      "context_id",
+      "from_goal_id",
+      "to_goal_id",
+      "relationship",
+      "decision_summary",
+      "request_text",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "implicit_feedback",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "feedback_id",
+      "kind",
+      "source_task_id",
+      "trigger_task_id",
+      "context_id",
+      "confidence",
+      "evidence_summary",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "mcp_dependency_warning",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "warning_id",
+      "server_id",
+      "tool_name",
+      "reason",
+      "skill_id",
+      "skill_version",
+      "tool_revision",
+      "created_at",
+      "acknowledged_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "mcp_invocation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "invocation_id",
+      "task_id",
+      "context_id",
+      "server_id",
+      "tool_name",
+      "arguments_json",
+      "result_json",
+      "status",
+      "error_code",
+      "error_message",
+      "started_at",
+      "completed_at",
+      "duration_ms",
+      "execution_semantics_json",
+      "execution_mode",
+      "simulation_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "mcp_management_operation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "operation_id",
+      "server_id",
+      "operation_type",
+      "actor",
+      "target",
+      "summary_json",
+      "occurred_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "mcp_protocol_snapshot",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "snapshot_id",
+      "server_id",
+      "protocol_mode",
+      "protocol_version",
+      "baseline_sha256",
+      "supported_versions_json",
+      "capabilities_json",
+      "server_info_json",
+      "task_notifications",
+      "discovered_at",
+      "valid_until",
+      "tool_revision"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "mcp_server",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "server_id",
+      "name",
+      "endpoint",
+      "transport",
+      "status",
+      "tool_revision",
+      "encrypted_credential",
+      "created_at",
+      "updated_at",
+      "protocol_mode",
+      "current_protocol_snapshot_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "mcp_tool",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "server_id",
+      "tool_name",
+      "title",
+      "description",
+      "input_schema_json",
+      "enhancement_json",
+      "discovered_at",
+      "task_execution_json",
+      "output_schema_json",
+      "declared_execution_semantics_json",
+      "admin_execution_semantics_override_json",
+      "execution_semantics_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "memory_item",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "memory_id",
+      "type",
+      "content_json",
+      "summary",
+      "status",
+      "source_refs_json",
+      "supersedes_json",
+      "confidence",
+      "embedding_provider_id",
+      "embedding_dimensions",
+      "embedding",
+      "created_at",
+      "durability",
+      "authority",
+      "durability_reason"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "memory_retention_policy",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "singleton",
+      "review_after_days",
+      "archive_after_days",
+      "delete_after_days",
+      "automatic_archive_enabled",
+      "automatic_delete_enabled",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "memory_status_transition",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "transition_id",
+      "memory_id",
+      "from_status",
+      "to_status",
+      "replacement_memory_id",
+      "actor",
+      "reason",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "model_invocation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "invocation_id",
+      "stage",
+      "provider_id",
+      "model",
+      "operation",
+      "request_json",
+      "context_json",
+      "raw_response_json",
+      "structured_result_json",
+      "input_tokens",
+      "output_tokens",
+      "duration_ms",
+      "status",
+      "error_code",
+      "error_message",
+      "created_at",
+      "prompt_id",
+      "prompt_version",
+      "task_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "model_provider",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "provider_id",
+      "name",
+      "kind",
+      "base_url",
+      "model",
+      "enabled",
+      "timeout_ms",
+      "encrypted_credential",
+      "created_at",
+      "updated_at",
+      "api_style"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "processed_result",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "result_id",
+      "task_id",
+      "skill_id",
+      "skill_version",
+      "normalized_json",
+      "output_json",
+      "facts_json",
+      "valuable",
+      "value_summary",
+      "memory_candidates_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "prompt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "prompt_id",
+      "stage",
+      "current_version",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "prompt_version",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "prompt_id",
+      "stage",
+      "version",
+      "previous_version",
+      "content",
+      "status",
+      "source",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_binding",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "binding_id",
+      "server_id",
+      "operation_name",
+      "remote_task_id",
+      "agent_task_id",
+      "context_id",
+      "goal_id",
+      "goal_version",
+      "workflow_plan_id",
+      "workflow_definition_id",
+      "workflow_definition_version",
+      "workflow_instance_id",
+      "workflow_node_id",
+      "workflow_node_run_id",
+      "parent_workflow_instance_id",
+      "parent_skill_call_id",
+      "mcp_invocation_id",
+      "protocol_status",
+      "protocol_revision",
+      "tasks_schema_revision",
+      "provider_substate",
+      "remote_revision",
+      "last_provider_updated_at",
+      "local_state",
+      "requested_timing_json",
+      "execution_mode",
+      "simulation_id",
+      "credential_revision",
+      "session_revision",
+      "poll_interval_ms",
+      "next_poll_at",
+      "poll_attempt",
+      "provider_failure_count",
+      "poll_claim_token",
+      "poll_claimed_at",
+      "poll_claim_expires_at",
+      "result_snapshot_json",
+      "error_snapshot_json",
+      "last_safe_error_code",
+      "created_at",
+      "updated_at",
+      "invalidated_at",
+      "terminal_at",
+      "version",
+      "protocol_contract_json",
+      "task_behavior",
+      "runtime_revision",
+      "provider_revision",
+      "task_ttl_ms",
+      "task_expires_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_cancel_attempt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "cancel_request_id",
+      "binding_id",
+      "expected_request_version",
+      "method",
+      "protocol_revision",
+      "status",
+      "error_code",
+      "started_at",
+      "completed_at",
+      "duration_ms"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_cancel_request",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "cancel_request_id",
+      "binding_id",
+      "idempotency_key",
+      "source",
+      "reason_code",
+      "summary",
+      "delivery_status",
+      "provider_terminal_status",
+      "protocol_revision",
+      "acknowledged_at",
+      "resolved_at",
+      "claim_token",
+      "claimed_at",
+      "claim_expires_at",
+      "attempt_count",
+      "last_safe_error_code",
+      "requested_at",
+      "updated_at",
+      "version"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_control_event",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "event_id",
+      "binding_id",
+      "event_type",
+      "remote_revision",
+      "result_hash",
+      "payload_json",
+      "status",
+      "created_at",
+      "claimed_at",
+      "processed_at",
+      "error_code",
+      "continuation_claim_token",
+      "continuation_claim_expires_at",
+      "continuation_claim_attempt",
+      "runtime_revision"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_input_attempt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "input_request_id",
+      "binding_id",
+      "expected_binding_version",
+      "method",
+      "status",
+      "protocol_revision",
+      "error_code",
+      "started_at",
+      "completed_at",
+      "duration_ms"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_input_link",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "input_request_id",
+      "control_event_id",
+      "binding_id",
+      "remote_task_id",
+      "workflow_instance_id",
+      "workflow_node_id",
+      "workflow_node_run_id",
+      "remote_revision",
+      "result_hash",
+      "input_requests_json",
+      "status",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_observation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "observation_id",
+      "binding_id",
+      "sequence",
+      "observation_type",
+      "provider_event_id",
+      "remote_revision",
+      "payload_json",
+      "accepted",
+      "rejection_reason",
+      "observed_at",
+      "observation_source",
+      "runtime_revision",
+      "provider_revision",
+      "subscription_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_protocol_attempt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "binding_id",
+      "method",
+      "expected_binding_version",
+      "protocol_revision",
+      "status",
+      "error_code",
+      "started_at",
+      "completed_at",
+      "duration_ms"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_bootstrap_probe",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "id",
+      "label",
+      "embedding",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_event",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "event_id",
+      "task_id",
+      "context_id",
+      "event_type",
+      "event_timestamp",
+      "summary",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_terminal_outcome",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "outcome_id",
+      "outcome_kind",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "control_id",
+      "control_status",
+      "round_index",
+      "final_instance_id",
+      "result_id",
+      "summary",
+      "authority",
+      "enhancement_warnings_json",
+      "committed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "schema_migration",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "version",
+      "applied_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_id",
+      "current_version",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_call_workflow",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "parent_instance_id",
+      "parent_node_id",
+      "child_instance_id",
+      "child_plan_id",
+      "skill_id",
+      "skill_version",
+      "status",
+      "evaluation_summary",
+      "created_at",
+      "completed_at",
+      "call_id",
+      "parent_plan_id",
+      "confirmation_status"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_draft",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "draft_id",
+      "task_id",
+      "context_id",
+      "requested_by",
+      "intent",
+      "request_text",
+      "status",
+      "created_at",
+      "updated_at",
+      "published_skill_id",
+      "published_skill_version",
+      "published_by",
+      "published_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_embedding",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_id",
+      "skill_version",
+      "provider_id",
+      "dimensions",
+      "searchable_text",
+      "embedding",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_evolution_correction_experience",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "correction_id",
+      "candidate_id",
+      "capability_fingerprint",
+      "actor",
+      "summary",
+      "before_skill_json",
+      "after_skill_json",
+      "diff_json",
+      "validation_report_json",
+      "outcome",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_execution_event",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "event_id",
+      "sequence_number",
+      "execution_id",
+      "event_type",
+      "status_after",
+      "summary",
+      "details_json",
+      "occurred_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_execution_record",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "execution_id",
+      "parent_execution_id",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "skill_id",
+      "skill_version",
+      "selection_ref",
+      "applicability_status",
+      "usage_policy_json",
+      "workflow_plan_id",
+      "workflow_definition_id",
+      "workflow_definition_version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_execution_reference",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "link_id",
+      "execution_id",
+      "kind",
+      "reference_id",
+      "reference_type",
+      "source_system",
+      "uri",
+      "checksum",
+      "produced_at",
+      "producer_refs_json",
+      "metadata_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_formalization_candidate",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "candidate_id",
+      "capability_fingerprint",
+      "successful_experience_count",
+      "required_success_threshold",
+      "source_experience_ids_json",
+      "status",
+      "created_at",
+      "induction_report_json",
+      "validation_report_json",
+      "proposed_skill_json",
+      "published_skill_id",
+      "published_skill_version",
+      "evaluated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_input_resolution",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "resolution_id",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "skill_id",
+      "skill_version",
+      "structured_input_json",
+      "unresolved_fields_json",
+      "source_refs_json",
+      "decision_summary",
+      "status",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_package_import_audit",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_id",
+      "skill_version",
+      "package_checksum",
+      "package_root",
+      "file_checksums_json",
+      "validated_at",
+      "imported_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_performance_metrics",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_id",
+      "sample_count",
+      "success_rate",
+      "average_duration_ms",
+      "average_cost",
+      "failure_count",
+      "stability_score",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_quality_observation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "observation_id",
+      "skill_id",
+      "skill_version",
+      "evaluation_ref",
+      "score",
+      "successful",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_quality_warning",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "warning_id",
+      "skill_id",
+      "skill_version",
+      "kind",
+      "observation_ids_json",
+      "observed_value",
+      "threshold",
+      "summary",
+      "status",
+      "skill_status_at_creation",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_relation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "relation_id",
+      "source_skill_id",
+      "target_skill_id",
+      "relation_type",
+      "metadata_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_replacement_plan",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "replacement_plan_id",
+      "selection_id",
+      "failed_skill_id",
+      "candidates_json",
+      "replacement_skill_id",
+      "replacement_skill_version",
+      "decision_summary",
+      "status",
+      "created_at",
+      "goal_contract_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_selection_record",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "selection_id",
+      "goal_description",
+      "candidates_json",
+      "selected_skill_id",
+      "selected_skill_version",
+      "decision_summary",
+      "created_at",
+      "goal_contract_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_version",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_id",
+      "version",
+      "name",
+      "summary",
+      "description",
+      "capabilities_json",
+      "workflow_guidance",
+      "output_instruction",
+      "input_schema_json",
+      "output_schema_json",
+      "tool_policy_json",
+      "runtime_policy_json",
+      "status",
+      "source_kind",
+      "validation_passed",
+      "previous_version",
+      "created_at",
+      "usage_specification_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "stage_model_route",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "stage",
+      "provider_id",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_availability_snapshot",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "snapshot_id",
+      "readiness_id",
+      "node_id",
+      "server_id",
+      "operation_name",
+      "arguments_snapshot_json",
+      "arguments_hash",
+      "timing_snapshot_json",
+      "result_json",
+      "availability",
+      "risk_level",
+      "reservation_mode",
+      "reservation_ref",
+      "valid_until",
+      "source_revision",
+      "checked_at",
+      "normalization_reason_codes_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_execution_attempt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "task_id",
+      "context_id",
+      "reason",
+      "status",
+      "input_request_id",
+      "created_at",
+      "started_at",
+      "completed_at",
+      "error_code"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_execution_readiness",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "readiness_id",
+      "workflow_plan_id",
+      "plan_attempt",
+      "check_phase",
+      "workflow_instance_id",
+      "workflow_node_run_id",
+      "dsl_hash",
+      "disposition",
+      "permitted_actions_json",
+      "model_decision_json",
+      "guard_action",
+      "guard_reason_codes_json",
+      "confirmation_required",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_input_request",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "input_request_id",
+      "task_id",
+      "context_id",
+      "source",
+      "question",
+      "status",
+      "control_id",
+      "control_round_index",
+      "created_at",
+      "answered_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_input_response",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "input_response_id",
+      "input_request_id",
+      "task_id",
+      "content_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_quality_report",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "report_id",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "workflow_instance_id",
+      "processed_result_id",
+      "assessments_json",
+      "overall_score",
+      "status",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_wait_policy",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "singleton",
+      "timeout_seconds",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "temporary_skill",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "temporary_skill_id",
+      "task_id",
+      "context_id",
+      "name",
+      "description",
+      "tools_json",
+      "input_schema_json",
+      "output_schema_json",
+      "capability_fingerprint",
+      "status",
+      "created_at",
+      "expired_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "temporary_skill_experience",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "experience_id",
+      "temporary_skill_id",
+      "task_id",
+      "context_id",
+      "capability_fingerprint",
+      "successful",
+      "outcome_summary",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_continuation_attempt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "event_id",
+      "snapshot_id",
+      "continuation_id",
+      "workflow_instance_id",
+      "snapshot_state_version",
+      "claim_token",
+      "status",
+      "created_at",
+      "started_at",
+      "completed_at",
+      "error_code"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_continuation_snapshot",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "snapshot_id",
+      "continuation_id",
+      "state_version",
+      "predecessor_snapshot_id",
+      "schema_version",
+      "lifecycle",
+      "agent_task_id",
+      "context_id",
+      "workflow_control_id",
+      "goal_id",
+      "goal_version",
+      "workflow_plan_id",
+      "workflow_definition_id",
+      "workflow_definition_version",
+      "workflow_definition_hash",
+      "input_hash",
+      "workflow_instance_id",
+      "state_json",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_continuation_wait_binding",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "snapshot_id",
+      "wait_id",
+      "binding_id",
+      "wait_kind",
+      "node_id",
+      "node_run_id",
+      "wait_state"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_control",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "control_id",
+      "context_id",
+      "goal_id",
+      "goal_version",
+      "task_id",
+      "status",
+      "current_plan_id",
+      "input_json",
+      "skill_ids_json",
+      "planning_instruction",
+      "round_count",
+      "replan_count",
+      "final_instance_id",
+      "created_at",
+      "updated_at",
+      "terminal_outcome_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_control_round",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "control_id",
+      "round_index",
+      "plan_id",
+      "instance_id",
+      "workflow_version",
+      "evaluation_decision",
+      "evaluation_summary",
+      "replan_instruction",
+      "evaluation_detail_json",
+      "created_at",
+      "terminal_outcome_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_instance",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "instance_id",
+      "plan_id",
+      "workflow_definition_id",
+      "workflow_version",
+      "goal_id",
+      "goal_version",
+      "status",
+      "input_json",
+      "result_json",
+      "errors_json",
+      "started_at",
+      "completed_at",
+      "skill_versions_json",
+      "budget_limits_json",
+      "budget_usage_json",
+      "termination_reason",
+      "pending_confirmation_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_node_event",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "event_id",
+      "instance_id",
+      "sequence",
+      "node_id",
+      "event_type",
+      "event_timestamp",
+      "summary",
+      "duration_ms"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_plan",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "plan_id",
+      "goal_id",
+      "goal_version",
+      "definition_json",
+      "source_confirmed_plan_id",
+      "confirmation_status",
+      "attempt_count",
+      "created_at",
+      "source_plan_id",
+      "revision_kind",
+      "confirmation_task_id",
+      "confirmed_at",
+      "mcp_protocol_contract_json",
+      "composition_context_json",
+      "capability_gap_skill_ids_json",
+      "tool_execution_semantics_json",
+      "goal_contract_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_plan_attempt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "plan_id",
+      "attempt",
+      "candidate_json",
+      "validation_errors_json",
+      "valid",
+      "created_at",
+      "mcp_protocol_contract_json",
+      "composition_context_json",
+      "capability_gap_skill_ids_json",
+      "tool_execution_semantics_json",
+      "goal_contract_json"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_template",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "template_id",
+      "version",
+      "goal_key",
+      "structure_key",
+      "workflow_json",
+      "source_experience_ids_json",
+      "source_success_count",
+      "use_count",
+      "successful_use_count",
+      "average_use_duration_ms",
+      "status",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_template_occurrence",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "experience_id",
+      "goal_key",
+      "structure_key",
+      "workflow_json",
+      "duration_ms",
+      "created_at",
+      "quality_report_id"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_template_use",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "use_id",
+      "template_id",
+      "template_version",
+      "plan_id",
+      "workflow_definition_id",
+      "workflow_version",
+      "status",
+      "duration_ms",
+      "created_at",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "user_goal_contract",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "goal_id",
+      "goal_version",
+      "schema_version",
+      "contract_hash",
+      "contract_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "user_goal_plan",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "plan_id",
+      "goal_id",
+      "goal_version",
+      "revision",
+      "revision_kind",
+      "source_plan_id",
+      "status",
+      "contract_hash",
+      "content_hash",
+      "plan_json",
+      "lock_version",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_goal",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_goal_id",
+      "plan_id",
+      "ordinal",
+      "status",
+      "contract_json",
+      "lock_version",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_goal_dependency",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "dependency_id",
+      "plan_id",
+      "predecessor_skill_goal_id",
+      "successor_skill_goal_id",
+      "predicate"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_outcome_specification",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_id",
+      "skill_version",
+      "schema_version",
+      "specification_hash",
+      "specification_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_attempt",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "plan_id",
+      "skill_goal_id",
+      "ordinal",
+      "status",
+      "strategy_fingerprint",
+      "attempt_json",
+      "lock_version",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "skill_execution_contract",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "execution_contract_id",
+      "attempt_id",
+      "plan_id",
+      "skill_goal_id",
+      "skill_id",
+      "skill_version",
+      "contract_hash",
+      "contract_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_goal_contract",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "task_goal_contract_id",
+      "attempt_id",
+      "agent_task_id",
+      "remote_task_binding_id",
+      "contract_hash",
+      "contract_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "outcome_decision",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "outcome_decision_id",
+      "level",
+      "subject_id",
+      "plan_id",
+      "status",
+      "confidence",
+      "decision_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "progress_observation",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "progress_observation_id",
+      "plan_id",
+      "classification",
+      "vector_json",
+      "observed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "completed_effect",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "completed_effect_id",
+      "goal_id",
+      "plan_id",
+      "skill_goal_id",
+      "status",
+      "effect_fingerprint",
+      "effect_json",
+      "predecessor_effect_id",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "recovery_decision",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "recovery_decision_id",
+      "plan_id",
+      "skill_goal_id",
+      "attempt_id",
+      "action",
+      "reason_code",
+      "strategy_fingerprint",
+      "decision_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "business_event_subscription",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "subscription_id",
+      "provider_id",
+      "stream_id",
+      "generation",
+      "status",
+      "last_durably_admitted_sequence",
+      "last_processed_sequence",
+      "last_replayable_sequence",
+      "metadata_json",
+      "lock_version",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "business_event_continuity",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "continuity_id",
+      "subscription_id",
+      "previous_stream_id",
+      "new_stream_id",
+      "reason_code",
+      "affected_source_ids_json",
+      "gap_detected_at",
+      "last_replayable_sequence",
+      "last_continuous_sequence",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "business_event_inbox",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "inbox_id",
+      "subscription_id",
+      "event_id",
+      "sequence",
+      "envelope_hash",
+      "envelope_json",
+      "status",
+      "attempt_count",
+      "admitted_at",
+      "processed_at",
+      "error_code"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "event_relation_projection",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "relation_projection_id",
+      "inbox_id",
+      "status",
+      "relation_hash",
+      "relation_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "event_impact_assessment",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "assessment_id",
+      "inbox_id",
+      "classification",
+      "confidence",
+      "goal_id",
+      "plan_id",
+      "skill_goal_id",
+      "action",
+      "assessment_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "event_incident",
+    "source": "infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "incident_id",
+      "provider_id",
+      "stream_id",
+      "dedupe_key",
+      "incident_kind",
+      "agent_task_id",
+      "incident_json",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "cognitive_runtime_configuration",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "singleton",
+      "schema_version",
+      "configuration",
+      "version",
+      "updated_at",
+      "updated_by"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_capability_summary",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "summary_id",
+      "revision",
+      "catalog_hash",
+      "status",
+      "schema_version",
+      "source_refs",
+      "built_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_capability_summary_item",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "summary_id",
+      "capability_id",
+      "ordinal",
+      "title",
+      "definition"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_capability_limitation",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "summary_id",
+      "capability_id",
+      "limitation_id",
+      "reason_code",
+      "detail"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "public_capability_card_snapshot",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "snapshot_id",
+      "revision",
+      "summary_id",
+      "catalog_hash",
+      "generation_policy_version",
+      "status",
+      "card",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "generic_task_understanding",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "understanding_id",
+      "task_id",
+      "revision",
+      "disposition",
+      "objective",
+      "policy_version",
+      "state_hash",
+      "snapshot",
+      "source_refs",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "generic_task_understanding_dimension",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "understanding_id",
+      "dimension_id",
+      "kind",
+      "severity",
+      "question",
+      "answered",
+      "authorization_sensitive"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "interactive_goal_session",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "session_id",
+      "task_id",
+      "state",
+      "version",
+      "current_understanding_id",
+      "current_candidate_id",
+      "current_candidate_revision",
+      "clarification_rounds",
+      "revision_count",
+      "max_clarification_rounds",
+      "max_revisions",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "interactive_goal_turn",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "turn_id",
+      "session_id",
+      "ordinal",
+      "expected_session_version",
+      "idempotency_key",
+      "action",
+      "actor_id",
+      "payload",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal_contract_candidate",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "candidate_id",
+      "session_id",
+      "revision",
+      "status",
+      "contract",
+      "contract_hash",
+      "source_refs",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "interactive_planning_session",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "session_id",
+      "task_id",
+      "goal_session_id",
+      "confirmed_contract_candidate_id",
+      "state",
+      "version",
+      "current_candidate_id",
+      "current_candidate_revision",
+      "revision_count",
+      "max_revisions",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "interactive_planning_turn",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "turn_id",
+      "session_id",
+      "ordinal",
+      "expected_session_version",
+      "idempotency_key",
+      "action",
+      "actor_id",
+      "payload",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "user_goal_plan_candidate",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "candidate_id",
+      "session_id",
+      "revision",
+      "status",
+      "base_plan_id",
+      "plan",
+      "plan_hash",
+      "validation",
+      "source_refs",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "planning_correction_fact",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "correction_id",
+      "task_id",
+      "scope",
+      "tenant_id",
+      "user_id",
+      "correction_type",
+      "before_snapshot",
+      "user_instruction",
+      "structured_patch",
+      "after_snapshot",
+      "validation",
+      "source_refs",
+      "idempotency_key",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "planning_interaction_episode",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "episode_id",
+      "task_id",
+      "revision",
+      "episode_hash",
+      "completeness",
+      "snapshot",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "cognitive_runtime_outbox",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "event_id",
+      "event_type",
+      "aggregate_type",
+      "aggregate_id",
+      "aggregate_version",
+      "correlation",
+      "payload",
+      "occurred_at",
+      "published_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "cognitive_runtime_consumer_cursor",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "consumer_name",
+      "last_event_id",
+      "version",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_job",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "job_id",
+      "job_type",
+      "subject_id",
+      "status",
+      "attempt",
+      "max_attempts",
+      "available_at",
+      "lease_owner",
+      "lease_expires_at",
+      "idempotency_key",
+      "payload",
+      "last_error_code",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_dead_letter",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "dead_letter_id",
+      "job_id",
+      "error_code",
+      "error_summary",
+      "failed_at",
+      "replayed_at",
+      "replayed_by"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal_experience_episode",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "episode_id",
+      "goal_id",
+      "goal_version",
+      "revision",
+      "episode_hash",
+      "completeness",
+      "data_classification",
+      "redaction_codes",
+      "snapshot",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "goal_experience_episode_source",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "episode_id",
+      "source_ref_id",
+      "source_kind",
+      "source_id",
+      "source_revision",
+      "authority",
+      "data_classification",
+      "content_hash",
+      "captured_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_observation",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "observation_id",
+      "episode_id",
+      "revision",
+      "status",
+      "model_invocation_id",
+      "summary",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_observation_fact",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "observation_id",
+      "statement_id",
+      "kind",
+      "summary",
+      "confidence",
+      "source_ref_ids"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_extraction",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "extraction_id",
+      "observation_id",
+      "extractor_kind",
+      "status",
+      "result",
+      "error_code",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_reflection",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "reflection_id",
+      "observation_id",
+      "revision",
+      "status",
+      "delta",
+      "model_invocation_id",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "planning_heuristic",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "knowledge_id",
+      "revision",
+      "status",
+      "scope",
+      "tenant_id",
+      "user_id",
+      "risk",
+      "definition",
+      "version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "planning_heuristic_evidence",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "knowledge_id",
+      "knowledge_revision",
+      "evidence_id",
+      "polarity",
+      "source_ref",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_type_definition",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "knowledge_id",
+      "revision",
+      "status",
+      "scope",
+      "tenant_id",
+      "user_id",
+      "risk",
+      "fingerprint",
+      "definition",
+      "version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_type_evidence",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "knowledge_id",
+      "knowledge_revision",
+      "evidence_id",
+      "polarity",
+      "source_ref",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "capability_pattern_definition",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "knowledge_id",
+      "revision",
+      "status",
+      "scope",
+      "tenant_id",
+      "user_id",
+      "risk",
+      "catalog_hash",
+      "definition",
+      "version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "capability_pattern_evidence",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "knowledge_id",
+      "knowledge_revision",
+      "evidence_id",
+      "polarity",
+      "source_ref",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "capability_experience_evidence",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "evidence_id",
+      "capability_id",
+      "level",
+      "exact_skill_version_ref",
+      "source_ref",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "knowledge_promotion_evaluation",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "evaluation_id",
+      "knowledge_kind",
+      "knowledge_id",
+      "knowledge_revision",
+      "policy_version",
+      "status",
+      "evidence_summary",
+      "replay_report_ref",
+      "shadow_report_ref",
+      "human_approved",
+      "decided_by",
+      "created_at",
+      "decided_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "knowledge_status_transition",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "transition_id",
+      "knowledge_kind",
+      "knowledge_id",
+      "knowledge_revision",
+      "expected_version",
+      "from_status",
+      "to_status",
+      "reason",
+      "actor_id",
+      "human_approved",
+      "occurred_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_usage_record",
+    "source": "infra/postgres/migrations/0108_v123_cognitive_skeleton.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "usage_id",
+      "planning_session_id",
+      "plan_candidate_id",
+      "knowledge_kind",
+      "knowledge_id",
+      "knowledge_revision",
+      "injection_mode",
+      "influence",
+      "user_action",
+      "validator_result",
+      "final_outcome_ref",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "knowledge_delta_record",
+    "source": "infra/postgres/migrations/0117_v123_experience_reflection.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "delta_id",
+      "reflection_id",
+      "operation",
+      "knowledge_kind",
+      "target_knowledge_id",
+      "target_revision",
+      "candidate_knowledge_id",
+      "candidate_revision",
+      "fingerprint",
+      "delta",
+      "model_invocation_id",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "knowledge_candidate_lineage",
+    "source": "infra/postgres/migrations/0117_v123_experience_reflection.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "knowledge_kind",
+      "knowledge_id",
+      "knowledge_revision",
+      "reflection_id",
+      "delta_id",
+      "operation",
+      "fingerprint",
+      "identity",
+      "parent_refs",
+      "related_refs",
+      "model_invocation_refs",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "capability_gap_candidate",
+    "source": "infra/postgres/migrations/0119_v123_capability_pattern_induction.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "gap_id",
+      "fingerprint",
+      "status",
+      "capability_id",
+      "pattern_id",
+      "pattern_revision",
+      "catalog_hash",
+      "definition",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "knowledge_relation",
+    "source": "infra/postgres/migrations/0121_v123_knowledge_usage.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "relation_id",
+      "source_kind",
+      "source_knowledge_id",
+      "source_revision",
+      "target_kind",
+      "target_knowledge_id",
+      "target_revision",
+      "relation_type",
+      "evidence_refs",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "cognitive_management_action",
+    "source": "infra/postgres/migrations/0123_v123_cognitive_management_audit.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "action_id",
+      "operation",
+      "subject_id",
+      "expected_version",
+      "idempotency_key",
+      "actor_id",
+      "reason",
+      "request_hash",
+      "status",
+      "result",
+      "error_code",
+      "claimed_at",
+      "completed_at",
+      "failed_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "promotion_provenance_report",
+    "source": "infra/postgres/migrations/0124_v123_replay_shadow_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "report_id",
+      "knowledge_kind",
+      "knowledge_id",
+      "knowledge_revision",
+      "dataset_hash",
+      "report_hash",
+      "status",
+      "report",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "compiled_artifact",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "artifact_id",
+      "artifact_key",
+      "version",
+      "artifact_type",
+      "tenant_id",
+      "domain",
+      "status",
+      "risk_level",
+      "definition",
+      "applicability",
+      "dependency_snapshot",
+      "lineage_id",
+      "validation_summary_id",
+      "content_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_active_pointer",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "artifact_key",
+      "artifact_id",
+      "artifact_version",
+      "activated_by",
+      "activated_at",
+      "lock_version"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_lineage",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "lineage_id",
+      "artifact_id",
+      "artifact_version",
+      "source_episode_refs",
+      "source_knowledge_refs",
+      "source_correction_refs",
+      "source_pattern_refs",
+      "generation_methods",
+      "compiler_version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_validation_run",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "validation_run_id",
+      "artifact_id",
+      "artifact_version",
+      "validation_type",
+      "dataset_ref",
+      "status",
+      "result",
+      "metrics",
+      "counterexample_refs",
+      "started_at",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_approval",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "approval_id",
+      "artifact_id",
+      "artifact_version",
+      "approver_id",
+      "decision",
+      "reason",
+      "validation_summary_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_execution",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "artifact_execution_id",
+      "artifact_id",
+      "artifact_version",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "mode",
+      "decision_snapshot",
+      "generated_plan_id",
+      "status",
+      "fallback_reason_code",
+      "started_at",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_feedback",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "feedback_id",
+      "artifact_execution_id",
+      "artifact_id",
+      "feedback_type",
+      "reason_code",
+      "summary",
+      "impact",
+      "outcome_ref",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_match_log",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "match_id",
+      "request_id",
+      "task_id",
+      "candidate_artifact_id",
+      "score",
+      "applicability",
+      "decision",
+      "reason_codes",
+      "policy_snapshot_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_trace",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "trace_id",
+      "source_episode_id",
+      "task_type_refs",
+      "goal_fingerprint",
+      "capability_fingerprint",
+      "environment_fingerprint",
+      "trace",
+      "completeness",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "pattern_candidate",
+    "source": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "pattern_id",
+      "pattern_type",
+      "cohort_fingerprint",
+      "definition",
+      "support_refs",
+      "contradiction_refs",
+      "confidence",
+      "status",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "experience_trace_source",
+    "source": "infra/postgres/migrations/0126_v13_experience_compilation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "trace_id",
+      "source_episode_id",
+      "tenant_id",
+      "user_scope_id",
+      "normalizer_version",
+      "source_hash",
+      "data_classification",
+      "redaction_codes",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "pattern_candidate_support",
+    "source": "infra/postgres/migrations/0126_v13_experience_compilation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "pattern_id",
+      "trace_id",
+      "tenant_id",
+      "support_kind",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "compilation_run",
+    "source": "infra/postgres/migrations/0126_v13_experience_compilation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "run_id",
+      "run_type",
+      "source_episode_id",
+      "source_event_id",
+      "tenant_id",
+      "user_scope_id",
+      "cohort_fingerprint",
+      "status",
+      "attempt",
+      "max_attempts",
+      "available_at",
+      "lease_owner",
+      "lease_token",
+      "lease_expires_at",
+      "idempotency_key",
+      "payload",
+      "result_ref",
+      "last_error_code",
+      "last_error_summary",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "generalized_pattern",
+    "source": "infra/postgres/migrations/0127_v13_artifact_candidate_generation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "generalized_pattern_id",
+      "tenant_id",
+      "domain",
+      "task_type_id",
+      "source_fused_pattern_ref",
+      "content",
+      "content_hash",
+      "generalizer_version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "candidate_fingerprint",
+    "source": "infra/postgres/migrations/0127_v13_artifact_candidate_generation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "fingerprint",
+      "artifact_type",
+      "domain",
+      "task_type_id",
+      "artifact_ref",
+      "generator_version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "candidate_static_validation",
+    "source": "infra/postgres/migrations/0127_v13_artifact_candidate_generation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "validation_id",
+      "artifact_ref",
+      "schema_valid",
+      "dag_valid",
+      "required_criteria_covered",
+      "capability_shape_valid",
+      "parameter_policy_valid",
+      "side_effect_replay_safe",
+      "bounds_valid",
+      "duplicate_fingerprint",
+      "errors",
+      "warnings",
+      "validator_version",
+      "result",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "candidate_generation_run",
+    "source": "infra/postgres/migrations/0127_v13_artifact_candidate_generation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "run_id",
+      "tenant_id",
+      "source_pattern_ref",
+      "status",
+      "result_artifact_ref",
+      "started_at",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "candidate_model_invocation",
+    "source": "infra/postgres/migrations/0127_v13_artifact_candidate_generation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "invocation_id",
+      "run_id",
+      "model_id",
+      "prompt_hash",
+      "input_hash",
+      "output_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "fused_pattern",
+    "source": "infra/postgres/migrations/0128_v13_candidate_generation_runtime.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "fused_pattern_id",
+      "tenant_id",
+      "workflow_pattern_id",
+      "source_process_pattern_ref",
+      "source_trace_refs",
+      "content",
+      "content_hash",
+      "fusion_version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_replay_case",
+    "source": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "replay_case_id",
+      "tenant_id",
+      "task_type_id",
+      "primary_source_episode_id",
+      "content",
+      "fixture",
+      "content_hash",
+      "snapshot_completeness",
+      "retention_until",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_replay_tenant_deletion",
+    "source": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "tenant_id",
+      "deleted_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "replay_dataset_manifest",
+    "source": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "dataset_id",
+      "dataset_version",
+      "purpose",
+      "tenant_id",
+      "content",
+      "source_hash",
+      "content_hash",
+      "leakage_check_ref",
+      "promotion_eligible",
+      "invalidated_at",
+      "invalidation_reason",
+      "successor_dataset_id",
+      "successor_dataset_version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "replay_dataset_case",
+    "source": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "dataset_id",
+      "dataset_version",
+      "replay_case_id",
+      "ordinal"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_replay_case_result",
+    "source": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "validation_run_id",
+      "replay_case_id",
+      "evaluation",
+      "metrics",
+      "result_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_validation_failure",
+    "source": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "failure_id",
+      "validation_run_id",
+      "replay_case_id",
+      "category",
+      "severity",
+      "content",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_counterexample",
+    "source": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "counterexample_id",
+      "artifact_id",
+      "artifact_version",
+      "replay_case_id",
+      "failure_id",
+      "validation_run_id",
+      "content",
+      "condition_fingerprint",
+      "status",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_shadow_run",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "shadow_run_id",
+      "artifact_id",
+      "artifact_version",
+      "artifact_ref",
+      "artifact_hash",
+      "tenant_id",
+      "formal_request_ref",
+      "formal_goal_ref",
+      "formal_plan_ref",
+      "formal_goal_version",
+      "formal_plan_version",
+      "shadow_mode",
+      "policy_snapshot_hash",
+      "capability_catalog_hash",
+      "status",
+      "work_state",
+      "attempt",
+      "max_attempts",
+      "available_at",
+      "expires_at",
+      "lease_owner",
+      "lease_token",
+      "lease_expires_at",
+      "idempotency_key",
+      "last_error_code",
+      "last_error_summary",
+      "formal_projection",
+      "candidate_projection",
+      "declared_operations",
+      "current_policy_snapshot_hash",
+      "current_capability_catalog_hash",
+      "current_formal_goal_version",
+      "current_formal_plan_version",
+      "formal_outcome_ref",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_shadow_result",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "shadow_run_id",
+      "artifact_ref",
+      "shadow_decision_ref",
+      "shadow_plan_ref",
+      "formal_plan_ref",
+      "formal_outcome_ref",
+      "comparison",
+      "policy_violation",
+      "unsafe_attempt",
+      "stale",
+      "result_hash",
+      "evaluator_version",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_promotion_policy",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "promotion_policy_version",
+      "policy_hash",
+      "definition",
+      "created_at",
+      "created_by"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_promotion_package",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "promotion_package_id",
+      "artifact_id",
+      "artifact_version",
+      "artifact_ref",
+      "artifact_hash",
+      "validation_summary_ref",
+      "validation_summary_hash",
+      "shadow_summary_ref",
+      "shadow_summary_hash",
+      "counterexample_summary_ref",
+      "counterexample_summary_hash",
+      "risk_review_ref",
+      "risk_review_hash",
+      "dependency_snapshot_ref",
+      "dependency_snapshot_hash",
+      "promotion_policy_version",
+      "eligibility",
+      "content_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_promotion_assessment",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "promotion_package_id",
+      "coverage",
+      "reason_codes",
+      "evidence_hash",
+      "risk_review_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_activation_record",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "activation_id",
+      "artifact_id",
+      "artifact_version",
+      "artifact_ref",
+      "artifact_hash",
+      "approval_id",
+      "approval_hash",
+      "previous_active_artifact_ref",
+      "active_pointer_version",
+      "activated_by",
+      "activated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_revalidation_trigger",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "trigger_id",
+      "artifact_id",
+      "artifact_version",
+      "artifact_ref",
+      "trigger_type",
+      "source_refs",
+      "severity",
+      "validation_run_id",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_rollback_record",
+    "source": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "rollback_id",
+      "artifact_key",
+      "from_artifact_id",
+      "from_artifact_version",
+      "to_artifact_id",
+      "to_artifact_version",
+      "approval_id",
+      "reason",
+      "rolled_back_by",
+      "rolled_back_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_candidate_decision",
+    "source": "infra/postgres/migrations/0131_v13_artifact_retrieval_audit.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "decision_id",
+      "match_id",
+      "request_id",
+      "path",
+      "selected_artifact_ref",
+      "parameter_bindings",
+      "missing_parameters",
+      "required_confirmations",
+      "reason_codes",
+      "matcher_snapshot_hash",
+      "policy_snapshot_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "fast_gateway_request",
+    "source": "infra/postgres/migrations/0132_v13_fast_gateway.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "request_id",
+      "task_id",
+      "context_id",
+      "tenant_id",
+      "idempotency_key",
+      "request_hash",
+      "request_context",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "fast_gateway_decision",
+    "source": "infra/postgres/migrations/0132_v13_fast_gateway.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "gateway_decision_id",
+      "request_id",
+      "runtime_decision_id",
+      "runtime_decision",
+      "decision_record",
+      "decision_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "fast_gateway_feedback",
+    "source": "infra/postgres/migrations/0132_v13_fast_gateway.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "feedback_id",
+      "request_id",
+      "gateway_decision_id",
+      "feedback_type",
+      "feedback_envelope",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "case_runtime_match",
+    "source": "infra/postgres/migrations/0133_v13_case_model_runtime.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "runtime_request_ref",
+      "tenant_id",
+      "goal_context_ref",
+      "task_type_id",
+      "request_snapshot",
+      "matches",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "case_runtime_adaptation",
+    "source": "infra/postgres/migrations/0133_v13_case_model_runtime.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "adaptation_id",
+      "case_ref",
+      "goal_context_ref",
+      "artifact_hash",
+      "active_pointer_version",
+      "request_snapshot",
+      "adaptation_result",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "model_route_decision",
+    "source": "infra/postgres/migrations/0133_v13_case_model_runtime.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "route_decision_ref",
+      "tenant_id",
+      "request_ref",
+      "artifact_ref",
+      "artifact_hash",
+      "active_pointer_version",
+      "route_context",
+      "route_decision",
+      "decision_hash",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "model_cascade_run",
+    "source": "infra/postgres/migrations/0133_v13_case_model_runtime.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "cascade_run_id",
+      "route_decision_ref",
+      "decision_hash",
+      "run_snapshot",
+      "status",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "model_cascade_step",
+    "source": "infra/postgres/migrations/0133_v13_case_model_runtime.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "step_ref",
+      "cascade_run_id",
+      "profile_ref",
+      "attempt",
+      "status",
+      "step_evidence"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "artifact_management_read_audit",
+    "source": "infra/postgres/migrations/0134_v13_artifact_management_projection.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "audit_id",
+      "actor_id",
+      "roles",
+      "tenant_id",
+      "operation",
+      "target",
+      "request_id",
+      "result",
+      "source_ip",
+      "occurred_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_configuration_snapshot",
+    "source": "infra/postgres/migrations/0135_v14_runtime_configuration_lkg.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "configuration_id",
+      "revision",
+      "target_type",
+      "target_id",
+      "apply_mode",
+      "content",
+      "checksum",
+      "created_by",
+      "created_at",
+      "published_at",
+      "is_active",
+      "is_lkg",
+      "applied_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_configuration_ack_outbox",
+    "source": "infra/postgres/migrations/0135_v14_runtime_configuration_lkg.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "ack_id",
+      "runtime_instance_id",
+      "target_type",
+      "target_id",
+      "revision",
+      "status",
+      "observed_runtime_version",
+      "active_checksum",
+      "reason_code",
+      "detail",
+      "acknowledged_at",
+      "delivered_at",
+      "delivery_attempts",
+      "last_error"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_task_configuration_binding",
+    "source": "infra/postgres/migrations/0135_v14_runtime_configuration_lkg.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "task_id",
+      "target_type",
+      "target_id",
+      "configuration_id",
+      "revision",
+      "checksum",
+      "bound_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_model_provider_catalog",
+    "source": "infra/postgres/migrations/0136_v14_model_control_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "configuration_id",
+      "revision",
+      "provider_id",
+      "provider_type",
+      "base_url",
+      "credential_ref",
+      "encrypted_credential",
+      "model_catalog",
+      "health_policy",
+      "rate_limit_policy",
+      "checksum",
+      "is_active",
+      "applied_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_model_route_snapshot",
+    "source": "infra/postgres/migrations/0136_v14_model_control_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "configuration_id",
+      "revision",
+      "route_id",
+      "stage",
+      "scope_type",
+      "scope_key",
+      "candidates",
+      "budget_policy",
+      "checksum",
+      "is_active",
+      "applied_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_task_model_route_binding",
+    "source": "infra/postgres/migrations/0136_v14_model_control_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "task_id",
+      "model_stage",
+      "route_configuration_id",
+      "route_revision",
+      "route_checksum",
+      "candidates",
+      "budget_policy",
+      "bound_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "capability_readiness_snapshot",
+    "source": "infra/postgres/migrations/0137_v14_capability_readiness.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "capability_id",
+      "capability_version",
+      "snapshot_version",
+      "status",
+      "raw_status",
+      "candidate_status",
+      "candidate_since",
+      "evaluated_at",
+      "valid_until",
+      "catalog_hash",
+      "policy_hash",
+      "snapshot_hash",
+      "reasons",
+      "available_implementations",
+      "unavailable_implementations",
+      "evaluation_input",
+      "trigger_reason"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "capability_readiness_command_receipt",
+    "source": "infra/postgres/migrations/0137_v14_capability_readiness.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "idempotency_key",
+      "request_hash",
+      "capability_id",
+      "capability_version",
+      "snapshot_version",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_agent_card_revision",
+    "source": "infra/postgres/migrations/0138_v14_runtime_agent_card.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "revision",
+      "node_id",
+      "exposure_refs",
+      "content_hash",
+      "capability_catalog_hash",
+      "status",
+      "card",
+      "generated_at",
+      "activated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_agent_card_command_receipt",
+    "source": "infra/postgres/migrations/0138_v14_runtime_agent_card.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "scope",
+      "idempotency_key",
+      "request_hash",
+      "revision",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_agent_card_exposure_snapshot",
+    "source": "infra/postgres/migrations/0139_v14_task_capability_binding.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "revision",
+      "exposure_id",
+      "exposure_version",
+      "capability_id",
+      "capability_version",
+      "agent_skill_id",
+      "request_schema",
+      "result_schema",
+      "requester_policy",
+      "exposure_hash"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_capability_binding",
+    "source": "infra/postgres/migrations/0139_v14_task_capability_binding.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "binding_id",
+      "task_id",
+      "requested_capability_id",
+      "capability_version",
+      "exposure_id",
+      "exposure_version",
+      "input_snapshot",
+      "success_criteria_snapshot",
+      "evidence_requirement_snapshot",
+      "constraint_snapshot",
+      "initial_implementation_refs",
+      "provider_policy_snapshot",
+      "binding_hash",
+      "bound_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "task_capability_execution_attempt",
+    "source": "infra/postgres/migrations/0139_v14_task_capability_binding.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "task_id",
+      "capability_binding_id",
+      "attempt_no",
+      "plan_id",
+      "plan_template_ref",
+      "skill_version_refs",
+      "provider_binding_refs",
+      "reason",
+      "status",
+      "started_at",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_skill_version_governance",
+    "source": "infra/postgres/migrations/0140_v14_skill_version_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "skill_id",
+      "skill_version",
+      "lifecycle_status",
+      "lock_version",
+      "updated_by",
+      "reason",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_skill_governance_command",
+    "source": "infra/postgres/migrations/0140_v14_skill_version_governance.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "command_id",
+      "operation_type",
+      "skill_id",
+      "skill_version",
+      "idempotency_key_hash",
+      "request_hash",
+      "expected_revision",
+      "result_revision",
+      "result_status",
+      "actor_id",
+      "reason",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_skill_import_command",
+    "source": "infra/postgres/migrations/0141_v14_skill_import_idempotency.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "command_id",
+      "idempotency_key_hash",
+      "request_hash",
+      "package_root",
+      "package_checksum",
+      "skill_id",
+      "skill_version",
+      "status",
+      "actor_id",
+      "reason",
+      "created_at",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_export_configuration",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "export_id",
+      "revision",
+      "definition",
+      "checksum",
+      "applied_at",
+      "is_active",
+      "is_lkg"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_export_state",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "export_id",
+      "source_partition",
+      "status",
+      "last_sent_sequence",
+      "last_acknowledged_sequence",
+      "last_acknowledged_at",
+      "lease_owner",
+      "lease_token",
+      "lease_expires_at",
+      "fencing_token",
+      "last_error_code",
+      "last_error_at",
+      "observed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_outbox",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "sequence",
+      "record_id",
+      "record_family",
+      "record_type",
+      "schema_name",
+      "schema_version",
+      "source_system",
+      "source_table",
+      "source_record_id",
+      "source_revision",
+      "source_partition",
+      "tenant_id",
+      "user_scope_id",
+      "project_id",
+      "environment",
+      "task_id",
+      "context_id",
+      "episode_id",
+      "run_id",
+      "goal_id",
+      "goal_version",
+      "plan_id",
+      "plan_version",
+      "skill_execution_id",
+      "capability_binding_id",
+      "remote_task_binding_id",
+      "node_id",
+      "correlation_id",
+      "causation_id",
+      "delivery_guarantee",
+      "evaluation_role",
+      "occurred_at",
+      "recorded_at",
+      "evidence_refs",
+      "artifact_refs",
+      "payload",
+      "payload_hash",
+      "captured_at",
+      "delivery_attempts",
+      "next_attempt_at",
+      "sent_export_id",
+      "sent_fencing_token",
+      "sent_at",
+      "acknowledged_at",
+      "last_error_code"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_source_checkpoint",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "source_family",
+      "source_partition",
+      "last_occurred_at",
+      "last_source_record_id",
+      "last_source_revision",
+      "last_payload_hash",
+      "last_projected_at",
+      "projector_version"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_dead_letter",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "dead_letter_id",
+      "sequence",
+      "record_id",
+      "issue_code",
+      "attempts",
+      "detail",
+      "failed_at",
+      "requeued_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_projection_issue",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "issue_id",
+      "issue_code",
+      "severity",
+      "evaluation_role",
+      "record_type",
+      "record_id",
+      "episode_id",
+      "source_system",
+      "source_table",
+      "source_record_id",
+      "source_partition",
+      "projector_version",
+      "retryable",
+      "detail",
+      "created_at",
+      "resolved_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_quality_issue",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "issue_id",
+      "issue_code",
+      "severity",
+      "record_type",
+      "record_id",
+      "episode_id",
+      "source_system",
+      "source_table",
+      "source_record_id",
+      "detail",
+      "created_at",
+      "resolved_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "episode_evidence_manifest",
+    "source": "infra/postgres/migrations/0144_v14_canonical_evidence.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "manifest_id",
+      "episode_id",
+      "task_id",
+      "terminal_outcome_id",
+      "expected_required_records",
+      "projected_required_records",
+      "pending_required_records",
+      "failed_required_records",
+      "expected_families",
+      "completed_families",
+      "missing_families",
+      "source_coverage",
+      "last_evidence_sequence",
+      "status",
+      "quality_issue_ids",
+      "created_at",
+      "sealed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_export_batch",
+    "source": "infra/postgres/migrations/0146_v14_evidence_export_observation_ledger.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "ledger_sequence",
+      "batch_id",
+      "export_id",
+      "source_partition",
+      "configuration_revision",
+      "first_sequence",
+      "last_sequence",
+      "batch_hash",
+      "record_count",
+      "attempt_no",
+      "status",
+      "observation_generation",
+      "recorded_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_export_ack",
+    "source": "infra/postgres/migrations/0146_v14_evidence_export_observation_ledger.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "ledger_sequence",
+      "ack_id",
+      "batch_id",
+      "export_id",
+      "source_partition",
+      "acknowledged_sequence",
+      "batch_hash",
+      "ack_disposition",
+      "error_code",
+      "observation_generation",
+      "acknowledged_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_expected_record",
+    "source": "infra/postgres/migrations/0147_v14_evidence_coverage_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "expectation_id",
+      "episode_id",
+      "task_id",
+      "policy_version",
+      "record_type",
+      "record_family",
+      "source_system",
+      "source_table",
+      "evaluation_role",
+      "requirement_level",
+      "applicable",
+      "stage",
+      "source_record_id",
+      "source_revision",
+      "record_id",
+      "evidence_sequence",
+      "revision",
+      "expected_at",
+      "recomputed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_recovery_run",
+    "source": "infra/postgres/migrations/0148_v14_evidence_operations_recovery.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "recovery_run_id",
+      "operation_id",
+      "idempotency_key_hash",
+      "request_hash",
+      "export_id",
+      "configuration_revision",
+      "operation",
+      "target",
+      "actor_id",
+      "reason",
+      "status",
+      "attempt_count",
+      "affected_records",
+      "result_summary",
+      "last_error_code",
+      "requested_at",
+      "wake_requested_at",
+      "started_at",
+      "completed_at",
+      "revision"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_coverage_reconcile_target",
+    "source": "infra/postgres/migrations/0148_v14_evidence_operations_recovery.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "recovery_run_id",
+      "episode_id",
+      "requested_at",
+      "claim_token",
+      "claimed_at",
+      "claim_expires_at",
+      "attempt_count",
+      "completed_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "governed_control_confirmation",
+    "source": "infra/postgres/migrations/0157_v14_governed_control_confirmation.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "confirmation_id",
+      "task_id",
+      "capability_binding_id",
+      "capability_id",
+      "capability_version",
+      "plan_id",
+      "plan_hash",
+      "skill_id",
+      "skill_version",
+      "actor_id",
+      "actor_kind",
+      "authentication_method",
+      "actor_roles_json",
+      "reason",
+      "confirmed_at",
+      "expires_at",
+      "revoked_at",
+      "revoked_by"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_admission_intent",
+    "source": "infra/postgres/migrations/0159_v14_remote_task_admission_recovery.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "intent_id",
+      "invocation_id",
+      "binding_id",
+      "task_id",
+      "capability_attempt_id",
+      "context_id",
+      "server_id",
+      "operation_name",
+      "arguments_hash",
+      "local_envelope_json",
+      "status",
+      "dispatch_hash",
+      "dispatched_at",
+      "recorded_invocation_id",
+      "remote_receipt_json",
+      "receipt_recorded_at",
+      "materialized_binding_id",
+      "materialized_snapshot_id",
+      "materialized_at",
+      "reason_code",
+      "closed_at",
+      "created_at",
+      "updated_at",
+      "version"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "runtime_task_command_effect",
+    "source": "infra/postgres/migrations/0162_v14_agent_task_revision_authority.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "action_id",
+      "task_id",
+      "command_token",
+      "operation",
+      "idempotency_key",
+      "effect_kind",
+      "effect_ref",
+      "effect_json",
+      "recorded_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "initial_task_admission",
+    "source": "infra/postgres/migrations/0172_v14_initial_task_admission.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "idempotency_key",
+      "request_hash",
+      "task_id",
+      "context_id",
+      "capability_binding_id",
+      "capability_attempt_id",
+      "created_context",
+      "accepted_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "evidence_export_delivery_origin",
+    "source": "infra/postgres/migrations/0174_v14_evidence_delivery_origin.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "export_id",
+      "first_revision",
+      "delivery_start",
+      "start_sequence",
+      "activated_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_reconciliation_attempt",
+    "source": "infra/postgres/migrations/0175_v14_mcp_task_consumer_sync.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "attempt_id",
+      "intent_id",
+      "logical_invocation_id",
+      "expected_intent_version",
+      "attempt_number",
+      "source_contract",
+      "request_hash",
+      "status",
+      "remote_task_id",
+      "external_execution_id",
+      "identity_validated",
+      "safe_error_code",
+      "started_at",
+      "completed_at",
+      "duration_ms",
+      "result_hash",
+      "version"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "remote_task_provider_execution_link",
+    "source": "infra/postgres/migrations/0175_v14_mcp_task_consumer_sync.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "link_id",
+      "binding_id",
+      "logical_invocation_id",
+      "remote_task_id",
+      "provider_id",
+      "runtime_server_id",
+      "provider_binding_id",
+      "provider_origin_type",
+      "smpp_source_id",
+      "external_server_id",
+      "operation_name",
+      "execution_status",
+      "external_execution_id",
+      "mission_status",
+      "device_mission_id",
+      "provenance",
+      "source_contract",
+      "source_revision",
+      "observed_at",
+      "content_hash"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "development_isolated_demo_audit",
+    "source": "infra/postgres/migrations/0178_v14_development_isolated_demo.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "sequence",
+      "request_id",
+      "phase",
+      "payload"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "workflow_child_call",
+    "source": "infra/postgres/migrations/0180_v14_workflow_child_call.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "call_id",
+      "kind",
+      "parent_instance_id",
+      "parent_node_run_id",
+      "parent_node_id",
+      "child_plan_id",
+      "child_instance_id",
+      "created_at"
+    ]
+  },
+  {
+    "schema": "ugv_sdar",
+    "table": "capability_admission_receipt",
+    "source": "infra/postgres/migrations/0183_v14_capability_admission_receipt.up.sql",
+    "family": "SDAR_RUNTIME",
+    "columns": [
+      "task_id",
+      "request_id",
+      "request_hash",
+      "version",
+      "clarification",
+      "created_at",
+      "updated_at",
+      "bound_at"
+    ]
+  }
+]

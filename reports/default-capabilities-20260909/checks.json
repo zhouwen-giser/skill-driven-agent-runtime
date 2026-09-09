@@ -1,0 +1,47 @@
+{
+  "status": "PASS",
+  "fullManifestAccepted": false,
+  "checks": {
+    "format": {
+      "exitCode": 0,
+      "log": "format-final.log"
+    },
+    "lint": {
+      "exitCode": 0,
+      "log": "lint-final-retry.log"
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "log": "typecheck-final-delivery.log"
+    },
+    "unit": {
+      "exitCode": 0,
+      "passed": 2550,
+      "log": "unit-final-retry.log"
+    },
+    "integration": {
+      "exitCode": 0,
+      "passed": 242,
+      "log": "gate-final/test-integration.log"
+    },
+    "contract": {
+      "exitCode": 0,
+      "passed": 534,
+      "log": "gate-final/test-contract.log"
+    },
+    "e2e": {
+      "exitCode": 0,
+      "passed": 75,
+      "log": "gate-final/test-e2e.log",
+      "split": "functional 74 plus isolated performance 1; no required scenario omitted"
+    },
+    "build": {
+      "exitCode": 0,
+      "log": "gate-final/build.log"
+    },
+    "smoke": {
+      "exitCode": 0,
+      "log": "gate-final/smoke-server.log"
+    }
+  }
+}

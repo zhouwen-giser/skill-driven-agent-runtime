@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { evidenceTaskScope } from './gowm-evidence-scope.js';
 import type { Pool, PoolClient } from 'pg';
 
 import {
@@ -22,7 +24,10 @@ interface PartitionRow {
 export class PostgresExperienceReplayArtifactEvidenceSource implements ExperienceReplayArtifactEvidenceSource {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -31,9 +36,15 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
   ): Promise<readonly ExperienceReplayArtifactProjectionPartition[]> {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new Error('Experience Evidence pending limit must be between 1 and 1000.');
-    const result = await this.#pool.query<PartitionRow>(pendingPartitionsSql, [
+    const scope = evidenceTaskScope(this.deviceScope, 3);
+    const predicate =
+      this.deviceScope === undefined
+        ? 'TRUE'
+        : `(normalized.episode_id IS NULL OR EXISTS(SELECT 1 FROM agent_task task WHERE task.task_id=normalized.episode_id AND ${scope.predicate}))`;
+    const result = await this.#pool.query<PartitionRow>(pendingPartitionsSql(predicate), [
       EXPERIENCE_REPLAY_ARTIFACT_PROJECTOR_VERSION,
       limit,
+      ...scope.values,
     ]);
     return Object.freeze(result.rows.map(toPartition));
   }
@@ -64,7 +75,7 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
 
       switch (partition.kind) {
         case 'experience_task': {
-          task = await loadTask(client, partition.sourceId);
+          task = await loadTask(client, partition.sourceId, this.deviceScope);
           if (task === undefined) return await notFound(client);
           episodes = await rows(client, experienceEpisodeSql, [partition.sourceId]);
           traces = await rows(client, experienceTraceSql, [partition.sourceId]);
@@ -99,7 +110,9 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
           replayCases = await rows(client, replayCaseSql, [partition.sourceId]);
           if (replayCases.length === 0) return await notFound(client);
           const taskId = optionalText(replayCases[0], 'source_task_id');
-          task = taskId === undefined ? undefined : await loadTask(client, taskId);
+          task =
+            taskId === undefined ? undefined : await loadTask(client, taskId, this.deviceScope);
+          if (taskId !== undefined && task === undefined) return await notFound(client);
           break;
         }
         case 'replay_dataset': {
@@ -132,19 +145,22 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
         case 'retrieval': {
           retrievals = await rows(client, retrievalSql, [partition.sourceId]);
           if (retrievals.length === 0) return await notFound(client);
-          task = await loadTask(client, requiredText(retrievals[0], 'task_id'));
+          task = await loadTask(client, requiredText(retrievals[0], 'task_id'), this.deviceScope);
+          if (task === undefined) return await notFound(client);
           break;
         }
         case 'usage': {
           usages = await rows(client, usageSql, [partition.sourceId]);
           if (usages.length === 0) return await notFound(client);
-          task = await loadTask(client, requiredText(usages[0], 'task_id'));
+          task = await loadTask(client, requiredText(usages[0], 'task_id'), this.deviceScope);
+          if (task === undefined) return await notFound(client);
           break;
         }
         case 'feedback': {
           feedback = await rows(client, feedbackSql, [partition.sourceId]);
           if (feedback.length === 0) return await notFound(client);
-          task = await loadTask(client, requiredText(feedback[0], 'task_id'));
+          task = await loadTask(client, requiredText(feedback[0], 'task_id'), this.deviceScope);
+          if (task === undefined) return await notFound(client);
           break;
         }
         case 'promotion': {
@@ -186,20 +202,25 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
         feedback,
         promotions,
       });
+      const evidenceScope = evidenceTaskScope(this.deviceScope, 2);
+      const evidencePredicate =
+        this.deviceScope === undefined
+          ? 'TRUE'
+          : `(evidence_row.task_id IS NULL OR EXISTS(SELECT 1 FROM agent_task task WHERE task.task_id=evidence_row.task_id AND ${evidenceScope.predicate}))`;
       const existingEvidence = await rows(
         client,
         `SELECT to_jsonb(latest_evidence) AS value FROM (
            SELECT DISTINCT ON (evidence_row.record_type,evidence_row.source_record_id)
                   evidence_row.*
            FROM evidence_outbox evidence_row
-           WHERE evidence_row.source_record_id=ANY($1::text[])
+           WHERE ${evidencePredicate} AND (evidence_row.source_record_id=ANY($1::text[])
               OR evidence_row.payload->>'workflowPatternId'=ANY($1::text[])
-              OR evidence_row.payload->>'episodeId'=ANY($1::text[])
+              OR evidence_row.payload->>'episodeId'=ANY($1::text[]))
            ORDER BY evidence_row.record_type,evidence_row.source_record_id,
                     evidence_row.sequence DESC
          ) latest_evidence
          ORDER BY latest_evidence.sequence DESC`,
-        [[...sourceIds]],
+        [[...sourceIds], ...evidenceScope.values],
       );
 
       await client.query('COMMIT');
@@ -233,7 +254,7 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
   }
 }
 
-const pendingPartitionsSql = `WITH candidate AS (
+const pendingPartitionsSql = (scopePredicate: string) => `WITH candidate AS (
   SELECT 'experience_task'::text AS kind,'experience'::text AS source_family,
          episode.task_id AS source_id,NULL::integer AS source_version,
          episode.task_id AS episode_id,0 AS priority,episode.created_at AS observed_at
@@ -436,7 +457,7 @@ LEFT JOIN LATERAL (
   ORDER BY projection_issue.last_observed_at DESC,projection_issue.issue_id
   LIMIT 1
 ) projection_issue ON true
-WHERE (
+WHERE ${scopePredicate} AND (
     checkpoint.source_partition IS NULL
     OR checkpoint.projector_version IS DISTINCT FROM $1
     OR checkpoint.last_occurred_at IS NULL
@@ -669,7 +690,9 @@ const promotionSql = `SELECT to_jsonb(package_row) || jsonb_build_object(
 async function loadTask(
   client: PoolClient,
   taskId: string,
+  scope?: DeviceWorkScope,
 ): Promise<ExperienceReplayArtifactSourceRow | undefined> {
+  const filter = evidenceTaskScope(scope, 2, 'task_row');
   return (
     await rows(
       client,
@@ -678,8 +701,8 @@ async function loadTask(
        )) AS value
        FROM agent_task task_row
        LEFT JOIN user_goal_plan plan_row ON plan_row.plan_id=task_row.user_goal_plan_id
-       WHERE task_row.task_id=$1`,
-      [taskId],
+       WHERE task_row.task_id=$1 AND ${filter.predicate}`,
+      [taskId, ...filter.values],
     )
   )[0];
 }

@@ -20,12 +20,14 @@ import {
 import { managedCapabilityTaskUnderstandingConfiguration } from './managed-capability-task-understanding.js';
 import { modelRuntimeBootstrapConfiguration } from './model-runtime-bootstrap-configuration.js';
 import { startServerRuntime } from './runtime.js';
+import { parseGowmStorageConfiguration } from './gowm-storage-configuration.js';
 import {
   UGV_AGENT_PROFILE_ID,
   ugvAgentProfileTaskUnderstandingConfiguration,
 } from './ugv-agent-profile.js';
 
 const environment = loadServerEnvironment();
+const gowmStorage = parseGowmStorageConfiguration(process.env);
 const admissionObservationProfile = remoteTaskAdmissionObservationProfile(environment);
 const modelBootstrap = await modelRuntimeBootstrapConfiguration(environment);
 const artifactManagementIdentity = createArtifactManagementIdentity();
@@ -46,6 +48,7 @@ const nodeControlAuthorityReader =
         unsafeTestOpen: environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
       });
 const runtime = await startServerRuntime({
+  ...(gowmStorage === undefined ? {} : { gowmStorage }),
   postgresUrl: environment.SDAR_POSTGRES_URL,
   redis: {
     host: environment.SDAR_REDIS_HOST,

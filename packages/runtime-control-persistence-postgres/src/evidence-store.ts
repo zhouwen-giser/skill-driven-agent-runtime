@@ -1,3 +1,13 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import {
+  directEvidencePartitionTask,
+  evidenceIssueScope,
+  evidenceTaskDevice,
+  evidenceTaskScope,
+  evidenceOutboxScope,
+  requireEvidencePartitionScope,
+  lockEvidencePartition,
+} from './gowm-evidence-scope.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import {
@@ -82,7 +92,10 @@ export interface TerminalEpisodeCoverageCandidate {
 export class PostgresEvidenceStore {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -170,9 +183,10 @@ export class PostgresEvidenceStore {
   }
 
   async hasRecord(recordId: string): Promise<boolean> {
+    const filter = evidenceTaskScope(this.deviceScope, 2);
     const result = await this.#pool.query<{ present: boolean }>(
-      'SELECT EXISTS(SELECT 1 FROM evidence_outbox WHERE record_id=$1) AS present',
-      [recordId],
+      `SELECT EXISTS(SELECT 1 FROM evidence_outbox WHERE record_id=$1 ${this.deviceScope === undefined ? '' : `AND (task_id IS NULL OR EXISTS(SELECT 1 FROM agent_task task WHERE task.task_id=evidence_outbox.task_id AND ${filter.predicate}))`}) AS present`,
+      [recordId, ...filter.values],
     );
     return result.rows[0]?.present === true;
   }
@@ -203,15 +217,42 @@ export class PostgresEvidenceStore {
     capturedAt: string,
     sourcePartition: string,
   ): Promise<string> {
+    // Shared append transactions may run concurrently, but retention/configuration take
+    // the exclusive counterpart before inspecting or removing referenced records.
+    if (this.deviceScope !== undefined) {
+      await client.query(
+        "SELECT pg_advisory_xact_lock_shared(hashtext('runtime.evidence-export'))",
+      );
+    }
+    await lockEvidencePartition(client, this.deviceScope, sourcePartition);
+    const deviceId = await evidenceTaskDevice(
+      client,
+      this.deviceScope,
+      envelope.taskId,
+      envelope.contextId,
+    );
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
       `evidence.record:${envelope.recordId}`,
     ]);
-    const existing = await client.query<{ sequence: string; payload_hash: string }>(
-      'SELECT sequence::text,payload_hash::text FROM evidence_outbox WHERE record_id=$1',
+    const existing = await client.query<{
+      sequence: string;
+      payload_hash: string;
+      task_id?: string | null;
+      device_id?: string | null;
+    }>(
+      `SELECT sequence::text,payload_hash::text${this.deviceScope === undefined ? '' : ',task_id,device_id'} FROM evidence_outbox WHERE record_id=$1`,
       [envelope.recordId],
     );
     const existingRow = existing.rows[0];
     if (existingRow !== undefined) {
+      if (
+        this.deviceScope !== undefined &&
+        (existingRow.device_id !== deviceId || existingRow.task_id !== (envelope.taskId ?? null))
+      )
+        throw new EvidencePersistenceError(
+          'EVIDENCE_SOURCE_IDENTITY_CONFLICT',
+          'Evidence identity belongs to another Task or device.',
+        );
       if (existingRow.payload_hash !== envelope.payloadHash) {
         throw new EvidencePersistenceError(
           'EVIDENCE_PAYLOAD_HASH_CONFLICT',
@@ -292,11 +333,11 @@ export class PostgresEvidenceStore {
            goal_id,goal_version,plan_id,plan_version,skill_execution_id,capability_binding_id,
            remote_task_binding_id,node_id,correlation_id,causation_id,delivery_guarantee,
            evaluation_role,observation_generation,occurred_at,recorded_at,evidence_refs,
-           artifact_refs,payload,payload_hash,captured_at,next_attempt_at)
+           artifact_refs,payload,payload_hash,captured_at,next_attempt_at${this.deviceScope === undefined ? '' : ',device_id'})
          VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
            $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,
-           $29,$30,$31,$32,$33,$34::jsonb,$35::jsonb,$36::jsonb,$37,$38,$38)
+           $29,$30,$31,$32,$33,$34::jsonb,$35::jsonb,$36::jsonb,$37,$38,$38${this.deviceScope === undefined ? '' : ',$39'})
          RETURNING sequence::text`,
         [
           envelope.recordId,
@@ -337,6 +378,7 @@ export class PostgresEvidenceStore {
           canonicalizeEvidenceJson(envelope.payload),
           envelope.payloadHash,
           capturedAt,
+          ...(this.deviceScope === undefined ? [] : [deviceId]),
         ],
       );
       const sequence = inserted.rows[0]?.sequence;
@@ -374,11 +416,13 @@ export class PostgresEvidenceStore {
     observedAt: string,
   ): Promise<readonly StoredEvidenceRecord[]> {
     const boundedLimit = Math.max(1, Math.min(limit, 1_000));
+    const filter = evidenceOutboxScope(this.deviceScope, 4);
     const result = await this.#pool.query<EvidenceOutboxRow>(
       `SELECT evidence_outbox.*,evidence_outbox.sequence::text AS sequence_text,
          evidence_outbox.delivery_attempts::integer AS delivery_attempts_value
        FROM evidence_outbox
        WHERE source_partition=$1 AND acknowledged_at IS NULL AND next_attempt_at<=$2
+         AND ${filter.predicate}
          AND NOT EXISTS (
            SELECT 1 FROM evidence_dead_letter
            WHERE evidence_dead_letter.sequence=evidence_outbox.sequence
@@ -396,7 +440,7 @@ export class PostgresEvidenceStore {
              )
          )
        ORDER BY evidence_outbox.sequence LIMIT $3`,
-      [sourcePartition, observedAt, boundedLimit],
+      [sourcePartition, observedAt, boundedLimit, ...filter.values],
     );
     return Object.freeze(result.rows.map(toStoredEvidenceRecord));
   }
@@ -410,6 +454,7 @@ export class PostgresEvidenceStore {
     readonly expiresAt: string;
   }): Promise<EvidenceExportLease> {
     return withTransaction(this.#pool, async (client) => {
+      await requireEvidencePartitionScope(client, this.deviceScope, input.sourcePartition);
       await client.query(
         `INSERT INTO evidence_export_state(export_id,source_partition,observed_at)
          VALUES ($1,$2,$3) ON CONFLICT (export_id,source_partition) DO NOTHING`,
@@ -472,6 +517,7 @@ export class PostgresEvidenceStore {
       );
     }
     await withTransaction(this.#pool, async (client) => {
+      await requireEvidencePartitionScope(client, this.deviceScope, lease.sourcePartition);
       const state = await client.query(
         `SELECT 1 FROM evidence_export_state
          WHERE export_id=$1 AND source_partition=$2 AND lease_owner=$3 AND lease_token=$4
@@ -526,6 +572,7 @@ export class PostgresEvidenceStore {
     lastAcknowledgedSequence: string,
     acknowledgedAt: string,
   ): Promise<void> {
+    await requireEvidencePartitionScope(client, this.deviceScope, lease.sourcePartition);
     const state = await client.query<{
       last_sent_sequence: string | null;
       last_acknowledged_sequence: string | null;
@@ -602,6 +649,12 @@ export class PostgresEvidenceStore {
 
   async saveCheckpoint(checkpoint: EvidenceSourceCheckpoint): Promise<void> {
     await withTransaction(this.#pool, async (client) => {
+      if (this.deviceScope !== undefined) {
+        const taskId = directEvidencePartitionTask(checkpoint.sourcePartition);
+        if (taskId !== undefined)
+          await evidenceTaskDevice(client, this.deviceScope, taskId, undefined);
+        await requireEvidencePartitionScope(client, this.deviceScope, checkpoint.sourcePartition);
+      }
       const existing = await client.query<CheckpointRow>(
         `SELECT * FROM evidence_source_checkpoint
          WHERE source_family=$1 AND source_partition=$2 FOR UPDATE`,
@@ -644,12 +697,15 @@ export class PostgresEvidenceStore {
     evaluationRole: 'required' | 'supporting' | 'diagnostic',
     ruleId?: EvidenceQualityRuleId,
   ): Promise<void> {
+    const scope = evidenceIssueScope(this.deviceScope, 17, 'candidate');
+    const existingScope = evidenceIssueScope(this.deviceScope, 17, 'evidence_projection_issue');
     const result = await this.#pool.query(
       `INSERT INTO evidence_projection_issue(
          issue_id,issue_code,severity,evaluation_role,record_type,record_id,episode_id,
          source_system,source_table,source_record_id,source_partition,projector_version,
          retryable,detail,created_at,rule_id,first_observed_at,last_observed_at,revision)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15,$16,$15,$15,1)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15,$16,$15,$15,1
+       FROM (SELECT $7::text AS episode_id, $6::text AS record_id) candidate WHERE ${scope.predicate}
        ON CONFLICT (issue_id) DO UPDATE SET
          issue_code=EXCLUDED.issue_code,
          severity=EXCLUDED.severity,
@@ -680,6 +736,7 @@ export class PostgresEvidenceStore {
          AND evidence_projection_issue.source_record_id=EXCLUDED.source_record_id
          AND evidence_projection_issue.source_partition=EXCLUDED.source_partition
          AND evidence_projection_issue.projector_version=EXCLUDED.projector_version
+         AND ${existingScope.predicate}
        RETURNING issue_id`,
       [
         issue.issueId,
@@ -698,6 +755,7 @@ export class PostgresEvidenceStore {
         canonicalizeEvidenceJson(issue.detail),
         issue.createdAt,
         ruleId ?? null,
+        ...scope.values,
       ],
     );
     if (result.rowCount !== 1) {
@@ -714,6 +772,7 @@ export class PostgresEvidenceStore {
     readonly projectorVersion: string;
     readonly resolvedAt: string;
   }): Promise<void> {
+    const scope = evidenceIssueScope(this.deviceScope, 5, 'evidence_projection_issue');
     await this.#pool.query(
       `UPDATE evidence_projection_issue
        SET resolved_at=$4,last_observed_at=GREATEST(last_observed_at,$4::timestamptz),
@@ -721,8 +780,14 @@ export class PostgresEvidenceStore {
        WHERE issue_id=$1
          AND source_partition=$2
          AND projector_version=$3
-         AND resolved_at IS NULL`,
-      [input.issueId, input.sourcePartition, input.projectorVersion, input.resolvedAt],
+         AND resolved_at IS NULL AND ${scope.predicate}`,
+      [
+        input.issueId,
+        input.sourcePartition,
+        input.projectorVersion,
+        input.resolvedAt,
+        ...scope.values,
+      ],
     );
   }
 
@@ -732,15 +797,22 @@ export class PostgresEvidenceStore {
     readonly retainedIssueIds: readonly string[];
     readonly resolvedAt: string;
   }): Promise<void> {
+    const scope = evidenceIssueScope(this.deviceScope, 5, 'evidence_quality_issue');
     await this.#pool.query(
       `UPDATE evidence_quality_issue
        SET resolved_at=$4,last_observed_at=GREATEST(last_observed_at,$4::timestamptz),
            revision=revision+1
        WHERE episode_id=$1
          AND record_type LIKE $2 || '%'
-         AND resolved_at IS NULL
+         AND resolved_at IS NULL AND ${scope.predicate}
          AND NOT (issue_id = ANY($3::text[]))`,
-      [input.episodeId, input.recordTypePrefix, input.retainedIssueIds, input.resolvedAt],
+      [
+        input.episodeId,
+        input.recordTypePrefix,
+        input.retainedIssueIds,
+        input.resolvedAt,
+        ...scope.values,
+      ],
     );
   }
 
@@ -749,12 +821,18 @@ export class PostgresEvidenceStore {
     readonly ruleId?: EvidenceQualityRuleId;
     readonly resolvedAt: string;
   }): Promise<void> {
+    const scope = evidenceIssueScope(this.deviceScope, 4, 'evidence_quality_issue');
     await this.#pool.query(
       `UPDATE evidence_quality_issue
        SET resolved_at=$3,last_observed_at=GREATEST(last_observed_at,$3::timestamptz),
            revision=revision+1
-       WHERE issue_id=$1 AND rule_id IS NOT DISTINCT FROM $2::text AND resolved_at IS NULL`,
-      [input.issueId, input.ruleId ?? null, validTimestamp(input.resolvedAt, 'resolvedAt')],
+       WHERE issue_id=$1 AND rule_id IS NOT DISTINCT FROM $2::text AND resolved_at IS NULL AND ${scope.predicate}`,
+      [
+        input.issueId,
+        input.ruleId ?? null,
+        validTimestamp(input.resolvedAt, 'resolvedAt'),
+        ...scope.values,
+      ],
     );
   }
 
@@ -764,13 +842,14 @@ export class PostgresEvidenceStore {
     readonly resolvedAt: string;
   }): Promise<void> {
     const resolvedAt = validTimestamp(input.resolvedAt, 'resolvedAt');
+    const scope = evidenceIssueScope(this.deviceScope, 4, 'evidence_quality_issue');
     await this.#pool.query(
       `UPDATE evidence_quality_issue
        SET resolved_at=$3,last_observed_at=GREATEST(last_observed_at,$3::timestamptz),
            revision=revision+1
-       WHERE rule_id=$1 AND resolved_at IS NULL
+       WHERE rule_id=$1 AND resolved_at IS NULL AND ${scope.predicate}
          AND NOT (issue_id=ANY($2::text[]))`,
-      [input.ruleId, input.retainedIssueIds, resolvedAt],
+      [input.ruleId, input.retainedIssueIds, resolvedAt, ...scope.values],
     );
   }
 
@@ -781,6 +860,7 @@ export class PostgresEvidenceStore {
     readonly retainedIssueIds: readonly string[];
     readonly resolvedAt: string;
   }): Promise<void> {
+    const scope = evidenceIssueScope(this.deviceScope, 6, 'evidence_quality_issue');
     await this.#pool.query(
       `UPDATE evidence_quality_issue
        SET resolved_at=$5,last_observed_at=GREATEST(last_observed_at,$5::timestamptz),
@@ -789,7 +869,7 @@ export class PostgresEvidenceStore {
          AND source_table=$1
          AND source_record_id=$2
          AND left(record_type,char_length($3))=$3
-         AND resolved_at IS NULL
+         AND resolved_at IS NULL AND ${scope.predicate}
          AND NOT (issue_id = ANY($4::text[]))`,
       [
         input.sourceTable,
@@ -797,6 +877,7 @@ export class PostgresEvidenceStore {
         input.recordTypePrefix,
         input.retainedIssueIds,
         input.resolvedAt,
+        ...scope.values,
       ],
     );
   }
@@ -805,12 +886,15 @@ export class PostgresEvidenceStore {
     issue: EvidenceQualityIssue,
     ruleId?: EvidenceQualityRuleId,
   ): Promise<void> {
+    const scope = evidenceIssueScope(this.deviceScope, 13, 'candidate');
+    const existingScope = evidenceIssueScope(this.deviceScope, 13, 'evidence_quality_issue');
     const result = await this.#pool.query(
       `INSERT INTO evidence_quality_issue(
          issue_id,issue_code,severity,record_type,record_id,episode_id,source_system,
          source_table,source_record_id,detail,created_at,rule_id,first_observed_at,
          last_observed_at,revision)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$11,$11,1)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$11,$11,1
+       FROM (SELECT $6::text AS episode_id, $5::text AS record_id) candidate WHERE ${scope.predicate}
        ON CONFLICT (issue_id) DO UPDATE SET
          issue_code=EXCLUDED.issue_code,
          severity=EXCLUDED.severity,
@@ -840,6 +924,7 @@ export class PostgresEvidenceStore {
          AND evidence_quality_issue.source_system=EXCLUDED.source_system
          AND evidence_quality_issue.source_table=EXCLUDED.source_table
          AND evidence_quality_issue.source_record_id=EXCLUDED.source_record_id
+         AND ${existingScope.predicate}
        RETURNING issue_id`,
       [
         issue.issueId,
@@ -854,6 +939,7 @@ export class PostgresEvidenceStore {
         canonicalizeEvidenceJson(issue.detail),
         issue.createdAt,
         ruleId ?? null,
+        ...scope.values,
       ],
     );
     if (result.rowCount !== 1) {
@@ -879,6 +965,19 @@ export class PostgresEvidenceStore {
       this.#pool,
       `evidence.coverage:${episodeId}`,
       async (client) => {
+        const deviceId = await evidenceTaskDevice(client, this.deviceScope, taskId, undefined);
+        if (this.deviceScope !== undefined) {
+          const conflictingOwner = await client.query(
+            `SELECT 1 FROM (
+               SELECT task_id FROM evidence_expected_record WHERE episode_id=$1
+               UNION ALL SELECT task_id FROM episode_evidence_manifest WHERE episode_id=$1
+               UNION ALL SELECT task_id FROM evidence_outbox WHERE episode_id=$1
+             ) owner WHERE task_id IS NOT NULL AND task_id<>$2 LIMIT 1`,
+            [episodeId, taskId],
+          );
+          if (conflictingOwner.rowCount !== 0)
+            throw new Error('EVIDENCE_EPISODE_TASK_IDENTITY_CONFLICT');
+        }
         const authority = (
           await client.query<EpisodeAuthorityRow>(
             `SELECT to_jsonb(task) AS task_value,
@@ -962,8 +1061,8 @@ export class PostgresEvidenceStore {
               `INSERT INTO evidence_expected_record(
              expectation_id,episode_id,task_id,policy_version,record_type,record_family,
              source_system,source_table,evaluation_role,requirement_level,applicable,stage,
-             source_record_id,source_revision,record_id,evidence_sequence,revision,expected_at,recomputed_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::bigint,1,$17,$17)
+             source_record_id,source_revision,record_id,evidence_sequence,revision,expected_at,recomputed_at${this.deviceScope === undefined ? '' : ',device_id'})
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::bigint,1,$17,$17${this.deviceScope === undefined ? '' : ',$18'})
            ON CONFLICT (episode_id,policy_version,record_type,source_record_id) DO UPDATE SET
              task_id=EXCLUDED.task_id,
              record_family=EXCLUDED.record_family,
@@ -1010,6 +1109,7 @@ export class PostgresEvidenceStore {
                 projected?.record_id ?? null,
                 projected?.sequence_text ?? null,
                 recomputedAt,
+                ...(this.deviceScope === undefined ? [] : [deviceId]),
               ],
             );
           }
@@ -1074,15 +1174,26 @@ export class PostgresEvidenceStore {
     return listExpectedRecordsWithClient(
       this.#pool,
       episodeId === undefined ? undefined : boundedText(episodeId, 'episodeId'),
+      this.deviceScope,
     );
   }
 
   async listOpenEpisodeQualityIssues(episodeId: string): Promise<readonly EvidenceQualityIssue[]> {
-    return listOpenQualityIssuesWithClient(this.#pool, boundedText(episodeId, 'episodeId'));
+    return listOpenQualityIssuesWithClient(
+      this.#pool,
+      boundedText(episodeId, 'episodeId'),
+      false,
+      this.deviceScope,
+    );
   }
 
   async loadManifest(episodeId: string): Promise<EpisodeEvidenceManifest | undefined> {
-    return loadManifestWithClient(this.#pool, boundedText(episodeId, 'episodeId'));
+    return loadManifestWithClient(
+      this.#pool,
+      boundedText(episodeId, 'episodeId'),
+      false,
+      this.deviceScope,
+    );
   }
 
   async pendingTerminalEpisodes(
@@ -1091,6 +1202,7 @@ export class PostgresEvidenceStore {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) {
       throw new Error('EVIDENCE_COVERAGE_PENDING_LIMIT_INVALID');
     }
+    const filter = evidenceTaskScope(this.deviceScope, 2);
     const result = await this.#pool.query<TerminalEpisodeCoverageRow>(
       `WITH candidate AS (
          SELECT outcome.task_id AS episode_id,outcome.task_id,outcome.outcome_id,
@@ -1183,6 +1295,7 @@ export class PostgresEvidenceStore {
               )
             ) AS seal_requested
          FROM runtime_terminal_outcome outcome
+         JOIN (SELECT task_id FROM agent_task task WHERE ${filter.predicate}) scoped_task ON scoped_task.task_id=outcome.task_id
          LEFT JOIN episode_evidence_manifest manifest ON manifest.episode_id=outcome.task_id
          WHERE outcome.task_id IS NOT NULL AND (
            manifest.manifest_id IS NULL OR manifest.status='projecting'
@@ -1248,7 +1361,7 @@ export class PostgresEvidenceStore {
          COALESCE(coverage_issue.last_observed_at + interval '5 seconds',
            candidate.recomputed_at,candidate.committed_at),candidate.outcome_id
        LIMIT $1`,
-      [limit],
+      [limit, ...filter.values],
     );
     return Object.freeze(
       result.rows.map((row) =>
@@ -1269,13 +1382,14 @@ export class PostgresEvidenceStore {
     failedAt: string,
   ): Promise<void> {
     await withTransaction(this.#pool, async (client) => {
+      const filter = evidenceOutboxScope(this.deviceScope, 2);
       const record = await client.query<{
         record_id: string;
         delivery_attempts: number;
       }>(
         `SELECT record_id,delivery_attempts::integer FROM evidence_outbox
-         WHERE sequence=$1::bigint FOR UPDATE`,
-        [sequence],
+         WHERE sequence=$1::bigint AND ${filter.predicate} FOR UPDATE`,
+        [sequence, ...filter.values],
       );
       const row = record.rows[0];
       if (row === undefined) throw new Error('EVIDENCE_DEAD_LETTER_RECORD_MISSING');
@@ -1318,6 +1432,12 @@ export class PostgresEvidenceStore {
 
   async saveManifest(manifest: EpisodeEvidenceManifest): Promise<void> {
     await withTransaction(this.#pool, async (client) => {
+      const deviceId = await evidenceTaskDevice(
+        client,
+        this.deviceScope,
+        manifest.taskId,
+        undefined,
+      );
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `evidence.manifest:${manifest.episodeId}`,
       ]);
@@ -1363,9 +1483,9 @@ export class PostgresEvidenceStore {
            expected_required_records,projected_required_records,pending_required_records,
            failed_required_records,expected_families,completed_families,missing_families,
            source_coverage,last_evidence_sequence,status,quality_issue_ids,
-           source_snapshot_hash,created_at,recomputed_at,sealed_at)
+           source_snapshot_hash,created_at,recomputed_at,sealed_at${this.deviceScope === undefined ? '' : ',device_id'})
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::jsonb,
-           $14::jsonb,$15::bigint,$16,$17::jsonb,$18,$19,$20,$21)
+           $14::jsonb,$15::bigint,$16,$17::jsonb,$18,$19,$20,$21${this.deviceScope === undefined ? '' : ',$22'})
          ON CONFLICT (manifest_id) DO UPDATE SET
            revision=EXCLUDED.revision,policy_version=EXCLUDED.policy_version,
            expected_required_records=EXCLUDED.expected_required_records,
@@ -1406,6 +1526,7 @@ export class PostgresEvidenceStore {
           manifest.createdAt,
           manifest.recomputedAt,
           manifest.sealedAt ?? null,
+          ...(this.deviceScope === undefined ? [] : [deviceId]),
         ],
       );
       if (persisted.rowCount !== 1) {
@@ -1787,14 +1908,16 @@ const UNCONDITIONAL_EPISODE_RECORD_TYPES = Object.freeze([
 async function listExpectedRecordsWithClient(
   client: Pick<PoolClient, 'query'>,
   episodeId?: string,
+  scope?: DeviceWorkScope,
 ): Promise<readonly EvidenceExpectedRecord[]> {
+  const filter = evidenceOutboxScope(scope, 2, 'evidence_expected_record');
   const result = await client.query<ExpectedRecordRow>(
     `SELECT record_type,record_family,source_system,source_table,evaluation_role,
        requirement_level,applicable,stage,source_record_id,record_id
      FROM evidence_expected_record
-     WHERE episode_id IS NOT DISTINCT FROM $1::text
+     WHERE episode_id IS NOT DISTINCT FROM $1::text AND ${filter.predicate}
      ORDER BY record_type,source_record_id NULLS FIRST`,
-    [episodeId ?? null],
+    [episodeId ?? null, ...filter.values],
   );
   return Object.freeze(
     result.rows.map((row) =>
@@ -1818,15 +1941,17 @@ async function listOpenQualityIssuesWithClient(
   client: Pick<PoolClient, 'query'>,
   episodeId: string,
   excludeEvidenceFamily = false,
+  scope?: DeviceWorkScope,
 ): Promise<readonly EvidenceQualityIssue[]> {
+  const filter = evidenceIssueScope(scope, 3, 'evidence_quality_issue');
   const result = await client.query<QualityIssueRow>(
     `SELECT issue_id,revision::text AS revision_text,issue_code,severity,record_type,record_id,episode_id,source_system,
        source_table,source_record_id,detail,created_at
      FROM evidence_quality_issue
      WHERE episode_id=$1 AND resolved_at IS NULL
-       AND (NOT $2::boolean OR record_type IS NULL OR record_type NOT LIKE 'evidence.%')
+       AND (NOT $2::boolean OR record_type IS NULL OR record_type NOT LIKE 'evidence.%') AND ${filter.predicate}
      ORDER BY issue_id`,
-    [episodeId, excludeEvidenceFamily],
+    [episodeId, excludeEvidenceFamily, ...filter.values],
   );
   return Object.freeze(result.rows.map(toCoverageIssue));
 }
@@ -1872,15 +1997,17 @@ async function loadManifestWithClient(
   client: Pick<PoolClient, 'query'>,
   episodeId: string,
   forUpdate = false,
+  scope?: DeviceWorkScope,
 ): Promise<EpisodeEvidenceManifest | undefined> {
+  const filter = evidenceOutboxScope(scope, 2, 'episode_evidence_manifest');
   const result = await client.query<ManifestRow>(
     `SELECT manifest_id,revision::text AS revision_text,policy_version,episode_id,task_id,
        terminal_outcome_id,expected_required_records,projected_required_records,
        pending_required_records,failed_required_records,expected_families,completed_families,
        missing_families,source_coverage,last_evidence_sequence::text AS last_evidence_sequence_text,
        status,quality_issue_ids,source_snapshot_hash,created_at,recomputed_at,sealed_at
-     FROM episode_evidence_manifest WHERE episode_id=$1${forUpdate ? ' FOR UPDATE' : ''}`,
-    [episodeId],
+     FROM episode_evidence_manifest WHERE episode_id=$1 AND ${filter.predicate}${forUpdate ? ' FOR UPDATE' : ''}`,
+    [episodeId, ...filter.values],
   );
   const row = result.rows[0];
   if (row === undefined) return undefined;

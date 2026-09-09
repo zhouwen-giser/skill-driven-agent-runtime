@@ -1,0 +1,33 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts (15 tests | 1 failed) 2226ms
+     × is idempotent for the same exact versions and fails closed on later exact-version drift 309ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts > UGV SMPP Capability and Skill governance driver > is idempotent for the same exact versions and fails closed on later exact-version drift
+AssertionError: expected 128 to be 127 // Object.is equality
+
+- Expected
++ Received
+
+- 127
++ 128
+
+ ❯ apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts:485:35
+    483|     );
+    484|     expect(api.uniqueMutationCount).toBe(uniqueAfterFirst);
+    485|     expect(api.mutationCallCount).toBe(callsAfterFirst + 12);
+       |                                   ^
+    486|     const callsBeforeDrift = api.mutationCallCount;
+    487|     api.replaceOutputSchema('vehicle_get_state', {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  15:30:06
+   Duration  6.44s (transform 3.02s, setup 0ms, import 3.93s, tests 2.23s, environment 0ms)
+

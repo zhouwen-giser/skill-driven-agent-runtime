@@ -1,0 +1,36 @@
+{
+  "run": "gowm-runtime-4b8d9d4d-cab7-426f-a92f-6eb297e321cd",
+  "status": "FAIL",
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "error": "{\"deviceOwnership\":{\"deviceId\":\"gowm-runtime-4b8d9d4d-cab7-426f-a92f-6eb297e321cd-a\",\"bindingId\":\"27450871-8db5-4598-8ddc-2848d747c925\",\"sdarServiceKey\":\"sdar-test\"},\"taskId\":\"ff539323-b0d2-40da-a780-cf744d7422bd\",\"contextId\":\"df7d8dd8-4373-41ed-b39c-3882a588786d\",\"userId\":\"anonymous\",\"requestText\":\"Read synthetic device gowm-runtime-4b8d9d4d-cab7-426f-a92f-6eb297e321cd-a state once\",\"requestMetadata\":{\"io.sdar/deviceId\":\"gowm-runtime-4b8d9d4d-cab7-426f-a92f-6eb297e321cd-a\",\"structured_input\":{\"resourceId\":\"gowm-runtime-4b8d9d4d-cab7-426f-a92f-6eb297e321cd-a\"}},\"phase\":\"failed\",\"phaseMessage\":\"Confirmed Task execution failed with TASK_EXECUTION_FAILED.\",\"goalId\":\"goal-75dcb050-7eba-44e0-939f-8a1bf1f30fe2\",\"goalVersion\":1,\"planId\":\"plan-task-ff539323-b0d2-40da-a780-cf744d7422bd-6276d237-d453-44b9-a29e-6e197d6f4cc3\",\"selectedSkillId\":\"gowm-runtime-4b8d9d4d-cab7-426f-a92f-6eb297e321cd-skill\",\"selectedSkillVersion\":1,\"skillSelectionId\":\"skill-selection-f9862c75-4cd0-4065-99ff-52babc1369a7\",\"userGoalPlanId\":\"user-goal-plan-70d64bd8-0dff-4413-a935-551526bc12e4\",\"skillGoalId\":\"user-goal-plan-70d64bd8-0dff-4413-a935-551526bc12e4:skill-goal:1\",\"skillAttemptId\":\"skill-attempt-c0da5d53-7cd0-4e41-a769-7a0ed5e02a30\",\"skillExecutionContractId\":\"skill-execution-contract-747a272b-e49a-4076-a6ff-0fe57f5f8684\",\"skillInputResolutionId\":\"skill-input-resolution-f87afcd2-8a41-4b29-bf09-bc1939740896\",\"errorCode\":\"TASK_EXECUTION_FAILED\",\"createdAt\":\"2026-09-08T09:39:43.593Z\",\"updatedAt\":\"2026-09-08T09:39:44.346Z\"}\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n",
+  "taskIds": [
+    "ff539323-b0d2-40da-a780-cf744d7422bd"
+  ],
+  "modelStages": [
+    "embedding",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 1,
+  "cleanupErrors": [
+    "One or more tracked background executions failed during runtime shutdown."
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "check": "format",
+      "log": "format-check-retry.log",
+      "exitCode": 0
+    },
+    {
+      "check": "lint",
+      "log": "lint-retry.log",
+      "exitCode": 0
+    },
+    {
+      "check": "typecheck",
+      "log": "typecheck-retry.log",
+      "exitCode": 0
+    },
+    {
+      "check": "unit",
+      "log": "test-unit-retry.log",
+      "passed": 2561,
+      "exitCode": 0
+    },
+    {
+      "check": "integration",
+      "log": "gate/test-integration.log",
+      "passed": 242,
+      "exitCode": 0
+    },
+    {
+      "check": "contract",
+      "log": "gate/test-contract.log",
+      "passed": 534,
+      "exitCode": 0
+    },
+    {
+      "check": "e2e functional",
+      "log": "gate/test-e2e.log",
+      "passed": 74,
+      "exitCode": 0
+    },
+    {
+      "check": "e2e performance",
+      "log": "e2e-performance-isolated.log",
+      "passed": 1,
+      "exitCode": 0,
+      "environment": "dedicated real PostgreSQL tmpfs PGDATA + Redis; unchanged tests/thresholds"
+    },
+    {
+      "check": "build",
+      "log": "gate/build.log",
+      "exitCode": 0
+    },
+    {
+      "check": "smoke",
+      "log": "gate/smoke-server.log",
+      "exitCode": 0
+    }
+  ],
+  "failedAttemptsPreserved": [
+    "gate/lint.log",
+    "gate/test-unit.log",
+    "gate/test-e2e.log",
+    "e2e-performance-retry.log"
+  ],
+  "filterExplanation": "74 functional cases and the isolated performance case cover all 75 E2E cases. Filtered cases are executed in the other batch."
+}

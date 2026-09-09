@@ -1,0 +1,1 @@
+apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts(2359,20): error TS4111: Property 'type' comes from an index signature, so it must be accessed with ['type'].

@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "scope": "Business Event subscription identity read projection and impact-to-Remote binding lookup only",
+  "commands": [
+    {
+      "command": "pnpm exec vitest run --project unit packages/application/test/business-event-impact.unit.test.ts packages/application/test/business-events.unit.test.ts --maxWorkers=2",
+      "result": "PASS: 12 tests after allowing local loopback listener"
+    },
+    {
+      "command": "pnpm exec vitest run --project unit packages/persistence-postgres/test/business-event-device-projection.unit.test.ts",
+      "result": "PASS: 1 repository projection unit; mocked SQL rows, not a PostgreSQL integration claim"
+    }
+  ],
+  "implementation": [
+    "Domain retains optional persisted device/service pair or explicit null non-device; constructor freezes nested identity",
+    "PostgreSQL subscription reader preserves native identity and rejects half-null pairs",
+    "Impact lookup forwards the durable subscription identity and rejects returned server/handle/device/service mismatch before persistence or recovery"
+  ],
+  "preservedFailures": [
+    "Sandbox EPERM prevented 5 existing local HTTP subscription tests from starting; identical suite passed with authorized loopback access",
+    "Conflicting lint rules prohibited both nullable type cast and non-null assertion; replaced with explicit narrowing, final focused lint and repository projection regression passed"
+  ],
+  "staticChecks": "PASS: final typecheck, focused ESLint, architecture across 938 TypeScript files, Prettier check and git diff --check",
+  "remaining": [
+    "Subscription creation must persist explicit identity; current/generation queries, workers and mutation scopes require complete integration",
+    "Shared-mode subscription API/connection lifecycle and true PostgreSQL/event protocol cases",
+    "Other background/retention consumers and remaining normal geometry/recovery cases",
+    "Auxiliary Provider-link contract gap, full verification and single-repository delivery"
+  ]
+}

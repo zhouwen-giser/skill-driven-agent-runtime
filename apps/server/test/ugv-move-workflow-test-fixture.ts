@@ -34,9 +34,12 @@ export const UGV_WORKFLOW_GOAL: GoalExecutionContract = Object.freeze({
   successCriteria: Object.freeze(['Verified final position is within tolerance.']),
 });
 
-export function selectedUgvTaskOperation(): SelectedTaskOperation {
+export function selectedUgvTaskOperation(
+  resourceId = 'vehicle:ugv1',
+  providerId = 'isr.vehicle.ugv.ugv1',
+): SelectedTaskOperation {
   const navigateArguments = Object.freeze({
-    resourceId: 'vehicle:ugv1',
+    resourceId,
     mission: Object.freeze({
       type: 'point' as const,
       target: Object.freeze({ longitude: 112, latitude: 28 }),
@@ -44,7 +47,7 @@ export function selectedUgvTaskOperation(): SelectedTaskOperation {
     stopOnObstacle: true as const,
   });
   const stateArguments = Object.freeze({
-    resourceId: 'vehicle:ugv1',
+    resourceId,
     include: Object.freeze(['chassis', 'health']),
   });
   const navigateInputSchema = Object.freeze({ type: 'object', additionalProperties: false });
@@ -99,7 +102,7 @@ export function selectedUgvTaskOperation(): SelectedTaskOperation {
     }),
     providerBinding: Object.freeze({ bindingId: 'binding-ugv-runtime-1', revision: 7 }),
     provider: Object.freeze({
-      providerId: 'isr.vehicle.ugv.ugv1',
+      providerId,
       providerType: 'isr.vehicle.ugv',
       providerVersion: '1.0.0',
       manifestHash: 'b'.repeat(64),
@@ -112,7 +115,7 @@ export function selectedUgvTaskOperation(): SelectedTaskOperation {
       catalogRevision: 'catalog-revision-9',
       catalogChecksum: 'c'.repeat(64),
     }),
-    resource: Object.freeze({ resourceId: 'vehicle:ugv1', resourceType: 'vehicle' }),
+    resource: Object.freeze({ resourceId, resourceType: 'vehicle' }),
     operation: Object.freeze({
       operationName: 'vehicle_navigate',
       inputSchema: navigateInputSchema,
@@ -133,8 +136,8 @@ export function selectedUgvTaskOperation(): SelectedTaskOperation {
     finalStateRead: Object.freeze({
       operationName: 'vehicle_get_state',
       serverId: 'ugv-runtime-1',
-      providerId: 'isr.vehicle.ugv.ugv1',
-      resourceId: 'vehicle:ugv1',
+      providerId,
+      resourceId,
       catalogChecksum: 'c'.repeat(64),
       inputSchema: stateInputSchema,
       inputSchemaHash: hashCanonicalEvidenceJson(stateInputSchema),

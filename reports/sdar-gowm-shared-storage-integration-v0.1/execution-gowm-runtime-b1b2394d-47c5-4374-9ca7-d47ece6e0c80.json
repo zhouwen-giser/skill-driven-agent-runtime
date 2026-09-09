@@ -1,0 +1,30 @@
+{
+  "run": "gowm-runtime-b1b2394d-47c5-4374-9ca7-d47ece6e0c80",
+  "mcpOutcome": "task_success",
+  "status": "FAIL",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote waiting/canonical/recovery",
+    "targets in normal execution",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "error": "{\"deviceOwnership\":{\"deviceId\":\"gowm-runtime-b1b2394d-47c5-4374-9ca7-d47ece6e0c80-a\",\"bindingId\":\"c8352bed-4283-4f74-9a66-dad653fadaf5\",\"sdarServiceKey\":\"sdar-test\"},\"taskId\":\"5c46e9c5-134e-4ab6-af25-7ad0dc643785\",\"contextId\":\"f2aaf965-3f3b-4758-bee2-b8e04f86af73\",\"userId\":\"anonymous\",\"requestText\":\"Read synthetic device gowm-runtime-b1b2394d-47c5-4374-9ca7-d47ece6e0c80-a state once\",\"requestMetadata\":{\"io.sdar/deviceId\":\"gowm-runtime-b1b2394d-47c5-4374-9ca7-d47ece6e0c80-a\",\"structured_input\":{\"resourceId\":\"gowm-runtime-b1b2394d-47c5-4374-9ca7-d47ece6e0c80-a\"}},\"phase\":\"failed\",\"phaseMessage\":\"Task preparation failed with MODEL_INVOCATION_FAILED: Configured stage model invocation failed.\",\"createdAt\":\"2026-09-08T10:16:01.751Z\",\"updatedAt\":\"2026-09-08T10:16:01.844Z\"}\n+ actual - expected\n\n+ 'failed'\n- 'awaiting_plan_confirmation'\n",
+  "taskIds": [
+    "5c46e9c5-134e-4ab6-af25-7ad0dc643785"
+  ],
+  "modelStages": [
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "embedding"
+  ],
+  "modelFixtureFailures": [
+    "Configured Task Type must actually be recalled"
+  ],
+  "toolCalls": 0,
+  "cleanupErrors": []
+}

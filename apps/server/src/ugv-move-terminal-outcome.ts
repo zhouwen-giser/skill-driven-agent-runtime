@@ -25,7 +25,11 @@ import {
   type WorkflowInstance,
 } from '../../../packages/domain/src/index.js';
 
-import { adaptUgvMoveInput, UgvMoveInputAdapterError } from './ugv-move-input-adapter.js';
+import {
+  adaptUgvMoveInput,
+  UgvMoveInputAdapterError,
+  ugvResourceIdFromBinding,
+} from './ugv-move-input-adapter.js';
 import {
   snapshotUgvMovePositionPolicy,
   type UgvMovePositionPolicy,
@@ -49,7 +53,6 @@ const SKILL_VERSION = 1;
 const SKILL_REFERENCE = 'skill:embodied.move_to:1';
 const CAPABILITY_ID = 'embodied.move';
 const NAVIGATE_OPERATION = 'vehicle_navigate';
-const RESOURCE_ID = 'vehicle:ugv1';
 const TERMINAL_SUMMARY =
   'UGV movement completed with durable final-position evidence under the exact governed execution authority.';
 
@@ -509,7 +512,7 @@ function assertBindingSelection(
 ): void {
   let adapted: ReturnType<typeof adaptUgvMoveInput>;
   try {
-    adapted = adaptUgvMoveInput(binding.inputSnapshot);
+    adapted = adaptUgvMoveInput(binding.inputSnapshot, ugvResourceIdFromBinding(binding));
   } catch (error: unknown) {
     if (error instanceof UgvMoveInputAdapterError)
       guard('The frozen UGV Capability input cannot be deterministically adapted.');
@@ -527,12 +530,12 @@ function assertBindingSelection(
   if (
     selected.skill.skillId !== SKILL_ID ||
     selected.skill.version !== SKILL_VERSION ||
-    selected.resource.resourceId !== RESOURCE_ID ||
-    !exactExecutionSelection(execution, selected.execution, targetPolicies) ||
+    selected.resource.resourceId !== adapted.resourceId ||
+    !exactExecutionSelection(execution, selected.execution, targetPolicies, adapted.resourceId) ||
     !sameJson(adapted.providerArguments, selected.resolvedArguments) ||
     adapted.argumentsHash !== selected.argumentsHash ||
     resourcePolicy['selection'] !== 'exact_value' ||
-    !sameJson(resourcePolicy['allowedResourceIds'], [RESOURCE_ID]) ||
+    !sameJson(resourcePolicy['allowedResourceIds'], [adapted.resourceId]) ||
     providerPolicy['mcpProviderBindingId'] !== selected.providerBinding.bindingId ||
     providerPolicy['localServerId'] !== selected.server.serverId ||
     providerPolicy['mcpToolName'] !== NAVIGATE_OPERATION ||
@@ -582,7 +585,10 @@ function exactWorkflowSkillInput(input: unknown): unknown {
   return envelope['skillInput'];
 }
 
-function assertExactTargetPolicy(policy: Readonly<Record<string, unknown>>): void {
+function assertExactTargetPolicy(
+  policy: Readonly<Record<string, unknown>>,
+  resourceId: string,
+): void {
   const policyId = policy['policyId'];
   const revision = policy['revision'];
   if (
@@ -594,7 +600,7 @@ function assertExactTargetPolicy(policy: Readonly<Record<string, unknown>>): voi
     guard('The frozen UGV simulation target policy identity is invalid.');
   let expected: Readonly<Record<string, unknown>>;
   try {
-    expected = createUgvSimulationTargetPolicy({ policyId, revision });
+    expected = createUgvSimulationTargetPolicy({ policyId, revision, resourceId });
   } catch {
     guard('The frozen UGV simulation target policy identity is invalid.');
   }
@@ -606,6 +612,7 @@ function exactExecutionSelection(
   policy: Readonly<Record<string, unknown>>,
   selected: SelectedTaskOperation['execution'],
   targetPolicies: readonly Readonly<Record<string, unknown>>[],
+  resourceId: string,
 ): boolean {
   if (selected.mode === 'live')
     return (
@@ -620,7 +627,7 @@ function exactExecutionSelection(
     targetPolicies[0] === undefined
   )
     return false;
-  assertExactTargetPolicy(targetPolicies[0]);
+  assertExactTargetPolicy(targetPolicies[0], resourceId);
   return true;
 }
 

@@ -1,3 +1,4 @@
+import { URL } from 'node:url';
 import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import { randomBytes, createHash } from 'node:crypto';
@@ -54,7 +55,8 @@ export const defaults = Object.freeze({
   BUSINESS_EVENTS_ENABLED: 'false',
   BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY: 'false',
   SDAR_UGV_EXECUTION_MODE: 'live',
-  SDAR_UGV_BOOTSTRAP_ENABLED: 'NO',
+  SDAR_UGV_BOOTSTRAP_ENABLED: 'YES',
+  SDAR_UGV_CATALOG_PROFILE: 'ugv-v1-11',
   SDAR_UGV_BINDING_ID: 'development-ugv-binding',
   SDAR_UGV_SERVER_ID: 'development-ugv',
   SDAR_UGV_RESOURCE_ID: 'vehicle:ugv1',
@@ -86,6 +88,24 @@ export function readConfiguration(envPath, overrides = {}, inherited = process.e
   return { ...configuration, ...overrides };
 }
 
+export function writeConfiguration(envPath, configuration) {
+  const content =
+    Object.entries(configuration)
+      .map(([key, value]) => {
+        if (
+          !/^[A-Z][A-Z0-9_]*$/u.test(key) ||
+          typeof value !== 'string' ||
+          value.includes("'") ||
+          /[\r\n\0]/u.test(value)
+        )
+          throw new Error('DEVELOPMENT_DOTENV_VALUE_UNSUPPORTED');
+        return `${key}='${value}'`;
+      })
+      .join('\n') + '\n';
+  writeFileSync(envPath, content, { mode: 0o600 });
+  chmodSync(envPath, 0o600);
+}
+
 export function initialize(envPath) {
   if (existsSync(envPath)) return { status: 'preserved', envPath };
   mkdirSync(dirname(envPath), { recursive: true, mode: 0o700 });
@@ -104,6 +124,21 @@ export function initialize(envPath) {
 }
 
 export function validateConfiguration(c) {
+  if (c.SDAR_STORAGE_MODE === 'gowm-shared') {
+    for (const key of [
+      'GOWM_DATABASE_URL',
+      'SDAR_CONTROL_DATABASE_URL',
+      'SDAR_DEPLOY_EXTERNAL_NETWORK',
+    ])
+      if (!c[key]) throw new Error(`DEVELOPMENT_SHARED_CONFIGURATION_MISSING:${key}`);
+    for (const key of ['GOWM_DATABASE_URL', 'SDAR_CONTROL_DATABASE_URL']) {
+      const url = new URL(c[key]);
+      if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.searchParams.has('options'))
+        throw new Error(`DEVELOPMENT_SHARED_DATABASE_INVALID:${key}`);
+    }
+    if (new URL(c.GOWM_DATABASE_URL).pathname === new URL(c.SDAR_CONTROL_DATABASE_URL).pathname)
+      throw new Error('DEVELOPMENT_CONTROL_DATABASE_MUST_BE_SEPARATE');
+  }
   const required = [...secretNames, 'SDAR_MASTER_KEY_BASE64'];
   const missing = required.filter((key) => !c[key] || c[key].startsWith('replace_'));
   if (missing.length) throw new Error(`DEVELOPMENT_CONFIGURATION_MISSING:${missing.join(',')}`);
@@ -140,6 +175,7 @@ export function validateConfiguration(c) {
     throw new Error('DEVELOPMENT_MASTER_KEY_INVALID');
   for (const [key, choices] of Object.entries({
     SDAR_UGV_BOOTSTRAP_ENABLED: ['YES', 'NO'],
+    SDAR_UGV_CATALOG_PROFILE: ['ugv-v1-10', 'ugv-v1-11'],
     SDAR_UGV_EXECUTION_MODE: ['live', 'simulation'],
     SDAR_DEVELOPMENT_CONFIRMATION_POLICY: ['manual', 'auto_non_weapon'],
     SDAR_DEVELOPMENT_PUBLIC_ACCESS: ['open', 'off'],
@@ -188,9 +224,18 @@ export function serviceEnvironment(c) {
   const pub = (port) => `http://${c.SDAR_DEPLOY_PUBLIC_HOST}:${port}`;
   return {
     ...c,
-    SDAR_POSTGRES_URL: `postgresql://${c.SDAR_POSTGRES_USER}:${encodeURIComponent(c.SDAR_POSTGRES_PASSWORD)}@postgres:5432/${c.SDAR_POSTGRES_DB}`,
-    SDAR_CONTROL_DATABASE_URL: `postgresql://${c.SDAR_CONTROL_POSTGRES_USER}:${encodeURIComponent(c.SDAR_CONTROL_POSTGRES_PASSWORD)}@control-postgres:5432/${c.SDAR_CONTROL_POSTGRES_DB}`,
-    SDAR_CONTROL_RUNTIME_DATABASE_URL: `postgresql://${c.SDAR_POSTGRES_USER}:${encodeURIComponent(c.SDAR_POSTGRES_PASSWORD)}@postgres:5432/${c.SDAR_POSTGRES_DB}`,
+    SDAR_POSTGRES_URL:
+      c.SDAR_STORAGE_MODE === 'gowm-shared'
+        ? c.GOWM_DATABASE_URL
+        : `postgresql://${c.SDAR_POSTGRES_USER}:${encodeURIComponent(c.SDAR_POSTGRES_PASSWORD)}@postgres:5432/${c.SDAR_POSTGRES_DB}`,
+    SDAR_CONTROL_DATABASE_URL:
+      c.SDAR_STORAGE_MODE === 'gowm-shared'
+        ? c.SDAR_CONTROL_DATABASE_URL
+        : `postgresql://${c.SDAR_CONTROL_POSTGRES_USER}:${encodeURIComponent(c.SDAR_CONTROL_POSTGRES_PASSWORD)}@control-postgres:5432/${c.SDAR_CONTROL_POSTGRES_DB}`,
+    SDAR_CONTROL_RUNTIME_DATABASE_URL:
+      c.SDAR_STORAGE_MODE === 'gowm-shared'
+        ? c.GOWM_DATABASE_URL
+        : `postgresql://${c.SDAR_POSTGRES_USER}:${encodeURIComponent(c.SDAR_POSTGRES_PASSWORD)}@postgres:5432/${c.SDAR_POSTGRES_DB}`,
     SDAR_REDIS_HOST: 'redis',
     SDAR_REDIS_PORT: '6379',
     SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: c.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
@@ -226,6 +271,9 @@ export function render(c, envPath, revision = 'unknown') {
     if (previous.SDAR_MASTER_KEY_BASE64 !== effective.SDAR_MASTER_KEY_BASE64)
       throw new Error('DEVELOPMENT_MASTER_KEY_ROTATION_REQUIRES_MIGRATION');
     for (const key of [
+      'SDAR_STORAGE_MODE',
+      'GOWM_DATABASE_URL',
+      'SDAR_CONTROL_DATABASE_URL',
       'SDAR_POSTGRES_PASSWORD',
       'SDAR_CONTROL_POSTGRES_PASSWORD',
       'SDAR_POSTGRES_USER',
@@ -367,11 +415,28 @@ export function render(c, envPath, revision = 'unknown') {
       healthcheck: health('http://localhost:10998/api/v1/health'),
     },
   };
+  if (c.SDAR_STORAGE_MODE === 'gowm-shared') {
+    delete services.postgres;
+    delete services['control-postgres'];
+    delete services['control-api'].depends_on.postgres;
+    delete services['control-api'].depends_on['control-postgres'];
+    delete services.runtime.depends_on.postgres;
+    for (const name of ['runtime', 'control-api', 'control-worker'])
+      services[name].networks = ['default', 'gowm'];
+  }
   const compose = {
     name: c.SDAR_DEPLOY_PROJECT,
     services,
+    ...(c.SDAR_STORAGE_MODE === 'gowm-shared'
+      ? {
+          networks: { default: {}, gowm: { external: true, name: c.SDAR_DEPLOY_EXTERNAL_NETWORK } },
+        }
+      : {}),
     volumes: Object.fromEntries(
-      ['runtime-data', 'control-data', 'redis-data', 'governance-packages'].map((k) => [k, {}]),
+      (c.SDAR_STORAGE_MODE === 'gowm-shared'
+        ? ['redis-data', 'governance-packages']
+        : ['runtime-data', 'control-data', 'redis-data', 'governance-packages']
+      ).map((k) => [k, {}]),
     ),
   };
   // Compose interpolates dollars even in JSON strings; these are literal resolved values.

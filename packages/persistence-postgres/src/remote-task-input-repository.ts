@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { remoteTaskScopeSql, remoteTaskChildScopeSql } from './gowm-mcp-ownership.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import type {
@@ -38,12 +40,16 @@ interface InputAttemptRow extends QueryResultRow {
 export class PostgresRemoteTaskInputRepository implements RemoteTaskInputRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  readonly #deviceScope: DeviceWorkScope | undefined;
+
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   activate(input: Parameters<RemoteTaskInputRepository['activate']>[0]): Promise<boolean> {
     return withTransaction(this.#pool, async (client) => {
+      const scope = remoteTaskScopeSql(this.#deviceScope, 3, 'binding');
       const authority = (
         await client.query<{
           event_id: string;
@@ -71,8 +77,9 @@ export class PostgresRemoteTaskInputRepository implements RemoteTaskInputReposit
              AND event.status='claimed' AND event.continuation_claim_token=$2
              AND binding.local_state='awaiting_input' AND binding.protocol_status='input_required'
              AND binding.invalidated_at IS NULL AND binding.terminal_at IS NULL
+             AND ${scope.predicate}
            FOR UPDATE OF event,binding,instance`,
-          [input.link.controlEventId, input.claimToken],
+          [input.link.controlEventId, input.claimToken, ...scope.values],
         )
       ).rows[0];
       if (authority === undefined) return false;
@@ -98,13 +105,14 @@ export class PostgresRemoteTaskInputRepository implements RemoteTaskInputReposit
         `INSERT INTO task_input_request(
            input_request_id,task_id,context_id,source,question,status,control_id,
            control_round_index,created_at,answered_at)
-         VALUES($1,$2,$3,'remote_task',$4,'waiting',NULL,NULL,$5,NULL)`,
+         VALUES($1,$2,$3,$6,$4,'waiting',NULL,NULL,$5,NULL)`,
         [
           input.request.inputRequestId,
           input.request.taskId,
           input.request.contextId,
           input.request.question,
           input.request.createdAt,
+          this.#deviceScope === undefined ? 'remote_task' : 'workflow',
         ],
       );
       await client.query(
@@ -140,9 +148,10 @@ export class PostgresRemoteTaskInputRepository implements RemoteTaskInputReposit
   }
 
   async findLink(inputRequestId: string): Promise<RemoteTaskInputLink | undefined> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 2, 'remote_task_input_link');
     const result = await this.#pool.query<InputLinkRow>(
-      'SELECT * FROM remote_task_input_link WHERE input_request_id=$1',
-      [inputRequestId],
+      `SELECT * FROM remote_task_input_link WHERE input_request_id=$1 AND ${scope.predicate}`,
+      [inputRequestId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapLink(result.rows[0]);
   }
@@ -151,13 +160,19 @@ export class PostgresRemoteTaskInputRepository implements RemoteTaskInputReposit
     input: Parameters<RemoteTaskInputRepository['recordUpdateOutcome']>[0],
   ): Promise<Readonly<{ applied: boolean }>> {
     return withTransaction(this.#pool, async (client) => {
+      const scope = remoteTaskChildScopeSql(this.#deviceScope, 2, 'remote_task_input_link');
       const link = (
         await client.query<InputLinkRow>(
-          'SELECT * FROM remote_task_input_link WHERE input_request_id=$1 FOR UPDATE',
-          [input.inputRequestId],
+          `SELECT * FROM remote_task_input_link WHERE input_request_id=$1 AND ${scope.predicate} FOR UPDATE`,
+          [input.inputRequestId, ...scope.values],
         )
       ).rows[0];
       if (link === undefined) return { applied: false };
+      if (
+        input.attempt.inputRequestId !== input.inputRequestId ||
+        input.attempt.bindingId !== link.binding_id
+      )
+        throw new Error('REMOTE_TASK_INPUT_ATTEMPT_IDENTITY_MISMATCH');
       await insertAttempt(client, input.attempt);
       const binding = await client.query(
         `UPDATE remote_task_binding
@@ -180,10 +195,11 @@ export class PostgresRemoteTaskInputRepository implements RemoteTaskInputReposit
   }
 
   async listAttempts(inputRequestId: string): Promise<readonly RemoteTaskInputAttempt[]> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 2, 'remote_task_input_attempt');
     const result = await this.#pool.query<InputAttemptRow>(
       `SELECT * FROM remote_task_input_attempt
-       WHERE input_request_id=$1 ORDER BY started_at,attempt_id`,
-      [inputRequestId],
+       WHERE input_request_id=$1 AND ${scope.predicate} ORDER BY started_at,attempt_id`,
+      [inputRequestId, ...scope.values],
     );
     return result.rows.map(mapAttempt);
   }

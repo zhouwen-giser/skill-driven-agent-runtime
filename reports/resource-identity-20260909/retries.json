@@ -1,0 +1,45 @@
+[
+  {
+    "name": "e2e-performance-retry",
+    "command": [
+      "node",
+      "scripts/test-e2e.mjs",
+      "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+      "--testNamePattern",
+      "keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds"
+    ],
+    "exitCode": 1
+  },
+  {
+    "name": "format-check-retry",
+    "command": [
+      "pnpm",
+      "format:check"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "lint-retry",
+    "command": [
+      "pnpm",
+      "lint"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "typecheck-retry",
+    "command": [
+      "pnpm",
+      "typecheck"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "test-unit-retry",
+    "command": [
+      "pnpm",
+      "test:unit"
+    ],
+    "exitCode": 0
+  }
+]

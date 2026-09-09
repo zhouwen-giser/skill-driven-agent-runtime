@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { evidenceTaskScope } from './gowm-evidence-scope.js';
 import type { Pool, PoolClient } from 'pg';
 
 import type {
@@ -9,19 +11,23 @@ import type {
 export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSource {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
   async pendingTaskIds(limit: number): Promise<readonly string[]> {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new Error('Runtime core Evidence pending limit must be between 1 and 1000.');
+    const filter = evidenceTaskScope(this.deviceScope, 2);
     const result = await this.#pool.query<{ task_id: string }>(
       `WITH candidate AS (
          SELECT task.task_id,
                 MIN(COALESCE(outcome.committed_at,task.updated_at)) AS first_observed_at,
                 MIN(COALESCE(outcome.outcome_id,task.task_id)) AS source_order
-         FROM agent_task task
+         FROM (SELECT * FROM agent_task task WHERE ${filter.predicate}) task
          LEFT JOIN runtime_terminal_outcome outcome ON outcome.task_id=task.task_id
          LEFT JOIN evidence_source_checkpoint checkpoint
            ON checkpoint.source_family='runtime'
@@ -74,7 +80,7 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
          projection_issue.last_observed_at + interval '5 seconds',candidate.first_observed_at
        ),candidate.source_order
        LIMIT $1`,
-      [limit],
+      [limit, ...filter.values],
     );
     return Object.freeze(result.rows.map((row) => row.task_id));
   }
@@ -83,10 +89,13 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const filter = evidenceTaskScope(this.deviceScope, 2);
       const task = (
-        await rows(client, 'SELECT to_jsonb(task) AS value FROM agent_task task WHERE task_id=$1', [
-          taskId,
-        ])
+        await rows(
+          client,
+          `SELECT to_jsonb(task) AS value FROM agent_task task WHERE task_id=$1 AND ${filter.predicate}`,
+          [taskId, ...filter.values],
+        )
       )[0];
       if (task === undefined) {
         await client.query('COMMIT');
@@ -131,6 +140,10 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
          WHERE task.task_id=$1 ORDER BY plan.revision,step.ordinal,step.skill_goal_id`,
         [taskId],
       );
+      const planOwner =
+        this.deviceScope === undefined
+          ? 'TRUE'
+          : `(plan.gowm_task_id=task.task_id OR (task.device_id IS NULL AND plan.device_id IS NULL))`;
       const stateTransitions = await rows(
         client,
         `SELECT to_jsonb(event)
@@ -138,9 +151,10 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
            AS value
          FROM workflow_node_event event
          JOIN workflow_instance instance ON instance.instance_id=event.instance_id
+         JOIN workflow_plan plan ON plan.plan_id=instance.plan_id
          JOIN agent_task task ON task.goal_id=instance.goal_id
            AND task.goal_version=instance.goal_version
-         WHERE task.task_id=$1 ORDER BY event.event_timestamp,event.event_id`,
+         WHERE task.task_id=$1 AND ${planOwner} ORDER BY event.event_timestamp,event.event_id`,
         [taskId],
       );
       const controlRounds = await rows(
@@ -155,14 +169,14 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
         `SELECT to_jsonb(gate) AS value FROM task_execution_readiness gate
          JOIN workflow_plan plan ON plan.plan_id=gate.workflow_plan_id
          JOIN agent_task task ON task.goal_id=plan.goal_id AND task.goal_version=plan.goal_version
-         WHERE task.task_id=$1 ORDER BY gate.created_at,gate.readiness_id`,
+         WHERE task.task_id=$1 AND ${planOwner} ORDER BY gate.created_at,gate.readiness_id`,
         [taskId],
       );
       const confirmations = await rows(
         client,
         `SELECT to_jsonb(plan) AS value FROM workflow_plan plan
          JOIN agent_task task ON task.goal_id=plan.goal_id AND task.goal_version=plan.goal_version
-         WHERE task.task_id=$1 AND plan.confirmation_status IN ('confirmed','superseded','invalidated')
+         WHERE task.task_id=$1 AND ${planOwner} AND plan.confirmation_status IN ('confirmed','superseded','invalidated')
          ORDER BY COALESCE(plan.confirmed_at,plan.created_at),plan.plan_id`,
         [taskId],
       );
@@ -192,7 +206,7 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
         `SELECT to_jsonb(effect) AS value FROM completed_effect effect
          JOIN user_goal_plan plan ON plan.plan_id=effect.plan_id
          JOIN agent_task task ON task.goal_id=plan.goal_id AND task.goal_version=plan.goal_version
-         WHERE task.task_id=$1 ORDER BY effect.created_at,effect.completed_effect_id`,
+         WHERE task.task_id=$1 ${this.deviceScope === undefined ? '' : `AND (task.device_id IS NULL OR effect.effect_json->>'executionTaskId'=task.task_id)`} ORDER BY effect.created_at,effect.completed_effect_id`,
         [taskId],
       );
       const outcomes = await rows(
@@ -200,7 +214,7 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
         `SELECT to_jsonb(decision) AS value FROM outcome_decision decision
          JOIN user_goal_plan plan ON plan.plan_id=decision.plan_id
          JOIN agent_task task ON task.goal_id=plan.goal_id AND task.goal_version=plan.goal_version
-         WHERE task.task_id=$1 ORDER BY decision.created_at,decision.outcome_decision_id`,
+         WHERE task.task_id=$1 ${this.deviceScope === undefined ? '' : `AND (task.device_id IS NULL OR decision.decision_json->>'executionTaskId'=task.task_id)`} ORDER BY decision.created_at,decision.outcome_decision_id`,
         [taskId],
       );
       const runSeals = await rows(

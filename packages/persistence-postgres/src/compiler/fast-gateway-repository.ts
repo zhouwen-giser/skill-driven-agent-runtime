@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../../domain/src/device-task-context.js';
+import { taskChildScopeSql, taskDeviceScopeSql } from '../gowm-work-scope.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import type { GatewayDecisionPersistence } from '../../../application/src/index.js';
@@ -26,7 +28,10 @@ interface StoredFeedbackRow extends QueryResultRow {
 export class PostgresFastGatewayRepository implements GatewayDecisionPersistence {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -38,12 +43,13 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
       }>
     | undefined
   > {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'request');
     const result = await this.#pool.query<StoredDecisionRow>(
       `SELECT request.request_hash,decision.runtime_decision,decision.decision_record
        FROM fast_gateway_request request
        JOIN fast_gateway_decision decision ON decision.request_id=request.request_id
-       WHERE request.idempotency_key=$1`,
-      [idempotencyKey],
+       WHERE request.idempotency_key=$1 AND ${scope.predicate}`,
+      [idempotencyKey, ...scope.values],
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
@@ -62,6 +68,7 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
       }>
     | undefined
   > {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'request');
     const result = await this.#pool.query<StoredDecisionRow>(
       `SELECT decision.runtime_decision,decision.decision_record,
          EXISTS(
@@ -71,10 +78,10 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
          ) AS outbox_recorded
        FROM fast_gateway_request request
        JOIN fast_gateway_decision decision ON decision.request_id=request.request_id
-       WHERE request.task_id=$1
+       WHERE request.task_id=$1 AND ${scope.predicate}
        ORDER BY decision.created_at DESC,decision.gateway_decision_id DESC
        LIMIT 1`,
-      [taskId],
+      [taskId, ...scope.values],
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
@@ -100,11 +107,25 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      let deviceId: string | null = null;
+      if (this.deviceScope !== undefined) {
+        const scope = taskDeviceScopeSql(this.deviceScope, 3);
+        const owner = await client.query<{ device_id: string | null }>(
+          `SELECT device_id FROM agent_task WHERE task_id=$1 AND context_id=$2 AND ${scope.predicate} FOR KEY SHARE`,
+          [context.taskId, context.contextId, ...scope.values],
+        );
+        if (owner.rows[0] === undefined)
+          throw new FastGatewayPersistenceError(
+            'GATEWAY_TASK_DEVICE_SCOPE_DENIED',
+            'Gateway request must match an owned Task and context.',
+          );
+        deviceId = owner.rows[0].device_id;
+      }
       const requestInsert = await client.query(
         `INSERT INTO fast_gateway_request(
            request_id,task_id,context_id,tenant_id,idempotency_key,request_hash,
-           request_context,created_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+           request_context,created_at${this.deviceScope === undefined ? '' : ',device_id'})
+         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8${this.deviceScope === undefined ? '' : ',$9'})
          ON CONFLICT(idempotency_key) DO NOTHING
          RETURNING request_id`,
         [
@@ -116,6 +137,7 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
           input.requestHash,
           JSON.stringify(context),
           context.createdAt,
+          ...(this.deviceScope === undefined ? [] : [deviceId]),
         ],
       );
       if (requestInsert.rowCount !== 1) {
@@ -174,6 +196,20 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      if (this.deviceScope !== undefined) {
+        const scope = taskChildScopeSql(this.deviceScope, 3, 'request');
+        const owner = await client.query(
+          `SELECT request.request_id FROM fast_gateway_request request
+             JOIN fast_gateway_decision decision ON decision.request_id=request.request_id
+             WHERE request.request_id=$1 AND decision.gateway_decision_id=$2 AND ${scope.predicate} FOR KEY SHARE OF request`,
+          [envelope.requestId, envelope.gatewayDecisionRef, ...scope.values],
+        );
+        if (owner.rowCount !== 1)
+          throw new FastGatewayPersistenceError(
+            'GATEWAY_TASK_DEVICE_SCOPE_DENIED',
+            'Feedback must reference an owned request and its decision.',
+          );
+      }
       const inserted = await client.query(
         `INSERT INTO fast_gateway_feedback(
            feedback_id,request_id,gateway_decision_id,feedback_type,
@@ -238,17 +274,25 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
         'Actor identity is required for Gateway deletion propagation.',
       );
     }
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'request');
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const selected = await client.query<{ request_id: string }>(
+        `SELECT request_id FROM fast_gateway_request request
+          WHERE request_context#>>'{actor,actorId}'=$1 AND ${scope.predicate}
+          ORDER BY request_id FOR UPDATE`,
+        [actorId, ...scope.values],
+      );
+      const requestIds = selected.rows.map((row) => row.request_id);
       await client.query(
         `DELETE FROM cognitive_runtime_outbox outbox
          USING fast_gateway_feedback feedback,fast_gateway_request request
          WHERE outbox.aggregate_type='fast_gateway_feedback'
            AND outbox.aggregate_id=feedback.feedback_id
            AND feedback.request_id=request.request_id
-           AND request.request_context#>>'{actor,actorId}'=$1`,
-        [actorId],
+           AND request.request_id=ANY($1::text[])`,
+        [requestIds],
       );
       await client.query(
         `DELETE FROM cognitive_runtime_outbox outbox
@@ -256,14 +300,14 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
          WHERE outbox.aggregate_type='fast_gateway_decision'
            AND outbox.aggregate_id=decision.gateway_decision_id
            AND decision.request_id=request.request_id
-           AND request.request_context#>>'{actor,actorId}'=$1`,
-        [actorId],
+           AND request.request_id=ANY($1::text[])`,
+        [requestIds],
       );
       const result = await client.query(
-        `DELETE FROM fast_gateway_request
-         WHERE request_context#>>'{actor,actorId}'=$1
+        `DELETE FROM fast_gateway_request request
+         WHERE request.request_id=ANY($1::text[])
          RETURNING request_id`,
-        [actorId],
+        [requestIds],
       );
       await client.query('COMMIT');
       return result.rowCount ?? 0;
@@ -282,13 +326,14 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
     decision: RuntimeExecutionDecision,
     record: GatewayDecisionRecord,
   ): Promise<void> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'request');
     const existing = await client.query<StoredDecisionRow>(
       `SELECT request.request_hash,decision.runtime_decision,decision.decision_record
        FROM fast_gateway_request request
        JOIN fast_gateway_decision decision ON decision.request_id=request.request_id
-       WHERE request.idempotency_key=$1
+       WHERE request.idempotency_key=$1 AND ${scope.predicate}
        FOR UPDATE OF request`,
-      [idempotencyKey],
+      [idempotencyKey, ...scope.values],
     );
     const row = existing.rows[0];
     if (row === undefined) {

@@ -1,0 +1,11 @@
+{
+  "status": "NOT_RUN",
+  "requiredForSdarDevReady": false,
+  "sdarCommit": null,
+  "smppCommit": null,
+  "gowmContractCommit": null,
+  "peer": "REAL_SMPP",
+  "actualRequestIds": [],
+  "taskLineage": [],
+  "reason": "SMPP parallel implementation may not be available yet"
+}

@@ -1,0 +1,496 @@
+{
+  "version": "1.0",
+  "status": "DESIGN_NOT_EXECUTED",
+  "scenarios": [
+    {
+      "id": "T01",
+      "title": "共享模式启动验证不执行DDL",
+      "phase": "P1",
+      "mode": "CONTRACT",
+      "tier": "REQUIRED",
+      "given": "GOWM已安装；记录启动SQL",
+      "expected": "只校验SDAR消费子集；无baseline、ALTER、reset或重复迁移",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T02",
+      "title": "错库或缺overlay拒绝共享接纳",
+      "phase": "P1",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "数据库缺sdar-derived-ownership或连接配置冲突",
+      "expected": "明确合同错误；无public/旧库fallback；其他测试可继续",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T03",
+      "title": "固定Schema与连接池隔离",
+      "phase": "P1",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "池有多个连接并存在同名public测试表",
+      "expected": "SDAR业务只写ugv_sdar；事务设置不泄漏到其他连接",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T04",
+      "title": "设备解析不是identifier直接当ID",
+      "phase": "P1",
+      "mode": "UNIT",
+      "tier": "REQUIRED",
+      "given": "外部ugv1与真实world_object id不同",
+      "expected": "通过绑定取得真实deviceId和scope，不按名称/数组首项猜",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T05",
+      "title": "双设备Task归属",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "A/B通过正常入口创建任务",
+      "expected": "根及所有适用子记录设备正确；可从GOWM回读",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T06",
+      "title": "归属不可变和跨设备父子拒绝",
+      "phase": "P2",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "尝试改Task设备、A计划引用B任务、NULL子引用设备父",
+      "expected": "原生/GOWM约束生效，不禁用trigger",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T07",
+      "title": "初始Admission同设备重放",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "同设备同服务同key同输入提交两次",
+      "expected": "单一Task和接纳；保留原参数冲突规则",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T08",
+      "title": "初始Admission跨设备同key",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "A/B使用同一caller idempotency文本",
+      "expected": "两个独立Task；partial unique正确；无跨设备复用",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T09",
+      "title": "初始Admission同key不同输入",
+      "phase": "P2",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "同设备同服务同key但目标改变",
+      "expected": "幂等冲突，不覆盖既有Task或目标",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T10",
+      "title": "非设备Task与独立幂等",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "非设备请求与设备请求使用相同key",
+      "expected": "NULL分支保留；不归为ugv1、不成为全设备通配",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T11",
+      "title": "原生Task revision与命令上下文",
+      "phase": "P2",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "正常Task创建、修改、确认及非法修订尝试",
+      "expected": "合法路径成功；非法绕过被拒绝；新Task不复制旧revision",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T12",
+      "title": "共享Goal/Skill与独立执行计划",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "两台设备引用同一Goal/Skill定义",
+      "expected": "共享定义不被锁成单设备；各自执行plan/task关联完整",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T13",
+      "title": "计划定义和未执行节点完整保存",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "含分支/条件及未走节点的Workflow",
+      "expected": "nodes/edges保留，未执行节点不冒充成功",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T14",
+      "title": "Retry/循环/子Workflow运行身份",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "同nodeId两次执行和子Workflow",
+      "expected": "run/attempt/parent不同，准确关联各Invocation",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T15",
+      "title": "A2A外部Task投影",
+      "phase": "P2",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "通过正常请求并读取Task投影",
+      "expected": "device正确且A2A原合同不被新增字段破坏",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T16",
+      "title": "Point任务与节点目标",
+      "phase": "P3",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "明确移动终点结构化输入",
+      "expected": "Task/Plan/Remote NodeRun目标绑定可查，原输入保存",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T17",
+      "title": "区域Task与移动Node目标不同",
+      "phase": "P3",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "Task为Polygon，移动Node为Point",
+      "expected": "两个目标语义不混淆；观察fixture不执行真实设备",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T18",
+      "title": "局部坐标和未知CRS",
+      "phase": "P3",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "局部frame目标及无frame输入",
+      "expected": "局部保留native，未知不假装WGS84；原input不丢",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T19",
+      "title": "目标重放、修改和事务回滚",
+      "phase": "P3",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "重复相同owner，后续计划改目标，故障ROLLBACK",
+      "expected": "一致重放无孤立目标；旧派发目标不漂移；回滚不残留半链",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T20",
+      "title": "NODE_RUN owner精确校验",
+      "phase": "P3",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "错误binding/instance/node/run任一字段",
+      "expected": "拒绝错owner，不放宽GOWM验证",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T21",
+      "title": "同步MCP无Remote Task",
+      "phase": "P4",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "query工具同步返回",
+      "expected": "仅真实Invocation和结果；无伪造Remote Binding/Mission",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T22",
+      "title": "设备Remote Binding完整写入",
+      "phase": "P4",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "异步MCP返回Task",
+      "expected": "device/service/server/remote及workflow/run/invocation保留",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T23",
+      "title": "跨设备相同remote文本身份",
+      "phase": "P4",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "A/B及不同smpp_service_key使用相同server/remote文本",
+      "expected": "partial unique和查询范围正确，不串记录",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T24",
+      "title": "canonical父已发布",
+      "phase": "P4",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "协议桩父行先提交再返回同一合法ID",
+      "expected": "核验device/service/实际回执后写canonical UUID",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T25",
+      "title": "canonical父延迟发布",
+      "phase": "P4",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "回执先到，父行后提交",
+      "expected": "先NULL，受控补齐；MCP创建调用次数不增加",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T26",
+      "title": "opaque remote或父永不发布",
+      "phase": "P4",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "不透明remote ID，无明确映射或父记录",
+      "expected": "原协议结果仍可处理，canonical保持NULL且关系未确认",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T27",
+      "title": "canonical错误设备/服务/已确认ID",
+      "phase": "P4",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "尝试关联别车/别服务或替换已确认canonical",
+      "expected": "拒绝；保留原绑定；不写ugv_smpp伪造父",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T28",
+      "title": "终态后canonical补齐",
+      "phase": "P4",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "SDAR任务终态后父MCP行才出现",
+      "expected": "仅补自己的外键，不重发、不阻塞原终态",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T29",
+      "title": "MCP输入与取消使用原身份",
+      "phase": "P4",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "input_required、用户答复、取消",
+      "expected": "原Remote Task/authority路由；不命中另一车同号任务",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T30",
+      "title": "Worker设备范围",
+      "phase": "P5",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "A/B待poll/continuation/admission任务并存",
+      "expected": "只领取allowedDeviceIds；空集合不取全部",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T31",
+      "title": "同任务双Worker竞争",
+      "phase": "P5",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "两个worker同时领取同一个任务",
+      "expected": "只有一个有效claim，token/version验证有效",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T32",
+      "title": "过期claim接管和旧持有者提交",
+      "phase": "P5",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "旧claim过期，新worker接管",
+      "expected": "旧token提交失败，新worker继续同一执行",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T33",
+      "title": "实际重启恢复不重复MCP调用",
+      "phase": "P6",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "保存remote wait后重启server/worker",
+      "expected": "恢复原Task/Instance/Binding，调用次数不增加",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T34",
+      "title": "Continuation含循环和并行等待",
+      "phase": "P5",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "等待节点、并行join和loop state",
+      "expected": "保留scope/stateVersion/runCounts，无跨设备恢复",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T35",
+      "title": "业务事件订阅current和generation",
+      "phase": "P5",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "A/B同provider/stream/generation局部值",
+      "expected": "独立订阅；current/unique/游标使用完整设备服务键",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T36",
+      "title": "事件inbox/连续性/去重",
+      "phase": "P5",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "重复事件、旧generation事件、另一设备事件",
+      "expected": "沿subscriptionId处理，不污染另一设备状态",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T37",
+      "title": "无硬Task FK的来源表",
+      "phase": "P5",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "external projection、evidence、temporary skill等有/无父情况",
+      "expected": "有父设备一致；合法历史来源保留；不造父或漏填设备",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T38",
+      "title": "配置和模型路由冻结来源",
+      "phase": "P5",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "设备切换配置但已有Task继续",
+      "expected": "运行Task使用原绑定/快照；新Task按新配置",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T39",
+      "title": "历史绑定更换",
+      "phase": "P5",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "A更新当前service/resource绑定后继续旧任务",
+      "expected": "旧归属不可变，恢复不重指向新资源；新请求使用新绑定",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T40",
+      "title": "缓存与协议客户端交叉访问",
+      "phase": "P5",
+      "mode": "UNIT",
+      "tier": "REQUIRED",
+      "given": "两台车同server别名、不同实际来源/结果",
+      "expected": "请求与结果缓存key不串车；共享定义缓存仍可复用",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T41",
+      "title": "句柄过期与业务保留",
+      "phase": "P5",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "终态Task和remote TTL过期后运行cleanup",
+      "expected": "保留Task/Plan/Run/Invocation/目标/关联历史，原过期语义有效",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T42",
+      "title": "数据库故障和事务client一致性",
+      "phase": "P6",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "写入中断、目标绑定失败、池多连接",
+      "expected": "ROLLBACK完整，无旧库回落，无热循环，无半链",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T43",
+      "title": "生产SDAR权限边界",
+      "phase": "P6",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "SDAR角色无ugv_smpp DML仍运行测试",
+      "expected": "可读必要canonical父；不写SMPP/Mission；fixture同伴角色独立",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T44",
+      "title": "GOWM views回读不做笛卡尔关联",
+      "phase": "P6",
+      "mode": "POSTGRES",
+      "tier": "REQUIRED",
+      "given": "多个计划/重复node/多个run/未关联下游",
+      "expected": "steps/targets/lineage正确，保留NATIVE_EVENT与REMOTE_NODE_RUN区别",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T45",
+      "title": "正常Server完整双设备开发链",
+      "phase": "P6",
+      "mode": "RUNTIME",
+      "tier": "REQUIRED",
+      "given": "真实server composition、确定性模型、MCP桩和GOWM DB",
+      "expected": "两条Task→Plan→NodeRun→Remote链完整，无独立测试Writer替代",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T46",
+      "title": "非设备与旧模式回归",
+      "phase": "P7",
+      "mode": "CONTRACT",
+      "tier": "REQUIRED",
+      "given": "现有非设备任务、Standalone配置、Node Control管理测试",
+      "expected": "不强制ugv1，不误改独立管理库，不移除原功能",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T47",
+      "title": "静态、架构、协议与构建回归",
+      "phase": "P7",
+      "mode": "STATIC",
+      "tier": "REQUIRED",
+      "given": "执行真实package.json脚本",
+      "expected": "typecheck/lint/test/build及受影响协议/架构/迁移检查通过",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T48",
+      "title": "SOURCE/DEV/INTEROP分层报告",
+      "phase": "P7",
+      "mode": "CONTRACT",
+      "tier": "REQUIRED",
+      "given": "DB缺失、测试失败、协议桩及真实互操作四种结果",
+      "expected": "NOT_RUN不算PASS；SOURCE不掩盖失败；不冒充真实SMPP",
+      "executionStatus": "NOT_RUN"
+    },
+    {
+      "id": "T49",
+      "title": "实际SMPP共享存储互操作",
+      "phase": "P7",
+      "mode": "REAL_SMPP_INTEROP",
+      "tier": "OPTIONAL_INTEROP",
+      "given": "已适配SMPP独立测试实例显式配置",
+      "expected": "协议身份与canonical父匹配，双方代码真实参与；未配置NOT_RUN",
+      "executionStatus": "NOT_RUN"
+    }
+  ]
+}

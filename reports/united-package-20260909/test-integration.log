@@ -1,0 +1,64 @@
+$ node scripts/test-integration.mjs
+Reusing operator-managed PostgreSQL and Redis; Docker lifecycle commands are disabled.
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"p03.process_mining.persistence","traceCount":10000,"queryElapsedMs":658.244,"persistenceElapsedMs":2058.261}
+{"event":"planning.knowledge_retrieval.p95","samples":20,"p95Ms":7.759,"targetMs":500}
+{"event":"remote_task_reconcile.failed","error":"REMOTE_TASK_PROVIDER_EXECUTION_LINK_CONFLICT"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"provider_binding_reconciliation.failed","serverId":"ugv-runtime-p2-b03","errorCode":"MCP_PROVIDER_BINDING_CONFLICT"}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage result_processing.","occurredAt":"2026-09-09T03:22:23.316Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage evaluation.","occurredAt":"2026-09-09T03:22:23.329Z"}
+{"event":"provider_binding_reconciliation.failed","serverId":"ugv-runtime-p2-b03","errorCode":"MCP_PROVIDER_BINDING_CONFLICT"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage result_processing.","occurredAt":"2026-09-09T03:22:29.822Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage evaluation.","occurredAt":"2026-09-09T03:22:29.829Z"}
+{"event":"capability_catalog_refresh.deferred","errorCode":"P0001","summary":"UAP_P2_INJECTED_CAPABILITY_SUMMARY_WRITE_FAILURE"}
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"ECONNREFUSED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"ECONNREFUSED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+P12_PERFORMANCE {"environment":"local Docker PostgreSQL; acceptance baseline, not a production SLO","artifactListMs":{"1000":3.481,"10000":0.866,"100000":0.952},"concurrentOperators":32,"concurrentOperatorsMs":100.201,"a2aProjectionIterations":10000,"a2aTenThousandMs":58.106}
+{"event":"p03.compilation_worker.wake","processedRuns":1,"queueLagMs":22.098,"runsPerSecond":45.252}
+{"event":"p03.compilation_worker.throughput","processedRuns":100,"claimBatches":10,"elapsedMs":7.041,"runsPerSecond":14203.002}
+
+ Test Files  39 passed (39)
+      Tests  220 passed (220)
+   Start at  11:20:19
+   Duration  244.81s (transform 7.85s, setup 0ms, import 62.98s, tests 176.16s, environment 5ms)
+
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  11:24:25
+   Duration  9.44s (transform 3.91s, setup 0ms, import 5.62s, tests 3.67s, environment 0ms)
+
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  11:24:35
+   Duration  10.45s (transform 5.28s, setup 0ms, import 7.55s, tests 2.76s, environment 0ms)
+
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"evidence_projection.items_deferred","failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.items_deferred","failedItems":3,"sourceListingFailures":0,"durableIssueCount":3}
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  11:24:47
+   Duration  36.29s (transform 3.95s, setup 0ms, import 5.80s, tests 30.34s, environment 0ms)
+

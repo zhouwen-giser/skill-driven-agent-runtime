@@ -1,3 +1,4 @@
+import type { DeviceTaskOwnership } from '../../domain/src/device-task-context.js';
 import {
   ANONYMOUS_USER_ID,
   bindTaskPlan,
@@ -56,6 +57,8 @@ import {
 } from './generic-capability-admission.js';
 
 export interface SubmitTaskCommand {
+  /** Internal inherited ownership; adapters must resolve public selectors through the directory. */
+  readonly deviceOwnership?: DeviceTaskOwnership;
   readonly taskId?: string;
   readonly contextId?: string;
   readonly userId?: string;
@@ -128,6 +131,9 @@ export interface BeforeTaskPlanExecutionResult {
 }
 
 export interface TaskServiceDependencies {
+  readonly resolveDeviceOwnership?: (
+    command: SubmitTaskCommand,
+  ) => Promise<DeviceTaskOwnership | undefined>;
   readonly contexts: ConversationContextRepository;
   readonly tasks: AgentTaskRepository;
   readonly queue: ContextTaskQueue;
@@ -204,6 +210,10 @@ export class TaskService {
   }
 
   async #submit(command: SubmitTaskCommand, enqueue: boolean): Promise<SubmitTaskResult> {
+    const deviceOwnership =
+      this.#dependencies.resolveDeviceOwnership === undefined
+        ? command.deviceOwnership
+        : await this.#dependencies.resolveDeviceOwnership(command);
     const timestamp = this.#dependencies.clock.now();
     const requestedUserId = normalizeUserId(command.userId);
     const genericEligible =
@@ -215,7 +225,16 @@ export class TaskService {
       command.metadata['structured_input'] === undefined &&
       command.clientRequestId !== undefined;
     const genericRequestId = genericEligible
-      ? capabilityAdmissionRequestId(requestedUserId, command.clientRequestId)
+      ? capabilityAdmissionRequestId(
+          requestedUserId,
+          deviceOwnership === undefined
+            ? command.clientRequestId
+            : JSON.stringify([
+                deviceOwnership.deviceId,
+                deviceOwnership.sdarServiceKey,
+                command.clientRequestId,
+              ]),
+        )
       : undefined;
     const genericRequestHash = initialTaskAdmissionRequestHash({
       messageText: command.messageText,
@@ -312,6 +331,7 @@ export class TaskService {
         );
       const existingAdmission = await this.#dependencies.initialAdmissions.findByIdempotencyKey(
         initialAdmission.idempotencyKey,
+        deviceOwnership,
       );
       if (existingAdmission !== undefined)
         return this.#replayInitialAdmission(initialAdmission.requestHash, existingAdmission);
@@ -330,6 +350,7 @@ export class TaskService {
         timestamp,
       });
     const task = createAgentTask({
+      ...(deviceOwnership === undefined ? {} : { deviceOwnership }),
       taskId:
         command.taskId === undefined || command.taskId.trim() === ''
           ? this.#dependencies.ids.nextId('task')

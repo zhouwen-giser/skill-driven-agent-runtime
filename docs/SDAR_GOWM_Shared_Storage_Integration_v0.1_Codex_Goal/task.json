@@ -1,0 +1,102 @@
+{
+  "format": "task-package-metadata/1.0",
+  "taskId": "sdar-gowm-shared-storage-integration-v0.1",
+  "createdAt": "2026-09-08",
+  "title": "SDAR → GOWM共享业务存储并行接入 v0.1",
+  "targetRepository": "zhouwen-giser/skill-driven-agent-runtime",
+  "branch": "codex/sdar-gowm-shared-storage-integration-v0.1",
+  "readOnlyRepositories": [
+    "zhouwen-giser/geospatial-operational-world-model",
+    "zhouwen-giser/sdar-mcp-provider-platform",
+    "zhouwen-giser/single-agent-chat-server",
+    "zhouwen-giser/world-semantic-grounding-service"
+  ],
+  "observedBaseline": {
+    "sdarMain": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
+    "gowmStorageBranch": "codex/gowm-device-shared-business-storage-v0.2",
+    "gowmStorageCommit": "48cebb862e992579b801590385b4373b10422d52"
+  },
+  "storage": {
+    "primarySchema": "ugv_sdar",
+    "deviceOwned": true,
+    "perInstanceSchemas": false,
+    "dualWrite": false,
+    "automaticMigrations": false
+  },
+  "parallel": {
+    "waitForSmpp": false,
+    "mandatoryPeer": "SCHEMA_VALID_MCP_FIXTURE",
+    "realSmppInterop": "OPTIONAL"
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "title": "基线与合同"
+    },
+    {
+      "id": "P1",
+      "title": "连接、启动和设备上下文"
+    },
+    {
+      "id": "P2",
+      "title": "Task与Workflow"
+    },
+    {
+      "id": "P3",
+      "title": "目标图形"
+    },
+    {
+      "id": "P4",
+      "title": "MCP关联"
+    },
+    {
+      "id": "P5",
+      "title": "恢复、事件与保留"
+    },
+    {
+      "id": "P6",
+      "title": "正常应用与双设备验证"
+    },
+    {
+      "id": "P7",
+      "title": "回归和交付"
+    }
+  ],
+  "requiredStaticCommands": [
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm test",
+    "pnpm build",
+    "pnpm verify:architecture",
+    "pnpm verify:protocol",
+    "pnpm verify:migrations",
+    "pnpm gowm-storage:check",
+    "pnpm test:gowm-storage:unit",
+    "pnpm gowm-storage:smoke --help"
+  ],
+  "requiredForIntegrationReady": [
+    "pnpm test:gowm-storage:postgres",
+    "pnpm test:gowm-storage:runtime"
+  ],
+  "optionalCommands": [
+    "pnpm gowm-storage:interop"
+  ],
+  "markers": {
+    "source": "SDAR_GOWM_SHARED_STORAGE_SOURCE_READY",
+    "integration": "SDAR_GOWM_SHARED_STORAGE_INTEGRATION_DEV_READY",
+    "incomplete": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+    "optionalInterop": "SDAR_SMPP_GOWM_SHARED_STORAGE_INTEROP_VERIFIED"
+  },
+  "acceptanceFile": "acceptance.json",
+  "testScenariosFile": "test-scenarios.json",
+  "forbidden": [
+    "GOWM_DDL_CHANGES",
+    "SMPP_SOURCE_CHANGES",
+    "SDAR_RUNTIME_SMPP_DML",
+    "SDAR_MISSION_WRITES",
+    "SHADOW_TASK_STORAGE",
+    "CDC_EXPORT_SYNC",
+    "LIVE_DEVICE_TESTS",
+    "AUTO_MERGE_RELEASE_DEPLOY"
+  ]
+}

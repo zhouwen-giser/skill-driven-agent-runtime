@@ -44,6 +44,20 @@ const SKILL_RESULT = Object.freeze({
 });
 
 describe('UGV deterministic terminal outcome authority', () => {
+  it('verifies the site resource through terminal binding and result projection', async () => {
+    const fixture = terminalFixture(true);
+    const prepared = await new UgvMoveTerminalOutcomeAuthority(fixture.dependencies).prepare(
+      TASK_ID,
+      fixture.instance,
+    );
+    expect(prepared.processedResult.output.structured).toMatchObject({
+      resourceId: 'vehicle:ugv',
+      status: 'completed',
+    });
+    expect(fixture.verifyTerminalEvidence).toHaveBeenCalledOnce();
+    expect(fixture.modelGenerate).not.toHaveBeenCalled();
+  });
+
   it('prepares an unpersisted exact-Skill result, Capability proof, and outcome references', async () => {
     const fixture = terminalFixture();
     const authority = new UgvMoveTerminalOutcomeAuthority(fixture.dependencies);
@@ -458,11 +472,23 @@ describe('UGV Profile Goal evaluator routing', () => {
   });
 });
 
-function terminalFixture() {
-  const binding = taskBinding();
-  const selected = selectedUgvTaskOperation();
-  const instance = workflowInstance();
-  const verifyTerminalEvidence = vi.fn(() => terminalVerification());
+function terminalFixture(siteIdentity = false) {
+  const map = <T>(value: T): T =>
+    siteIdentity
+      ? (JSON.parse(
+          JSON.stringify(value)
+            .replaceAll('vehicle:ugv1', 'vehicle:ugv')
+            .replaceAll('isr.vehicle.ugv.ugv1', 'isr.vehicle.ugv.ugv'),
+        ) as T)
+      : value;
+  const { bindingHash: _hash, ...draft } = map(taskBinding());
+  void _hash;
+  const binding = createTaskCapabilityBinding(draft);
+  const selected = siteIdentity
+    ? selectedUgvTaskOperation('vehicle:ugv', 'isr.vehicle.ugv.ugv')
+    : selectedUgvTaskOperation();
+  const instance = map(workflowInstance());
+  const verifyTerminalEvidence = vi.fn(() => map(terminalVerification()));
   // These legacy/model persistence paths intentionally have no slot in the profile authority DI.
   const modelGenerate = vi.fn();
   const legacyResultProcess = vi.fn();
@@ -472,7 +498,7 @@ function terminalFixture() {
       findBinding: () => Promise.resolve(binding),
       listAttempts: () => Promise.resolve([capabilityAttempt(binding)]),
     },
-    skills: { findVersion: () => Promise.resolve(skillVersion()) },
+    skills: { findVersion: () => Promise.resolve(map(skillVersion())) },
     workflowAuthority: { loadExact: () => Promise.resolve(selected) },
     invocations: { listInvocationsByTask: () => Promise.resolve(invocations(selected)) },
     remoteTasks: { listByAgentTaskId: () => Promise.resolve([remoteLifecycle()]) },
@@ -570,6 +596,7 @@ function taskBinding(overrides: Readonly<{ targetX?: number }> = {}): TaskCapabi
         simulationId: 'sim-uap-p2-b03',
       }),
       createUgvSimulationTargetPolicy({
+        resourceId: 'vehicle:ugv1',
         policyId: 'ugv-agent-profile/explicit-wgs84-target',
         revision: 2,
       }),

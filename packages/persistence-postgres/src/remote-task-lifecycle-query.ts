@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { remoteTaskScopeSql } from './gowm-mcp-ownership.js';
 import type { Pool, QueryResultRow } from 'pg';
 
 import type {
@@ -60,18 +62,22 @@ export class PostgresRemoteTaskLifecycleQuery implements RemoteTaskLifecycleQuer
   readonly #inputs: PostgresRemoteTaskInputRepository;
   readonly #cancellations: PostgresRemoteTaskCancellationRepository;
 
-  constructor(pool: Pool) {
+  readonly #deviceScope: DeviceWorkScope | undefined;
+
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
+    this.#deviceScope = deviceScope;
     this.#pool = pool;
-    this.#remoteTasks = new PostgresRemoteTaskRepository(pool);
-    this.#inputs = new PostgresRemoteTaskInputRepository(pool);
-    this.#cancellations = new PostgresRemoteTaskCancellationRepository(pool);
+    this.#remoteTasks = new PostgresRemoteTaskRepository(pool, deviceScope);
+    this.#inputs = new PostgresRemoteTaskInputRepository(pool, deviceScope);
+    this.#cancellations = new PostgresRemoteTaskCancellationRepository(pool, deviceScope);
   }
 
   async listByAgentTaskId(agentTaskId: string): Promise<readonly RemoteTaskLifecycleEvidence[]> {
+    const scope = remoteTaskScopeSql(this.#deviceScope, 2);
     const bindings = await this.#pool.query<BindingIdentityRow>(
       `SELECT binding_id FROM remote_task_binding
-       WHERE agent_task_id=$1 ORDER BY created_at,binding_id`,
-      [agentTaskId],
+       WHERE agent_task_id=$1 AND ${scope.predicate} ORDER BY created_at,binding_id`,
+      [agentTaskId, ...scope.values],
     );
     return Promise.all(bindings.rows.map((row) => this.#readBinding(row.binding_id)));
   }

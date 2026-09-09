@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
@@ -20,6 +21,13 @@ export interface FrozenMcpTasksMockProviderHandle {
 }
 
 export interface FrozenMcpTasksMockProviderOptions {
+  /** Explicit synthetic read effects for layered-outcome integration fixtures. */
+  readonly genericReadEffects?: readonly string[];
+  readonly genericReadInputSchema?: Readonly<Record<string, unknown>>;
+  /** Synthetic UUID handles for native shared-storage parent-link tests. */
+  readonly taskIdFormat?: 'opaque' | 'uuid';
+  /** Keep the synthetic task pending until the actual tasks/cancel request arrives. */
+  readonly holdUntilCancelled?: boolean;
   readonly outcome?: 'immediate_success' | 'task_success' | 'input_required' | 'cancelled';
   readonly availability?: 'available' | 'restricted' | 'disabled';
   readonly moveTo?: Readonly<{
@@ -44,6 +52,7 @@ export interface FrozenMcpTasksMockProviderOptions {
 }
 
 interface FrozenMockState {
+  readonly genericReadEffects: readonly string[];
   revision: number;
   toolCalls: number;
   updated: boolean;
@@ -69,6 +78,7 @@ export async function startFrozenMcpTasksMockProvider(
     headers: Readonly<Record<string, string>>;
   }[] = [];
   const state: FrozenMockState = {
+    genericReadEffects: options.genericReadEffects ?? [],
     revision: 1,
     toolCalls: 0,
     updated: false,
@@ -232,7 +242,10 @@ function result(
       if (outcome === 'immediate_success') return toolResult(state);
       state.taskSequence += 1;
       state.taskGetCalls = 0;
-      state.taskId = `frozen-task-${String(state.taskSequence)}`;
+      state.taskId =
+        options.taskIdFormat === 'uuid'
+          ? randomUUID()
+          : `frozen-task-${String(state.taskSequence)}`;
       return task('task', 'working', state);
     }
     case 'tasks/get': {
@@ -241,6 +254,7 @@ function result(
       const outcome = operationOutcome(options, state.operationName ?? 'embodied.move');
       if (state.cancelled || outcome === 'remote_cancelled')
         return task('complete', 'cancelled', state);
+      if (options.holdUntilCancelled === true) return task('complete', 'working', state);
       if (outcome === 'remote_input_required' && !state.updated)
         return task('complete', 'input_required', state);
       if (outcome === 'remote_notification_success') return task('complete', 'working', state);
@@ -304,7 +318,15 @@ function toolResult(state: FrozenMockState) {
     return {
       resultType: 'complete',
       content: [{ type: 'text', text: 'task completed' }],
-      structuredContent: { status: 'online' },
+      structuredContent: {
+        status: 'online',
+        ...(state.genericReadEffects.length === 0
+          ? {}
+          : {
+              resourceId: state.resourceId,
+              effectRefs: state.genericReadEffects,
+            }),
+      },
       isError: false,
     };
   return {
@@ -431,12 +453,32 @@ function frozenTools(options: FrozenMcpTasksMockProviderOptions) {
           {
             name: 'task_success',
             description: 'Complete one generic remote Task.',
-            inputSchema: { type: 'object' },
+            inputSchema:
+              options.genericReadInputSchema ??
+              (options.genericReadEffects === undefined
+                ? { type: 'object' }
+                : {
+                    type: 'object',
+                    properties: { resourceId: { type: 'string', minLength: 1 } },
+                    required: ['resourceId'],
+                    additionalProperties: false,
+                  }),
             outputSchema: {
               type: 'object',
               additionalProperties: false,
-              required: ['status'],
-              properties: { status: { type: 'string', enum: ['online'] } },
+              required:
+                options.genericReadEffects === undefined
+                  ? ['status']
+                  : ['status', 'resourceId', 'effectRefs'],
+              properties: {
+                status: { type: 'string', enum: ['online'] },
+                ...(options.genericReadEffects === undefined
+                  ? {}
+                  : {
+                      resourceId: { type: 'string' },
+                      effectRefs: { type: 'array', items: { type: 'string' } },
+                    }),
+              },
             },
             _meta: {
               [TASK_PROFILE]: taskProfile,

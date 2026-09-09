@@ -1,0 +1,12 @@
+{
+  "image": "sdar-sz-gowm:governance-81e64ef90f96",
+  "imageId": "sha256:d66e6f5e655de100d62442b8112dbb86ce44664450d80f1124421f380a3151f3",
+  "architecture": "amd64",
+  "archiveName": "sdar-source-81e64ef90f96.tar.gz",
+  "archiveSha256": "b218906d0b3a2cb6469e8f7047a8aa28ac74b1e9ab7e4f5268ec73be773b2ff2",
+  "sourceHash": "81e64ef90f96e97424c6f7ddf711dd5e9db1907fe20a16b74b00ba6b693d0446",
+  "sourceRevision": "a4fb05e16b1928a9f39bed2a141165ec8ab290ed",
+  "unionArchive": "/home/zhouwen/web-download/skill-driven-agent-runtime/artifacts/united/sdar-united-070b90e6e25786a67592/sdar-united-070b90e6e25786a67592.tar.gz",
+  "unionSha256": "461bedaef951fd2d01f76bbdda056b7cd7ba0bd3774a4dee3277dae58851660b",
+  "buildDirectory": "/tmp/sdar-final-image-yd9n1dc_"
+}

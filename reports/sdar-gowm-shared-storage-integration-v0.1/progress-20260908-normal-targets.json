@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "scope": "Normal dual-device local-Point targets through synchronous and remote MCP paths",
+  "runtimeRuns": {
+    "remote": "gowm-runtime-3645ddb4-02b8-4332-8330-18c6bad3c9ac",
+    "synchronous": "gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480"
+  },
+  "commands": [
+    {
+      "command": "source .state/gowm-storage/runtime-test.env (export); pnpm exec tsx scripts/gowm-runtime-execution.mts --remote",
+      "result": "PASS: each device REQUESTED/PLANNED/DISPATCHED, exact actual invocation point, null WGS84, remote completion and delayed canonical link; two calls; cleanupErrors=[]"
+    },
+    {
+      "command": "source .state/gowm-storage/runtime-test.env (export); pnpm exec tsx scripts/gowm-runtime-execution.mts",
+      "result": "PASS: each device REQUESTED/PLANNED only; exact actual Invocation arguments, zero Remote Binding; two calls; cleanupErrors=[]"
+    },
+    {
+      "command": "pnpm exec vitest run --project contract packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/mcp-adapter/test/frozen-v1-registry.contract.test.ts --maxWorkers=2",
+      "result": "PASS: 22 tests"
+    }
+  ],
+  "staticChecks": "PASS: typecheck, focused ESLint, architecture 938 files; formatting checked",
+  "contractBoundary": "FULL_CN public-owner contract explicitly permits NODE_RUN target only after a real remote_task_binding exists. Synchronous MCP preserves Invocation parameters and Task/Plan targets; do not fabricate a Remote Binding.",
+  "modelBoundary": "Synthetic local Model/MCP fixture; literal planned Point is the explicit test input, not real model generalization or device control evidence",
+  "remaining": [
+    "Normal Polygon/LineString, input references, target revision/rollback combinations",
+    "Background/retention scopes and remaining process loss/cancellation/subscription cases",
+    "Auxiliary Provider-link global key gap",
+    "Full task-package checks, final reports, owned resource cleanup and commit/push/Draft PR"
+  ]
+}

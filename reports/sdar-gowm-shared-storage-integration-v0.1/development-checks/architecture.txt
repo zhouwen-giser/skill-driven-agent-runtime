@@ -1,0 +1,4 @@
+$ node scripts/check-architecture.mjs
+Cognitive architecture verified: 6 v1.2.2 authorities, 20 Domain files, 63 Application files, no Python product runtime.
+Artifact architecture verified: 16 Domain files, 2 schema files, compiler/PostgreSQL projections, explicit P12 transport consumers, and the single authorized Server composition root.
+Architecture boundaries verified across 965 TypeScript source files.
