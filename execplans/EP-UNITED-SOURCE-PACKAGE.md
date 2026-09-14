@@ -25,3 +25,6 @@ Normalize archive metadata; exact matching output reused. Temporary staging remo
 artifacts/united/<content identity>/ includes archive, checksum, UNION.json, SHA256SUMS and delivery.json.
 ## Outcomes and Retrospective
 Implementation and release checks passed: unit 2534, integration 242, contract 534, E2E 75; full lint rerun and final focused regressions passed. Complete gate logs and first failures retained. Archive publication verifies before completion and emits delivery.json. No fresh-server or full business-task acceptance claimed.
+
+## Packaging operation: upstream refresh (2026-09-09)
+The newer local qualified union is 1579eae9c89bfded (SHA256 436c3706708daa5e2a20e4d2c3fecc595584ee2eed85ebcaafa8d38841b184b6). Its format remains schemaVersion 1/live, and its 491-object Authority schema and release seed are byte-identical to the earlier input. The existing --upstream interface accepts it without implementation changes. Update the usage example and regenerate from current local SDAR source; operation results are recorded separately in reports/united-refresh-20260909. This is a packaging-only refresh, not a new implementation milestone, server deployment or full-stack acceptance.

@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-09-09：联合包上游示例更新为 1579eae9c89bfded；现有打包接口和嵌套身份校验兼容该版本，无需修改执行脚本。重新打包及验证记录见 reports/united-refresh-20260909；本次不更新服务器。
+
 - 2026-09-09：修复公开 vehicle:ugv 与内部 ugv1 冲突；自然语言、移动绑定、Skill Usage、终态及仿真资格使用治理资源身份，跨设备漂移仍拒绝。ADR-155 / EP-UGV-RESOURCE-IDENTITY。已部署 sz-gowm 并验证，联合包与现场源码摘要一致；性能首次失败及独立环境通过证据均保留。
 
 ## 2026-09-09 — default capability governance

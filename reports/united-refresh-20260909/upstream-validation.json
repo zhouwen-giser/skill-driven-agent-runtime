@@ -1,0 +1,37 @@
+{
+  "authorityReleaseSeedUnchanged": true,
+  "authoritySchemaUnchanged": true,
+  "newManifest": {
+    "executionMode": "live",
+    "schemaVersion": 1,
+    "sdarSchema": {
+      "objects": 491,
+      "releaseSeed": {
+        "sha256": "3cc77caece4b59c74e8d05f8aba18fc0a23527438d11f6db7036ef04eb5be8ba",
+        "source": "smpp-arm64-dev:smpp-remediation-e1-arm64-20260907-shared-test-1:sdar_meta.v_schema_contract_release_current"
+      },
+      "sha256": "1fe7a816cd7d25214dc3608c496dc1cc391b855c1c03ab57fd8c8d920f096e2b",
+      "source": "smpp-arm64-dev:sdar-clickhouse_clickhouse_data (read-only SQL metadata; HTTP 8123 unavailable)"
+    },
+    "storage": {
+      "business": "existing GOWM, unchanged",
+      "telemetry": "standalone ClickHouse plus managed SDAR ClickHouse; Authority enabled"
+    },
+    "telemetry": {
+      "files": 282,
+      "revision": "fe73fe4b898c6a5ec7d5ff50d7d3d642e7913e6b-worktree-82599e0d56e7",
+      "sha256": "82599e0d56e72faf0360f214126ca0dcc55f62e07dbe7df8394664ed3b33bde9"
+    },
+    "upstream": {
+      "archive": "smpp-gowm-gdps-gsap-96500c83ddb3bd4f.tar.gz",
+      "baseSourceSha256": "21f723f58ee9dc65247d43c69c2602d7bb1edb05139cf210225f0d4cbc170a5b",
+      "root": "smpp-gowm-gdps-gsap-96500c83ddb3bd4f",
+      "sha256": "589ae51ddcfb673f6c193047e4192111a1b98ffba4892354f9fea71e759eee61",
+      "smppRevision": "c3599914785913ea107ac5394676537f7542a635-worktree-d6341a4153be"
+    }
+  },
+  "newSha256": "436c3706708daa5e2a20e4d2c3fecc595584ee2eed85ebcaafa8d38841b184b6",
+  "oldSha256": "071abb75bf8d231b4d794e5681611ab0f00e26076a73efb3ebe82beccc3ba0d5",
+  "originalBytesPreserved": true,
+  "status": "PASS"
+}

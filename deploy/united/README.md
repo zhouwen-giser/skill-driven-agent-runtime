@@ -3,8 +3,10 @@
 一键生成（Node.js 22、pnpm 11、Python 3、Git、GNU tar）：
 
 ```sh
-pnpm package:joint -- --upstream /absolute/path/smpp-gowm-gdps-gsap-telemetry-a2605b5999e8cd2f.tar.gz --output artifacts/united
+pnpm package:joint -- --upstream /absolute/path/smpp-gowm-gdps-gsap-telemetry-1579eae9c89bfded.tar.gz --output artifacts/united
 ```
+
+本次更新的上游为 `1579eae9c89bfded`，SHA256 为 `436c3706708daa5e2a20e4d2c3fecc595584ee2eed85ebcaafa8d38841b184b6`。该名称仅为本次命令示例，脚本不固定版本；后续通过 `--upstream` 显式指定经确认的新包，避免按文件时间自动选择不明输入。
 
 上游文件旁必须有同名 `.sha256`。默认输出 `artifacts/united/sdar-united-<内容摘要>/`，内含归档、SHA256、UNION.json、SHA256SUMS、delivery.json。自定义输出目录也会从源码输入中排除，不能将仓库根目录作为输出目录。相同输入重复生成复用完全一致的交付目录；发生冲突立即退出。源码包括 Git 枚举的有效未提交文件，身份由 revision 与逐文件 sourceHash 共同确定。
 

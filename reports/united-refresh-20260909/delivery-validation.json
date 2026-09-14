@@ -1,0 +1,22 @@
+{
+  "archive": "/home/zhouwen/web-download/skill-driven-agent-runtime/artifacts/united/sdar-united-83214f815640f6688da1/sdar-united-83214f815640f6688da1.tar.gz",
+  "sha256": "9f08a3c7aa7244d0e15223cdddc10dfaa8d87913a869403cf9de70dacbc2d34f",
+  "status": "PACKAGE_VERIFIED",
+  "upstreamSha256": "436c3706708daa5e2a20e4d2c3fecc595584ee2eed85ebcaafa8d38841b184b6",
+  "sourceHash": "29fdcfe193d6da6f93c2ce191f904caf64e485ae26022f9e35cc5c0154e5ee99",
+  "sourceFiles": 2780,
+  "serverChanged": false,
+  "directory": "/home/zhouwen/web-download/skill-driven-agent-runtime/artifacts/united/sdar-united-83214f815640f6688da1",
+  "sourceRevision": "1cc74d698bedb813b637f69c03e8306e97144b13",
+  "scriptChangeRequired": false,
+  "documentationUpdated": true,
+  "regressionTests": 4,
+  "repeatGeneration": "IDENTICAL",
+  "standaloneVerification": "PASS",
+  "cleanBuild": "PASS",
+  "cleanSharedStorageConfiguration": "PASS",
+  "privateValueMatches": 0,
+  "fullRepositoryGateRerun": false,
+  "validationScope": "packaging-only refresh; executable source unchanged",
+  "firstAttempt": "sandbox spawnSync git EPERM; unchanged commands passed outside sandbox"
+}
