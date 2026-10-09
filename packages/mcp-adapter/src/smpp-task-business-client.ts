@@ -363,6 +363,66 @@ export class SmppTaskBusinessClient {
     return parsed.data;
   }
 
+  /** Restores large Artifact content with exact revision and full-content SHA-256. */
+  async readArtifactContent(input: Readonly<{
+    taskId: string;
+    artifactId: string;
+    revision: number;
+    representationName?: string;
+  }>): Promise<Buffer> {
+    await this.#requireMethod('artifactGet', 'io.sdar/taskBusiness/artifacts/get');
+    let offset = 0;
+    let total: number | undefined;
+    let hash: string | undefined;
+    const chunks: Buffer[] = [];
+    for (let i = 0; i < 256; i += 1) {
+      const raw = await this.#client.request({
+        ...this.#endpoint,
+        method: 'io.sdar/taskBusiness/artifacts/get',
+        params: {
+          taskId: input.taskId,
+          artifactId: input.artifactId,
+          revision: input.revision,
+          representationName: input.representationName ?? '',
+          includeContent: true,
+          contentOffset: offset,
+          maxContentBytes: 65_536,
+        },
+      });
+      const parsed = artifactSchema.safeParse(raw);
+      if (
+        !parsed.success ||
+        parsed.data.artifact.artifactId !== input.artifactId ||
+        parsed.data.artifact.revision !== input.revision ||
+        !parsed.data.content
+      ) throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_UNAVAILABLE');
+      this.#validateIdentity(parsed.data.artifact.identity, input.taskId);
+      const part = parsed.data.content;
+      const length = Number(part.totalBytes);
+      if (!Number.isSafeInteger(length) || length > MAX_CONTENT ||
+          part.offset !== offset ||
+          (total !== undefined && total !== length) ||
+          (hash !== undefined && hash !== part.sha256))
+        throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_CONFLICT');
+      total = length;
+      hash = part.sha256;
+      const bytes = canonicalBase64(part.bytes);
+      offset += bytes.length;
+      if (offset > length) throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_OVERFLOW');
+      chunks.push(bytes);
+      if (part.nextOffset === undefined) {
+        if (offset !== length) throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_INCOMPLETE');
+        const result = Buffer.concat(chunks);
+        if (createHash('sha256').update(result).digest('hex') !== hash)
+          throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_INVALID');
+        return result;
+      }
+      if (Number(part.nextOffset) !== offset || bytes.length === 0)
+        throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_OFFSET_INVALID');
+    }
+    throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_LIMIT');
+  }
+
   async respondToRequiredInput(input: Readonly<{
     taskId: string;
     executionId: string;
@@ -580,6 +640,7 @@ export class SmppTaskBusinessClient {
 
   #validateInputSchema(schema: unknown, value: unknown): void {
     try {
+      if (typeof schema !== 'boolean' && !isRecord(schema)) throw new Error('invalid-schema');
       const validator = new Ajv2020({ strict: false, allErrors: true }).compile(schema);
       if (!validator(value)) throw new Error('input-schema-rejected');
     } catch { throw new SmppBusinessError('SMPP_BUSINESS_INPUT_SCHEMA_INVALID'); }
