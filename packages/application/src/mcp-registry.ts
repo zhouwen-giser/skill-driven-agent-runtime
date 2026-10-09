@@ -134,6 +134,17 @@ export interface FrozenTaskAvailabilityRuntimePort {
 }
 
 /** Read-only TaskBusiness endpoint, owned by the already-governed Frozen Task binding. */
+export interface FrozenTaskBusinessBindingInput {
+  readonly serverId: string;
+  readonly operationName: string;
+  readonly remoteTaskId: string;
+  readonly resourceId: string;
+  readonly executionContext: RuntimeExecutionContext;
+  readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+  readonly credentialRevision: string;
+  readonly protocolContract: McpProtocolContractSnapshot;
+}
+
 export interface FrozenTaskBusinessReadRuntimePort {
   getContext(
     input: Readonly<{
@@ -144,6 +155,28 @@ export interface FrozenTaskBusinessReadRuntimePort {
       expectedResourceId: string;
     }>,
   ): Promise<unknown>;
+  getArtifact(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      taskId: string;
+      expectedProviderId: string;
+      expectedResourceId: string;
+      artifactId: string;
+      revision: number;
+    }>,
+  ): Promise<unknown>;
+  getArtifactContent(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      taskId: string;
+      expectedProviderId: string;
+      expectedResourceId: string;
+      artifactId: string;
+      revision: number;
+    }>,
+  ): Promise<Buffer>;
 }
 
 export interface FrozenTaskLifecycleRuntimePort {
@@ -998,25 +1031,52 @@ export class McpRegistryService {
    * Provider Binding, credential and immutable Tool authority as Task polling.
    * This path performs no device mutation and never refreshes registration.
    */
-  async readRemoteTaskBusinessContext(
-    input: Readonly<{
-      serverId: string;
-      operationName: string;
-      remoteTaskId: string;
-      resourceId: string;
-      executionContext: RuntimeExecutionContext;
-      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
-      credentialRevision: string;
-      protocolContract: McpProtocolContractSnapshot;
-    }>,
-  ): Promise<unknown> {
-    const runtime = await this.#runtimeBindingAuthority.loadRuntimeAuthority(input.serverId);
-    await this.#assertRemoteTaskReadAuthority(input, runtime);
+  async readRemoteTaskBusinessContext(input: FrozenTaskBusinessBindingInput): Promise<unknown> {
     if (this.#frozenBusinessRead === undefined)
       throw new McpRegistryError(
         'MCP_FROZEN_RUNTIME_UNAVAILABLE',
         'SMPP TaskBusiness read transport is not configured.',
       );
+    return this.#frozenBusinessRead.getContext(await this.#businessReadTarget(input));
+  }
+
+  async readRemoteTaskBusinessArtifact(
+    input: FrozenTaskBusinessBindingInput & Readonly<{ artifactId: string; revision: number }>,
+  ): Promise<unknown> {
+    if (this.#frozenBusinessRead === undefined)
+      throw new McpRegistryError(
+        'MCP_FROZEN_RUNTIME_UNAVAILABLE',
+        'SMPP TaskBusiness read transport is not configured.',
+      );
+    const target = await this.#businessReadTarget(input);
+    return this.#frozenBusinessRead.getArtifact({
+      ...target, artifactId: input.artifactId, revision: input.revision,
+    });
+  }
+
+  async readRemoteTaskBusinessArtifactContent(
+    input: FrozenTaskBusinessBindingInput & Readonly<{ artifactId: string; revision: number }>,
+  ): Promise<Buffer> {
+    if (this.#frozenBusinessRead === undefined)
+      throw new McpRegistryError(
+        'MCP_FROZEN_RUNTIME_UNAVAILABLE',
+        'SMPP TaskBusiness read transport is not configured.',
+      );
+    const target = await this.#businessReadTarget(input);
+    return this.#frozenBusinessRead.getArtifactContent({
+      ...target, artifactId: input.artifactId, revision: input.revision,
+    });
+  }
+
+  async #businessReadTarget(input: FrozenTaskBusinessBindingInput): Promise<{
+    endpoint: string;
+    headers: Readonly<Record<string, string>>;
+    taskId: string;
+    expectedProviderId: string;
+    expectedResourceId: string;
+  }> {
+    const runtime = await this.#runtimeBindingAuthority.loadRuntimeAuthority(input.serverId);
+    await this.#assertRemoteTaskReadAuthority(input, runtime);
     const providerId = runtime.snapshot.providerCatalog?.providerId;
     if (!providerId || input.resourceId.trim() === '')
       throw new McpRegistryError(
@@ -1024,7 +1084,7 @@ export class McpRegistryService {
         'The exact Provider or resource identity is missing.',
       );
     const context = createRuntimeExecutionContext(input.executionContext);
-    return this.#frozenBusinessRead.getContext({
+    return {
       endpoint: runtime.record.server.endpoint,
       headers: withExecutionHeaders(
         this.#cipher.decrypt(runtime.record.encryptedCredential),
@@ -1034,7 +1094,7 @@ export class McpRegistryService {
       taskId: input.remoteTaskId,
       expectedProviderId: providerId,
       expectedResourceId: input.resourceId,
-    });
+    };
   }
 
   async cancelRemoteTask(

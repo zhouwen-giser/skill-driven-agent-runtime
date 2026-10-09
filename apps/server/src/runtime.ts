@@ -2421,6 +2421,32 @@ export async function startServerRuntime(
           expectedProviderId: input.expectedProviderId,
           expectedResourceId: input.expectedResourceId,
         }).getContext({ taskId: input.taskId }),
+      getArtifact: (input) =>
+        new SmppTaskBusinessClient({
+          client: frozenMcpClient,
+          endpoint: input.endpoint,
+          headers: input.headers,
+          now: clock.now,
+          expectedProviderId: input.expectedProviderId,
+          expectedResourceId: input.expectedResourceId,
+        }).getArtifact({
+          taskId: input.taskId,
+          artifactId: input.artifactId,
+          revision: input.revision,
+        }),
+      getArtifactContent: (input) =>
+        new SmppTaskBusinessClient({
+          client: frozenMcpClient,
+          endpoint: input.endpoint,
+          headers: input.headers,
+          now: clock.now,
+          expectedProviderId: input.expectedProviderId,
+          expectedResourceId: input.expectedResourceId,
+        }).readArtifactContent({
+          taskId: input.taskId,
+          artifactId: input.artifactId,
+          revision: input.revision,
+        }),
     },
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
