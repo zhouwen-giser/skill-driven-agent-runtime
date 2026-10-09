@@ -28,12 +28,33 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
+      - id: format
+        continue-on-error: true
+        run: pnpm format:check
       - name: Show exact formatter changes on failure
-        if: failure()
+        if: steps.format.outcome == 'failure'
         run: |
           pnpm exec prettier --write packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
           git diff -- packages/mcp-adapter packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts
+      - id: lint
+        continue-on-error: true
+        run: pnpm lint
+      - id: typecheck
+        continue-on-error: true
+        run: pnpm typecheck
+      - id: tests
+        continue-on-error: true
+        run: pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts
+      - name: Require all compatibility checks
+        if: always()
+        env:
+          FORMAT: ${{ steps.format.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          TYPES: ${{ steps.typecheck.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+        run: |
+          printf 'format=%s lint=%s typecheck=%s tests=%s\n' "$FORMAT" "$LINT" "$TYPES" "$TESTS"
+          test "$FORMAT" = success
+          test "$LINT" = success
+          test "$TYPES" = success
+          test "$TESTS" = success
