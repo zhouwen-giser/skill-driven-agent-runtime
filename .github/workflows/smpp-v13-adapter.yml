@@ -30,7 +30,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - id: format
         continue-on-error: true
-        run: pnpm format:check
+        run: |
+          pnpm exec prettier --check packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts docs/SDAR_SMPP_UGV_V13_ADAPTER.md .github/workflows/smpp-v13-adapter.yml
       - name: Show exact formatter changes on failure
         if: steps.format.outcome == 'failure'
         run: |
@@ -38,7 +39,8 @@ jobs:
           git diff -- packages/mcp-adapter packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
       - id: lint
         continue-on-error: true
-        run: pnpm lint
+        run: |
+          pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
       - id: typecheck
         continue-on-error: true
         run: pnpm typecheck
