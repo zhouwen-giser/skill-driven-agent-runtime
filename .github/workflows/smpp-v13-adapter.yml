@@ -1,0 +1,39 @@
+name: SMPP UGV v1.3 Adapter
+on:
+  push:
+    branches:
+      - codex/sdar-smpp-ugv-v1.3-taskbusiness
+  pull_request:
+    paths:
+      - packages/mcp-adapter/**
+      - packages/application/**
+      - apps/server/src/runtime.ts
+      - .github/workflows/smpp-v13-adapter.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - name: Show exact formatter changes on failure
+        if: failure()
+        run: |
+          pnpm exec prettier --write packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
+          git diff -- packages/mcp-adapter packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts
