@@ -22,6 +22,7 @@ import {
   McpRegistryService,
   McpRegistryError,
   type FrozenTaskAvailabilityRuntimePort,
+  type FrozenTaskBusinessReadRuntimePort,
   type FrozenTaskLifecycleRuntimePort,
 } from '../src/mcp-registry.js';
 import {
@@ -363,6 +364,69 @@ describe('MCP Registry invocation boundary', () => {
     });
     expect(fixture.get).toHaveBeenCalledOnce();
     expect(fixture.decrypt).toHaveBeenCalledTimes(decryptCountBeforeRead + 1);
+  });
+
+
+  it('uses exact frozen remote Task authority for SMPP business Context reads', async () => {
+    const fixture = createFixture({
+      outcome: remoteTaskOutcome(),
+      protocolSnapshot: {
+        ...protocolSnapshot(),
+        providerCatalog: {
+          providerId: 'external-provider-1',
+          providerType: 'isr.vehicle.ugv',
+          providerVersion: '1.3',
+          manifestHash: 'a'.repeat(64),
+        },
+      },
+    });
+    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    if (!admitted.protocolContract) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
+    const identity = {
+      serverId: 'provider-1',
+      operationName: 'light_get_state',
+      remoteTaskId: 'remote-task-read-1',
+      resourceId: 'vehicle:ugv',
+      executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+      authoritySnapshot: admitted.authoritySnapshot,
+      credentialRevision: timestamp,
+      protocolContract: admitted.protocolContract,
+    };
+    await expect(fixture.service.readRemoteTaskBusinessContext(identity)).resolves.toEqual({
+      taskId: identity.remoteTaskId,
+      contextRevision: 1,
+    });
+    expect(fixture.businessRead).toHaveBeenCalledExactlyOnceWith({
+      endpoint: 'https://provider.test/mcp',
+      headers: { authorization: 'Bearer provider-secret', 'X-SDAR-Execution-Mode': 'live' },
+      taskId: identity.remoteTaskId,
+      expectedProviderId: 'external-provider-1',
+      expectedResourceId: 'vehicle:ugv',
+    });
+    const calls = fixture.businessRead.mock.calls.length;
+    await expect(fixture.service.readRemoteTaskBusinessContext({
+      ...identity,
+      authoritySnapshot: { ...admitted.authoritySnapshot,
+        runtime: { ...admitted.authoritySnapshot.runtime, catalogChecksum: 'f'.repeat(64) },
+      },
+    })).rejects.toMatchObject({ code: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED' });
+    expect(fixture.businessRead).toHaveBeenCalledTimes(calls);
+  });
+
+  it('rejects unproven legacy business reads before transport', async () => {
+    const fixture = createFixture({ outcome: remoteTaskOutcome() });
+    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    if (!admitted.protocolContract) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
+    await expect(fixture.service.readRemoteTaskBusinessContext({
+      serverId: 'provider-1',
+      operationName: 'light_get_state',
+      remoteTaskId: 'remote-task-read-1',
+      resourceId: 'vehicle:ugv',
+      executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+      credentialRevision: timestamp,
+      protocolContract: admitted.protocolContract,
+    })).rejects.toMatchObject({ code: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED' });
+    expect(fixture.businessRead).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1418,6 +1482,9 @@ function createFixture(
       : Promise.resolve(options.reconciliationResult),
   );
   const disconnect = vi.fn();
+  const businessRead = vi.fn<FrozenTaskBusinessReadRuntimePort['getContext']>((input) =>
+    Promise.resolve({ taskId: input.taskId, contextRevision: 1 }),
+  );
   const decrypt = vi.fn(() => ({ authorization: 'Bearer provider-secret' }));
   const controlAuthority = vi.fn((input: GovernedControlInvocation) => {
     order.push('control-authority');
@@ -1437,6 +1504,9 @@ function createFixture(
       decrypt,
     },
     frozenAvailability: { check: checkAvailability },
+    frozenBusinessRead: {
+      getContext: businessRead,
+    },
     schemas: {
       checkSchema: () => ({ valid: true, errors: [] }),
       validate: () => ({ valid: true, errors: [] }),
@@ -1515,6 +1585,7 @@ function createFixture(
     call,
     reconcile,
     get,
+    businessRead,
     checkAvailability,
     controlAuthority,
     decrypt,
