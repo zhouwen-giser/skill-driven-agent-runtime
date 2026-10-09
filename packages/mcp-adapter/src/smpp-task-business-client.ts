@@ -41,7 +41,7 @@ const identitySchema = z
     resourceId: z.string().min(1),
     operationName: z.string().min(1),
   })
-  .passthrough();
+  .loose();
 const contextSchema = z
   .object({
     identity: identitySchema,
@@ -52,12 +52,12 @@ const contextSchema = z
         status: z.enum(['in_progress', 'finalized']),
         properties: object.optional(),
       })
-      .passthrough(),
+      .loose(),
     activeRefs: z.record(z.string(), refSchema),
     requiredInputRefs: z.array(refSchema),
     interventionRefs: z.array(refSchema),
   })
-  .passthrough();
+  .loose();
 const versionSchema = z
   .object({
     kind: refSchema.shape.kind,
@@ -66,12 +66,12 @@ const versionSchema = z
         identity: identitySchema,
         revision: z.number().int().positive(),
       })
-      .passthrough(),
+      .loose(),
   })
   .strict();
 const descriptorSchema = z
   .object({ ref: refSchema })
-  .passthrough();
+  .loose();
 const pageSchema = z
   .object({
     resultType: z.literal('complete'),
@@ -86,10 +86,10 @@ const pageSchema = z
         objectDescriptors: z.array(descriptorSchema).default([]),
         nextCursor: z.string().min(1).optional(),
       })
-      .passthrough(),
+      .loose(),
     resumeFrom: cursorSchema,
   })
-  .passthrough();
+  .loose();
 const contentSchema = z
   .object({
     encoding: z.literal('base64'),
@@ -99,14 +99,14 @@ const contentSchema = z
     offset: z.number().int().nonnegative(),
     nextOffset: z.string().regex(/^[1-9][0-9]*$/u).optional(),
   })
-  .passthrough();
+  .loose();
 const partSchema = z
   .object({
     resultType: z.literal('complete'),
     profileVersion: z.literal(SMPP_TASK_BUSINESS_PROFILE_VERSION),
     part: contentSchema,
   })
-  .passthrough();
+  .loose();
 const artifactSchema = z
   .object({
     resultType: z.literal('complete'),
@@ -117,10 +117,10 @@ const artifactSchema = z
         artifactId: z.string().min(1),
         revision: z.number().int().positive(),
       })
-      .passthrough(),
+      .loose(),
     content: contentSchema.optional(),
   })
-  .passthrough();
+  .loose();
 const receiptSchema = z
   .object({
     resultType: z.literal('complete'),
@@ -134,9 +134,9 @@ const receiptSchema = z
         businessApplied: z.literal(false),
         duplicate: z.boolean(),
       })
-      .passthrough(),
+      .loose(),
   })
-  .passthrough();
+  .loose();
 
 const semanticSchema = z
   .object({
@@ -154,7 +154,7 @@ const semanticSchema = z
     payloadLoadState: z.enum(['fault', 'unknown']),
     native: object,
   })
-  .passthrough();
+  .loose();
 export type SmppUgvBusinessSemantics = z.infer<typeof semanticSchema>;
 export type SmppBusinessContext = z.infer<typeof contextSchema>;
 export type SmppBusinessVersion = z.infer<typeof versionSchema>;
@@ -230,11 +230,11 @@ export class SmppTaskBusinessClient {
         profileVersion: z.literal(SMPP_TASK_BUSINESS_PROFILE_VERSION),
         methods: z.record(z.string(), z.string()),
       })
-      .passthrough()
+      .loose()
       .safeParse(extension);
     if (!parsed.success) throw new SmppBusinessError('SMPP_BUSINESS_EXTENSION_UNAVAILABLE');
     const catalog = discovered.capabilities.extensions['io.sdar/providerCatalog'];
-    if (!isRecord(catalog) || catalog['providerId'] !== this.#providerId) {
+    if (!isRecord(catalog) || catalog.providerId !== this.#providerId) {
       throw new SmppBusinessError('SMPP_PROVIDER_ID_MISMATCH');
     }
     this.#methods = parsed.data.methods;
@@ -301,6 +301,12 @@ export class SmppTaskBusinessClient {
         if (!context || !resumeFrom || context.contextRevision !== revision)
           throw new SmppBusinessError('SMPP_CONTEXT_INCOMPLETE');
         this.#validateIdentity(context.identity, input.taskId);
+        for (const item of objects.values()) {
+          if (
+            item.value.identity.executionId !== context.identity.executionId ||
+            item.value.identity.operationName !== context.identity.operationName
+          ) throw new SmppBusinessError('SMPP_BUSINESS_EXECUTION_MISMATCH');
+        }
         const semantics = context.summary.properties?.['businessSemantics'];
         const parsedSemantics =
           semantics === undefined ? undefined : semanticSchema.safeParse(semantics);
@@ -326,7 +332,7 @@ export class SmppTaskBusinessClient {
    * watermark. Task notifications and Provider source cursors are not substitutes.
    */
   async listenFrom(view: SmppBusinessView): Promise<Awaited<ReturnType<FrozenBusinessEventsClient['listen']>>> {
-    if (!this.#businessEvents) throw new SmppBusinessError('SMPP_BUSINESS_EVENT_CLIENT_REQUIRED');
+    if (this.#businessEvents === undefined) throw new SmppBusinessError('SMPP_BUSINESS_EVENT_CLIENT_REQUIRED');
     await this.#requireMethod('eventListen', 'io.sdar/businessEvents/listen');
     return this.#businessEvents.listen({ ...this.#endpoint, cursor: view.resumeFrom });
   }
@@ -488,7 +494,7 @@ export class SmppTaskBusinessClient {
       !sameRef(exact, ref) ||
       exact.value['state'] !== 'pending' ||
       !isDeepStrictEqual(exact.value['subjectBinding'], input.expectedSubjectBinding) ||
-      !isRecord(exact.value['identity'])
+      !isRecord(exact.value.identity)
     ) {
       throw new SmppBusinessError('SMPP_INPUT_BINDING_INVALID');
     }
@@ -509,7 +515,7 @@ export class SmppTaskBusinessClient {
       taskId: z.string(),
       status: z.string(),
       inputRequests: z.record(z.string(), z.unknown()).optional(),
-    }).passthrough().safeParse(taskRaw);
+    }).loose().safeParse(taskRaw);
     if (
       !task.success ||
       task.data.taskId !== input.taskId ||

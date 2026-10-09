@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FrozenV1McpClient,
-  SmppBusinessError,
   SmppTaskBusinessClient,
 } from '../src/index.js';
 
@@ -121,7 +120,8 @@ interface Captured {
 function fake(handler: (call: Captured) => unknown) {
   const calls: Captured[] = [];
   const client = new FrozenV1McpClient((_url, init) => {
-    const body = JSON.parse(String(init?.body)) as Readonly<Record<string, unknown>>;
+    if (typeof init?.body !== 'string') throw new Error('TEST_REQUEST_BODY_REQUIRED');
+    const body = JSON.parse(init.body) as Readonly<Record<string, unknown>>;
     const captured: Captured = {
       method: String(body['method']),
       params: body['params'] as Readonly<Record<string, unknown>>,
@@ -149,7 +149,7 @@ function consumer(client: FrozenV1McpClient, allow = false) {
 }
 
 function page(
-  value = context,
+  value: unknown = context,
   objects: readonly unknown[] = [inputObject],
   nextCursor?: string,
   resumeFrom = cursor,
