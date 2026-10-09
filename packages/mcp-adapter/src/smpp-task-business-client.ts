@@ -142,11 +142,30 @@ const semanticSchema = z
   .object({
     schemaVersion: z.literal('ugv.business-semantics/1'),
     missionTaskState: z.enum([
-      'idle', 'starting', 'running', 'paused', 'cancelled', 'succeeded', 'failed', 'unknown',
+      'idle',
+      'starting',
+      'running',
+      'paused',
+      'cancelled',
+      'succeeded',
+      'failed',
+      'unknown',
     ]),
     reconPhase: z.enum([
-      'idle', 'configuring', 'ready', 'starting', 'running', 'resuming', 'pausing', 'paused',
-      'cancelled', 'failed', 'completed', 'stopping', 'manual_intervention', 'unknown',
+      'idle',
+      'configuring',
+      'ready',
+      'starting',
+      'running',
+      'resuming',
+      'pausing',
+      'paused',
+      'cancelled',
+      'failed',
+      'completed',
+      'stopping',
+      'manual_intervention',
+      'unknown',
     ]),
     visualLockState: z.enum(['unlocked', 'locking', 'locked', 'unknown']),
     sensorMode: z.enum(['adaptive', 'visible', 'infrared', 'dc', 'unknown']),
@@ -179,11 +198,13 @@ export interface SmppBusinessMutationAuthority {
    * The owner must have checked its exact Source/Provider/Capability successor
    * and Task authorization. Returning false rejects the command before dispatch.
    */
-  authorize(input: Readonly<{
-    taskId: string;
-    executionId: string;
-    operation: 'input_response' | 'navigation_adjust_plan';
-  }>): Promise<boolean>;
+  authorize(
+    input: Readonly<{
+      taskId: string;
+      executionId: string;
+      operation: 'input_response' | 'navigation_adjust_plan';
+    }>,
+  ): Promise<boolean>;
 }
 
 export interface SmppTaskBusinessOptions extends SmppBusinessEndpoint {
@@ -241,7 +262,9 @@ export class SmppTaskBusinessClient {
     return parsed.data.methods;
   }
 
-  async getContext(input: Readonly<{ taskId: string; maxPageBytes?: number }>): Promise<SmppBusinessView> {
+  async getContext(
+    input: Readonly<{ taskId: string; maxPageBytes?: number }>,
+  ): Promise<SmppBusinessView> {
     await this.#requireMethod('contextGet', 'io.sdar/taskBusiness/context/get');
     const seenCursors = new Set<string>();
     const objects = new Map<string, SmppBusinessVersion>();
@@ -291,7 +314,11 @@ export class SmppTaskBusinessClient {
       }
       for (const descriptor of data.snapshot.objectDescriptors) {
         if (!data.snapshotToken) throw new SmppBusinessError('SMPP_SNAPSHOT_TOKEN_MISSING');
-        const value = await this.#readSnapshotJson(input.taskId, data.snapshotToken, descriptor.ref);
+        const value = await this.#readSnapshotJson(
+          input.taskId,
+          data.snapshotToken,
+          descriptor.ref,
+        );
         const parsed = versionSchema.safeParse(value);
         if (!parsed.success || !sameRef(parsed.data, descriptor.ref))
           throw new SmppBusinessError('SMPP_SNAPSHOT_OBJECT_INVALID');
@@ -342,10 +369,7 @@ export class SmppTaskBusinessClient {
    * This intentionally does not introduce a second Action/Task state machine.
    * Continuity loss is not silently treated as a successful business update.
    */
-  async *watchContext(
-    taskId: string,
-    initial: SmppBusinessView,
-  ): AsyncIterable<SmppBusinessView> {
+  async *watchContext(taskId: string, initial: SmppBusinessView): AsyncIterable<SmppBusinessView> {
     this.#validateIdentity(initial.context.identity, taskId);
     const stream = await this.listenFrom(initial);
     let current = initial;
@@ -359,7 +383,8 @@ export class SmppTaskBusinessClient {
         fact.taskId !== taskId ||
         fact.sourceId !== 'vehicle.business' ||
         fact.eventType !== 'vehicle.business.changed'
-      ) continue;
+      )
+        continue;
       const sequence = BigInt(fact.sequence);
       if (sequence <= lastSequence) continue;
       const next = await this.getContext({ taskId });
@@ -374,12 +399,14 @@ export class SmppTaskBusinessClient {
     }
   }
 
-  async getArtifact(input: Readonly<{
-    taskId: string;
-    artifactId: string;
-    revision: number;
-    includeContent?: boolean;
-  }>): Promise<z.infer<typeof artifactSchema>> {
+  async getArtifact(
+    input: Readonly<{
+      taskId: string;
+      artifactId: string;
+      revision: number;
+      includeContent?: boolean;
+    }>,
+  ): Promise<z.infer<typeof artifactSchema>> {
     await this.#requireMethod('artifactGet', 'io.sdar/taskBusiness/artifacts/get');
     const raw = await this.#client.request({
       ...this.#endpoint,
@@ -411,12 +438,14 @@ export class SmppTaskBusinessClient {
   }
 
   /** Restores large Artifact content with exact revision and full-content SHA-256. */
-  async readArtifactContent(input: Readonly<{
-    taskId: string;
-    artifactId: string;
-    revision: number;
-    representationName?: string;
-  }>): Promise<Buffer> {
+  async readArtifactContent(
+    input: Readonly<{
+      taskId: string;
+      artifactId: string;
+      revision: number;
+      representationName?: string;
+    }>,
+  ): Promise<Buffer> {
     await this.#requireMethod('artifactGet', 'io.sdar/taskBusiness/artifacts/get');
     let offset = 0;
     let total: number | undefined;
@@ -442,14 +471,18 @@ export class SmppTaskBusinessClient {
         parsed.data.artifact.artifactId !== input.artifactId ||
         parsed.data.artifact.revision !== input.revision ||
         !parsed.data.content
-      ) throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_UNAVAILABLE');
+      )
+        throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_UNAVAILABLE');
       this.#validateIdentity(parsed.data.artifact.identity, input.taskId);
       const part = parsed.data.content;
       const length = Number(part.totalBytes);
-      if (!Number.isSafeInteger(length) || length > MAX_CONTENT ||
-          part.offset !== offset ||
-          (total !== undefined && total !== length) ||
-          (hash !== undefined && hash !== part.sha256))
+      if (
+        !Number.isSafeInteger(length) ||
+        length > MAX_CONTENT ||
+        part.offset !== offset ||
+        (total !== undefined && total !== length) ||
+        (hash !== undefined && hash !== part.sha256)
+      )
         throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_CONFLICT');
       total = length;
       hash = part.sha256;
@@ -470,27 +503,31 @@ export class SmppTaskBusinessClient {
     throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_LIMIT');
   }
 
-  async respondToRequiredInput(input: Readonly<{
-    taskId: string;
-    executionId: string;
-    requestId: string;
-    requestKey: string;
-    expectedRequestRevision: number;
-    expectedSubjectBinding: unknown;
-    action: 'accept' | 'decline' | 'cancel';
-    content?: unknown;
-  }>): Promise<Readonly<{ acceptedByRuntime: true; businessConfirmed: false }>> {
+  async respondToRequiredInput(
+    input: Readonly<{
+      taskId: string;
+      executionId: string;
+      requestId: string;
+      requestKey: string;
+      expectedRequestRevision: number;
+      expectedSubjectBinding: unknown;
+      action: 'accept' | 'decline' | 'cancel';
+      content?: unknown;
+    }>,
+  ): Promise<Readonly<{ acceptedByRuntime: true; businessConfirmed: false }>> {
     const view = await this.getContext({ taskId: input.taskId });
     this.#checkExecution(view, input.taskId, input.executionId);
     const ref = view.context.activeRefs['input:visualLock'];
     const exact = view.objects.find(
-      (item) => item.kind === 'input_request' &&
+      (item) =>
+        item.kind === 'input_request' &&
         item.value['requestId'] === input.requestId &&
         item.value['requestKey'] === input.requestKey &&
         item.value.revision === input.expectedRequestRevision,
     );
     if (
-      !ref || !exact ||
+      !ref ||
+      !exact ||
       !sameRef(exact, ref) ||
       exact.value['state'] !== 'pending' ||
       !isDeepStrictEqual(exact.value['subjectBinding'], input.expectedSubjectBinding) ||
@@ -543,16 +580,18 @@ export class SmppTaskBusinessClient {
     return { acceptedByRuntime: true, businessConfirmed: false };
   }
 
-  async applyNavigationAdjustment(input: Readonly<{
-    taskId: string;
-    executionId: string;
-    interventionId: string;
-    expectedInterventionRevision: number;
-    expectedEffectivePlanRevision: number;
-    commandId: string;
-    waypoints: readonly Readonly<{ longitude: number; latitude: number }>[];
-    density: string;
-  }>): Promise<z.infer<typeof receiptSchema>['receipt']> {
+  async applyNavigationAdjustment(
+    input: Readonly<{
+      taskId: string;
+      executionId: string;
+      interventionId: string;
+      expectedInterventionRevision: number;
+      expectedEffectivePlanRevision: number;
+      commandId: string;
+      waypoints: readonly Readonly<{ longitude: number; latitude: number }>[];
+      density: string;
+    }>,
+  ): Promise<z.infer<typeof receiptSchema>['receipt']> {
     await this.#requireMethod('interventionApply', 'io.sdar/taskBusiness/interventions/apply');
     const view = await this.getContext({ taskId: input.taskId });
     this.#checkExecution(view, input.taskId, input.executionId);
@@ -614,19 +653,26 @@ export class SmppTaskBusinessClient {
       const raw = await this.#client.request({
         ...this.#endpoint,
         method: 'io.sdar/taskBusiness/snapshotParts/get',
-        params: { taskId, snapshotToken: token, offset, maxBytes: 65_536,
-          ...(ref === undefined ? {} : { objectRef: ref }) },
+        params: {
+          taskId,
+          snapshotToken: token,
+          offset,
+          maxBytes: 65_536,
+          ...(ref === undefined ? {} : { objectRef: ref }),
+        },
       });
       const parsed = partSchema.safeParse(raw);
       if (!parsed.success) throw new SmppBusinessError('SMPP_SNAPSHOT_PART_INVALID');
       const part = parsed.data.part;
       const total = Number(part.totalBytes);
       if (
-        !Number.isSafeInteger(total) || total > MAX_CONTENT ||
+        !Number.isSafeInteger(total) ||
+        total > MAX_CONTENT ||
         part.offset !== offset ||
         (expectedTotal !== undefined && expectedTotal !== total) ||
         (expectedHash !== undefined && expectedHash !== part.sha256)
-      ) throw new SmppBusinessError('SMPP_SNAPSHOT_PART_CONFLICT');
+      )
+        throw new SmppBusinessError('SMPP_SNAPSHOT_PART_CONFLICT');
       expectedTotal = total;
       expectedHash = part.sha256;
       const bytes = canonicalBase64(part.bytes);
@@ -638,8 +684,11 @@ export class SmppTaskBusinessClient {
         const assembled = Buffer.concat(chunks);
         if (createHash('sha256').update(assembled).digest('hex') !== expectedHash)
           throw new SmppBusinessError('SMPP_SNAPSHOT_PART_HASH_MISMATCH');
-        try { return JSON.parse(assembled.toString('utf8')) as unknown; }
-        catch { throw new SmppBusinessError('SMPP_SNAPSHOT_PART_JSON_INVALID'); }
+        try {
+          return JSON.parse(assembled.toString('utf8')) as unknown;
+        } catch {
+          throw new SmppBusinessError('SMPP_SNAPSHOT_PART_JSON_INVALID');
+        }
       }
       if (Number(part.nextOffset) !== offset || bytes.length === 0)
         throw new SmppBusinessError('SMPP_SNAPSHOT_PART_OFFSET_INVALID');
@@ -647,7 +696,11 @@ export class SmppTaskBusinessClient {
     throw new SmppBusinessError('SMPP_SNAPSHOT_PART_LIMIT');
   }
 
-  #appendObject(store: Map<string, SmppBusinessVersion>, item: SmppBusinessVersion, taskId: string): void {
+  #appendObject(
+    store: Map<string, SmppBusinessVersion>,
+    item: SmppBusinessVersion,
+    taskId: string,
+  ): void {
     this.#validateIdentity(item.value.identity, taskId);
     const id = businessVersionId(item);
     if (!id) throw new SmppBusinessError('SMPP_SNAPSHOT_OBJECT_INVALID');
@@ -669,20 +722,25 @@ export class SmppTaskBusinessClient {
       identity.taskId !== taskId ||
       identity.providerId !== this.#providerId ||
       identity.resourceId !== this.#resourceId
-    ) throw new SmppBusinessError('SMPP_BUSINESS_IDENTITY_MISMATCH');
+    )
+      throw new SmppBusinessError('SMPP_BUSINESS_IDENTITY_MISMATCH');
   }
 
   async #requireMethod(key: string, method: string): Promise<void> {
-    const methods = this.#methods ?? await this.discover();
+    const methods = this.#methods ?? (await this.discover());
     if (methods[key] !== method) throw new SmppBusinessError('SMPP_BUSINESS_METHOD_UNAVAILABLE');
   }
 
-  async #authorize(taskId: string, executionId: string,
-    operation: 'input_response' | 'navigation_adjust_plan'): Promise<void> {
+  async #authorize(
+    taskId: string,
+    executionId: string,
+    operation: 'input_response' | 'navigation_adjust_plan',
+  ): Promise<void> {
     if (
       !this.#mutationAuthority ||
       !(await this.#mutationAuthority.authorize({ taskId, executionId, operation }))
-    ) throw new SmppBusinessError('SMPP_BUSINESS_GOVERNANCE_REQUIRED');
+    )
+      throw new SmppBusinessError('SMPP_BUSINESS_GOVERNANCE_REQUIRED');
   }
 
   #validateInputSchema(schema: unknown, value: unknown): void {
@@ -690,14 +748,16 @@ export class SmppTaskBusinessClient {
       if (typeof schema !== 'boolean' && !isRecord(schema)) throw new Error('invalid-schema');
       const validator = new Ajv2020({ strict: false, allErrors: true }).compile(schema);
       if (!validator(value)) throw new Error('input-schema-rejected');
-    } catch { throw new SmppBusinessError('SMPP_BUSINESS_INPUT_SCHEMA_INVALID'); }
+    } catch {
+      throw new SmppBusinessError('SMPP_BUSINESS_INPUT_SCHEMA_INVALID');
+    }
   }
 }
 
 /** Parse already projected Provider semantics without interpreting native codes. */
 export function parseSmppUgvBusinessSemantics(value: unknown): SmppUgvBusinessSemantics {
-  const source = isRecord(value) && 'businessSemantics' in value
-    ? value['businessSemantics'] : value;
+  const source =
+    isRecord(value) && 'businessSemantics' in value ? value['businessSemantics'] : value;
   const result = semanticSchema.safeParse(source);
   if (!result.success) throw new SmppBusinessError('SMPP_BUSINESS_SEMANTICS_INVALID');
   return result.data;
@@ -711,14 +771,22 @@ export class SmppBusinessError extends Error {
 }
 
 function sameRef(item: SmppBusinessVersion, ref: SmppBusinessRef): boolean {
-  return item.kind === ref.kind && businessVersionId(item) === ref.id &&
-    item.value.revision === ref.revision;
+  return (
+    item.kind === ref.kind &&
+    businessVersionId(item) === ref.id &&
+    item.value.revision === ref.revision
+  );
 }
 
 function businessVersionId(item: SmppBusinessVersion): string | undefined {
-  const field = item.kind === 'artifact' ? 'artifactId' :
-    item.kind === 'action' ? 'actionId' :
-    item.kind === 'input_request' ? 'requestId' : 'interventionId';
+  const field =
+    item.kind === 'artifact'
+      ? 'artifactId'
+      : item.kind === 'action'
+        ? 'actionId'
+        : item.kind === 'input_request'
+          ? 'requestId'
+          : 'interventionId';
   const value = item.value[field];
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
@@ -735,7 +803,9 @@ function canonicalBase64(value: string): Buffer {
 
 function verifyContent(content: z.infer<typeof contentSchema>): void {
   const bytes = canonicalBase64(content.bytes);
-  if (String(bytes.length) !== content.totalBytes ||
-      createHash('sha256').update(bytes).digest('hex') !== content.sha256)
+  if (
+    String(bytes.length) !== content.totalBytes ||
+    createHash('sha256').update(bytes).digest('hex') !== content.sha256
+  )
     throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_INVALID');
 }

@@ -1050,7 +1050,9 @@ export class McpRegistryService {
       );
     const target = await this.#businessReadTarget(input);
     return this.#frozenBusinessRead.getArtifact({
-      ...target, artifactId: input.artifactId, revision: input.revision,
+      ...target,
+      artifactId: input.artifactId,
+      revision: input.revision,
     });
   }
 
@@ -1064,7 +1066,9 @@ export class McpRegistryService {
       );
     const target = await this.#businessReadTarget(input);
     return this.#frozenBusinessRead.getArtifactContent({
-      ...target, artifactId: input.artifactId, revision: input.revision,
+      ...target,
+      artifactId: input.artifactId,
+      revision: input.revision,
     });
   }
 

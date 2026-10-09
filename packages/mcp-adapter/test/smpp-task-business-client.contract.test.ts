@@ -20,7 +20,13 @@ const cursor = {
   streamId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   afterSequence: '12',
 };
-const identity = { taskId, executionId, providerId, resourceId, operationName: 'vehicle_area_recon' };
+const identity = {
+  taskId,
+  executionId,
+  providerId,
+  resourceId,
+  operationName: 'vehicle_area_recon',
+};
 const semantic = {
   schemaVersion: 'ugv.business-semantics/1',
   missionTaskState: 'running',
@@ -66,7 +72,10 @@ const context = {
   effectivePlanRevision: 1,
   summary: {
     status: 'in_progress',
-    properties: { businessSemantics: semantic, reconStatusCorrelation: 'INFERRED_CURRENT_EXECUTION' },
+    properties: {
+      businessSemantics: semantic,
+      reconStatusCorrelation: 'INFERRED_CURRENT_EXECUTION',
+    },
   },
   activeRefs: { 'input:visualLock': requestRef },
   artifactRefs: [],
@@ -129,9 +138,16 @@ function fake(handler: (call: Captured) => unknown) {
     };
     calls.push(captured);
     const result = handler(captured);
-    return Promise.resolve(new Response(JSON.stringify({
-      jsonrpc: '2.0', id: body['id'], result,
-    }), { headers: { 'content-type': 'application/json' } }));
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: body['id'],
+          result,
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    );
   });
   return { client, calls };
 }
@@ -170,9 +186,9 @@ function page(
 
 describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
   it('preserves caller extensions and sends required business headers and capability', async () => {
-    const { client, calls } = fake((call) => call.method === 'server/discover'
-      ? discovery()
-      : page());
+    const { client, calls } = fake((call) =>
+      call.method === 'server/discover' ? discovery() : page(),
+    );
     await client.request({
       endpoint,
       headers: {},
@@ -188,9 +204,9 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
     });
     expect(calls[0]?.headers.get('mcp-name')).toBe(taskId);
     expect(calls[0]?.headers.get('mcp-method')).toBe('io.sdar/taskBusiness/context/get');
-    const caps = (
-      calls[0]?.params['_meta'] as Record<string, Record<string, unknown>>
-    )['io.modelcontextprotocol/clientCapabilities'];
+    const caps = (calls[0]?.params['_meta'] as Record<string, Record<string, unknown>>)[
+      'io.modelcontextprotocol/clientCapabilities'
+    ];
     expect(caps).toMatchObject({
       extensions: {
         'io.modelcontextprotocol/tasks': {},
@@ -201,9 +217,9 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
   });
 
   it('reads a task-bound Context and preserves unknown health and inferred correlation', async () => {
-    const { client, calls } = fake((call) => call.method === 'server/discover'
-      ? discovery()
-      : page());
+    const { client, calls } = fake((call) =>
+      call.method === 'server/discover' ? discovery() : page(),
+    );
     const view = await consumer(client).getContext({ taskId });
     expect(view.context.identity).toMatchObject(identity);
     expect(view.resumeFrom).toEqual(cursor);
@@ -212,10 +228,12 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
       payloadHealth: 'unknown',
       native: { loadStatus: 1 },
     });
-    expect(view.context.summary.properties?.['reconStatusCorrelation'])
-      .toBe('INFERRED_CURRENT_EXECUTION');
+    expect(view.context.summary.properties?.['reconStatusCorrelation']).toBe(
+      'INFERRED_CURRENT_EXECUTION',
+    );
     expect(calls.map((call) => call.method)).toEqual([
-      'server/discover', 'io.sdar/taskBusiness/context/get',
+      'server/discover',
+      'io.sdar/taskBusiness/context/get',
     ]);
   });
 
@@ -225,15 +243,24 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
       if (call.method === 'server/discover') return discovery();
       return call.params['pageCursor'] === undefined
         ? page(context, [inputObject], 'next-page')
-        : page(context, [], undefined, changed ? {
-          ...cursor, afterSequence: '13',
-        } : cursor);
+        : page(
+            context,
+            [],
+            undefined,
+            changed
+              ? {
+                  ...cursor,
+                  afterSequence: '13',
+                }
+              : cursor,
+          );
     });
     const business = consumer(client);
     expect((await business.getContext({ taskId })).objects).toHaveLength(1);
     changed = true;
-    await expect(business.getContext({ taskId }))
-      .rejects.toMatchObject({ code: 'SMPP_CONTEXT_SNAPSHOT_CHANGED' });
+    await expect(business.getContext({ taskId })).rejects.toMatchObject({
+      code: 'SMPP_CONTEXT_SNAPSHOT_CHANGED',
+    });
   });
 
   it('restores a verified JSON snapshot part and rejects tampered SHA-256', async () => {
@@ -244,77 +271,113 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
       if (call.method === 'server/discover') return discovery();
       if (call.method === 'io.sdar/taskBusiness/context/get') {
         return {
-          resultType: 'complete', profileVersion: '1.0-rc2', snapshotToken: 'signed-token',
-          snapshot: { contextRevision: 5, contextDescriptor: {
-            revision: 5, sizeBytes: bytes.length, readMethod: 'getContext',
-          }, objects: [inputObject] },
+          resultType: 'complete',
+          profileVersion: '1.0-rc2',
+          snapshotToken: 'signed-token',
+          snapshot: {
+            contextRevision: 5,
+            contextDescriptor: {
+              revision: 5,
+              sizeBytes: bytes.length,
+              readMethod: 'getContext',
+            },
+            objects: [inputObject],
+          },
           resumeFrom: cursor,
         };
       }
       return {
-        resultType: 'complete', profileVersion: '1.0-rc2',
+        resultType: 'complete',
+        profileVersion: '1.0-rc2',
         part: {
-          encoding: 'base64', bytes: bytes.toString('base64'),
-          totalBytes: String(bytes.length), sha256: tampered ? 'f'.repeat(64) : hash, offset: 0,
+          encoding: 'base64',
+          bytes: bytes.toString('base64'),
+          totalBytes: String(bytes.length),
+          sha256: tampered ? 'f'.repeat(64) : hash,
+          offset: 0,
         },
       };
     });
     const business = consumer(client);
     expect((await business.getContext({ taskId })).context.contextRevision).toBe(5);
-    expect(calls.find((x) => x.method.endsWith('snapshotParts/get'))?.headers.has('mcp-name'))
-      .toBe(false);
+    expect(calls.find((x) => x.method.endsWith('snapshotParts/get'))?.headers.has('mcp-name')).toBe(
+      false,
+    );
     tampered = true;
-    await expect(business.getContext({ taskId }))
-      .rejects.toMatchObject({ code: 'SMPP_SNAPSHOT_PART_HASH_MISMATCH' });
+    await expect(business.getContext({ taskId })).rejects.toMatchObject({
+      code: 'SMPP_SNAPSHOT_PART_HASH_MISMATCH',
+    });
   });
 
   it('requires exact Artifact identity and revision; no content is assumed complete', async () => {
-    const { client } = fake((call) => call.method === 'server/discover'
-      ? discovery()
-      : {
-        resultType: 'complete', profileVersion: '1.0-rc2',
-        artifact: { artifactId: 'route-1', revision: 2, identity },
-      });
+    const { client } = fake((call) =>
+      call.method === 'server/discover'
+        ? discovery()
+        : {
+            resultType: 'complete',
+            profileVersion: '1.0-rc2',
+            artifact: { artifactId: 'route-1', revision: 2, identity },
+          },
+    );
     const artifact = await consumer(client).getArtifact({
-      taskId, artifactId: 'route-1', revision: 2,
+      taskId,
+      artifactId: 'route-1',
+      revision: 2,
     });
     expect(artifact.artifact.revision).toBe(2);
-    await expect(consumer(client).getArtifact({ taskId, artifactId: 'route-1', revision: 3 }))
-      .rejects.toMatchObject({ code: 'SMPP_ARTIFACT_REVISION_MISMATCH' });
+    await expect(
+      consumer(client).getArtifact({ taskId, artifactId: 'route-1', revision: 3 }),
+    ).rejects.toMatchObject({ code: 'SMPP_ARTIFACT_REVISION_MISMATCH' });
   });
 
   it('refuses ungoverned Input writes, then accepts an exact current target decision', async () => {
     const { client, calls } = fake((call) => {
       if (call.method === 'server/discover') return discovery();
       if (call.method === 'io.sdar/taskBusiness/context/get') return page();
-      if (call.method === 'tasks/get') return {
-        taskId, status: 'input_required',
-        inputRequests: { [requestValue.requestKey]: {
-          method: 'elicitation/create', params: { mode: 'form' },
-        } },
-      };
+      if (call.method === 'tasks/get')
+        return {
+          taskId,
+          status: 'input_required',
+          inputRequests: {
+            [requestValue.requestKey]: {
+              method: 'elicitation/create',
+              params: { mode: 'form' },
+            },
+          },
+        };
       return { resultType: 'complete' };
     });
     const input = {
-      taskId, executionId, requestId: requestValue.requestId,
-      requestKey: requestValue.requestKey, expectedRequestRevision: 1,
-      expectedSubjectBinding: subjectBinding, action: 'accept' as const,
+      taskId,
+      executionId,
+      requestId: requestValue.requestId,
+      requestKey: requestValue.requestKey,
+      expectedRequestRevision: 1,
+      expectedSubjectBinding: subjectBinding,
+      action: 'accept' as const,
       content: { decision: 'continue_observation' },
     };
-    await expect(consumer(client).respondToRequiredInput(input))
-      .rejects.toMatchObject({ code: 'SMPP_BUSINESS_GOVERNANCE_REQUIRED' });
+    await expect(consumer(client).respondToRequiredInput(input)).rejects.toMatchObject({
+      code: 'SMPP_BUSINESS_GOVERNANCE_REQUIRED',
+    });
     expect(calls.filter((x) => x.method === 'tasks/update')).toHaveLength(0);
-    await expect(consumer(client, true).respondToRequiredInput({
-      ...input, expectedRequestRevision: 3,
-    })).rejects.toMatchObject({ code: 'SMPP_INPUT_BINDING_INVALID' });
-    await expect(consumer(client, true).respondToRequiredInput(input))
-      .resolves.toEqual({ acceptedByRuntime: true, businessConfirmed: false });
+    await expect(
+      consumer(client, true).respondToRequiredInput({
+        ...input,
+        expectedRequestRevision: 3,
+      }),
+    ).rejects.toMatchObject({ code: 'SMPP_INPUT_BINDING_INVALID' });
+    await expect(consumer(client, true).respondToRequiredInput(input)).resolves.toEqual({
+      acceptedByRuntime: true,
+      businessConfirmed: false,
+    });
     const submitted = calls.find((call) => call.method === 'tasks/update');
     expect(submitted?.params).toMatchObject({
       taskId,
       inputResponses: {
         [requestValue.requestKey]: {
-          action: 'accept', content: { decision: 'continue_observation' },
+          action: 'accept',
+          content: { decision: 'continue_observation' },
         },
       },
     });
@@ -323,18 +386,30 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
 
   it('rejects unexpected Input content and expired requests without dispatch', async () => {
     const { client, calls } = fake((call) =>
-      call.method === 'server/discover' ? discovery() : page());
+      call.method === 'server/discover' ? discovery() : page(),
+    );
     const input = {
-      taskId, executionId, requestId: requestValue.requestId,
-      requestKey: requestValue.requestKey, expectedRequestRevision: 1,
+      taskId,
+      executionId,
+      requestId: requestValue.requestId,
+      requestKey: requestValue.requestKey,
+      expectedRequestRevision: 1,
       expectedSubjectBinding: subjectBinding,
     };
-    await expect(consumer(client, true).respondToRequiredInput({
-      ...input, action: 'decline', content: { fake: true },
-    })).rejects.toMatchObject({ code: 'SMPP_INPUT_CONTENT_UNEXPECTED' });
-    await expect(consumer(client, true).respondToRequiredInput({
-      ...input, action: 'accept', content: { decision: 'unknown' },
-    })).rejects.toMatchObject({ code: 'SMPP_BUSINESS_INPUT_SCHEMA_INVALID' });
+    await expect(
+      consumer(client, true).respondToRequiredInput({
+        ...input,
+        action: 'decline',
+        content: { fake: true },
+      }),
+    ).rejects.toMatchObject({ code: 'SMPP_INPUT_CONTENT_UNEXPECTED' });
+    await expect(
+      consumer(client, true).respondToRequiredInput({
+        ...input,
+        action: 'accept',
+        content: { decision: 'unknown' },
+      }),
+    ).rejects.toMatchObject({ code: 'SMPP_BUSINESS_INPUT_SCHEMA_INVALID' });
     expect(calls.some((call) => call.method === 'tasks/update')).toBe(false);
   });
 
@@ -360,12 +435,16 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
         inputSchema: {
           type: 'object',
           properties: {
-            waypoints: { type: 'array', minItems: 1, items: {
-              type: 'object',
-              required: ['longitude', 'latitude'],
-              properties: { longitude: { type: 'number' }, latitude: { type: 'number' } },
-              additionalProperties: false,
-            } },
+            waypoints: {
+              type: 'array',
+              minItems: 1,
+              items: {
+                type: 'object',
+                required: ['longitude', 'latitude'],
+                properties: { longitude: { type: 'number' }, latitude: { type: 'number' } },
+                additionalProperties: false,
+              },
+            },
             density: { type: 'string' },
           },
           required: ['waypoints', 'density'],
@@ -378,27 +457,42 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
       if (call.method === 'io.sdar/taskBusiness/context/get')
         return page(navContext, [intervention]);
       return {
-        resultType: 'complete', profileVersion: '1.0-rc2',
+        resultType: 'complete',
+        profileVersion: '1.0-rc2',
         receipt: {
-          commandId: 'adjust-command-1', commandSequence: 1, commandState: 'accepted',
-          durablyAccepted: true, businessApplied: false, duplicate: false,
+          commandId: 'adjust-command-1',
+          commandSequence: 1,
+          commandState: 'accepted',
+          durablyAccepted: true,
+          businessApplied: false,
+          duplicate: false,
         },
       };
     });
     const command = {
-      taskId, executionId, interventionId: 'adjust-1',
-      expectedInterventionRevision: 1, expectedEffectivePlanRevision: 2,
+      taskId,
+      executionId,
+      interventionId: 'adjust-1',
+      expectedInterventionRevision: 1,
+      expectedEffectivePlanRevision: 2,
       commandId: 'adjust-command-1',
-      waypoints: [{ longitude: 106.8131, latitude: 29.7195 }], density: 'adaptive',
+      waypoints: [{ longitude: 106.8131, latitude: 29.7195 }],
+      density: 'adaptive',
     };
-    await expect(consumer(client).applyNavigationAdjustment(command))
-      .rejects.toMatchObject({ code: 'SMPP_BUSINESS_GOVERNANCE_REQUIRED' });
-    await expect(consumer(client, true).applyNavigationAdjustment({
-      ...command, expectedEffectivePlanRevision: 1,
-    })).rejects.toMatchObject({ code: 'SMPP_PLAN_REVISION_CONFLICT' });
+    await expect(consumer(client).applyNavigationAdjustment(command)).rejects.toMatchObject({
+      code: 'SMPP_BUSINESS_GOVERNANCE_REQUIRED',
+    });
+    await expect(
+      consumer(client, true).applyNavigationAdjustment({
+        ...command,
+        expectedEffectivePlanRevision: 1,
+      }),
+    ).rejects.toMatchObject({ code: 'SMPP_PLAN_REVISION_CONFLICT' });
     const accepted = await consumer(client, true).applyNavigationAdjustment(command);
     expect(accepted).toMatchObject({
-      commandId: 'adjust-command-1', durablyAccepted: true, businessApplied: false,
+      commandId: 'adjust-command-1',
+      durablyAccepted: true,
+      businessApplied: false,
     });
     expect(calls.filter((x) => x.method.endsWith('/interventions/apply'))).toHaveLength(1);
     const submitted = calls.find((x) => x.method.endsWith('/interventions/apply'));
@@ -422,15 +516,19 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
       delete (extensions as Record<string, unknown>)['io.sdar/taskBusiness'];
       return { ...result, capabilities: { extensions } };
     });
-    await expect(consumer(client).getContext({ taskId }))
-      .rejects.toMatchObject({ code: 'SMPP_BUSINESS_EXTENSION_UNAVAILABLE' });
+    await expect(consumer(client).getContext({ taskId })).rejects.toMatchObject({
+      code: 'SMPP_BUSINESS_EXTENSION_UNAVAILABLE',
+    });
   });
 
   it('rejects foreign Context identity even if the transport succeeded', async () => {
-    const { client } = fake((call) => call.method === 'server/discover'
-      ? discovery()
-      : page({ ...context, identity: { ...identity, resourceId: 'vehicle:foreign' } }));
-    await expect(consumer(client).getContext({ taskId }))
-      .rejects.toMatchObject({ code: 'SMPP_BUSINESS_IDENTITY_MISMATCH' });
+    const { client } = fake((call) =>
+      call.method === 'server/discover'
+        ? discovery()
+        : page({ ...context, identity: { ...identity, resourceId: 'vehicle:foreign' } }),
+    );
+    await expect(consumer(client).getContext({ taskId })).rejects.toMatchObject({
+      code: 'SMPP_BUSINESS_IDENTITY_MISMATCH',
+    });
   });
 });

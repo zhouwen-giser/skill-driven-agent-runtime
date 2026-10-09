@@ -106,9 +106,7 @@ export class FrozenV1McpClient {
       ...(name === undefined ? {} : { 'Mcp-Name': name }),
     };
     const priorMeta = isRecord(input.params?.['_meta']) ? input.params['_meta'] : {};
-    const priorCapabilities = isRecord(
-      priorMeta['io.modelcontextprotocol/clientCapabilities'],
-    )
+    const priorCapabilities = isRecord(priorMeta['io.modelcontextprotocol/clientCapabilities'])
       ? priorMeta['io.modelcontextprotocol/clientCapabilities']
       : {};
     const priorExtensions = isRecord(priorCapabilities['extensions'])
