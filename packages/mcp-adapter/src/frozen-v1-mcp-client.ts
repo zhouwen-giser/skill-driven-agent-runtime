@@ -4,6 +4,8 @@ import type { McpProtocolDiscoverySnapshot } from '../../domain/src/index.js';
 
 export const FROZEN_MCP_PROTOCOL_VERSION = '2026-07-28' as const;
 export const FROZEN_MCP_TASKS_EXTENSION = 'io.modelcontextprotocol/tasks' as const;
+export const SMPP_TASK_BUSINESS_EXTENSION = 'io.sdar/taskBusiness' as const;
+export const SMPP_TASK_BUSINESS_PROFILE_VERSION = '1.0-rc2' as const;
 const MAX_SSE_PENDING_BYTES = 1_048_576;
 const ProviderCatalogSchema = z
   .object({
@@ -22,6 +24,13 @@ export type FrozenMcpMethod =
   | 'tasks/update'
   | 'tasks/cancel'
   | 'io.sdar/taskExecution/checkAvailability'
+  | 'io.sdar/taskExecution/tasks/pause'
+  | 'io.sdar/taskExecution/tasks/resume'
+  | 'io.sdar/taskExecution/tasks/observations'
+  | 'io.sdar/taskBusiness/context/get'
+  | 'io.sdar/taskBusiness/snapshotParts/get'
+  | 'io.sdar/taskBusiness/artifacts/get'
+  | 'io.sdar/taskBusiness/interventions/apply'
   | 'subscriptions/listen';
 
 export interface FrozenMcpRequestInput {
@@ -97,6 +106,15 @@ export class FrozenV1McpClient {
       ...(name === undefined ? {} : { 'Mcp-Name': name }),
     };
     const priorMeta = isRecord(input.params?.['_meta']) ? input.params['_meta'] : {};
+    const priorCapabilities = isRecord(
+      priorMeta['io.modelcontextprotocol/clientCapabilities'],
+    )
+      ? priorMeta['io.modelcontextprotocol/clientCapabilities']
+      : {};
+    const priorExtensions = isRecord(priorCapabilities['extensions'])
+      ? priorCapabilities['extensions']
+      : {};
+    const isBusinessMethod = input.method.startsWith('io.sdar/taskBusiness/');
     const body = {
       jsonrpc: '2.0',
       id,
@@ -108,7 +126,18 @@ export class FrozenV1McpClient {
           'io.modelcontextprotocol/protocolVersion': FROZEN_MCP_PROTOCOL_VERSION,
           'io.modelcontextprotocol/clientInfo': { name: 'sdar', version: '1.2.1' },
           'io.modelcontextprotocol/clientCapabilities': {
-            extensions: { [FROZEN_MCP_TASKS_EXTENSION]: {} },
+            ...priorCapabilities,
+            extensions: {
+              ...priorExtensions,
+              [FROZEN_MCP_TASKS_EXTENSION]: {},
+              ...(isBusinessMethod
+                ? {
+                    [SMPP_TASK_BUSINESS_EXTENSION]: {
+                      profileVersion: SMPP_TASK_BUSINESS_PROFILE_VERSION,
+                    },
+                  }
+                : {}),
+            },
           },
         },
       },
@@ -299,7 +328,17 @@ function routingName(
   params: Readonly<Record<string, unknown>> | undefined,
 ): string | undefined {
   const field =
-    method === 'tools/call' ? 'name' : method.startsWith('tasks/') ? 'taskId' : undefined;
+    method === 'tools/call'
+      ? 'name'
+      : method.startsWith('tasks/') ||
+          method === 'io.sdar/taskExecution/tasks/pause' ||
+          method === 'io.sdar/taskExecution/tasks/resume' ||
+          method === 'io.sdar/taskExecution/tasks/observations' ||
+          method === 'io.sdar/taskBusiness/context/get' ||
+          method === 'io.sdar/taskBusiness/artifacts/get' ||
+          method === 'io.sdar/taskBusiness/interventions/apply'
+        ? 'taskId'
+        : undefined;
   if (field === undefined) return undefined;
   const value = params?.[field];
   if (typeof value !== 'string' || value.trim() === '')
