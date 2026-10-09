@@ -354,6 +354,7 @@ import {
   FrozenV1RuntimeNotificationAdapter,
   FrozenBusinessEventsRuntimeAdapter,
   FrozenBusinessEventsClient,
+  SmppTaskBusinessClient,
   FrozenV1McpClient,
   createMcpOutboundFetch,
 } from '../../../packages/mcp-adapter/src/index.js';
@@ -2410,6 +2411,17 @@ export async function startServerRuntime(
       now: clock.now,
       client: frozenMcpClient,
     }),
+    frozenBusinessRead: {
+      getContext: (input) =>
+        new SmppTaskBusinessClient({
+          client: frozenMcpClient,
+          endpoint: input.endpoint,
+          headers: input.headers,
+          now: clock.now,
+          expectedProviderId: input.expectedProviderId,
+          expectedResourceId: input.expectedResourceId,
+        }).getContext({ taskId: input.taskId }),
+    },
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
