@@ -171,6 +171,7 @@ export interface SmppBusinessView {
 export interface SmppBusinessEndpoint {
   readonly endpoint: string;
   readonly headers: Readonly<Record<string, string>>;
+  readonly signal?: AbortSignal;
 }
 
 export interface SmppBusinessMutationAuthority {
@@ -209,7 +210,11 @@ export class SmppTaskBusinessClient {
 
   constructor(options: SmppTaskBusinessOptions) {
     this.#client = options.client;
-    this.#endpoint = { endpoint: options.endpoint, headers: options.headers };
+    this.#endpoint = {
+      endpoint: options.endpoint,
+      headers: options.headers,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    };
     this.#now = options.now;
     this.#providerId = options.expectedProviderId;
     this.#resourceId = options.expectedResourceId;
@@ -324,6 +329,43 @@ export class SmppTaskBusinessClient {
     if (!this.#businessEvents) throw new SmppBusinessError('SMPP_BUSINESS_EVENT_CLIENT_REQUIRED');
     await this.#requireMethod('eventListen', 'io.sdar/businessEvents/listen');
     return this.#businessEvents.listen({ ...this.#endpoint, cursor: view.resumeFrom });
+  }
+
+  /**
+   * Reconcile task business events against authoritative Context snapshots.
+   * This intentionally does not introduce a second Action/Task state machine.
+   * Continuity loss is not silently treated as a successful business update.
+   */
+  async *watchContext(
+    taskId: string,
+    initial: SmppBusinessView,
+  ): AsyncIterable<SmppBusinessView> {
+    this.#validateIdentity(initial.context.identity, taskId);
+    const stream = await this.listenFrom(initial);
+    let current = initial;
+    let lastSequence = BigInt(initial.resumeFrom.afterSequence);
+    for await (const notification of stream.messages) {
+      if (notification.method === 'notifications/io.sdar/businessEvents/continuity')
+        throw new SmppBusinessError('SMPP_BUSINESS_STREAM_CONTINUITY_CHANGED');
+      const fact = notification.params;
+      if (
+        fact.scope !== 'task' ||
+        fact.taskId !== taskId ||
+        fact.sourceId !== 'vehicle.business' ||
+        fact.eventType !== 'vehicle.business.changed'
+      ) continue;
+      const sequence = BigInt(fact.sequence);
+      if (sequence <= lastSequence) continue;
+      const next = await this.getContext({ taskId });
+      if (next.resumeFrom.streamId !== initial.resumeFrom.streamId)
+        throw new SmppBusinessError('SMPP_BUSINESS_STREAM_GENERATION_CHANGED');
+      if (next.context.contextRevision < current.context.contextRevision)
+        throw new SmppBusinessError('SMPP_CONTEXT_REVISION_REGRESSED');
+      lastSequence = sequence;
+      if (next.context.contextRevision === current.context.contextRevision) continue;
+      current = next;
+      yield current;
+    }
   }
 
   async getArtifact(input: Readonly<{
