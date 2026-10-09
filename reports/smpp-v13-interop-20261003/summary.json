@@ -1,0 +1,25 @@
+{
+  "status": "READ_ONLY_CONNECTED_GOVERNED_BUSINESS_BLOCKED",
+  "providerCommit": "0a4a7c36865d4c9920a4e65857c0903e9ef12533",
+  "sdarImage": "sdar-sz-gowm:union-29fdcfe193d6",
+  "providerId": "isr.vehicle.ugv.ugv",
+  "resourceId": "vehicle:ugv",
+  "readOnlyRequests": 10,
+  "localRegressionTests": 99,
+  "governanceCheck": {
+    "status": "FAILED",
+    "phase": "provider-binding",
+    "reasonCode": "UGV_PROFILE_SCHEMA_DRIFT"
+  },
+  "blockers": [
+    "Existing SDAR governed navigation/final-state schema checks reject current registered contract; exact schema predicate not yet isolated.",
+    "FrozenV1McpClient declares only Tasks; TaskBusiness Context/RequiredInput/Intervention client and version guards are absent.",
+    "businessSemantics is preserved in direct structuredContent; dedicated domain/UI/Context-event projection consumption is not implemented or verified."
+  ],
+  "serverConfigurationChanged": false,
+  "mutatingDeviceCalls": 0,
+  "createdTasks": 0,
+  "anonymousRequiredInputSiteAcceptance": false,
+  "interventionSiteAcceptance": false,
+  "fullBusinessChainAccepted": false
+}

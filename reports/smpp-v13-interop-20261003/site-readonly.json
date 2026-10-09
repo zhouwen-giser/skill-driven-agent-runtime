@@ -1,0 +1,1701 @@
+{
+  "configuration": {
+    "NODE_ENV": "development",
+    "SDAR_CONTROL_ENVIRONMENT": "development",
+    "SDAR_MCP_LIVE_EXECUTION_MODE_HEADER": null,
+    "SDAR_UGV_EXECUTION_MODE": "live",
+    "SDAR_UGV_SIMULATION_ID": null,
+    "SDAR_UGV_RESOURCE_ID": "vehicle:ugv"
+  },
+  "calls": [
+    {
+      "id": 1,
+      "method": "server/discover",
+      "tool": null,
+      "mode": null,
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 2,
+      "method": "tools/list",
+      "tool": null,
+      "mode": null,
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 3,
+      "method": "tools/call",
+      "tool": "vehicle_get_state",
+      "mode": null,
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 4,
+      "method": "tools/call",
+      "tool": "vehicle_get_payload_status",
+      "mode": null,
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 5,
+      "method": "tools/call",
+      "tool": "vehicle_get_targets",
+      "mode": null,
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 6,
+      "method": "server/discover",
+      "tool": null,
+      "mode": "live",
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 7,
+      "method": "tools/list",
+      "tool": null,
+      "mode": "live",
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 8,
+      "method": "tools/call",
+      "tool": "vehicle_get_state",
+      "mode": "live",
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 9,
+      "method": "tools/call",
+      "tool": "vehicle_get_payload_status",
+      "mode": "live",
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    },
+    {
+      "id": 10,
+      "method": "tools/call",
+      "tool": "vehicle_get_targets",
+      "mode": "live",
+      "hasSimulationHeader": false,
+      "hasAuthorization": false
+    }
+  ],
+  "results": [
+    {
+      "mode": "omitted",
+      "method": "server/discover",
+      "status": "PASS",
+      "extensions": {
+        "io.modelcontextprotocol/tasks": {},
+        "io.sdar/taskExecution": {
+          "profileVersion": "1.0",
+          "taskNotifications": true
+        },
+        "io.sdar/providerCatalog": {
+          "providerId": "isr.vehicle.ugv.ugv",
+          "providerType": "isr.vehicle.ugv",
+          "providerVersion": "1.0.0",
+          "manifestHash": "660c066925a7d12af6a175e7bfb2642a753e5e32354895c96fff6a25f4a0e169"
+        },
+        "io.sdar/businessEvents": {
+          "profileVersion": "1.0",
+          "delivery": "post_sse",
+          "scopes": [
+            "task",
+            "resource"
+          ],
+          "resumeMode": "stream_sequence",
+          "maxRelatedTaskIds": 256,
+          "retentionMs": 604800000,
+          "authorizationModel": "subscription_snapshot_projection",
+          "relationOverflow": "paged_query",
+          "streamCancellation": "connection_close",
+          "continuityClass": "mixed",
+          "sources": [
+            {
+              "sourceId": "vehicle.business",
+              "deliverySemantics": "durable_at_least_once"
+            },
+            {
+              "sourceId": "vehicle.execution",
+              "deliverySemantics": "durable_at_least_once"
+            },
+            {
+              "sourceId": "vehicle.health",
+              "deliverySemantics": "durable_at_least_once"
+            },
+            {
+              "sourceId": "vehicle.target",
+              "deliverySemantics": "best_effort_live"
+            }
+          ]
+        },
+        "io.sdar/taskBusiness": {
+          "profileVersion": "1.0-rc2",
+          "schemaVersion": "sdar.task-business-public-query/1.0-rc2",
+          "methods": {
+            "contextGet": "io.sdar/taskBusiness/context/get",
+            "snapshotPartGet": "io.sdar/taskBusiness/snapshotParts/get",
+            "artifactGet": "io.sdar/taskBusiness/artifacts/get",
+            "eventListen": "io.sdar/businessEvents/listen",
+            "interventionApply": "io.sdar/taskBusiness/interventions/apply"
+          },
+          "snapshotResume": "public-watermark-before-adapter-snapshot",
+          "contextQuerySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "taskId",
+              "_meta"
+            ],
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxPageBytes": {
+                "type": "integer",
+                "minimum": 1024,
+                "maximum": 1048576
+              },
+              "pageCursor": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "snapshotPartQuerySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "taskId",
+              "snapshotToken",
+              "_meta"
+            ],
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "snapshotToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "objectRef": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "id",
+                  "revision"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "artifact",
+                      "action",
+                      "input_request",
+                      "intervention"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "offset": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "snapshotPartResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "part"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "part": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "encoding",
+                  "bytes",
+                  "totalBytes",
+                  "sha256",
+                  "offset"
+                ],
+                "properties": {
+                  "encoding": {
+                    "const": "base64"
+                  },
+                  "bytes": {
+                    "type": "string"
+                  },
+                  "totalBytes": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "nextOffset": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                }
+              }
+            }
+          },
+          "artifactQuerySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "taskId",
+              "artifactId",
+              "_meta"
+            ],
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "artifactId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "representationName": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "includeContent": {
+                "type": "boolean"
+              },
+              "contentOffset": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxContentBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "contextResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "snapshot",
+              "resumeFrom"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "snapshotToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "snapshot": {
+                "type": "object",
+                "required": [
+                  "contextRevision"
+                ],
+                "properties": {
+                  "contextRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "resumeFrom": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "streamId",
+                  "afterSequence"
+                ],
+                "properties": {
+                  "streamId": {
+                    "type": "string"
+                  },
+                  "afterSequence": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  }
+                }
+              }
+            }
+          },
+          "artifactResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "artifact"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "artifact": {
+                "type": "object"
+              },
+              "content": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "encoding",
+                  "bytes",
+                  "mediaType",
+                  "sha256",
+                  "totalBytes",
+                  "offset"
+                ],
+                "properties": {
+                  "encoding": {
+                    "const": "base64"
+                  },
+                  "bytes": {
+                    "type": "string"
+                  },
+                  "mediaType": {
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "type": "string"
+                  },
+                  "totalBytes": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "nextOffset": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "interventionApplySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schemaVersion",
+              "commandId",
+              "taskId",
+              "executionId",
+              "interventionId",
+              "guard",
+              "input",
+              "_meta"
+            ],
+            "properties": {
+              "schemaVersion": {
+                "const": "sdar.runtime-intervention-command/1.0-rc2"
+              },
+              "commandId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "interventionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "guard": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "mode",
+                      "expectedInterventionRevision",
+                      "expectedEffectivePlanRevision"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "semantic"
+                      },
+                      "expectedInterventionRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "expectedEffectivePlanRevision": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "mode",
+                      "expectedContextRevision"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "legacy_strict"
+                      },
+                      "expectedContextRevision": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              "input": {
+                "type": "object"
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "interventionApplyResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "receipt"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "receipt": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "commandId",
+                  "commandSequence",
+                  "commandState",
+                  "durablyAccepted",
+                  "businessApplied",
+                  "duplicate"
+                ],
+                "properties": {
+                  "commandId": {
+                    "type": "string"
+                  },
+                  "commandSequence": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "commandState": {
+                    "type": "string"
+                  },
+                  "durablyAccepted": {
+                    "const": true
+                  },
+                  "businessApplied": {
+                    "const": false
+                  },
+                  "duplicate": {
+                    "type": "boolean"
+                  },
+                  "reasonCode": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "omitted",
+      "method": "tools/list",
+      "status": "PASS",
+      "tools": [
+        {
+          "name": "vehicle_get_state",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_get_capabilities",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_get_payload_status",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_get_targets",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_navigate",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_area_recon",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_track_target",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_control_gimbal",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_fire_weapon",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_emergency_stop",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        }
+      ]
+    },
+    {
+      "mode": "omitted",
+      "tool": "vehicle_get_state",
+      "status": "PASS",
+      "resultType": "complete",
+      "semantic": {
+        "schemaVersion": "ugv.business-semantics/1",
+        "missionTaskState": "starting",
+        "reconPhase": "idle",
+        "visualLockState": "unlocked",
+        "sensorMode": "adaptive",
+        "payloadHealth": "unknown",
+        "payloadLoadState": "unknown",
+        "native": {
+          "missionTaskState": 0,
+          "reconMotionStatus": 1,
+          "lockStage": 1,
+          "reconType": 1,
+          "loadStatus": 1,
+          "cameraFault": false,
+          "online": true,
+          "sensorHealth": "normal"
+        }
+      },
+      "outputKeys": [
+        "identity",
+        "connectivity",
+        "freshness",
+        "revision",
+        "observedAt",
+        "chassis",
+        "payload",
+        "health",
+        "targets",
+        "mqttIngressSequence",
+        "businessSemantics"
+      ]
+    },
+    {
+      "mode": "omitted",
+      "tool": "vehicle_get_payload_status",
+      "status": "PASS",
+      "resultType": "complete",
+      "semantic": {
+        "schemaVersion": "ugv.business-semantics/1",
+        "missionTaskState": "starting",
+        "reconPhase": "idle",
+        "visualLockState": "unlocked",
+        "sensorMode": "adaptive",
+        "payloadHealth": "unknown",
+        "payloadLoadState": "unknown",
+        "native": {
+          "missionTaskState": 0,
+          "reconMotionStatus": 1,
+          "lockStage": 1,
+          "reconType": 1,
+          "loadStatus": 1,
+          "cameraFault": false,
+          "online": true,
+          "sensorHealth": "normal"
+        }
+      },
+      "outputKeys": [
+        "resourceId",
+        "online",
+        "gimbal",
+        "reconnaissance",
+        "eoTask",
+        "weapon",
+        "attackReady",
+        "payloadErrorCodes",
+        "observedAt",
+        "businessSemantics"
+      ]
+    },
+    {
+      "mode": "omitted",
+      "tool": "vehicle_get_targets",
+      "status": "PASS",
+      "resultType": "complete",
+      "semantic": {
+        "schemaVersion": "ugv.business-semantics/1",
+        "missionTaskState": "starting",
+        "reconPhase": "idle",
+        "visualLockState": "unlocked",
+        "sensorMode": "adaptive",
+        "payloadHealth": "unknown",
+        "payloadLoadState": "unknown",
+        "native": {
+          "missionTaskState": 0,
+          "reconMotionStatus": 1,
+          "lockStage": 1,
+          "reconType": 1,
+          "loadStatus": 1,
+          "cameraFault": false,
+          "online": true,
+          "sensorHealth": "normal"
+        }
+      },
+      "outputKeys": [
+        "resourceId",
+        "targets",
+        "freshness",
+        "observedAt",
+        "businessSemantics"
+      ]
+    },
+    {
+      "mode": "live",
+      "method": "server/discover",
+      "status": "PASS",
+      "extensions": {
+        "io.modelcontextprotocol/tasks": {},
+        "io.sdar/taskExecution": {
+          "profileVersion": "1.0",
+          "taskNotifications": true
+        },
+        "io.sdar/providerCatalog": {
+          "providerId": "isr.vehicle.ugv.ugv",
+          "providerType": "isr.vehicle.ugv",
+          "providerVersion": "1.0.0",
+          "manifestHash": "660c066925a7d12af6a175e7bfb2642a753e5e32354895c96fff6a25f4a0e169"
+        },
+        "io.sdar/businessEvents": {
+          "profileVersion": "1.0",
+          "delivery": "post_sse",
+          "scopes": [
+            "task",
+            "resource"
+          ],
+          "resumeMode": "stream_sequence",
+          "maxRelatedTaskIds": 256,
+          "retentionMs": 604800000,
+          "authorizationModel": "subscription_snapshot_projection",
+          "relationOverflow": "paged_query",
+          "streamCancellation": "connection_close",
+          "continuityClass": "mixed",
+          "sources": [
+            {
+              "sourceId": "vehicle.business",
+              "deliverySemantics": "durable_at_least_once"
+            },
+            {
+              "sourceId": "vehicle.execution",
+              "deliverySemantics": "durable_at_least_once"
+            },
+            {
+              "sourceId": "vehicle.health",
+              "deliverySemantics": "durable_at_least_once"
+            },
+            {
+              "sourceId": "vehicle.target",
+              "deliverySemantics": "best_effort_live"
+            }
+          ]
+        },
+        "io.sdar/taskBusiness": {
+          "profileVersion": "1.0-rc2",
+          "schemaVersion": "sdar.task-business-public-query/1.0-rc2",
+          "methods": {
+            "contextGet": "io.sdar/taskBusiness/context/get",
+            "snapshotPartGet": "io.sdar/taskBusiness/snapshotParts/get",
+            "artifactGet": "io.sdar/taskBusiness/artifacts/get",
+            "eventListen": "io.sdar/businessEvents/listen",
+            "interventionApply": "io.sdar/taskBusiness/interventions/apply"
+          },
+          "snapshotResume": "public-watermark-before-adapter-snapshot",
+          "contextQuerySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "taskId",
+              "_meta"
+            ],
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxPageBytes": {
+                "type": "integer",
+                "minimum": 1024,
+                "maximum": 1048576
+              },
+              "pageCursor": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "snapshotPartQuerySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "taskId",
+              "snapshotToken",
+              "_meta"
+            ],
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "snapshotToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "objectRef": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "id",
+                  "revision"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "artifact",
+                      "action",
+                      "input_request",
+                      "intervention"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "offset": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "snapshotPartResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "part"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "part": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "encoding",
+                  "bytes",
+                  "totalBytes",
+                  "sha256",
+                  "offset"
+                ],
+                "properties": {
+                  "encoding": {
+                    "const": "base64"
+                  },
+                  "bytes": {
+                    "type": "string"
+                  },
+                  "totalBytes": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "nextOffset": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                }
+              }
+            }
+          },
+          "artifactQuerySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "taskId",
+              "artifactId",
+              "_meta"
+            ],
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "artifactId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "representationName": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "includeContent": {
+                "type": "boolean"
+              },
+              "contentOffset": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxContentBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "contextResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "snapshot",
+              "resumeFrom"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "snapshotToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "snapshot": {
+                "type": "object",
+                "required": [
+                  "contextRevision"
+                ],
+                "properties": {
+                  "contextRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "resumeFrom": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "streamId",
+                  "afterSequence"
+                ],
+                "properties": {
+                  "streamId": {
+                    "type": "string"
+                  },
+                  "afterSequence": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  }
+                }
+              }
+            }
+          },
+          "artifactResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "artifact"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "artifact": {
+                "type": "object"
+              },
+              "content": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "encoding",
+                  "bytes",
+                  "mediaType",
+                  "sha256",
+                  "totalBytes",
+                  "offset"
+                ],
+                "properties": {
+                  "encoding": {
+                    "const": "base64"
+                  },
+                  "bytes": {
+                    "type": "string"
+                  },
+                  "mediaType": {
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "type": "string"
+                  },
+                  "totalBytes": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "nextOffset": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "interventionApplySchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schemaVersion",
+              "commandId",
+              "taskId",
+              "executionId",
+              "interventionId",
+              "guard",
+              "input",
+              "_meta"
+            ],
+            "properties": {
+              "schemaVersion": {
+                "const": "sdar.runtime-intervention-command/1.0-rc2"
+              },
+              "commandId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "taskId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "interventionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "guard": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "mode",
+                      "expectedInterventionRevision",
+                      "expectedEffectivePlanRevision"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "semantic"
+                      },
+                      "expectedInterventionRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "expectedEffectivePlanRevision": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "mode",
+                      "expectedContextRevision"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "legacy_strict"
+                      },
+                      "expectedContextRevision": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              "input": {
+                "type": "object"
+              },
+              "externalExecutionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "executionMode": {
+                "enum": [
+                  "live",
+                  "simulation"
+                ]
+              },
+              "simulationId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "_meta": {
+                "type": "object"
+              }
+            }
+          },
+          "interventionApplyResultSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resultType",
+              "profileVersion",
+              "receipt"
+            ],
+            "properties": {
+              "resultType": {
+                "const": "complete"
+              },
+              "profileVersion": {
+                "const": "1.0-rc2"
+              },
+              "receipt": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "commandId",
+                  "commandSequence",
+                  "commandState",
+                  "durablyAccepted",
+                  "businessApplied",
+                  "duplicate"
+                ],
+                "properties": {
+                  "commandId": {
+                    "type": "string"
+                  },
+                  "commandSequence": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "commandState": {
+                    "type": "string"
+                  },
+                  "durablyAccepted": {
+                    "const": true
+                  },
+                  "businessApplied": {
+                    "const": false
+                  },
+                  "duplicate": {
+                    "type": "boolean"
+                  },
+                  "reasonCode": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "live",
+      "method": "tools/list",
+      "status": "PASS",
+      "tools": [
+        {
+          "name": "vehicle_get_state",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_get_capabilities",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_get_payload_status",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_get_targets",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_navigate",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_area_recon",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_track_target",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_control_gimbal",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_fire_weapon",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        },
+        {
+          "name": "vehicle_emergency_stop",
+          "resource": {
+            "type": "string",
+            "const": "vehicle:ugv"
+          },
+          "hasBusinessSemantics": false
+        }
+      ]
+    },
+    {
+      "mode": "live",
+      "tool": "vehicle_get_state",
+      "status": "PASS",
+      "resultType": "complete",
+      "semantic": {
+        "schemaVersion": "ugv.business-semantics/1",
+        "missionTaskState": "starting",
+        "reconPhase": "idle",
+        "visualLockState": "unlocked",
+        "sensorMode": "adaptive",
+        "payloadHealth": "unknown",
+        "payloadLoadState": "unknown",
+        "native": {
+          "missionTaskState": 0,
+          "reconMotionStatus": 1,
+          "lockStage": 1,
+          "reconType": 1,
+          "loadStatus": 1,
+          "cameraFault": false,
+          "online": true,
+          "sensorHealth": "normal"
+        }
+      },
+      "outputKeys": [
+        "identity",
+        "connectivity",
+        "freshness",
+        "revision",
+        "observedAt",
+        "chassis",
+        "payload",
+        "health",
+        "targets",
+        "mqttIngressSequence",
+        "businessSemantics"
+      ]
+    },
+    {
+      "mode": "live",
+      "tool": "vehicle_get_payload_status",
+      "status": "PASS",
+      "resultType": "complete",
+      "semantic": {
+        "schemaVersion": "ugv.business-semantics/1",
+        "missionTaskState": "starting",
+        "reconPhase": "idle",
+        "visualLockState": "unlocked",
+        "sensorMode": "adaptive",
+        "payloadHealth": "unknown",
+        "payloadLoadState": "unknown",
+        "native": {
+          "missionTaskState": 0,
+          "reconMotionStatus": 1,
+          "lockStage": 1,
+          "reconType": 1,
+          "loadStatus": 1,
+          "cameraFault": false,
+          "online": true,
+          "sensorHealth": "normal"
+        }
+      },
+      "outputKeys": [
+        "resourceId",
+        "online",
+        "gimbal",
+        "reconnaissance",
+        "eoTask",
+        "weapon",
+        "attackReady",
+        "payloadErrorCodes",
+        "observedAt",
+        "businessSemantics"
+      ]
+    },
+    {
+      "mode": "live",
+      "tool": "vehicle_get_targets",
+      "status": "PASS",
+      "resultType": "complete",
+      "semantic": {
+        "schemaVersion": "ugv.business-semantics/1",
+        "missionTaskState": "starting",
+        "reconPhase": "idle",
+        "visualLockState": "unlocked",
+        "sensorMode": "adaptive",
+        "payloadHealth": "unknown",
+        "payloadLoadState": "unknown",
+        "native": {
+          "missionTaskState": 0,
+          "reconMotionStatus": 1,
+          "lockStage": 1,
+          "reconType": 1,
+          "loadStatus": 1,
+          "cameraFault": false,
+          "online": true,
+          "sensorHealth": "normal"
+        }
+      },
+      "outputKeys": [
+        "resourceId",
+        "targets",
+        "freshness",
+        "observedAt",
+        "businessSemantics"
+      ]
+    }
+  ],
+  "mutatingToolsCalled": 0
+}
