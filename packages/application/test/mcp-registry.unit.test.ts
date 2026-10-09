@@ -411,6 +411,23 @@ describe('MCP Registry invocation boundary', () => {
       },
     })).rejects.toMatchObject({ code: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED' });
     expect(fixture.businessRead).toHaveBeenCalledTimes(calls);
+    await expect(fixture.service.readRemoteTaskBusinessArtifact({
+      ...identity, artifactId: 'route-1', revision: 2,
+    })).resolves.toMatchObject({
+      taskId: identity.remoteTaskId, artifactId: 'route-1', revision: 2,
+    });
+    expect(fixture.artifactRead).toHaveBeenCalledWith({
+      endpoint: 'https://provider.test/mcp',
+      headers: { authorization: 'Bearer provider-secret', 'X-SDAR-Execution-Mode': 'live' },
+      taskId: identity.remoteTaskId,
+      expectedProviderId: 'external-provider-1',
+      expectedResourceId: 'vehicle:ugv',
+      artifactId: 'route-1',
+      revision: 2,
+    });
+    await expect(fixture.service.readRemoteTaskBusinessArtifactContent({
+      ...identity, artifactId: 'route-1', revision: 2,
+    })).resolves.toEqual(Buffer.from('sample-route'));
   });
 
   it('rejects unproven legacy business reads before transport', async () => {
@@ -1485,6 +1502,12 @@ function createFixture(
   const businessRead = vi.fn<FrozenTaskBusinessReadRuntimePort['getContext']>((input) =>
     Promise.resolve({ taskId: input.taskId, contextRevision: 1 }),
   );
+  const artifactRead = vi.fn<FrozenTaskBusinessReadRuntimePort['getArtifact']>((input) =>
+    Promise.resolve({ taskId: input.taskId, artifactId: input.artifactId, revision: input.revision }),
+  );
+  const artifactContent = vi.fn<FrozenTaskBusinessReadRuntimePort['getArtifactContent']>(() =>
+    Promise.resolve(Buffer.from('sample-route')),
+  );
   const decrypt = vi.fn(() => ({ authorization: 'Bearer provider-secret' }));
   const controlAuthority = vi.fn((input: GovernedControlInvocation) => {
     order.push('control-authority');
@@ -1506,6 +1529,8 @@ function createFixture(
     frozenAvailability: { check: checkAvailability },
     frozenBusinessRead: {
       getContext: businessRead,
+      getArtifact: artifactRead,
+      getArtifactContent: artifactContent,
     },
     schemas: {
       checkSchema: () => ({ valid: true, errors: [] }),
@@ -1586,6 +1611,8 @@ function createFixture(
     reconcile,
     get,
     businessRead,
+    artifactRead,
+    artifactContent,
     checkAvailability,
     controlAuthority,
     decrypt,
