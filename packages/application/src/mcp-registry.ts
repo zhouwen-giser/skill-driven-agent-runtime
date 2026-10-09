@@ -133,6 +133,19 @@ export interface FrozenTaskAvailabilityRuntimePort {
   ): Promise<TaskAvailabilityReadResult>;
 }
 
+/** Read-only TaskBusiness endpoint, owned by the already-governed Frozen Task binding. */
+export interface FrozenTaskBusinessReadRuntimePort {
+  getContext(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      taskId: string;
+      expectedProviderId: string;
+      expectedResourceId: string;
+    }>,
+  ): Promise<unknown>;
+}
+
 export interface FrozenTaskLifecycleRuntimePort {
   disconnect?(
     input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
@@ -204,6 +217,7 @@ export class McpRegistryService {
   readonly #clock: Clock;
   readonly #frozenAvailability: FrozenTaskAvailabilityRuntimePort | undefined;
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
+  readonly #frozenBusinessRead: FrozenTaskBusinessReadRuntimePort | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
   readonly #hardDeniedControlTools: ReadonlySet<string>;
@@ -218,6 +232,7 @@ export class McpRegistryService {
       schemas: JsonSchemaValidator;
       frozenAvailability?: FrozenTaskAvailabilityRuntimePort;
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
+      frozenBusinessRead?: FrozenTaskBusinessReadRuntimePort;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
       controlAuthority?: GovernedControlInvocationAuthorityPort;
       hardDeniedControlTools?: readonly string[];
@@ -232,6 +247,7 @@ export class McpRegistryService {
     this.#schemas = dependencies.schemas;
     this.#frozenAvailability = dependencies.frozenAvailability;
     this.#frozenLifecycle = dependencies.frozenLifecycle;
+    this.#frozenBusinessRead = dependencies.frozenBusinessRead;
     this.#providerBindings = dependencies.providerBindings;
     this.#controlAuthority = dependencies.controlAuthority;
     this.#hardDeniedControlTools = new Set(
@@ -975,6 +991,50 @@ export class McpRegistryService {
       }
       return { kind: 'provider_unreachable', errorCode: 'MCP_TASK_PROVIDER_UNREACHABLE' };
     }
+  }
+
+  /**
+   * Reads the full SMPP TaskBusiness Context using the same persisted source,
+   * Provider Binding, credential and immutable Tool authority as Task polling.
+   * This path performs no device mutation and never refreshes registration.
+   */
+  async readRemoteTaskBusinessContext(
+    input: Readonly<{
+      serverId: string;
+      operationName: string;
+      remoteTaskId: string;
+      resourceId: string;
+      executionContext: RuntimeExecutionContext;
+      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+      credentialRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
+    }>,
+  ): Promise<unknown> {
+    const runtime = await this.#runtimeBindingAuthority.loadRuntimeAuthority(input.serverId);
+    await this.#assertRemoteTaskReadAuthority(input, runtime);
+    if (this.#frozenBusinessRead === undefined)
+      throw new McpRegistryError(
+        'MCP_FROZEN_RUNTIME_UNAVAILABLE',
+        'SMPP TaskBusiness read transport is not configured.',
+      );
+    const providerId = runtime.snapshot.providerCatalog?.providerId;
+    if (!providerId || input.resourceId.trim() === '')
+      throw new McpRegistryError(
+        'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+        'The exact Provider or resource identity is missing.',
+      );
+    const context = createRuntimeExecutionContext(input.executionContext);
+    return this.#frozenBusinessRead.getContext({
+      endpoint: runtime.record.server.endpoint,
+      headers: withExecutionHeaders(
+        this.#cipher.decrypt(runtime.record.encryptedCredential),
+        context,
+        this.#executionModeHeaderPolicy,
+      ),
+      taskId: input.remoteTaskId,
+      expectedProviderId: providerId,
+      expectedResourceId: input.resourceId,
+    });
   }
 
   async cancelRemoteTask(
