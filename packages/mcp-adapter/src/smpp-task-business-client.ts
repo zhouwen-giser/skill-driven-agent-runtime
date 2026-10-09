@@ -8,7 +8,6 @@ import type { FrozenBusinessEventsClient } from './business-events-client.js';
 import {
   SMPP_TASK_BUSINESS_EXTENSION,
   SMPP_TASK_BUSINESS_PROFILE_VERSION,
-  type FrozenMcpMethod,
   type FrozenV1McpClient,
 } from './frozen-v1-mcp-client.js';
 
@@ -234,7 +233,7 @@ export class SmppTaskBusinessClient {
       throw new SmppBusinessError('SMPP_PROVIDER_ID_MISMATCH');
     }
     this.#methods = parsed.data.methods;
-    return this.#methods;
+    return parsed.data.methods;
   }
 
   async getContext(input: Readonly<{ taskId: string; maxPageBytes?: number }>): Promise<SmppBusinessView> {
@@ -321,7 +320,7 @@ export class SmppTaskBusinessClient {
    * Existing BusinessEvents 1.0 consumer, resumed from the exact public Context
    * watermark. Task notifications and Provider source cursors are not substitutes.
    */
-  async listenFrom(view: SmppBusinessView): ReturnType<FrozenBusinessEventsClient['listen']> {
+  async listenFrom(view: SmppBusinessView): Promise<Awaited<ReturnType<FrozenBusinessEventsClient['listen']>>> {
     if (!this.#businessEvents) throw new SmppBusinessError('SMPP_BUSINESS_EVENT_CLIENT_REQUIRED');
     await this.#requireMethod('eventListen', 'io.sdar/businessEvents/listen');
     return this.#businessEvents.listen({ ...this.#endpoint, cursor: view.resumeFrom });
@@ -625,7 +624,7 @@ export class SmppTaskBusinessClient {
     ) throw new SmppBusinessError('SMPP_BUSINESS_IDENTITY_MISMATCH');
   }
 
-  async #requireMethod(key: string, method: FrozenMcpMethod): Promise<void> {
+  async #requireMethod(key: string, method: string): Promise<void> {
     const methods = this.#methods ?? await this.discover();
     if (methods[key] !== method) throw new SmppBusinessError('SMPP_BUSINESS_METHOD_UNAVAILABLE');
   }
