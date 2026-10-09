@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { z } from 'zod';
 
+import type { FrozenBusinessEventsClient } from './business-events-client.js';
 import {
   SMPP_TASK_BUSINESS_EXTENSION,
   SMPP_TASK_BUSINESS_PROFILE_VERSION,
@@ -191,6 +192,7 @@ export interface SmppTaskBusinessOptions extends SmppBusinessEndpoint {
   readonly expectedProviderId: string;
   readonly expectedResourceId: string;
   readonly mutationAuthority?: SmppBusinessMutationAuthority;
+  readonly businessEvents?: FrozenBusinessEventsClient;
 }
 
 const MAX_PAGES = 64;
@@ -203,6 +205,7 @@ export class SmppTaskBusinessClient {
   readonly #providerId: string;
   readonly #resourceId: string;
   readonly #mutationAuthority: SmppBusinessMutationAuthority | undefined;
+  readonly #businessEvents: FrozenBusinessEventsClient | undefined;
   #methods: Readonly<Record<string, string>> | undefined;
 
   constructor(options: SmppTaskBusinessOptions) {
@@ -212,6 +215,7 @@ export class SmppTaskBusinessClient {
     this.#providerId = options.expectedProviderId;
     this.#resourceId = options.expectedResourceId;
     this.#mutationAuthority = options.mutationAuthority;
+    this.#businessEvents = options.businessEvents;
   }
 
   async discover(): Promise<Readonly<Record<string, string>>> {
@@ -311,6 +315,16 @@ export class SmppTaskBusinessClient {
       pageCursor = data.snapshot.nextCursor;
     }
     throw new SmppBusinessError('SMPP_CONTEXT_PAGE_LIMIT');
+  }
+
+  /**
+   * Existing BusinessEvents 1.0 consumer, resumed from the exact public Context
+   * watermark. Task notifications and Provider source cursors are not substitutes.
+   */
+  async listenFrom(view: SmppBusinessView): ReturnType<FrozenBusinessEventsClient['listen']> {
+    if (!this.#businessEvents) throw new SmppBusinessError('SMPP_BUSINESS_EVENT_CLIENT_REQUIRED');
+    await this.#requireMethod('eventListen', 'io.sdar/businessEvents/listen');
+    return this.#businessEvents.listen({ ...this.#endpoint, cursor: view.resumeFrom });
   }
 
   async getArtifact(input: Readonly<{
@@ -437,7 +451,7 @@ export class SmppTaskBusinessClient {
     this.#checkExecution(view, input.taskId, input.executionId);
     if (view.context.effectivePlanRevision !== input.expectedEffectivePlanRevision)
       throw new SmppBusinessError('SMPP_PLAN_REVISION_CONFLICT');
-    const currentRef = view.context.activeRefs['navigation.adjust_plan'];
+    const currentRef = view.context.activeRefs['navigationAdjustment'];
     const intervention = view.objects.find(
       (item) =>
         item.kind === 'intervention' &&
@@ -570,6 +584,15 @@ export class SmppTaskBusinessClient {
       if (!validator(value)) throw new Error('input-schema-rejected');
     } catch { throw new SmppBusinessError('SMPP_BUSINESS_INPUT_SCHEMA_INVALID'); }
   }
+}
+
+/** Parse already projected Provider semantics without interpreting native codes. */
+export function parseSmppUgvBusinessSemantics(value: unknown): SmppUgvBusinessSemantics {
+  const source = isRecord(value) && 'businessSemantics' in value
+    ? value['businessSemantics'] : value;
+  const result = semanticSchema.safeParse(source);
+  if (!result.success) throw new SmppBusinessError('SMPP_BUSINESS_SEMANTICS_INVALID');
+  return result.data;
 }
 
 export class SmppBusinessError extends Error {
