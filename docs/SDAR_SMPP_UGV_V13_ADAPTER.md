@@ -26,15 +26,15 @@
 
 ## 对 SDAR Agent 的实际可用性分级
 
-| 能力 | 当前接入状态 | 证明边界 |
-| --- | --- | --- |
-| Frozen MCP 基础任务/只读 Tool | 复用既有能力 | 历史直接 MCP 互通，不代表治理通过 |
-| Registry-governed Context/Artifact read | 已连接到服务端 Registry | 仍需验证实际受管任务读取成功 |
-| BusinessEvents Cursor / Context hydration | Adapter 实现，复用现有 SSE | 需要实际 Task 事件流验收 |
-| RequiredInput 无凭据请求 | Adapter 能构造并本地预检 | **默认禁用写入**；只有提供真实 SDAR `mutationAuthority` 才能提交 |
-| Navigation Intervention | Adapter 能构造并本地预检 | **默认禁用写入**；不能把 Runtime receipt 当设备执行成功 |
-| SDAR Registry → Skill → Agent 自动消费/决策 | 尚未完成现场联调验收 | 不得标记 END_TO_END_READY |
-| 新版顺序 AutoLock | 非本站 0a4a7c3 已部署能力 | 不因本次兼容代码而改变现场 |
+| 能力                                        | 当前接入状态               | 证明边界                                                         |
+| ------------------------------------------- | -------------------------- | ---------------------------------------------------------------- |
+| Frozen MCP 基础任务/只读 Tool               | 复用既有能力               | 历史直接 MCP 互通，不代表治理通过                                |
+| Registry-governed Context/Artifact read     | 已连接到服务端 Registry    | 仍需验证实际受管任务读取成功                                     |
+| BusinessEvents Cursor / Context hydration   | Adapter 实现，复用现有 SSE | 需要实际 Task 事件流验收                                         |
+| RequiredInput 无凭据请求                    | Adapter 能构造并本地预检   | **默认禁用写入**；只有提供真实 SDAR `mutationAuthority` 才能提交 |
+| Navigation Intervention                     | Adapter 能构造并本地预检   | **默认禁用写入**；不能把 Runtime receipt 当设备执行成功          |
+| SDAR Registry → Skill → Agent 自动消费/决策 | 尚未完成现场联调验收       | 不得标记 END_TO_END_READY                                        |
+| 新版顺序 AutoLock                           | 非本站 0a4a7c3 已部署能力  | 不因本次兼容代码而改变现场                                       |
 
 调用方不能传入伪造的 `respondedBy`，也不能自行将 `mutationAuthority` 写成永真函数。应复用现有 SDAR Task/Capability/Control 授权与持久命令账本，在受控阶段绑定真实 Execution 后开启。接收 Command ACK 仅表示受理；仍须继续读取 Context / Intervention / Device 事实来确认 applied。
 

@@ -2,10 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  FrozenV1McpClient,
-  SmppTaskBusinessClient,
-} from '../src/index.js';
+import { FrozenV1McpClient, SmppTaskBusinessClient } from '../src/index.js';
 
 const endpoint = 'http://localhost:19100/mcp';
 const taskId = '11111111-1111-4111-8111-111111111111';
@@ -134,7 +131,7 @@ function fake(handler: (call: Captured) => unknown) {
     const captured: Captured = {
       method: String(body['method']),
       params: body['params'] as Readonly<Record<string, unknown>>,
-      headers: new Headers(init?.headers),
+      headers: new Headers(init.headers),
     };
     calls.push(captured);
     const result = handler(captured);

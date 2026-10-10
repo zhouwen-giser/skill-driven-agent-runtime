@@ -69,9 +69,7 @@ const versionSchema = z
       .loose(),
   })
   .strict();
-const descriptorSchema = z
-  .object({ ref: refSchema })
-  .loose();
+const descriptorSchema = z.object({ ref: refSchema }).loose();
 const pageSchema = z
   .object({
     resultType: z.literal('complete'),
@@ -97,7 +95,10 @@ const contentSchema = z
     totalBytes: z.string().regex(/^(0|[1-9][0-9]*)$/u),
     sha256: z.string().regex(/^[a-f0-9]{64}$/u),
     offset: z.number().int().nonnegative(),
-    nextOffset: z.string().regex(/^[1-9][0-9]*$/u).optional(),
+    nextOffset: z
+      .string()
+      .regex(/^[1-9][0-9]*$/u)
+      .optional(),
   })
   .loose();
 const partSchema = z
@@ -325,14 +326,15 @@ export class SmppTaskBusinessClient {
         this.#appendObject(objects, parsed.data, input.taskId);
       }
       if (!data.snapshot.nextCursor) {
-        if (!context || !resumeFrom || context.contextRevision !== revision)
+        if (context?.contextRevision !== revision)
           throw new SmppBusinessError('SMPP_CONTEXT_INCOMPLETE');
         this.#validateIdentity(context.identity, input.taskId);
         for (const item of objects.values()) {
           if (
             item.value.identity.executionId !== context.identity.executionId ||
             item.value.identity.operationName !== context.identity.operationName
-          ) throw new SmppBusinessError('SMPP_BUSINESS_EXECUTION_MISMATCH');
+          )
+            throw new SmppBusinessError('SMPP_BUSINESS_EXECUTION_MISMATCH');
         }
         const semantics = context.summary.properties?.['businessSemantics'];
         const parsedSemantics =
@@ -358,8 +360,11 @@ export class SmppTaskBusinessClient {
    * Existing BusinessEvents 1.0 consumer, resumed from the exact public Context
    * watermark. Task notifications and Provider source cursors are not substitutes.
    */
-  async listenFrom(view: SmppBusinessView): Promise<Awaited<ReturnType<FrozenBusinessEventsClient['listen']>>> {
-    if (this.#businessEvents === undefined) throw new SmppBusinessError('SMPP_BUSINESS_EVENT_CLIENT_REQUIRED');
+  async listenFrom(
+    view: SmppBusinessView,
+  ): Promise<Awaited<ReturnType<FrozenBusinessEventsClient['listen']>>> {
+    if (this.#businessEvents === undefined)
+      throw new SmppBusinessError('SMPP_BUSINESS_EVENT_CLIENT_REQUIRED');
     await this.#requireMethod('eventListen', 'io.sdar/businessEvents/listen');
     return this.#businessEvents.listen({ ...this.#endpoint, cursor: view.resumeFrom });
   }
@@ -548,11 +553,14 @@ export class SmppTaskBusinessClient {
       method: 'tasks/get',
       params: { taskId: input.taskId },
     });
-    const task = z.object({
-      taskId: z.string(),
-      status: z.string(),
-      inputRequests: z.record(z.string(), z.unknown()).optional(),
-    }).loose().safeParse(taskRaw);
+    const task = z
+      .object({
+        taskId: z.string(),
+        status: z.string(),
+        inputRequests: z.record(z.string(), z.unknown()).optional(),
+      })
+      .loose()
+      .safeParse(taskRaw);
     if (
       !task.success ||
       task.data.taskId !== input.taskId ||
