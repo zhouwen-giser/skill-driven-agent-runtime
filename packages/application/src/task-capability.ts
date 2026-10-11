@@ -1,4 +1,8 @@
 import {
+  FROZEN_TASK_BUSINESS_OPERATION_POLICY,
+  type TaskBusinessOperationPolicy,
+} from './task-business-operation-policy.js';
+import {
   ANONYMOUS_USER_ID,
   createRuntimeExecutionContext,
   createTaskCapabilityBinding,
@@ -207,6 +211,7 @@ export interface TaskCapabilitySkillUsageAuthority {
 }
 
 export class RuntimeTaskCapabilityService {
+  readonly #operationPolicy: TaskBusinessOperationPolicy;
   readonly #store: TaskCapabilityAcceptanceStore;
   readonly #schemas: JsonSchemaValidator;
   readonly #evidence: TaskCapabilityEvidenceSource | undefined;
@@ -216,6 +221,7 @@ export class RuntimeTaskCapabilityService {
 
   constructor(
     dependencies: Readonly<{
+      operationPolicy?: TaskBusinessOperationPolicy;
       store: TaskCapabilityAcceptanceStore;
       schemas: JsonSchemaValidator;
       evidence?: TaskCapabilityEvidenceSource;
@@ -224,6 +230,7 @@ export class RuntimeTaskCapabilityService {
       runtimeProviderBindings?: RuntimeMcpProviderBindingAdmissionVerifier;
     }>,
   ) {
+    this.#operationPolicy = dependencies.operationPolicy ?? FROZEN_TASK_BUSINESS_OPERATION_POLICY;
     this.#store = dependencies.store;
     this.#schemas = dependencies.schemas;
     this.#evidence = dependencies.evidence;
@@ -675,7 +682,16 @@ export class RuntimeTaskCapabilityService {
         terminal('Required Capability evidence is incomplete.');
     }
     for (const constraint of binding.constraintSnapshot) {
-      if (!constraintSatisfied(constraint, result, binding, invocations, physicalDispatches))
+      if (
+        !constraintSatisfied(
+          constraint,
+          result,
+          binding,
+          invocations,
+          physicalDispatches,
+          this.#operationPolicy,
+        )
+      )
         terminal(
           `Frozen safety or authorization constraint ${String(constraint['type'])} is not satisfied.`,
         );
@@ -1300,7 +1316,8 @@ function constraintSatisfied(
   result: Readonly<Record<string, unknown>>,
   binding: TaskCapabilityBinding,
   invocations: readonly McpInvocation[],
-  physicalDispatches?: PhysicalDispatchProof,
+  physicalDispatches: PhysicalDispatchProof | undefined,
+  operationPolicy: TaskBusinessOperationPolicy,
 ) {
   if (constraint['type'] === 'authorization' || constraint['type'] === 'safety') {
     const evidence = result['policyEvidence'];
@@ -1433,10 +1450,8 @@ function constraintSatisfied(
     return (
       policy.success &&
       physicalDispatches?.valid === true &&
-      physicalDispatches.dispatches.every(
-        ({ invocation }) =>
-          invocation.toolName === 'vehicle_navigate' ||
-          invocation.toolName === 'vehicle_area_recon',
+      physicalDispatches.dispatches.every(({ invocation }) =>
+        operationPolicy.supportsMutation(invocation.toolName),
       )
     );
   }

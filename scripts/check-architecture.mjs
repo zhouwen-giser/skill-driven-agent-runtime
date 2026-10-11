@@ -49,6 +49,7 @@ await assertRemovedCompatibilitySymbols();
 await assertNodeControlSeparation();
 await import('./check-cognitive-architecture.mjs');
 await import('./check-artifact-architecture.mjs');
+await import('./check-planning-boundaries.mjs');
 
 const sourceFiles = [
   ...(await collectSourceFiles('packages')),

@@ -18,7 +18,10 @@ const applicationUrl = new URL(
   '../../application/src/compiler/artifact-shadow-runtime.ts',
   import.meta.url,
 );
-const serverRuntimeUrl = new URL('../../../apps/server/src/runtime.ts', import.meta.url);
+const serverCompositionUrl = new URL(
+  '../../../apps/server/src/composition/http.ts',
+  import.meta.url,
+);
 
 describe('P06 PostgreSQL Shadow and promotion governance contract', () => {
   it('keeps P02 core tables authoritative and makes Shadow a ValidationRun child projection', async () => {
@@ -82,7 +85,7 @@ describe('P06 PostgreSQL Shadow and promotion governance contract', () => {
   it('exposes an explicit formal-runtime sidecar hook and reads current pins at worker start', async () => {
     const [application, runtime] = await Promise.all([
       readFile(applicationUrl, 'utf8'),
-      readFile(serverRuntimeUrl, 'utf8'),
+      readFile(serverCompositionUrl, 'utf8'),
     ]);
     expect(application).toContain('ArtifactShadowCurrentStateReader');
     expect(application).toContain('await currentState.readEnrollmentCurrent(input)');

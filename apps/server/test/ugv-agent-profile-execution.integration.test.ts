@@ -5,10 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createA2ATestSendMessageBody } from '../../../packages/a2a-adapter/test-support/client.js';
 
-import {
-  assertUgvGovernedControlAuthority,
-  McpRuntimeBindingAuthorityVerifier,
-} from '../../../packages/application/src/index.js';
+import { McpRuntimeBindingAuthorityVerifier } from '../../../packages/application/src/index.js';
+import { assertUgvGovernedControlAuthority } from '../../../packages/ugv-profile/src/index.js';
 import {
   deriveFrozenMcpCatalogAuthority,
   hashCanonicalEvidenceJson,

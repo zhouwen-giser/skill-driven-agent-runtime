@@ -1,10 +1,10 @@
-import type { GovernedControlConfirmation } from './governed-control-authority.js';
-import type { GovernedControlPrincipal } from './governed-control-management.js';
+import type { GovernedControlConfirmation } from '../../application/src/governed-control-authority.js';
+import type { GovernedControlConfirmationIssueResult } from '../../application/src/governed-control-confirmation-once.js';
+import type { GovernedControlPrincipal } from '../../application/src/governed-control-management.js';
 import {
   assertUgvGovernedControlAuthority,
-  type GovernedControlConfirmationIssueResult,
-  type UgvGovernedControlConfirmationService,
   type UgvGovernedControlAuthoritySnapshot,
+  type UgvGovernedControlConfirmationService,
   type UgvGovernedControlIssueAuthorityReader,
 } from './governed-control-ugv-authority.js';
 

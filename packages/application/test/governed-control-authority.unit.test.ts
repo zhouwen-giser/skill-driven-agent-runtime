@@ -2,13 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   GovernedControlConfirmationService,
-  GovernedControlInvocationAuthorizer,
   governedControlSnapshotHash,
   type CurrentGovernedCapabilityAuthority,
   type GovernedControlConfirmation,
   type GovernedControlConfirmationConsumption,
   type GovernedControlRuntimeAuthoritySnapshot,
 } from '../src/index.js';
+import { GovernedControlInvocationAuthorizer } from '../../ugv-profile/src/index.js';
 
 const confirmedAt = '2026-08-13T01:00:00.000Z';
 const expiresAt = '2026-08-13T01:05:00.000Z';

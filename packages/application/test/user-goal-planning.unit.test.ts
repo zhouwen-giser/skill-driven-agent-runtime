@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { Goal, UserGoalCompletionContract, UserGoalPlan } from '../../domain/src/index.js';
 import { UserGoalPlanningService } from '../src/index.js';
@@ -6,6 +6,57 @@ import { UserGoalPlanningService } from '../src/index.js';
 const timestamp = '2026-07-22T01:00:00.000Z';
 
 describe('UserGoalPlanningService', () => {
+  it('gives the User Goal candidate component no formal writer on success or failure', async () => {
+    const repository = new MemoryPlanningRepository();
+    const save = vi.spyOn(repository, 'saveContract');
+    const create = vi.spyOn(repository, 'createPlan');
+    const formal = service(new PlanningModel([validCandidate()]), repository);
+    const candidate = await formal.candidates.generateCandidate({ goal: testGoal() });
+    expect(repository.plan).toBeUndefined();
+    expect(repository.contract).toBeUndefined();
+    expect(save).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(Object.isFrozen(candidate)).toBe(true);
+    expect('commitCandidate' in formal.candidates).toBe(false);
+    await formal.commits.commitCandidate(candidate);
+    await formal.commits.commitCandidate(candidate);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
+    const failed = new MemoryPlanningRepository();
+    await expect(
+      service(new PlanningModel([{}, {}]), failed).candidates.generateCandidate({
+        goal: testGoal(),
+      }),
+    ).rejects.toMatchObject({ code: 'USER_GOAL_PLANNING_EXHAUSTED' });
+    expect(failed.plan).toBeUndefined();
+    expect(failed.contract).toBeUndefined();
+  });
+
+  it('does not persist a late User Goal candidate', async () => {
+    const repository = new MemoryPlanningRepository();
+    let release: ((value: unknown) => void) | undefined;
+    const formal = new UserGoalPlanningService({
+      repository,
+      now: () => timestamp,
+      nextPlanId: () => 'user-goal-plan.late',
+      model: {
+        generateStructured: () =>
+          new Promise<unknown>((resolve) => {
+            release = resolve;
+          }),
+      },
+    });
+    const pending = formal.candidates.generateCandidate({ goal: testGoal() });
+    await vi.waitFor(() => {
+      expect(release).toBeDefined();
+    });
+    if (release === undefined) throw new Error('TEST_MODEL_RELEASE_REQUIRED');
+    release(validCandidate());
+    await pending;
+    expect(repository.plan).toBeUndefined();
+    expect(repository.contract).toBeUndefined();
+  });
+
   it('persists a validated Skill Goal DAG before any execution capability is selected', async () => {
     const repository = new MemoryPlanningRepository();
     const model = new PlanningModel([validCandidate()]);

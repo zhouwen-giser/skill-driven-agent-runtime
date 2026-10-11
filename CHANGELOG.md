@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-11 — server composition and planning boundaries
+
+User-approved application/server refactor started from clean main a230bac9. Public protocols, Task semantics and safety authority are preserved. Implementation and validation are IN_PROGRESS; see `execplans/EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES.md` and ADR-161. Site and deployment are NOT_RUN; commit/push/merge are authorized.
+
 - 2026-10-11: SMPP v1.3 M3 passes the complete 30-stage isolated gate on unchanged input 5d63724f…; preserve every failed attempt. W4 adds native source Artifacts, geometry/outcome evidence and real Registry/Skill/Task navigation and RequiredInput E2E. Final W4/W5 gate and GOWM verification remain in progress.
 
 ## 2026-10-10 — SMPP v1.3 upgrade in progress

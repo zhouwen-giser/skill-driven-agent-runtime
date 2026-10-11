@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { immutablePlanningSnapshot } from './planning-candidate-snapshot.js';
 
 import { z } from 'zod';
 
@@ -131,10 +132,20 @@ export class StructuredTaskRiskDecider implements TaskRiskDecider {
   }
 }
 
+export interface WorkflowCandidateReadinessAudit {
+  readonly readiness: DslExecutionReadiness;
+  readonly snapshots: readonly TaskAvailabilitySnapshot[];
+}
+
 export type WorkflowCandidateReadinessAssessment =
-  | Readonly<{ accepted: true; readiness: DslExecutionReadiness }>
+  | Readonly<{
+      accepted: true;
+      readiness: DslExecutionReadiness;
+      planningAudits?: readonly WorkflowCandidateReadinessAudit[];
+    }>
   | Readonly<{
       accepted: false;
+      planningAudits?: readonly WorkflowCandidateReadinessAudit[];
       readiness: DslExecutionReadiness;
       correctionErrors: readonly string[];
       terminal: boolean;
@@ -199,7 +210,30 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
     this.#providerUnknownPreInvocationPolicy = dependencies.providerUnknownPreInvocationPolicy;
   }
 
-  async assess(input: Parameters<WorkflowCandidateReadinessPolicy['assess']>[0]) {
+  assess(input: Parameters<WorkflowCandidateReadinessPolicy['assess']>[0]) {
+    return this.#assess(input, (...args) => this.#evidence.saveEvaluation(...args));
+  }
+  /** Read-only planning evaluation; readiness evidence travels with the candidate. */
+  planningPolicy(): WorkflowCandidateReadinessPolicy {
+    return {
+      assess: async (input) => {
+        const planningAudits: WorkflowCandidateReadinessAudit[] = [];
+        const assessment = await this.#assess(input, (readiness, snapshots) => {
+          planningAudits.push(immutablePlanningSnapshot({ readiness, snapshots }));
+          return Promise.resolve();
+        });
+        return { ...assessment, planningAudits };
+      },
+    };
+  }
+  /** Formal plan orchestration owns this persistence port. */
+  persistPlanningAudit(audit: WorkflowCandidateReadinessAudit) {
+    return this.#evidence.saveEvaluation(audit.readiness, audit.snapshots);
+  }
+  async #assess(
+    input: Parameters<WorkflowCandidateReadinessPolicy['assess']>[0],
+    save: TaskAvailabilityEvidenceRepository['saveEvaluation'],
+  ) {
     const createdAt = this.#clock.now();
     const readinessId = this.#ids.nextReadinessId();
     const prepared = await this.#preparePlanningRequests(input.definition);
@@ -214,7 +248,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
         guardReasonCodes: prepared.blockerCodes,
         confirmationRequired: false,
       });
-      await this.#evidence.saveEvaluation(readiness, []);
+      await save(readiness, []);
       return {
         accepted: false,
         readiness,
@@ -233,7 +267,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
         guardReasonCodes: [],
         confirmationRequired: false,
       });
-      await this.#evidence.saveEvaluation(readiness, []);
+      await save(readiness, []);
       return { accepted: true, readiness } as const;
     }
 
@@ -262,7 +296,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
         guardReasonCodes: hardBlockers,
         confirmationRequired: false,
       });
-      await this.#evidence.saveEvaluation(readiness, snapshots);
+      await save(readiness, snapshots);
       return {
         accepted: false,
         readiness,
@@ -283,7 +317,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
         guardReasonCodes: [],
         confirmationRequired: false,
       });
-      await this.#evidence.saveEvaluation(readiness, snapshots);
+      await save(readiness, snapshots);
       return { accepted: true, readiness } as const;
     }
 
@@ -312,7 +346,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
         guardReasonCodes: [code],
         confirmationRequired: false,
       });
-      await this.#evidence.saveEvaluation(readiness, snapshots);
+      await save(readiness, snapshots);
       return { accepted: false, readiness, correctionErrors: [code], terminal: false } as const;
     }
 
@@ -328,7 +362,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
       guardReasonCodes: guarded.reasonCodes,
       confirmationRequired: guarded.disposition === 'confirmation_required',
     });
-    await this.#evidence.saveEvaluation(readiness, snapshots);
+    await save(readiness, snapshots);
     return guarded.disposition === 'ready' || guarded.disposition === 'confirmation_required'
       ? ({ accepted: true, readiness } as const)
       : ({

@@ -1,4 +1,4 @@
-import type { UgvSimulationSideEffectGate } from '../../../packages/application/src/index.js';
+import type { UgvSimulationSideEffectGate } from '../../../packages/ugv-profile/src/index.js';
 
 import { isDevelopmentDeploymentEnvironment } from './environment.js';
 

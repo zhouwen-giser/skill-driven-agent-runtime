@@ -83,6 +83,9 @@ for (const file of productFiles) {
     normalized === 'apps/console/src/ArtifactPanel.tsx' ||
     normalized === 'apps/console/src/api.ts' ||
     normalized === 'apps/server/src/runtime.ts' ||
+    ['infrastructure', 'knowledge', 'cognitive', 'http', 'contracts', 'runtime-support'].some(
+      (stage) => normalized === `apps/server/src/composition/${stage}.ts`,
+    ) ||
     normalized === 'apps/server/test/artifact-management-p12.e2e.test.ts'
   ) {
     continue;

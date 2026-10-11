@@ -1,5 +1,9 @@
 # Project Status
 
+## Server composition and planning boundaries (2026-10-11, in progress)
+
+User-approved application/server refactor started from clean main a230bac9. Public protocols, Task semantics and safety authority are preserved. Implementation and validation are IN_PROGRESS; see `execplans/EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES.md` and ADR-161. Site and deployment are NOT_RUN; commit/push/merge are authorized.
+
 2026-10-11：SMPP v1.3 升级代码与证据已提交并推送，实施提交 `b2544c16`。PR34 已普通合并为 `8fa2afec`；用户已授权升级 [PR35](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/35) 普通合并，其最终 CI/合并状态以 GitHub 原记录为准。实际身份与复核命令见 `reports/sdar-smpp-v13-upgrade/20261010-local/publication-20261011/`。源码和基线与完整冻结门禁一致；现场和部署仍 NOT_RUN。
 
 2026-10-11 04:48 Asia/Shanghai：EP-SDAR-SMPP-V13-BUSINESS-CLOSURE 本地范围 `LOCAL_COMPLETE`。W0–W5 四批完成，M1–M4 各有 30 项完整门禁。最终 `pnpm verify:isolated --frozen` 在 `sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506` 全部通过；输入 `8e908f0f…` / 基线 `f5e3e050…` 不变，清理 0。48 个本地 AC PASS，现场 AC-045/046 NOT_RUN；正式 Registry/Skill/Task 导航、侦察、重启、同 Skill 失败反例、完整轨迹/确认源，以及 GOWM owner 安装后的受限角色隔离验证均有实际证据。见 [最终报告](reports/sdar-smpp-v13-upgrade/20261010-local/FINAL_CLOSEOUT.md)、[逐项结果](reports/sdar-smpp-v13-upgrade/20261010-local/CASE_RESULTS.json) 和 M1–M4_VALIDATION。代码未提交；现场、推送、PR 修改、合并和部署 NOT_RUN。原项目级 GOWM 上游缺口与发布 DoD 保持开放。

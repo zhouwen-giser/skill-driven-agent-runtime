@@ -5,7 +5,6 @@ import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
 import {
   FrozenMcpRegistryService,
   GovernedControlConfirmationService,
-  GovernedControlInvocationAuthorizer,
   GovernedControlManagementService,
   McpRegistryService,
   RemoteTaskAdmissionService,
@@ -17,6 +16,7 @@ import {
   type McpCallContext,
   type RemoteTaskPollQueue,
 } from '../../application/src/index.js';
+import { GovernedControlInvocationAuthorizer } from '../../ugv-profile/src/index.js';
 import { deriveFrozenMcpCatalogAuthority } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {

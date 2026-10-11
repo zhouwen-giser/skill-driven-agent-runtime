@@ -1,3 +1,7 @@
+import {
+  FROZEN_TASK_BUSINESS_OPERATION_POLICY,
+  type TaskBusinessOperationPolicy,
+} from './task-business-operation-policy.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { RemoteTaskBinding, RemoteTaskInputLink } from '../../domain/src/index.js';
@@ -199,6 +203,7 @@ export function taskBusinessInputLinkHash(
 export class TaskBusinessCommandService {
   constructor(
     readonly dependencies: Readonly<{
+      operationPolicy?: TaskBusinessOperationPolicy;
       repository: TaskBusinessCommandRepository;
       business: TaskBusinessRepository;
       sync: TaskBusinessSyncService;
@@ -237,7 +242,8 @@ export class TaskBusinessCommandService {
     if (existing !== undefined) return sameUserRequest(existing, userRequestHash);
     const target = await this.dependencies.repository.resolveTaskBinding(
       input.taskId,
-      'vehicle_navigate',
+      (this.dependencies.operationPolicy ?? FROZEN_TASK_BUSINESS_OPERATION_POLICY)
+        .navigationAdjustmentOperationName,
     );
     if (target === undefined)
       throw new TaskBusinessError('TASK_BUSINESS_ORIGINAL_NAVIGATION_REQUIRED');
@@ -366,7 +372,9 @@ export class TaskBusinessCommandService {
     const parsed = taskBusinessMutationPolicySchema.parse(policy);
     if (
       !parsed.allowedOperations.includes(request.operation) ||
-      !['vehicle_navigate', 'vehicle_area_recon'].includes(scope.toolName)
+      !(
+        this.dependencies.operationPolicy ?? FROZEN_TASK_BUSINESS_OPERATION_POLICY
+      ).supportsMutation(scope.toolName)
     )
       throw new TaskBusinessError('TASK_BUSINESS_MUTATION_POLICY_DENIED');
     await this.dependencies.authority.assertCurrent(target, scope);

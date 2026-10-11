@@ -5928,6 +5928,11 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     );
     if (result.rowCount !== 1) throw new Error('WORKFLOW_PLAN_CONFIRMATION_FAILED');
   }
+  async saveCandidateAttempt(attempt: WorkflowPlanAttempt): Promise<boolean> {
+    if (this.#deviceScope !== undefined) return false;
+    await this.saveAttempt(attempt);
+    return true;
+  }
   async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
     const client = this.#deviceScope === undefined ? undefined : await this.#pool.connect();
     try {

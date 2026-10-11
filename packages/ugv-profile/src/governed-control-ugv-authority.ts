@@ -1,3 +1,8 @@
+import type {
+  GovernedControlConfirmationIssueResult,
+  GovernedControlConfirmationOnceStore,
+} from '../../application/src/governed-control-confirmation-once.js';
+import { exactScope } from '../../application/src/governed-control-confirmation-once.js';
 import {
   createSelectedTaskOperation,
   hashCanonicalEvidenceJson,
@@ -7,71 +12,26 @@ import {
 } from '../../domain/src/index.js';
 
 import type {
-  GovernedControlAuthorityKind,
   GovernedControlConfirmation,
   GovernedControlConfirmationConsumption,
   GovernedControlDispatchReceipt,
   GovernedControlInvocation,
   GovernedControlInvocationAuthorityPort,
-} from './governed-control-authority.js';
+} from '../../application/src/governed-control-authority.js';
 
 const CONTROL_APPROVER_ROLE = 'physical_control_approver';
+
 const MAX_CONFIRMATION_TTL_MS = 15 * 60 * 1_000;
+
 const ACTIVE_ATTEMPT_STATUSES = new Set(['prepared', 'running', 'waiting']);
+
 const TERMINAL_TASK_PHASES = new Set(['completed', 'failed', 'canceled']);
+
 const PHYSICAL_CONTROL_RISK_LEVELS = new Set(['medium', 'high', 'critical']);
+
 const SHA256 = /^[0-9a-f]{64}$/u;
+
 const PREFIXED_SHA256 = /^sha256:[0-9a-f]{64}$/u;
-
-export interface GovernedControlConfirmationExactScope {
-  readonly confirmationId: string;
-  readonly authorityKind?: GovernedControlAuthorityKind;
-  readonly taskId: string;
-  readonly capabilityBindingId: string;
-  readonly capabilityId: string;
-  readonly capabilityVersion: number;
-  readonly capabilityAttemptId: string;
-  readonly planId: string;
-  readonly planHash: string;
-  readonly skillId: string;
-  readonly skillVersion: number;
-  readonly providerBindingId: string;
-  readonly serverId: string;
-  readonly toolName: string;
-  readonly argumentsHash: string;
-  readonly actorId: string;
-  readonly actorKind: 'human';
-  readonly authenticationMethod: string;
-  readonly actorRoles: readonly string[];
-  readonly reason: string;
-}
-
-export interface GovernedControlConfirmationIssueResult {
-  readonly confirmation: GovernedControlConfirmation;
-  readonly replayed: boolean;
-}
-
-/**
- * Additive retry-safe persistence contract. The legacy random-id `saveConfirmation` contract is
- * intentionally separate and unchanged.
- */
-export interface GovernedControlConfirmationOnceStore {
-  issueOnce(
-    confirmation: GovernedControlConfirmation,
-  ): Promise<GovernedControlConfirmationIssueResult>;
-  findExact(
-    scope: GovernedControlConfirmationExactScope,
-  ): Promise<GovernedControlConfirmation | undefined>;
-}
-
-export class GovernedControlConfirmationIssueConflictError extends Error {
-  readonly code = 'GOVERNED_CONTROL_CONFIRMATION_ISSUE_CONFLICT';
-
-  constructor() {
-    super('An idempotent confirmation identity already exists with different immutable scope.');
-    this.name = 'GovernedControlConfirmationIssueConflictError';
-  }
-}
 
 export interface UgvGovernedControlAuthoritySnapshot {
   /** Persisted with the immutable Plan; never reconstructed from the invocation request. */
@@ -299,11 +259,6 @@ export interface UgvGovernedControlConfirmationConsumer {
   consumeConfirmation(
     input: GovernedControlConfirmationConsumption,
   ): Promise<GovernedControlConfirmation | undefined>;
-}
-
-/** Read-only evidence boundary for the one confirmation consumed by a Provider invocation. */
-export interface GovernedControlConsumedConfirmationReader {
-  findConsumedByInvocation(invocationId: string): Promise<GovernedControlConfirmation | undefined>;
 }
 
 /** Server composition owns environment/control-plane policy; the profile never reads env itself. */
@@ -548,22 +503,6 @@ export function ugvGovernedControlConfirmationId(
     reason: input.reason,
   });
   return `ugv-control-${digest.slice('sha256:'.length)}`;
-}
-
-export function exactScope(
-  input: GovernedControlConfirmationExactScope,
-): GovernedControlConfirmationExactScope {
-  return Object.freeze({
-    ...input,
-    authorityKind: input.authorityKind ?? 'physical_control',
-    actorRoles: Object.freeze([...input.actorRoles]),
-  });
-}
-
-export function confirmationExactScope(
-  confirmation: GovernedControlConfirmation,
-): GovernedControlConfirmationExactScope {
-  return exactScope(confirmation);
 }
 
 function assertCurrentProviderAndCatalog(

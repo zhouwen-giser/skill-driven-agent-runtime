@@ -4,16 +4,18 @@ import { createSelectedTaskOperation, hashCanonicalEvidenceJson } from '../../do
 
 import {
   GovernedControlConfirmationService,
+  type GovernedControlConfirmation,
+  type GovernedControlConfirmationConsumption,
+} from '../src/index.js';
+import {
   UgvGovernedControlConfirmationService,
   UgvGovernedControlInvocationAuthorizer,
   UgvGovernedControlManagementService,
   ugvGovernedControlConfirmationId,
-  type GovernedControlConfirmation,
-  type GovernedControlConfirmationConsumption,
   type UgvGovernedControlAuthoritySnapshot,
   type UgvGovernedControlDispatchAuthoritySnapshot,
   type UgvGovernedControlConfirmationIssueInput,
-} from '../src/index.js';
+} from '../../ugv-profile/src/index.js';
 
 const now = '2026-08-21T01:01:00.000Z';
 const validUntil = '2026-08-21T01:10:00.000Z';

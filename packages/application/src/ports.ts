@@ -1121,6 +1121,8 @@ export interface StructuredModelProvider {
 }
 
 export interface WorkflowPlanRepository {
+  /** Append-only candidate audit; false defers to formal commit where a GOWM root is required. */
+  saveCandidateAttempt?(attempt: WorkflowPlanAttempt): Promise<boolean>;
   findPlan(planId: string): Promise<WorkflowPlanRecord | undefined>;
   findConfirmedDefinition(
     workflowDefinitionId: string,

@@ -16,10 +16,8 @@ import {
   type UserGoalPlanCandidateSnapshot,
   type UserGoalCompletionContract,
 } from '../../../domain/src/index.js';
-import {
-  userGoalCompletionContractFor,
-  type UserGoalPlanningService,
-} from '../user-goal-planning.js';
+import { userGoalCompletionContractFor } from '../user-goal-planning-contracts.js';
+import type { UserGoalCandidateGenerator } from '../user-goal-candidate-generator.js';
 import type { ConfirmedPlanHandoff } from './confirmed-plan-handoff.js';
 import type { InteractivePlanPatchService } from './interactive-plan-patch-service.js';
 import type {
@@ -78,7 +76,7 @@ export interface MaterializedPlanningCandidateInput {
 
 export class InteractivePlanningSessionService {
   readonly #repository: InteractivePlanningRepository;
-  readonly #planner: Pick<UserGoalPlanningService, 'generateCandidate'>;
+  readonly #planner: Pick<UserGoalCandidateGenerator, 'generateCandidate'>;
   readonly #experiencePlanner: Pick<ExperienceEnrichedUserGoalPlanningService, 'plan'> | undefined;
   readonly #experienceUsage: ExperienceUsageRepository | undefined;
   readonly #injectionMode: CognitiveInjectionMode;
@@ -100,7 +98,7 @@ export class InteractivePlanningSessionService {
   constructor(
     dependencies: Readonly<{
       repository: InteractivePlanningRepository;
-      planner: Pick<UserGoalPlanningService, 'generateCandidate'>;
+      planner: Pick<UserGoalCandidateGenerator, 'generateCandidate'>;
       experiencePlanner?: Pick<ExperienceEnrichedUserGoalPlanningService, 'plan'>;
       experienceUsage?: ExperienceUsageRepository;
       injectionMode?: CognitiveInjectionMode;

@@ -1601,3 +1601,20 @@ Canonical source Artifacts preserve all retained bytes, while published trajecto
 absence and event history gaps remain explicit. Receipt acceptance is separate from observed
 application; protocol completed alone cannot satisfy a Skill success policy. Original GOWM
 auxiliary-link and temporary-Skill upstream gaps elsewhere in this document remain open.
+
+
+## Server composition and planning authority refactor (2026-10-11)
+
+Scoped implementation plan: `execplans/EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES.md`; decision: ADR-161.
+Current validation is **IN_PROGRESS**, with raw gate failures preserved under
+`reports/server-composition-planning-boundaries/20261011-local/`. Earlier upgrade evidence does not verify this refactor.
+
+| Baseline requirement | Current implementation | Regression and acceptance evidence |
+| --- | --- | --- |
+| NFR-MNT-001 | `apps/server/src/composition/`; stable `runtime.ts` facade; `packages/ugv-profile/src/`; `mcp-adapter/src/smpp-task-business-transport.ts` | `server-composition-lifecycle.unit`; `check-planning-boundaries.mjs` (7 rejected architecture fixtures); milestone isolated gates |
+| FR-EXE-001/002 | User Goal/Workflow candidate generators and formal commit services; `application/src/task-plan-preparation.ts` | `workflow-planner.unit` (candidate success/failure/late/tamper/idempotence and evidence-before-confirmation); `user-goal-planning.unit`; `interactive-planning.unit`; `experience-enriched-planning.unit`; existing ordinary/automatic-confirmation E2E |
+| FR-EXE-003/007 | Existing Task/Goal/Workflow lifecycle writers; Profile admission/guard/evidence policies | `plan-preparation-processor.unit` (Capability binding before Task publication); `ugv-agent-profile-execution.integration`; existing Goal Patch/revision CAS/terminal E2E |
+| FR-EXE-006/008/009 | Existing Remote Task, TaskBusiness and continuation kernel; exact Profile authorization | `ugv-move-workflow-continuation.integration`; `smpp-task-business.e2e`; `task-business-operation-profile.unit`; existing permissions/parameter/input/cancel/recovery/no-replay tests |
+| FR-EXE-001/002, GOWM device ownership | `PostgresWorkflowPlanRepository.saveCandidateAttempt`; formal ordered audit commit; read-only planning readiness | `workflow-candidate-audit.unit` (actual Pool, zero candidate SQL); `workflow-planner.unit` deferred audit sequence; restricted-role GOWM runtime driver |
+
+No migrations, runtime dependencies or protocol pins are changed. Site reads/writes and deployment remain `NOT_RUN`; Git commit/push/merge are separately authorized by the user.
