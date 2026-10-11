@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "frozenRunId": "sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f",
+  "runtimeInputSha256": "d7b0a6d9fcdc000e9e9804c8b812972c2e496a0759bb3d48aa073c6ece8ff40b",
+  "baselineSha256": "77107c3ba2c1363bd0c8038a0941678354be8aaada2a222858d40eec5bbdbfd6",
+  "indexedNonstatusLocalFiles": 2888,
+  "mismatches": [],
+  "method": "Every local non-status frozen input was read from the Git index and SHA-256 compared; publication will repeat against the final commit."
+}

@@ -1,0 +1,917 @@
+{
+  "status": "PASS",
+  "database": "isolated test database (credentials omitted)",
+  "scenarios": [
+    {
+      "id": "T01",
+      "status": "PASS"
+    },
+    {
+      "id": "T02",
+      "status": "PASS"
+    },
+    {
+      "id": "T03",
+      "status": "PASS"
+    },
+    {
+      "id": "T04",
+      "status": "PASS"
+    },
+    {
+      "id": "T05",
+      "status": "PASS"
+    },
+    {
+      "id": "T06",
+      "status": "PASS"
+    },
+    {
+      "id": "T07",
+      "status": "PASS"
+    },
+    {
+      "id": "T08",
+      "status": "PASS"
+    },
+    {
+      "id": "T09",
+      "status": "PASS"
+    },
+    {
+      "id": "T10",
+      "status": "PASS"
+    },
+    {
+      "id": "T11",
+      "status": "PASS"
+    },
+    {
+      "id": "T12",
+      "status": "PASS"
+    },
+    {
+      "id": "T13",
+      "status": "PASS"
+    },
+    {
+      "id": "T14",
+      "status": "PASS"
+    },
+    {
+      "id": "T15",
+      "status": "PASS"
+    },
+    {
+      "id": "T16",
+      "status": "PASS"
+    },
+    {
+      "id": "T17",
+      "status": "PASS"
+    },
+    {
+      "id": "T18",
+      "status": "PASS"
+    },
+    {
+      "id": "T19",
+      "status": "PASS"
+    },
+    {
+      "id": "T20",
+      "status": "PASS"
+    },
+    {
+      "id": "T21",
+      "status": "PASS"
+    },
+    {
+      "id": "T22",
+      "status": "PASS"
+    },
+    {
+      "id": "T23",
+      "status": "PASS"
+    },
+    {
+      "id": "T24",
+      "status": "PASS"
+    },
+    {
+      "id": "T25",
+      "status": "PASS"
+    },
+    {
+      "id": "T26",
+      "status": "PASS"
+    },
+    {
+      "id": "T27",
+      "status": "PASS"
+    },
+    {
+      "id": "T28",
+      "status": "PASS"
+    },
+    {
+      "id": "T29",
+      "status": "PASS"
+    },
+    {
+      "id": "T30",
+      "status": "PASS"
+    },
+    {
+      "id": "T31",
+      "status": "PASS"
+    },
+    {
+      "id": "T32",
+      "status": "PASS"
+    },
+    {
+      "id": "T33",
+      "status": "PASS"
+    },
+    {
+      "id": "T34",
+      "status": "PASS"
+    },
+    {
+      "id": "T35",
+      "status": "PASS"
+    },
+    {
+      "id": "T02_DEVICE_STREAM_SCOPE",
+      "status": "PASS"
+    },
+    {
+      "id": "T04_BOUND_CONFIG_OVERLAP",
+      "status": "PASS"
+    },
+    {
+      "id": "T14_SDAR_ADMISSION_DEVICE_KEY",
+      "status": "PASS"
+    },
+    {
+      "id": "T27_RECEIPT_IDEMPOTENCY_CONFLICT",
+      "status": "PASS"
+    },
+    {
+      "id": "T28_CONTROL_NO_NEW_MISSION",
+      "status": "PASS"
+    },
+    {
+      "id": "T18_SDAR_REMOTE_POLL_SCOPE",
+      "status": "PASS"
+    },
+    {
+      "id": "T36",
+      "status": "PASS"
+    },
+    {
+      "id": "T37_TEMPORARY_TERMINAL_DEVICE_PROVENANCE",
+      "status": "PASS"
+    }
+  ],
+  "fixture": [
+    {
+      "deviceId": "gowm-shared-v02-A",
+      "taskId": "gowm-shared-v02-A-task",
+      "planId": "gowm-shared-v02-A-plan",
+      "instanceId": "gowm-shared-v02-A-workflow",
+      "bindingId": "a13e87ca-2c69-48d7-844d-f658e234f279",
+      "missionId": "2eb01ddb-c3c3-4bcd-afb7-58b55da3dffc",
+      "mcpIds": [
+        "34219f64-68fb-42d4-8b5e-b8378e9bf8be",
+        "e80f7d5d-773c-4993-b96e-3a5b3a5d086e",
+        "9d76215d-07b3-419e-886d-7a8b40844ac2"
+      ],
+      "providerIds": [
+        "gowm-shared-v02-A-execution-0",
+        "gowm-shared-v02-A-execution-1",
+        "gowm-shared-v02-A-execution-2"
+      ],
+      "pointId": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+      "polygonId": "8fef99cf-4c48-4e52-b881-994fb7488920",
+      "remoteIds": [
+        "gowm-shared-v02-A-remote-0",
+        "gowm-shared-v02-A-remote-1",
+        "gowm-shared-v02-A-remote-2"
+      ]
+    },
+    {
+      "deviceId": "gowm-shared-v02-B",
+      "taskId": "gowm-shared-v02-B-task",
+      "planId": "gowm-shared-v02-B-plan",
+      "instanceId": "gowm-shared-v02-B-workflow",
+      "bindingId": "41fe7bd3-1138-48a9-a10c-bbf3b233f6af",
+      "missionId": "6451f4c0-e6f1-4b4e-999e-c9c62528bc5b",
+      "mcpIds": [
+        "cc464587-31a1-4f52-9a41-7cadd56329dd",
+        "771b836b-9cba-45d0-83c1-e8b9c981a406",
+        "d2a8fc32-7df4-46f8-977c-b3a580fce14f"
+      ],
+      "providerIds": [
+        "gowm-shared-v02-B-execution-0",
+        "gowm-shared-v02-B-execution-1",
+        "gowm-shared-v02-B-execution-2"
+      ],
+      "pointId": "e01ce083-7b42-467d-afc5-797044a0c56c",
+      "polygonId": "f1c8360c-cc4f-48d2-8cc5-6f4ebf001254",
+      "remoteIds": [
+        "gowm-shared-v02-B-remote-0",
+        "gowm-shared-v02-B-remote-1",
+        "gowm-shared-v02-B-remote-2"
+      ]
+    }
+  ],
+  "lineage": {
+    "lineage": [
+      {
+        "device_id": "gowm-shared-v02-A",
+        "sdar_task_id": "gowm-shared-v02-A-task",
+        "sdar_phase": "executing",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "workflow_instance_id": "gowm-shared-v02-A-workflow",
+        "workflow_node_id": "move",
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:move:0",
+        "remote_binding_id": "gowm-shared-v02-A-remote-0",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-0-invocation",
+        "smpp_service_key": "test-smpp",
+        "mcp_task_id": "34219f64-68fb-42d4-8b5e-b8378e9bf8be",
+        "mcp_status": "working",
+        "provider_task_record_id": "gowm-shared-v02-A-execution-0",
+        "external_execution_id": "test-external-A-0",
+        "provider_state": "RUNNING",
+        "dispatch_step_id": "followup",
+        "dispatch_state": "UNCERTAIN",
+        "link_id": "d45b82ef-c56a-4b27-8b46-325eaaf8e77e",
+        "mission_instance_id": null,
+        "link_state": "UNCERTAIN",
+        "relation_kind": "CREATED",
+        "missing_stage": "MISSION_UNRESOLVED"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "sdar_task_id": "gowm-shared-v02-A-task",
+        "sdar_phase": "executing",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "workflow_instance_id": "gowm-shared-v02-A-workflow",
+        "workflow_node_id": "move",
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:move:0",
+        "remote_binding_id": "gowm-shared-v02-A-remote-0",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-0-invocation",
+        "smpp_service_key": "test-smpp",
+        "mcp_task_id": "34219f64-68fb-42d4-8b5e-b8378e9bf8be",
+        "mcp_status": "working",
+        "provider_task_record_id": "gowm-shared-v02-A-execution-0",
+        "external_execution_id": "test-external-A-0",
+        "provider_state": "RUNNING",
+        "dispatch_step_id": "primary",
+        "dispatch_state": "UNCERTAIN",
+        "link_id": "4b366707-be7c-42da-a4ba-a42bd9f69a01",
+        "mission_instance_id": "2eb01ddb-c3c3-4bcd-afb7-58b55da3dffc",
+        "link_state": "LINKED",
+        "relation_kind": "CREATED",
+        "missing_stage": "LINKED"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "sdar_task_id": "gowm-shared-v02-A-task",
+        "sdar_phase": "executing",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "workflow_instance_id": "gowm-shared-v02-A-workflow",
+        "workflow_node_id": "move",
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:move:1",
+        "remote_binding_id": "gowm-shared-v02-A-remote-1",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-1-invocation",
+        "smpp_service_key": "test-smpp",
+        "mcp_task_id": "e80f7d5d-773c-4993-b96e-3a5b3a5d086e",
+        "mcp_status": "working",
+        "provider_task_record_id": "gowm-shared-v02-A-execution-1",
+        "external_execution_id": "test-external-A-1",
+        "provider_state": "RUNNING",
+        "dispatch_step_id": "followup",
+        "dispatch_state": "UNCERTAIN",
+        "link_id": null,
+        "mission_instance_id": null,
+        "link_state": null,
+        "relation_kind": null,
+        "missing_stage": "MISSION_UNRESOLVED"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "sdar_task_id": "gowm-shared-v02-A-task",
+        "sdar_phase": "executing",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "workflow_instance_id": "gowm-shared-v02-A-workflow",
+        "workflow_node_id": "move",
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:move:1",
+        "remote_binding_id": "gowm-shared-v02-A-remote-1",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-1-invocation",
+        "smpp_service_key": "test-smpp",
+        "mcp_task_id": "e80f7d5d-773c-4993-b96e-3a5b3a5d086e",
+        "mcp_status": "working",
+        "provider_task_record_id": "gowm-shared-v02-A-execution-1",
+        "external_execution_id": "test-external-A-1",
+        "provider_state": "RUNNING",
+        "dispatch_step_id": "primary",
+        "dispatch_state": "UNCERTAIN",
+        "link_id": null,
+        "mission_instance_id": null,
+        "link_state": null,
+        "relation_kind": null,
+        "missing_stage": "MISSION_UNRESOLVED"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "sdar_task_id": "gowm-shared-v02-A-task",
+        "sdar_phase": "executing",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "workflow_instance_id": "gowm-shared-v02-A-workflow",
+        "workflow_node_id": "observe",
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:observe:2",
+        "remote_binding_id": "gowm-shared-v02-A-remote-2",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-2-invocation",
+        "smpp_service_key": "test-smpp",
+        "mcp_task_id": "9d76215d-07b3-419e-886d-7a8b40844ac2",
+        "mcp_status": "working",
+        "provider_task_record_id": "gowm-shared-v02-A-execution-2",
+        "external_execution_id": "test-external-A-2",
+        "provider_state": "RUNNING",
+        "dispatch_step_id": "followup",
+        "dispatch_state": "UNCERTAIN",
+        "link_id": null,
+        "mission_instance_id": null,
+        "link_state": null,
+        "relation_kind": null,
+        "missing_stage": "MISSION_UNRESOLVED"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "sdar_task_id": "gowm-shared-v02-A-task",
+        "sdar_phase": "executing",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "workflow_instance_id": "gowm-shared-v02-A-workflow",
+        "workflow_node_id": "observe",
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:observe:2",
+        "remote_binding_id": "gowm-shared-v02-A-remote-2",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-2-invocation",
+        "smpp_service_key": "test-smpp",
+        "mcp_task_id": "9d76215d-07b3-419e-886d-7a8b40844ac2",
+        "mcp_status": "working",
+        "provider_task_record_id": "gowm-shared-v02-A-execution-2",
+        "external_execution_id": "test-external-A-2",
+        "provider_state": "RUNNING",
+        "dispatch_step_id": "primary",
+        "dispatch_state": "UNCERTAIN",
+        "link_id": null,
+        "mission_instance_id": null,
+        "link_state": null,
+        "relation_kind": null,
+        "missing_stage": "MISSION_UNRESOLVED"
+      }
+    ],
+    "targets": [
+      {
+        "target_binding_id": "4707c634-5fe7-4d72-a649-eee5278c6c0d",
+        "target_id": "8fef99cf-4c48-4e52-b881-994fb7488920",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SDAR",
+        "owner_kind": "TASK",
+        "owner_key": {
+          "taskId": "gowm-shared-v02-A-task"
+        },
+        "usage_role": "REQUESTED",
+        "target_purpose": "OBSERVATION_AREA",
+        "argument_path": "area",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "ae516fa8-3656-439f-928a-d62cdfdeeaa6",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                120,
+                30
+              ],
+              [
+                120.01,
+                30
+              ],
+              [
+                120.01,
+                30.01
+              ],
+              [
+                120,
+                30
+              ]
+            ]
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0103000020E610000001000000040000000000000000005E400000000000003E40713D0AD7A3005E400000000000003E40713D0AD7A3005E40C3F5285C8F023E400000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "4fd76156-6e74-4ac9-ab63-30db89fa7b59",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SMPP",
+        "owner_kind": "MCP_TASK",
+        "owner_key": {
+          "taskId": "34219f64-68fb-42d4-8b5e-b8378e9bf8be"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "616bc359-1502-4c2c-b9cb-fa4a23e757ff",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SDAR",
+        "owner_kind": "PLAN_NODE",
+        "owner_key": {
+          "nodeId": "move",
+          "planId": "gowm-shared-v02-A-plan"
+        },
+        "usage_role": "PLANNED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "665b9c5c-b989-4579-ba89-9d53ee9f67f8",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SMPP",
+        "owner_kind": "MCP_TASK",
+        "owner_key": {
+          "taskId": "9d76215d-07b3-419e-886d-7a8b40844ac2"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "774fbed7-eb01-45e4-89c8-0ba5f56861af",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SDAR",
+        "owner_kind": "NODE_RUN",
+        "owner_key": {
+          "nodeId": "move",
+          "bindingId": "gowm-shared-v02-A-remote-1",
+          "nodeRunId": "gowm-shared-v02-A-workflow:move:1",
+          "instanceId": "gowm-shared-v02-A-workflow"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "95cead2d-2b32-41e4-afb6-1626d47aa076",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "UGV_PROVIDER",
+        "owner_kind": "PROVIDER_DISPATCH",
+        "owner_key": {
+          "stepId": "primary",
+          "taskId": "gowm-shared-v02-A-execution-1"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "ab3aaf14-a2f5-41e9-b857-56718eaba3cf",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SMPP",
+        "owner_kind": "MCP_TASK",
+        "owner_key": {
+          "taskId": "e80f7d5d-773c-4993-b96e-3a5b3a5d086e"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "bb276be7-b910-42bf-8f83-162aae5b5ed5",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "UGV_PROVIDER",
+        "owner_kind": "PROVIDER_DISPATCH",
+        "owner_key": {
+          "stepId": "primary",
+          "taskId": "gowm-shared-v02-A-execution-0"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "be533563-211f-4619-9a5f-6e2e320d2c89",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SDAR",
+        "owner_kind": "PLAN_NODE",
+        "owner_key": {
+          "nodeId": "observe",
+          "planId": "gowm-shared-v02-A-plan"
+        },
+        "usage_role": "PLANNED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "dc20ec14-cbf3-4241-a26c-41b815fefd44",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SDAR",
+        "owner_kind": "TASK",
+        "owner_key": {
+          "taskId": "gowm-shared-v02-A-task"
+        },
+        "usage_role": "REQUESTED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "eedf25dd-0505-4d96-828c-1341228e3b00",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SDAR",
+        "owner_kind": "NODE_RUN",
+        "owner_key": {
+          "nodeId": "observe",
+          "bindingId": "gowm-shared-v02-A-remote-2",
+          "nodeRunId": "gowm-shared-v02-A-workflow:observe:2",
+          "instanceId": "gowm-shared-v02-A-workflow"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "f698d678-89d9-47f8-9b82-75c7c736b62e",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "SDAR",
+        "owner_kind": "NODE_RUN",
+        "owner_key": {
+          "nodeId": "move",
+          "bindingId": "gowm-shared-v02-A-remote-0",
+          "nodeRunId": "gowm-shared-v02-A-workflow:move:0",
+          "instanceId": "gowm-shared-v02-A-workflow"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      },
+      {
+        "target_binding_id": "fe7914fa-248b-43b4-a114-76b9ce91db10",
+        "target_id": "c5264c0f-51ce-482b-8a14-f638b05e10a5",
+        "device_id": "gowm-shared-v02-A",
+        "data_scope_key": "TEST:gowm-shared-storage-v02",
+        "owner_domain": "UGV_PROVIDER",
+        "owner_kind": "PROVIDER_DISPATCH",
+        "owner_key": {
+          "stepId": "primary",
+          "taskId": "gowm-shared-v02-A-execution-2"
+        },
+        "usage_role": "DISPATCHED",
+        "target_purpose": "MOVE_DESTINATION",
+        "argument_path": "destination",
+        "created_at": "2026-10-11T14:08:13.868Z",
+        "target_group_id": "30b18c73-6921-42cd-b4ab-e7320a30240f",
+        "revision": 1,
+        "native_geometry": {
+          "type": "Point",
+          "coordinates": [
+            120,
+            30
+          ]
+        },
+        "native_crs": "EPSG:4326",
+        "geometry_wgs84": "0101000020E61000000000000000005E400000000000003E40",
+        "normalization_state": "NORMALIZED"
+      }
+    ],
+    "steps": [
+      {
+        "device_id": "gowm-shared-v02-A",
+        "task_id": "gowm-shared-v02-A-task",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "definition_json": {
+          "nodes": [
+            {
+              "id": "move"
+            },
+            {
+              "id": "observe"
+            }
+          ]
+        },
+        "instance_id": "gowm-shared-v02-A-workflow",
+        "event_id": "gowm-shared-v02-A-event-0",
+        "sequence": 1,
+        "node_id": "move",
+        "event_type": "node_failed",
+        "workflow_node_run_id": null,
+        "binding_id": null,
+        "mcp_invocation_id": null,
+        "record_kind": "NATIVE_EVENT"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "task_id": "gowm-shared-v02-A-task",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "definition_json": {
+          "nodes": [
+            {
+              "id": "move"
+            },
+            {
+              "id": "observe"
+            }
+          ]
+        },
+        "instance_id": "gowm-shared-v02-A-workflow",
+        "event_id": "gowm-shared-v02-A-event-1",
+        "sequence": 2,
+        "node_id": "move",
+        "event_type": "node_started",
+        "workflow_node_run_id": null,
+        "binding_id": null,
+        "mcp_invocation_id": null,
+        "record_kind": "NATIVE_EVENT"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "task_id": "gowm-shared-v02-A-task",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "definition_json": {
+          "nodes": [
+            {
+              "id": "move"
+            },
+            {
+              "id": "observe"
+            }
+          ]
+        },
+        "instance_id": "gowm-shared-v02-A-workflow",
+        "event_id": "gowm-shared-v02-A-event-2",
+        "sequence": 3,
+        "node_id": "observe",
+        "event_type": "node_started",
+        "workflow_node_run_id": null,
+        "binding_id": null,
+        "mcp_invocation_id": null,
+        "record_kind": "NATIVE_EVENT"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "task_id": "gowm-shared-v02-A-task",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "definition_json": {
+          "nodes": [
+            {
+              "id": "move"
+            },
+            {
+              "id": "observe"
+            }
+          ]
+        },
+        "instance_id": "gowm-shared-v02-A-workflow",
+        "event_id": null,
+        "sequence": null,
+        "node_id": "move",
+        "event_type": null,
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:move:0",
+        "binding_id": "gowm-shared-v02-A-remote-0",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-0-invocation",
+        "record_kind": "REMOTE_NODE_RUN"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "task_id": "gowm-shared-v02-A-task",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "definition_json": {
+          "nodes": [
+            {
+              "id": "move"
+            },
+            {
+              "id": "observe"
+            }
+          ]
+        },
+        "instance_id": "gowm-shared-v02-A-workflow",
+        "event_id": null,
+        "sequence": null,
+        "node_id": "move",
+        "event_type": null,
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:move:1",
+        "binding_id": "gowm-shared-v02-A-remote-1",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-1-invocation",
+        "record_kind": "REMOTE_NODE_RUN"
+      },
+      {
+        "device_id": "gowm-shared-v02-A",
+        "task_id": "gowm-shared-v02-A-task",
+        "plan_id": "gowm-shared-v02-A-plan",
+        "definition_json": {
+          "nodes": [
+            {
+              "id": "move"
+            },
+            {
+              "id": "observe"
+            }
+          ]
+        },
+        "instance_id": "gowm-shared-v02-A-workflow",
+        "event_id": null,
+        "sequence": null,
+        "node_id": "observe",
+        "event_type": null,
+        "workflow_node_run_id": "gowm-shared-v02-A-workflow:observe:2",
+        "binding_id": "gowm-shared-v02-A-remote-2",
+        "mcp_invocation_id": "gowm-shared-v02-A-remote-2-invocation",
+        "record_kind": "REMOTE_NODE_RUN"
+      }
+    ]
+  },
+  "extensions": [
+    {
+      "extname": "postgis",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "vector",
+      "extversion": "0.8.5"
+    }
+  ]
+}

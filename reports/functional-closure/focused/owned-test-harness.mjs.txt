@@ -1,0 +1,44 @@
+import { spawnSync } from 'node:child_process';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { setTimeout } from 'node:timers/promises';
+import { Pool } from 'pg';
+import process from 'node:process';
+
+const owned = [];
+const run = `sdar-evolution-${randomUUID()}`;
+const secret = randomBytes(24).toString('hex');
+function output(command, args) {
+  const result = spawnSync(command, args, { encoding: 'utf8' });
+  if (result.status !== 0) throw new Error(`${command}: ${result.stderr}`);
+  return result.stdout.trim();
+}
+let pool;
+let exitCode = 1;
+try {
+  const pg = output('docker', ['create', '--name', `${run}-pg`, '--label', `sdar.evolution.run=${run}`, '--publish', '127.0.0.1::5432', '--env', 'POSTGRES_USER=sdar', '--env', `POSTGRES_PASSWORD=${secret}`, '--env', 'POSTGRES_DB=sdar', 'sdar/postgres-pgvector:17.10-0.8.5-alpine3.23']);
+  owned.push(pg);
+  const redis = output('docker', ['create', '--name', `${run}-redis`, '--label', `sdar.evolution.run=${run}`, '--publish', '127.0.0.1::6379', 'redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb']);
+  owned.push(redis);
+  output('docker', ['start', pg]); output('docker', ['start', redis]);
+  const port = output('docker', ['inspect', '--format', '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}', pg]);
+  const redisPort = output('docker', ['inspect', '--format', '{{(index (index .NetworkSettings.Ports "6379/tcp") 0).HostPort}}', redis]);
+  const url = `postgresql://sdar:${secret}@127.0.0.1:${port}/sdar`;
+  pool = new Pool({ connectionString: url });
+  let ready = false;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    try { await pool.query('SELECT 1'); ready = true; break; } catch { await setTimeout(250); }
+  }
+  if (!ready) throw new Error('Owned PostgreSQL not ready');
+  const result = spawnSync('pnpm', process.argv.slice(2), { stdio: 'inherit', env: {
+    PATH: process.env.PATH, HOME: process.env.HOME, LANG: 'C.UTF-8', SDAR_TEST_POSTGRES_URL: url, SDAR_POSTGRES_URL: url, SDAR_REDIS_HOST: '127.0.0.1', SDAR_REDIS_PORT: redisPort, SDAR_VERIFY_ISOLATED: 'true',
+  } });
+  exitCode = result.status ?? 1;
+} finally {
+  await pool?.end();
+  for (const id of owned) {
+    if (output('docker', ['inspect', '--format', '{{index .Config.Labels "sdar.evolution.run"}}', id]) !== run) throw new Error('Owner mismatch');
+    output('docker', ['rm', '--force', '--volumes', id]);
+  }
+  process.stdout.write(`OWNED_FIXTURE_CLEANUP_PASS ${owned.length} containers\n`);
+}
+process.exitCode = exitCode;

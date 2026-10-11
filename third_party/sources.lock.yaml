@@ -1,6 +1,13 @@
 schema_version: 1
 updated_at: 2026-07-30
 sources:
+  - name: GOWM shared business storage contract
+    repository: https://github.com/zhouwen-giser/geospatial-operational-world-model
+    license: 'MIT; exact LICENSE retained with contract; no root NOTICE'
+    use: contract_reference
+    pin: 'commit:dca0fcdbbe35f94ddaf968b6489decdbf228755a'
+    allowed: 'read-only SQL reference and derived PostgreSQL consumer metadata; ADR-153 and ADR-162'
+    forbidden: 'SDAR schema migration ownership, shadow Task state, runtime dependency'
   - name: UGV joint-debug OpenTelemetry ClickHouse exporter
     repository: https://github.com/open-telemetry/opentelemetry-collector-contrib
     license: Apache-2.0; exact LICENSE and NOTICE retained in smpp-telemetry-platform/third_party/opentelemetry

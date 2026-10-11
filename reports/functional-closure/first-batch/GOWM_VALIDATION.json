@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "scope": "functional_closure_restricted_role_gowm",
+  "command": [
+    "node",
+    "scripts/sdar-smpp-v13/verify-gowm.mjs"
+  ],
+  "cwd": "/tmp/sdar-verify-a76f2b6d-1651-44a1-84b5-ef3cccd77058-3Jcx6f/source",
+  "exitCode": 0,
+  "signal": null,
+  "runId": "sdar-smpp-gowm-70f3f93a-baf1-4072-8051-7a305769cc92",
+  "frozenRunId": "sdar-verify-a76f2b6d-1651-44a1-84b5-ef3cccd77058",
+  "sourceCommit": "2029f4b7fca908724e58b77f079fc893eff69cb4",
+  "fullFrozenRuntimeInputSha256": "607a405c59b9f3cd5960d41877ddaafe5eaea39e8027140a87be2e73181e45e2",
+  "localRuntimeInputSha256": "4353b01ee8184e882318e0a21110d6151bb30dc368b5eecf89c44aeb2548b9d1",
+  "localBaselineSha256": "c808fba0d802b6ca1171d77086afa38e6d0478b68473be15885acd2fa02fd763",
+  "sameLocalFrozenInputs": true,
+  "externalVerificationInputs": [
+    {
+      "path": "../smpp-telemetry-platform/deploy/ugv-debug/collector.template.yaml",
+      "sha256": "cb4ef7f2fde22c8209ef05aaabb79d26103426f1678dda29f4419c825c7fc09e",
+      "classification": "runtime"
+    },
+    {
+      "path": "../smpp-telemetry-platform/deploy/ugv-debug/compose.yaml",
+      "sha256": "e9ab908e1f62a4fa3770ac8bace87dfdcbf199bba0d9774a8b9eb9474aca1ae3",
+      "classification": "runtime"
+    },
+    {
+      "path": "../smpp-telemetry-platform/config/projection-targets.example.json",
+      "sha256": "9794ab97238170727978d5ebf150343cbdf8825d11164a1ca72865e5d894fc9c",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-telemetry-platform/migrations/clickhouse/015_provider_closure_v2.sql",
+      "sha256": "dba7693c2ee3fe52bc4ea61182cce87244c6f83dbf2f5a94048da9fb9ed9740a",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-mcp-provider-platform/compose.yaml",
+      "sha256": "91842138fcfd447d20a6644e18a113094a4500bcc8a051ddc420003af4332e1e",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-mcp-provider-platform/compose.ugv-agent-profile-simulation.yaml",
+      "sha256": "377bdd1f2b1151c20c8f718c1de34b06ad4872f5dcad8f84303b4d2fc558e649",
+      "classification": "runtime"
+    }
+  ],
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "ownerCommit": "2e1af12f4fc85c9b6044aee47a21a1f94b2dbf83",
+  "images": {
+    "postgresImage": "sha256:f8631c8babdbb9099cdfca09664e8454c06618c0b7ba5903ab246e781e470f11",
+    "redisImage": "sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+    "provenance": "captured_local_immutable_ids; owner source independently pinned"
+  },
+  "privileges": {
+    "native_ddl": false,
+    "private_write": false,
+    "native_observation_write": true
+  },
+  "driverSteps": [
+    {
+      "label": "owner-export",
+      "durationMs": 196,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-extract",
+      "durationMs": 122,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "postgres-start",
+      "durationMs": 431,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "redis-start",
+      "durationMs": 365,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-core-bootstrap",
+      "durationMs": 3458,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-domain-install",
+      "durationMs": 2618,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "formal-navigation-recon-shared-storage",
+      "durationMs": 59111,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "native-storage-boundaries",
+      "durationMs": 4146,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "formalCases": [
+    {
+      "operation": "vehicle_area_recon",
+      "taskId": "18809307-119e-489b-8d49-dd3ffc37c2b6",
+      "deviceId": "business-device-eecafdec-4c9b-4a4d-a32d-464b6698a68e",
+      "evidence": "reports/functional-closure/first-batch/GOWM/sdar-smpp-gowm-70f3f93a-baf1-4072-8051-7a305769cc92/formal-vehicle_area_recon-eecafdec-4c9b-4a4d-a32d-464b6698a68e/evidence.json"
+    },
+    {
+      "operation": "vehicle_navigate",
+      "taskId": "c196a03b-b662-4e77-b505-d11c78dd618c",
+      "deviceId": "business-device-048bae1c-d3b0-4b17-acee-5b646b826fb1",
+      "evidence": "reports/functional-closure/first-batch/GOWM/sdar-smpp-gowm-70f3f93a-baf1-4072-8051-7a305769cc92/formal-vehicle_navigate-048bae1c-d3b0-4b17-acee-5b646b826fb1/evidence.json"
+    }
+  ],
+  "nativeScenarioCount": 32,
+  "nativeBoundarySuiteProjectAcceptance": "INCOMPLETE",
+  "knownContractGaps": [],
+  "cleanup": [
+    {
+      "id": "e7d71f327e32db5e36617c14b261496842c4b7045cfc44df46731729ac6f147e",
+      "ownershipChecked": true,
+      "exitCode": 0
+    },
+    {
+      "id": "709ce2f231eaa71277a9af5022e26370aa5253136d73efddc2855fe20267caa1",
+      "ownershipChecked": true,
+      "exitCode": 0
+    }
+  ],
+  "cleanupErrors": [],
+  "originalReportDirectory": "/tmp/sdar-verify-a76f2b6d-1651-44a1-84b5-ef3cccd77058-3Jcx6f/source/reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-70f3f93a-baf1-4072-8051-7a305769cc92",
+  "archivedReportDirectory": "reports/functional-closure/first-batch/GOWM/sdar-smpp-gowm-70f3f93a-baf1-4072-8051-7a305769cc92",
+  "runnerLog": "reports/functional-closure/first-batch/M4-gowm-runner.log",
+  "archivedRawLog": "reports/functional-closure/first-batch/GOWM/sdar-smpp-gowm-70f3f93a-baf1-4072-8051-7a305769cc92/raw/runner.log",
+  "rawLogSha256": "b078ce95c22719d346fe142d70f44c3a7d6b7ef257e1c131f14260a810606a17",
+  "classification": {
+    "database": "REAL_OWNED_LOOPBACK_RESTRICTED_ROLES",
+    "model": "SIMULATED_LOOPBACK",
+    "mcp": "SIMULATED_LOOPBACK",
+    "physicalProvider": "NOT_RUN",
+    "site": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  }
+}

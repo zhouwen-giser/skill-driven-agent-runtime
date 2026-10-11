@@ -1,3 +1,4 @@
+import type { SkillEvolutionOperations } from './skill-evolution.js';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import type { Pool } from 'pg';
@@ -25,7 +26,6 @@ import type {
   CognitiveManagementActionGate,
   CompilationRunReconciler,
   ConfiguredTaskTypeImportService,
-  DeferredSkillEvolutionService,
   DeletionPropagationService,
   EvaluationAnalyticsService,
   EvaluationInfluenceService,
@@ -265,7 +265,7 @@ export interface composeHttpDependencies {
       }>
     >;
   };
-  readonly skillEvolution: DeferredSkillEvolutionService;
+  readonly skillEvolution: SkillEvolutionOperations;
   readonly evolutionExperiences: EvolutionExperienceService;
   readonly evolutionPolicy: EvolutionPolicyService;
   readonly workflowValidator: WorkflowValidator;

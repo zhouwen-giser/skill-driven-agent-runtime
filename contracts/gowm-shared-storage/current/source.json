@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/zhouwen-giser/geospatial-operational-world-model",
-  "commit": "a1a86186ea866911124de72374e17fe19897fa9e",
+  "commit": "dca0fcdbbe35f94ddaf968b6489decdbf228755a",
   "usage": "Read-only contract reference; never execute these DDL files in SDAR startup",
   "license": "MIT",
   "files": [
@@ -38,6 +38,11 @@
       "sourcePath": "database/shared-business-storage/overlays/read-model.sql",
       "path": "read-model.sql",
       "sha256": "57ecb4fd1883e5adac488a0a5938d0ffac810f19d91e26ae193c08706cd76a7f"
+    },
+    {
+      "sourcePath": "database/shared-business-storage/overlays/sdar-terminal-link-ownership.sql",
+      "path": "sdar-terminal-link-ownership.sql",
+      "sha256": "7ff257a3b878cb9f431994abd5f8b597959279cb5f0ac4bb72b61311903322f6"
     }
   ],
   "sdarBaseline": "cb50da8ec8d160a673852be8bcdfc3bb094f5ce5",
@@ -364,5 +369,9 @@
       "path": "native-tables.json",
       "sha256": "722ad3b8080167ecc72d5381179cc720106feed79cc05d9b8afb76238f037590"
     }
-  ]
+  ],
+  "intake": {
+    "reason": "Forward owner repair of temporary terminal provenance and scoped provider links; ADR-162",
+    "expectedStructureSha256": "cc08a7abaeba39763b7436ae3b6d9597598acf55530e4731d75491a1c0b5ebae"
+  }
 }

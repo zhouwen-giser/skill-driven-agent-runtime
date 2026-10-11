@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "command": "node .codex/functional-closure/run-owned-tests.mjs exec vitest run --project e2e packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern ^(?!.*keeps critical Runtime P95).*$",
+  "exitCode": 0,
+  "passed": 63,
+  "deselectedPerformance": 1,
+  "performanceAcceptance": "separate isolated full-gate step required",
+  "ownedCleanup": 2,
+  "rawLog": "e2e-routing-fixed.log.gz",
+  "rawLogSha256": "4cb0b9d2fbf2ed465f044f864fbe061e6af93be7c4c4cd25aa4640c5ea780266"
+}

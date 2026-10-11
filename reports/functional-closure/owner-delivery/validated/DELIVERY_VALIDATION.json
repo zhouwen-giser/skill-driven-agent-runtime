@@ -1,0 +1,60 @@
+{
+  "sourceCommit": "dca0fcdbbe35f94ddaf968b6489decdbf228755a",
+  "baseCommit": "9a993699777b13813873bef138c3533125eb0748",
+  "scope": "SDAR storage repair only; excludes unrelated local history work",
+  "commands": [
+    {
+      "command": [
+        "npm",
+        "run",
+        "verify"
+      ],
+      "cwd": "/tmp/gowm-sdar-storage-delivery",
+      "exitCode": 0,
+      "rawLog": "verify.log.gz",
+      "rawLogSha256": "3b48f27d22d7af70988f77288ab62f21461aed1c56e59c14f0282ddc8117851c",
+      "compressedSha256": "f727f3d1a38f2a9ab53e4ab7539de93c98ad30a536385c2b1cc93ec3e6cfb836"
+    },
+    {
+      "command": [
+        "npm",
+        "exec",
+        "--",
+        "vitest",
+        "run",
+        "tests/unit/device-business-storage.test.ts"
+      ],
+      "cwd": "/tmp/gowm-sdar-storage-delivery",
+      "exitCode": 0,
+      "rawLog": "unit.log.gz",
+      "rawLogSha256": "266181fcacd2634184288f604a4af8d74e981f2250f60e56419b71f8ef117501",
+      "compressedSha256": "24ebf877ab831600f85c3a79edbf3369b76751ae48149a357c740fb502222dcb"
+    },
+    {
+      "command": [
+        "node",
+        ".codex/functional-closure/owner-delivery-fixture.mjs"
+      ],
+      "cwd": "/home/sz/code/skill-driven-agent-runtime",
+      "exitCode": 0,
+      "rawLog": "upgrade.log.gz",
+      "rawLogSha256": "3b73ab41723630718a97823b82c8bfe6b4873e0e9306d05d80ae5c993fb518cf",
+      "compressedSha256": "c88692728e540e1bd70b3903caa84abebe91677f9f13a91a63af88aee50f28a3"
+    }
+  ],
+  "verify": {
+    "status": "PASS",
+    "vitestPassed": 682,
+    "vitestSkipped": 33,
+    "stasPassed": 41,
+    "skipsAreNotAcceptance": true
+  },
+  "relatedUnitPassed": 6,
+  "ownerPostgresScenarios": 43,
+  "populatedUpgrade": "PASS",
+  "existingHistoryAndRowsPreserved": true,
+  "repeatedUpgrade": "PASS",
+  "ownedCleanup": "PASS",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

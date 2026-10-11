@@ -16,6 +16,22 @@ export function assertPlanningBoundary(file, source) {
         throw new Error(`ARCH_CORE_PROFILE_REVERSE_DEPENDENCY: ${normalized} -> ${dependency}`);
     }
   }
+  if (
+    /^(?:apps|packages)\/.+\/src\//u.test(normalized) &&
+    imports.some(
+      (item) =>
+        /application\/src\/skill-evolution\.js$/u.test(item) ||
+        (normalized.startsWith('packages/application/src/') && item === './skill-evolution.js'),
+    )
+  )
+    throw new Error(`ARCH_LEGACY_EVOLUTION_PUBLICATION: ${normalized}`);
+  if (
+    normalized.endsWith('/recorded-skill-candidate-validator.ts') &&
+    /\b(?:McpToolBroker|RemoteTaskService|TaskService|saveVersionAndSetCurrent|commitEvolutionValidation|SkillEvolutionCommitPort|savePlan|saveTask|fetch)\b/u.test(
+      source,
+    )
+  )
+    throw new Error(`ARCH_EVOLUTION_VALIDATOR_LIVE_OR_WRITE_PORT: ${normalized}`);
   if (normalized.startsWith('packages/ugv-profile/src/')) {
     if (
       /\b(?:commitTerminalOutcome|submitTerminalOutcome|completeTask|failTask|cancelTask|achieveGoal|setGoalTerminal|saveTerminalOutcome)\s*\(/u.test(
@@ -44,6 +60,21 @@ export function assertPlanningBoundary(file, source) {
 
 // These execute in the architecture gate. Each forbidden example must fail for its own boundary.
 const fixtures = [
+  [
+    'apps/server/src/unsafe.ts',
+    "import { SkillEvolutionService } from '../../packages/application/src/skill-evolution.js';",
+    /ARCH_LEGACY_EVOLUTION_PUBLICATION/u,
+  ],
+  [
+    'packages/application/src/recorded-skill-candidate-validator.ts',
+    'constructor(broker: McpToolBroker) {}',
+    /ARCH_EVOLUTION_VALIDATOR_LIVE_OR_WRITE_PORT/u,
+  ],
+  [
+    'packages/application/src/recorded-skill-candidate-validator.ts',
+    'await store.saveVersionAndSetCurrent(candidate);',
+    /ARCH_EVOLUTION_VALIDATOR_LIVE_OR_WRITE_PORT/u,
+  ],
   [
     'packages/application/src/task-capability.ts',
     "invocation.toolName === 'vehicle_navigate'",

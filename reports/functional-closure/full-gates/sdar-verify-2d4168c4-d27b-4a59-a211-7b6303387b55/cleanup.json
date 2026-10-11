@@ -1,0 +1,84 @@
+[
+  {
+    "name": "sdar-verify-2d4168c4-d27b-4a59-a211-7b6303387b55",
+    "file": "compose.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 88,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 20008960,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-2d4168c4-d27b-4a59-a211-7b6303387b55-control-smoke",
+    "file": "compose.node-control.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 81,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 17068032,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-2d4168c4-d27b-4a59-a211-7b6303387b55-runtime-smoke",
+    "file": "compose.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 82,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 17367040,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-2d4168c4-d27b-4a59-a211-7b6303387b55-e2e-performance",
+    "file": "compose.verification-performance.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 91,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  },
+  {
+    "resource": "migration-container-inventory",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 25,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  },
+  {
+    "resource": "migration-volume-inventory",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 23,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  }
+]

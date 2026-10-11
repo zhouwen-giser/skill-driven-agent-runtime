@@ -5462,7 +5462,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     ).resolves.toMatchObject({ memoryId, status: 'active', content: { retained: true } });
   });
 
-  it('retains repeated Temporary Skill experience while both evolution publication entries remain deferred', async () => {
+  it('retains real Temporary Skill experience and rejects incomplete evolution authority without live replay', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;
     try {
@@ -5541,7 +5541,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             formalizationCandidate: z
               .object({
                 candidateId: z.string(),
-                status: z.literal('awaiting_simulation'),
+                status: z.enum(['awaiting_simulation', 'validation_failed']),
                 successfulExperienceCount: z.number(),
               })
               .optional(),
@@ -5556,33 +5556,66 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       const invocations = await runtime.listMcpInvocations(serverId);
       expect(invocations).toHaveLength(3);
       expect(invocations.every((invocation) => invocation.executionMode === 'live')).toBe(true);
-      for (const [action, body] of [
-        ['simulate', undefined],
-        [
-          'corrections',
-          {
+      await expect
+        .poll(
+          async () =>
+            z
+              .object({ status: z.string() })
+              .parse(
+                await fetch(
+                  `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${candidateId}`,
+                ).then((response) => response.json()),
+              ).status,
+          { timeout: 10_000 },
+        )
+        .toBe('validation_failed');
+      const simulated = await fetch(
+        `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${candidateId}/simulate`,
+        { method: 'POST' },
+      );
+      expect(simulated.status, await simulated.clone().text()).toBe(200);
+      const simulatedBody: unknown = await simulated.json();
+      expect(simulatedBody, JSON.stringify(simulatedBody)).toHaveProperty('proposedSkill');
+      const failedCandidate = z
+        .object({
+          status: z.literal('validation_failed'),
+          proposedSkill: z.record(z.string(), z.unknown()),
+          validationReport: z.object({
+            allPassed: z.literal(false),
+            cases: z.array(z.object({ passed: z.boolean(), summary: z.string() })),
+          }),
+        })
+        .parse(simulatedBody);
+      expect(
+        failedCandidate.validationReport.cases.some(
+          (item) => !item.passed && /SCHEMA_INVALID|POLICY_AUTHORITY_REQUIRED/u.test(item.summary),
+        ),
+      ).toBe(true);
+      const correction = await fetch(
+        `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${candidateId}/corrections`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
             actor: 'operator@example.test',
-            summary: 'Review retained candidate.',
+            summary: 'Review guidance without inventing missing authority.',
             proposedSkill: {
-              ...skillInput('retained.candidate', 'Retained candidate'),
-              tools: [{ serverId, toolName: 'device_status' }],
+              ...failedCandidate.proposedSkill,
+              workflowGuidance: 'Reviewed read-only guidance.',
             },
-          },
-        ],
-      ] as const) {
-        const response = await fetch(
-          `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${candidateId}/${action}`,
-          {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-          },
-        );
-        expect(response.status, await response.clone().text()).toBe(409);
-        expect(await response.json()).toMatchObject({
-          error: { code: 'SKILL_EVOLUTION_PUBLICATION_DEFERRED' },
-        });
-      }
+          }),
+        },
+      );
+      expect(correction.status, await correction.clone().text()).toBe(200);
+      expect(await correction.json()).toMatchObject({
+        candidate: { status: 'validation_failed', validationReport: { allPassed: false } },
+        correction: { outcome: 'validation_failed' },
+      });
+      const corrections = await fetch(
+        `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${candidateId}/corrections`,
+      );
+      expect(corrections.status).toBe(200);
+      expect(JSON.stringify(await corrections.json())).toContain('Reviewed read-only guidance.');
       expect(await runtime.listMcpInvocations(serverId)).toHaveLength(3);
       expect(await readFormalSkillIds()).toEqual(formalBefore);
       for (const id of taskIds)
@@ -7514,7 +7547,8 @@ async function startModelLoopback(): Promise<Server> {
           (message) => message.content?.includes('resolve_temporary_skill') === true,
         );
         const skillInductionRequest = body.messages?.some(
-          (message) => message.content?.includes('induce_skill_from_experience') === true,
+          (message) =>
+            message.content?.includes('{"operation":"induce_skill_from_experience"') === true,
         );
         const naturalRevisionRequest =
           body.messages?.some(
@@ -7584,6 +7618,122 @@ async function startModelLoopback(): Promise<Server> {
         ) {
           response.statusCode = 500;
           response.end(JSON.stringify({ error: 'Primary Skill execution failed.' }));
+          return;
+        }
+        // Induction carries prior Skills whose guidance contains other fixture markers.
+        // Route the outer operation before the content-based legacy fixture branches.
+        if (skillInductionRequest === true) {
+          const requestData = z
+            .object({
+              sourceSkills: z.array(
+                z.object({
+                  tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+                  inputSchema: z.unknown(),
+                  outputSchema: z.unknown(),
+                }),
+              ),
+              currentSkills: z.array(z.object({ skillId: z.string(), version: z.number() })),
+            })
+            .parse(embeddedOperation(body.messages, 'induce_skill_from_experience'));
+          const source = requestData.sourceSkills[0];
+          const tool = source?.tools[0];
+          if (source === undefined || tool === undefined)
+            throw new Error('SKILL_INDUCTION_SOURCE_REQUIRED');
+          const existingSkillId = `skill.existing.${tool.serverId}`;
+          const existing = requestData.currentSkills.find(
+            (skill) => skill.skillId === existingSkillId,
+          );
+          const forceSimulationFailure = JSON.stringify(source.inputSchema).includes(
+            'forceSimulationFailure',
+          );
+          const targetSkillId = existing?.skillId ?? `skill.evolved.${tool.serverId}`;
+          respondStructured(response, {
+            consistent: true,
+            stable: true,
+            generalizable: true,
+            ...(existing === undefined ? {} : { duplicateSkillId: existing.skillId }),
+            duplicateScore: existing === undefined ? 0 : 0.95,
+            evolutionKind: existing === undefined ? 'new_skill' : 'new_version',
+            targetSkillId,
+            boundaryDecisionSummary:
+              existing === undefined
+                ? 'No current Skill has the same capability boundary.'
+                : 'The capability boundary is unchanged and execution guidance improved.',
+            decisionSummary: 'Repeated successful executions define a stable reusable Skill.',
+            proposedSkill: {
+              skillId: targetSkillId,
+              name: 'Evolved device status',
+              summary: 'Read device status from the registered Tool.',
+              description: 'Read the current state of one device using the registered MCP Tool.',
+              capabilities: ['device-status'],
+              workflowGuidance: 'Call the required Tool once and return its structured result.',
+              outputInstruction: 'Return the structured device state.',
+              inputSchema: source.inputSchema,
+              outputSchema: source.outputSchema,
+              tools: [tool],
+              usageSpecification: {
+                apiVersion: 'sdar.io/v1alpha1',
+                visibility: { userSelectable: true, composable: true, internalOnly: false },
+                normative: {
+                  constraints: [],
+                  forbiddenActions: [],
+                  requiredConfirmations: [],
+                  noApplicableSkill: 'reject',
+                },
+                adaptive: {
+                  instructions: ['Call the declared Tool and preserve its structured result.'],
+                  optimizationHints: [],
+                  allowPreferredProviderFallback: false,
+                },
+                contextRequirements: [],
+                modes: {
+                  supported: ['guidance'],
+                  defaultMode: 'guidance',
+                  guidance: {
+                    summary: 'Execute the evolved Tool workflow.',
+                    instructions: ['Call the required Tool once.'],
+                  },
+                },
+                taskBindings: [],
+                evidencePolicy: {
+                  requirements: [],
+                  rejectSuccessWithoutRequiredEvidence: false,
+                },
+              },
+              outcomeSpecification: {
+                schemaVersion: '1.0',
+                skillId: targetSkillId,
+                skillVersion: existing === undefined ? 1 : existing.version + 1,
+                effects: ['effect.device_status_returned'],
+                evidence: ['evidence.provider_result'],
+                artifacts: [],
+                taskGoalPolicy: { providerTerminalIsEvidenceOnly: true },
+                confidencePolicy: { achievedMinimum: 'high' },
+                sideEffectPolicy: { classification: 'read_only' },
+                specificationHash: `sha256:${'a'.repeat(64)}`,
+              },
+            },
+            supplementalCases: [
+              {
+                caseId: 'normal-device',
+                kind: 'normal',
+                input: { deviceId: 'device-simulation' },
+                expectedOutcome: forceSimulationFailure ? 'failure' : 'success',
+              },
+              {
+                caseId: 'boundary-missing-device',
+                kind: 'boundary',
+                input: {},
+                expectedOutcome: 'failure',
+              },
+              {
+                caseId: 'exception-invalid-input',
+                kind: 'exception',
+                input: {},
+                expectedOutcome: 'failure',
+              },
+            ],
+          });
           return;
         }
         if (taskClarificationRequest === true) {
@@ -8225,120 +8375,6 @@ async function startModelLoopback(): Promise<Server> {
             description: 'Use the registered device Tool for this Task only.',
             outputSchema: { type: 'object' },
             decisionSummary: 'No formal Skill matched; the registered Tool closes the gap.',
-          });
-          return;
-        }
-        if (skillInductionRequest === true) {
-          const requestData = z
-            .object({
-              sourceSkills: z.array(
-                z.object({
-                  tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
-                  inputSchema: z.unknown(),
-                  outputSchema: z.unknown(),
-                }),
-              ),
-              currentSkills: z.array(z.object({ skillId: z.string(), version: z.number() })),
-            })
-            .parse(embeddedOperation(body.messages, 'induce_skill_from_experience'));
-          const source = requestData.sourceSkills[0];
-          const tool = source?.tools[0];
-          if (source === undefined || tool === undefined)
-            throw new Error('SKILL_INDUCTION_SOURCE_REQUIRED');
-          const existingSkillId = `skill.existing.${tool.serverId}`;
-          const existing = requestData.currentSkills.find(
-            (skill) => skill.skillId === existingSkillId,
-          );
-          const forceSimulationFailure = JSON.stringify(source.inputSchema).includes(
-            'forceSimulationFailure',
-          );
-          const targetSkillId = existing?.skillId ?? `skill.evolved.${tool.serverId}`;
-          respondStructured(response, {
-            consistent: true,
-            stable: true,
-            generalizable: true,
-            ...(existing === undefined ? {} : { duplicateSkillId: existing.skillId }),
-            duplicateScore: existing === undefined ? 0 : 0.95,
-            evolutionKind: existing === undefined ? 'new_skill' : 'new_version',
-            targetSkillId,
-            boundaryDecisionSummary:
-              existing === undefined
-                ? 'No current Skill has the same capability boundary.'
-                : 'The capability boundary is unchanged and execution guidance improved.',
-            decisionSummary: 'Repeated successful executions define a stable reusable Skill.',
-            proposedSkill: {
-              skillId: targetSkillId,
-              name: 'Evolved device status',
-              summary: 'Read device status from the registered Tool.',
-              description: 'Read the current state of one device using the registered MCP Tool.',
-              capabilities: ['device-status'],
-              workflowGuidance: 'Call the required Tool once and return its structured result.',
-              outputInstruction: 'Return the structured device state.',
-              inputSchema: source.inputSchema,
-              outputSchema: source.outputSchema,
-              tools: [tool],
-              usageSpecification: {
-                apiVersion: 'sdar.io/v1alpha1',
-                visibility: { userSelectable: true, composable: true, internalOnly: false },
-                normative: {
-                  constraints: [],
-                  forbiddenActions: [],
-                  requiredConfirmations: [],
-                  noApplicableSkill: 'reject',
-                },
-                adaptive: {
-                  instructions: ['Call the declared Tool and preserve its structured result.'],
-                  optimizationHints: [],
-                  allowPreferredProviderFallback: false,
-                },
-                contextRequirements: [],
-                modes: {
-                  supported: ['guidance'],
-                  defaultMode: 'guidance',
-                  guidance: {
-                    summary: 'Execute the evolved Tool workflow.',
-                    instructions: ['Call the required Tool once.'],
-                  },
-                },
-                taskBindings: [],
-                evidencePolicy: {
-                  requirements: [],
-                  rejectSuccessWithoutRequiredEvidence: false,
-                },
-              },
-              outcomeSpecification: {
-                schemaVersion: '1.0',
-                skillId: targetSkillId,
-                skillVersion: existing === undefined ? 1 : existing.version + 1,
-                effects: ['effect.device_status_returned'],
-                evidence: ['evidence.provider_result'],
-                artifacts: [],
-                taskGoalPolicy: { providerTerminalIsEvidenceOnly: true },
-                confidencePolicy: { achievedMinimum: 'high' },
-                sideEffectPolicy: { classification: 'read_only' },
-                specificationHash: `sha256:${'a'.repeat(64)}`,
-              },
-            },
-            supplementalCases: [
-              {
-                caseId: 'normal-device',
-                kind: 'normal',
-                input: { deviceId: 'device-simulation' },
-                expectedOutcome: forceSimulationFailure ? 'failure' : 'success',
-              },
-              {
-                caseId: 'boundary-missing-device',
-                kind: 'boundary',
-                input: {},
-                expectedOutcome: 'failure',
-              },
-              {
-                caseId: 'exception-invalid-input',
-                kind: 'exception',
-                input: {},
-                expectedOutcome: 'failure',
-              },
-            ],
           });
           return;
         }

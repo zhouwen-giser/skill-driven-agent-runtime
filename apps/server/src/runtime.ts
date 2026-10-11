@@ -27,6 +27,7 @@ import { composePreparation } from './composition/preparation.js';
 import { composeRemoteTasks } from './composition/remote-tasks.js';
 import { RuntimeValueRef } from './composition/runtime-value-ref.js';
 import { composeTasks } from './composition/tasks.js';
+import { composeSkillEvolution } from './composition/skill-evolution.js';
 import type { UgvMoveTerminalOutcomeAuthority } from './ugv-move-terminal-outcome.js';
 export type * from './composition/contracts.js';
 export {
@@ -542,6 +543,34 @@ export async function startServerRuntime(
       temporarySkillOperations,
       skillEvolution,
     } = composeController({
+      skillEvolution: composeSkillEvolution({
+        restrictedProfile:
+          ugvAgentProfile ||
+          homeLabReadOnlyProfile ||
+          homeLabGovernedLightProfile ||
+          deviceWorkScope !== undefined,
+        application: {
+          temporarySkills: temporarySkillRepository,
+          model: modelRuntime,
+          schemas: schemaValidator,
+          mcp: mcpRepository,
+          skills,
+          experiences: evolutionExperienceRepository,
+          commit: { commit: (input) => skills.commitEvolutionValidation(input) },
+          clock,
+          budgetCeiling: workflowBudgetDefaults,
+        },
+        validation: {
+          skills,
+          graph: skillGraphRepository,
+          schemas: schemaValidator,
+          model: modelRuntime,
+          workflowSchema,
+          clock,
+          budgetCeiling: workflowBudgetDefaults,
+        },
+        recording: { executions: workflowInstances, plans: workflowPlans, mcp: mcpRepository },
+      }),
       cleanupScope,
       options,
       pool,

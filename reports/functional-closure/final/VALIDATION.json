@@ -1,0 +1,294 @@
+{
+  "status": "PASS",
+  "scope": "functional_closure_batch_only",
+  "command": "PATH=<bundled-python>/bin:$PATH pnpm verify:isolated -- --frozen",
+  "sourceBaseCommit": "2029f4b7fca908724e58b77f079fc893eff69cb4",
+  "sourceDirtyAtFreeze": true,
+  "frozenRunId": "sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f",
+  "runtimeInputSha256": "d7b0a6d9fcdc000e9e9804c8b812972c2e496a0759bb3d48aa073c6ece8ff40b",
+  "baselineSha256": "77107c3ba2c1363bd0c8038a0941678354be8aaada2a222858d40eec5bbdbfd6",
+  "dependencyMode": "frozen",
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "stepsPassed": 30,
+  "commands": [
+    {
+      "name": "format",
+      "command": "pnpm format:check",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/format.log.gz",
+      "rawLogSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+    },
+    {
+      "name": "verification-runner-contract",
+      "command": "pnpm test:verification",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/verification-runner-contract.log.gz",
+      "rawLogSha256": "1ff4e607dfa842907a3e186653d3a5c51fee7b13d0a79c39734fe7a705f6ef3f"
+    },
+    {
+      "name": "lint",
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/lint.log.gz",
+      "rawLogSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/typecheck.log.gz",
+      "rawLogSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+    },
+    {
+      "name": "unit",
+      "command": "pnpm test:unit",
+      "exitCode": 0,
+      "metrics": {
+        "testFiles": 309,
+        "tests": 2683
+      },
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/unit.log.gz",
+      "rawLogSha256": "645a4ce710004ce554368c79dd4aa8235e5324a25d72d9625fd30cb9da23e702"
+    },
+    {
+      "name": "contract",
+      "command": "pnpm test:contract",
+      "exitCode": 0,
+      "metrics": {
+        "testFiles": 63,
+        "tests": 553
+      },
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/contract.log.gz",
+      "rawLogSha256": "d447992d3c7745a04b620190a7dbafee341276ef7be234629326d59aa11cf7c8"
+    },
+    {
+      "name": "evidence-contract",
+      "command": "pnpm verify:evidence-contract",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/evidence-contract.log.gz",
+      "rawLogSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+    },
+    {
+      "name": "evidence-coverage",
+      "command": "pnpm verify:evidence-coverage",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/evidence-coverage.log.gz",
+      "rawLogSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+    },
+    {
+      "name": "architecture",
+      "command": "pnpm verify:architecture",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/architecture.log.gz",
+      "rawLogSha256": "60522698f5fba61c94516260f4919786f0bb983473e8c7d005469a90c0573ffe"
+    },
+    {
+      "name": "a2a-baseline",
+      "command": "pnpm verify:a2a-baseline",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/a2a-baseline.log.gz",
+      "rawLogSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+    },
+    {
+      "name": "management-openapi",
+      "command": "pnpm verify:management-openapi",
+      "exitCode": 0,
+      "metrics": {
+        "openapiOperations": 186
+      },
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/management-openapi.log.gz",
+      "rawLogSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+    },
+    {
+      "name": "node-control-contract",
+      "command": "pnpm verify:node-control-contract",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/node-control-contract.log.gz",
+      "rawLogSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+    },
+    {
+      "name": "node-control-implementation-conformance",
+      "command": "pnpm verify:node-control-implementation-conformance",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/node-control-implementation-conformance.log.gz",
+      "rawLogSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+    },
+    {
+      "name": "smpp-registry-projection",
+      "command": "pnpm verify:smpp-registry-projection",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/smpp-registry-projection.log.gz",
+      "rawLogSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+    },
+    {
+      "name": "acceptance",
+      "command": "pnpm verify:acceptance",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/acceptance.log.gz",
+      "rawLogSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+    },
+    {
+      "name": "sources",
+      "command": "pnpm verify:sources",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/sources.log.gz",
+      "rawLogSha256": "a382d8438c8da8d0e65f5155682361a1be32937cfef504dc8228567d4b4e49cc"
+    },
+    {
+      "name": "protocol",
+      "command": "pnpm verify:protocol",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/protocol.log.gz",
+      "rawLogSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+    },
+    {
+      "name": "infra",
+      "command": "pnpm verify:infra",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/infra.log.gz",
+      "rawLogSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+    },
+    {
+      "name": "project-license",
+      "command": "pnpm verify:project-license",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/project-license.log.gz",
+      "rawLogSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+    },
+    {
+      "name": "licenses",
+      "command": "pnpm verify:licenses",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/licenses.log.gz",
+      "rawLogSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+    },
+    {
+      "name": "build",
+      "command": "pnpm build",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/build.log.gz",
+      "rawLogSha256": "4431d95a3b7c3d459113e8c444025e474a946d26e5878ec28b3d06675d14bfcf"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "command": "pnpm verify:cognitive-replay",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/cognitive-replay-no-physical-provider.log.gz",
+      "rawLogSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "command": "pnpm verify:migrations",
+      "exitCode": 0,
+      "metrics": {
+        "migrationCount": 77
+      },
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/clean-baseline-reset-seed.log.gz",
+      "rawLogSha256": "093a49ae1890bfd0934f331dd9051cf5100cfc3b642a32e40d71f88ca870d353"
+    },
+    {
+      "name": "postgres-redis-integration",
+      "command": "pnpm test:integration",
+      "exitCode": 0,
+      "metrics": {
+        "testFiles": 44,
+        "tests": 272
+      },
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/postgres-redis-integration.log.gz",
+      "rawLogSha256": "a0c94f76b2cf5840a269a346451d8f522fe9a2f609297fddb4b8b3ce701d60b2"
+    },
+    {
+      "name": "postgres-redis-model-mcp-e2e",
+      "command": "pnpm test:e2e",
+      "exitCode": 0,
+      "metrics": {
+        "testFiles": 8,
+        "tests": 77
+      },
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/postgres-redis-model-mcp-e2e.log.gz",
+      "rawLogSha256": "9dfdbbae7909ac151d80198d773b0f56b5c4af0a541a54fa0136c0ff951f7e3b"
+    },
+    {
+      "name": "official-a2a-tck",
+      "command": "pnpm test:a2a-tck",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/official-a2a-tck.log.gz",
+      "rawLogSha256": "9973c44f52b5a079dcbe9c3f760773faa7e4d871c39c4d321ea480ebb8a017dd"
+    },
+    {
+      "name": "canonical-evidence-demo",
+      "command": "pnpm demo:evidence-e2e",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/canonical-evidence-demo.log.gz",
+      "rawLogSha256": "7de47ee91b65a2b2f50af462a1f5dfaabb3d708b218663c883d563d237ec8cf4"
+    },
+    {
+      "name": "infrastructure-smoke",
+      "command": "pnpm smoke:infra",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/infrastructure-smoke.log.gz",
+      "rawLogSha256": "865aa5467e77c89ce28543d93512e0b99f54e4277060d15d16b9f229b9e71076"
+    },
+    {
+      "name": "server-console-smoke",
+      "command": "pnpm smoke:server",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/server-console-smoke.log.gz",
+      "rawLogSha256": "a6cdcfffa7bf36b1866f8bc437dcd72ab2f39f10399eec623dfb1d1f22198e96"
+    },
+    {
+      "name": "node-control-api-worker-smoke",
+      "command": "pnpm smoke:node-control",
+      "exitCode": 0,
+      "metrics": {},
+      "rawLog": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f/node-control-api-worker-smoke.log.gz",
+      "rawLogSha256": "2cf7fd8d3cac51e237f30a77a1ceabc77246282545d16ed96529b43045905357"
+    }
+  ],
+  "archive": "reports/functional-closure/full-gates/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f",
+  "driverLog": "full-driver.log.gz",
+  "driverLogSha256": "9820c546a43214f5828aa8b2a413e631017a028151bf5ef0efbe7779173fab9a",
+  "restrictedGowm": "GOWM_VALIDATION.json",
+  "console": "CONSOLE_SOURCE_EQUIVALENCE.json",
+  "classification": {
+    "postgresRedis": "REAL_OWNED_LOCAL",
+    "langgraph": "REAL_LOCAL",
+    "modelAndToolResponses": "SIMULATED_FIXTURES",
+    "physicalProvider": "NOT_RUN",
+    "site": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  },
+  "remainingOpen": [
+    "Restricted-profile and unsupported recording kinds for full FR-EVO",
+    "Authoritative embodied.inspect_area provider",
+    "Authoritative per-sample trajectory clocks / complete-history contract",
+    "Whole-project Definition of Done"
+  ],
+  "officialTck": "TCK/SCOPE.json"
+}

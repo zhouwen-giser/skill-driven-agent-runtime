@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "testedSource": "dca0fcdbbe35f94ddaf968b6489decdbf228755a",
+  "ciHead": "9ba82d59de9e7ecf694c45c457f13887486bbca0",
+  "mergeCommit": "d6bcd2892b4f420982207acc52bd1899815b21d4",
+  "verifiedSourceFiles": 1979,
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "postMergeCi": {
+    "status": "PASS",
+    "head": "d6bcd2892b4f420982207acc52bd1899815b21d4",
+    "url": "https://github.com/zhouwen-giser/geospatial-operational-world-model/actions/runs/38154353492",
+    "jobs": [
+      {
+        "name": "gowm-v071-exact-head-qualification",
+        "conclusion": "success"
+      },
+      {
+        "name": "gowm-v071-candidate-required-check",
+        "conclusion": "skipped"
+      }
+    ]
+  }
+}

@@ -5,7 +5,7 @@
 ## 本项目许可证
 
 GOWM shared business storage contract is an MIT reference pinned to
-`a1a86186ea866911124de72374e17fe19897fa9e`; selected DDL and derived consumption
+`dca0fcdbbe35f94ddaf968b6489decdbf228755a`; selected DDL and derived consumption
 metadata retain attribution and LICENSE in `contracts/gowm-shared-storage/current`.
 See `docs/gowm-shared-storage/OSS_INTAKE.md`. No runtime dependency or migration owner is added.
 

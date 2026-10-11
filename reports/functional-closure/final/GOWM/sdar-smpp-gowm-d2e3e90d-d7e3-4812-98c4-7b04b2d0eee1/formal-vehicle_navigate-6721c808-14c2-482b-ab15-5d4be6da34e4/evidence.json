@@ -1,0 +1,2928 @@
+{
+  "taskId": "9b35ba67-8afe-4562-a42a-5cc312672ede",
+  "storageMode": "gowm_shared_business",
+  "deviceId": "business-device-6721c808-14c2-482b-ab15-5d4be6da34e4",
+  "serviceKey": "smpp-sdar-6721c808-14c2-482b-ab15-5d4be6da34e4",
+  "foreignTaskId": "7517c14c-e149-4b69-b9d1-cce3def46c19",
+  "foreignDeviceId": "foreign-device-6721c808-14c2-482b-ab15-5d4be6da34e4",
+  "identity": {
+    "taskId": "09104404-e397-420e-b45a-e34732518c87",
+    "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+    "providerId": "isr.vehicle.ugv.ugv",
+    "resourceId": "vehicle:ugv",
+    "operationName": "vehicle_navigate"
+  },
+  "modelBoundary": "local_protocol_fixture",
+  "modelCalls": [
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation"
+  ],
+  "wireCalls": [
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tools/list",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskExecution/checkAvailability",
+      "params": {
+        "profileVersion": "1.0",
+        "checks": [
+          {
+            "requestId": "read",
+            "operationName": "vehicle_navigate",
+            "arguments": {
+              "state": "partial",
+              "knownValue": {
+                "mission": {
+                  "type": "point",
+                  "target": {
+                    "longitude": 106.802,
+                    "latitude": 29.7
+                  }
+                },
+                "stopOnObstacle": true
+              },
+              "unresolvedPaths": [
+                "/resourceId"
+              ]
+            },
+            "timing": {
+              "start": {
+                "mode": "immediate",
+                "startToleranceMs": 0
+              },
+              "maxElapsedMs": null
+            }
+          }
+        ],
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskExecution/checkAvailability",
+      "params": {
+        "profileVersion": "1.0",
+        "checks": [
+          {
+            "requestId": "read",
+            "operationName": "vehicle_navigate",
+            "arguments": {
+              "state": "complete",
+              "value": {
+                "mission": {
+                  "type": "point",
+                  "target": {
+                    "latitude": 29.7,
+                    "longitude": 106.802
+                  }
+                },
+                "resourceId": "vehicle:ugv",
+                "stopOnObstacle": true
+              }
+            },
+            "timing": {
+              "start": {
+                "mode": "immediate",
+                "startToleranceMs": 0
+              },
+              "maxElapsedMs": null
+            }
+          }
+        ],
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tools/call",
+      "params": {
+        "name": "vehicle_navigate",
+        "arguments": {
+          "mission": {
+            "type": "point",
+            "target": {
+              "latitude": 29.7,
+              "longitude": 106.802
+            }
+          },
+          "resourceId": "vehicle:ugv",
+          "stopOnObstacle": true
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "idempotencyKey": "mcp-logical-74e34ba49c5daba2eeabdd1ed8859401434238f9ec629a6a79bf3cd286f12bd8"
+          },
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/interventions/apply",
+      "params": {
+        "schemaVersion": "sdar.runtime-intervention-command/1.0-rc2",
+        "commandId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+        "interventionId": "intervention-1",
+        "guard": {
+          "mode": "semantic",
+          "expectedInterventionRevision": 1,
+          "expectedEffectivePlanRevision": 2
+        },
+        "input": {
+          "waypoints": [
+            {
+              "longitude": 106.802,
+              "latitude": 29.7
+            }
+          ],
+          "density": "normal"
+        },
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 2,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 2,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 2,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 2,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "tasks/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/context/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "maxPageBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "destination-point",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 2,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "route-line",
+        "revision": 2,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "includeContent": false,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "io.sdar/taskBusiness/artifacts/get",
+      "params": {
+        "taskId": "09104404-e397-420e-b45a-e34732518c87",
+        "artifactId": "trajectory-256",
+        "revision": 1,
+        "representationName": "",
+        "includeContent": true,
+        "contentOffset": 0,
+        "maxContentBytes": 65536,
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "sdar",
+            "version": "1.2.1"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "extensions": {
+              "io.modelcontextprotocol/tasks": {},
+              "io.sdar/taskBusiness": {
+                "profileVersion": "1.0-rc2"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "task-business-bc715c0b-767a-45ef-b537-4557392135cc",
+      "name": "task_business.command",
+      "parts": [
+        {
+          "data": {
+            "schemaVersion": "sdar.task-business-task-artifact/v1",
+            "completeEvidenceRef": {
+              "artifactId": "task-business-bc715c0b-767a-45ef-b537-4557392135cc",
+              "version": 1,
+              "uri": "artifact://runtime/v1/remote_task_observation/task-business-bc715c0b-767a-45ef-b537-4557392135cc/1/content",
+              "sha256": "sha256:76339c31e58a5a79d7c4459b22e1b1f6b876440c68b93db7d6936effbacd188a",
+              "mediaType": "application/json",
+              "byteSize": 4093
+            },
+            "state": "confirmed",
+            "intentId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+            "exportLimit": 32,
+            "completeRecordAvailableByReference": true
+          },
+          "mediaType": "application/json"
+        }
+      ]
+    },
+    {
+      "artifactId": "task-business-9cd9d31c-eb3e-4a86-8afb-365e2ab92fa1",
+      "name": "task_business.projection",
+      "parts": [
+        {
+          "data": {
+            "schemaVersion": "sdar.task-business-task-artifact/v1",
+            "completeEvidenceRef": {
+              "artifactId": "task-business-9cd9d31c-eb3e-4a86-8afb-365e2ab92fa1",
+              "version": 1,
+              "uri": "artifact://runtime/v1/remote_task_observation/task-business-9cd9d31c-eb3e-4a86-8afb-365e2ab92fa1/1/content",
+              "sha256": "sha256:3e73fc4d30cbcbda96808f9352ad75dbc6b012a66e4b90468a96b78ea7debbf6",
+              "mediaType": "application/json",
+              "byteSize": 5980
+            },
+            "identity": {
+              "taskId": "09104404-e397-420e-b45a-e34732518c87",
+              "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+              "providerId": "isr.vehicle.ugv.ugv",
+              "resourceId": "vehicle:ugv",
+              "operationName": "vehicle_navigate"
+            },
+            "quality": {
+              "currentStateComplete": true,
+              "historyContinuous": false,
+              "requiredObjectsResolved": true,
+              "trajectoryTimeComplete": false,
+              "gaps": [
+                "business_event_history_gap",
+                "provider_trajectory_has_no_per_sample_receive_time",
+                "provider_retained_samples_may_be_sampled"
+              ]
+            },
+            "businessOutcome": {
+              "protocolStatus": "completed",
+              "businessStatus": "success",
+              "policySatisfied": true,
+              "missingRequiredRoles": [],
+              "gaps": []
+            },
+            "geometry": [
+              {
+                "ref": {
+                  "kind": "artifact",
+                  "id": "destination-point",
+                  "revision": 1
+                },
+                "artifactType": "navigation.destination",
+                "role": "requested_target",
+                "semantics": "requested",
+                "crs": "OGC:CRS84",
+                "geometryType": "Point",
+                "retainedCoordinateCount": 1,
+                "coordinateOrder": "longitude_latitude",
+                "sampleOrder": "provider_retained_order",
+                "rawContentComplete": true,
+                "current": true,
+                "perSampleSourceTimeComplete": false,
+                "displayDerived": true,
+                "gaps": []
+              },
+              {
+                "ref": {
+                  "kind": "artifact",
+                  "id": "route-line",
+                  "revision": 2
+                },
+                "artifactType": "navigation.route",
+                "role": "adopted_route",
+                "semantics": "planned",
+                "crs": "OGC:CRS84",
+                "geometryType": "LineString",
+                "retainedCoordinateCount": 2,
+                "coordinateOrder": "longitude_latitude",
+                "sampleOrder": "provider_retained_order",
+                "rawContentComplete": true,
+                "current": true,
+                "perSampleSourceTimeComplete": false,
+                "displayDerived": true,
+                "gaps": []
+              },
+              {
+                "ref": {
+                  "kind": "artifact",
+                  "id": "trajectory-256",
+                  "revision": 1
+                },
+                "artifactType": "navigation.trajectory",
+                "role": "actual_trajectory",
+                "semantics": "observed",
+                "crs": "OGC:CRS84",
+                "geometryType": "LineString",
+                "retainedCoordinateCount": 256,
+                "providerSampleCount": 256,
+                "coordinateOrder": "longitude_latitude",
+                "sampleOrder": "provider_retained_order",
+                "rawContentComplete": true,
+                "current": true,
+                "perSampleSourceTimeComplete": false,
+                "displayDerived": true,
+                "gaps": [
+                  "provider_trajectory_has_no_per_sample_receive_time",
+                  "provider_retained_samples_may_be_sampled"
+                ]
+              }
+            ],
+            "contents": [
+              {
+                "artifactId": "task-business-97b0408e-1e5b-4b1a-bb31-904207e6c775",
+                "version": 1,
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-97b0408e-1e5b-4b1a-bb31-904207e6c775/1/content",
+                "sha256": "sha256:483a19c080a56c90ecb3216b2ec7131c4e541c27dc8c3f11214f8b14fd27298e",
+                "mediaType": "application/json",
+                "byteSize": 1309
+              },
+              {
+                "artifactId": "task-business-5588c45c-b1fb-4215-b58c-979add7c1530",
+                "version": 1,
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-5588c45c-b1fb-4215-b58c-979add7c1530/1/content",
+                "sha256": "sha256:476f1d36f53a00136a24169980b509c169c94642873bcc282584e242f7fa7c27",
+                "mediaType": "application/json",
+                "byteSize": 1399
+              },
+              {
+                "artifactId": "task-business-ee894bad-ffcb-4293-85a9-19054c27fb57",
+                "version": 1,
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-ee894bad-ffcb-4293-85a9-19054c27fb57/1/content",
+                "sha256": "sha256:a66c2a0af39c40f6cef22a0d047afe8571aa69a8b43100a62e70300c2a67ebc2",
+                "mediaType": "application/json",
+                "byteSize": 7870
+              },
+              {
+                "artifactId": "task-business-6593f63c-9ec0-43f0-91d7-cfcc17399663",
+                "version": 1,
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-6593f63c-9ec0-43f0-91d7-cfcc17399663/1/content",
+                "sha256": "sha256:cfd5ccd1c50942daa97b86bf2dc058f900804369a513c06676bdff88f1095277",
+                "mediaType": "application/json",
+                "byteSize": 3346
+              }
+            ],
+            "objectCount": 4,
+            "exportLimit": 32,
+            "completeRecordAvailableByReference": true
+          },
+          "mediaType": "application/json"
+        }
+      ]
+    }
+  ],
+  "sourceArtifacts": [
+    {
+      "sourceRef": {
+        "artifactId": "task-business-9cd9d31c-eb3e-4a86-8afb-365e2ab92fa1",
+        "version": 1,
+        "uri": "artifact://runtime/v1/remote_task_observation/task-business-9cd9d31c-eb3e-4a86-8afb-365e2ab92fa1/1/content",
+        "sha256": "sha256:3e73fc4d30cbcbda96808f9352ad75dbc6b012a66e4b90468a96b78ea7debbf6",
+        "mediaType": "application/json",
+        "byteSize": 5980
+      },
+      "envelope": {
+        "projection": {
+          "allowedInterventions": [],
+          "bindingId": "remote-task-binding-mcp-invocation-caf966cc-ee75-4463-a14b-e06770a9e0a3",
+          "businessOutcome": {
+            "businessStatus": "success",
+            "gaps": [],
+            "missingRequiredRoles": [],
+            "policySatisfied": true,
+            "protocolStatus": "completed"
+          },
+          "contextDigest": "sha256:00054bbf26bfff261d67302e31670178971d153ce820e49f7d26c62aec0a7a43",
+          "contextRevision": 3,
+          "effectivePlanRevision": 3,
+          "executionSummary": {
+            "properties": {
+              "effectiveNavigation": {
+                "commandId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+                "planRevision": 3,
+                "routeRef": {
+                  "id": "route-line",
+                  "kind": "artifact",
+                  "revision": 2
+                }
+              },
+              "trajectoryLast": {
+                "deviceReportedAt": "2026-10-11T16:23:38.711Z",
+                "observedAt": "2026-10-11T16:23:38.711Z"
+              }
+            },
+            "resultCode": "NAVIGATION_COMPLETED",
+            "status": "finalized"
+          },
+          "geometry": [
+            {
+              "artifactType": "navigation.destination",
+              "coordinateOrder": "longitude_latitude",
+              "crs": "OGC:CRS84",
+              "current": true,
+              "displayDerived": true,
+              "gaps": [],
+              "geometryType": "Point",
+              "perSampleSourceTimeComplete": false,
+              "rawContentComplete": true,
+              "ref": {
+                "id": "destination-point",
+                "kind": "artifact",
+                "revision": 1
+              },
+              "retainedCoordinateCount": 1,
+              "role": "requested_target",
+              "sampleOrder": "provider_retained_order",
+              "semantics": "requested"
+            },
+            {
+              "artifactType": "navigation.route",
+              "coordinateOrder": "longitude_latitude",
+              "crs": "OGC:CRS84",
+              "current": true,
+              "displayDerived": true,
+              "gaps": [],
+              "geometryType": "LineString",
+              "perSampleSourceTimeComplete": false,
+              "rawContentComplete": true,
+              "ref": {
+                "id": "route-line",
+                "kind": "artifact",
+                "revision": 2
+              },
+              "retainedCoordinateCount": 2,
+              "role": "adopted_route",
+              "sampleOrder": "provider_retained_order",
+              "semantics": "planned"
+            },
+            {
+              "artifactType": "navigation.trajectory",
+              "coordinateOrder": "longitude_latitude",
+              "crs": "OGC:CRS84",
+              "current": true,
+              "displayDerived": true,
+              "gaps": [
+                "provider_trajectory_has_no_per_sample_receive_time",
+                "provider_retained_samples_may_be_sampled"
+              ],
+              "geometryType": "LineString",
+              "perSampleSourceTimeComplete": false,
+              "providerSampleCount": 256,
+              "rawContentComplete": true,
+              "ref": {
+                "id": "trajectory-256",
+                "kind": "artifact",
+                "revision": 1
+              },
+              "retainedCoordinateCount": 256,
+              "role": "actual_trajectory",
+              "sampleOrder": "provider_retained_order",
+              "semantics": "observed"
+            }
+          ],
+          "identity": {
+            "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+            "operationName": "vehicle_navigate",
+            "providerId": "isr.vehicle.ugv.ugv",
+            "resourceId": "vehicle:ugv",
+            "taskId": "09104404-e397-420e-b45a-e34732518c87"
+          },
+          "interactionRequests": [],
+          "objects": [
+            {
+              "artifactRef": {
+                "artifactId": "task-business-97b0408e-1e5b-4b1a-bb31-904207e6c775",
+                "byteSize": 1309,
+                "mediaType": "application/json",
+                "sha256": "sha256:483a19c080a56c90ecb3216b2ec7131c4e541c27dc8c3f11214f8b14fd27298e",
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-97b0408e-1e5b-4b1a-bb31-904207e6c775/1/content",
+                "version": 1
+              },
+              "contentRef": "sdar-task-business://remote-task-binding-mcp-invocation-caf966cc-ee75-4463-a14b-e06770a9e0a3/56745a37b49a85957da9f299b73621bd7e5c8762b3f336ff929405bc720d1063",
+              "digest": "56745a37b49a85957da9f299b73621bd7e5c8762b3f336ff929405bc720d1063",
+              "ref": {
+                "id": "destination-point",
+                "kind": "artifact",
+                "revision": 1
+              },
+              "resolution": "resolved"
+            },
+            {
+              "artifactRef": {
+                "artifactId": "task-business-5588c45c-b1fb-4215-b58c-979add7c1530",
+                "byteSize": 1399,
+                "mediaType": "application/json",
+                "sha256": "sha256:476f1d36f53a00136a24169980b509c169c94642873bcc282584e242f7fa7c27",
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-5588c45c-b1fb-4215-b58c-979add7c1530/1/content",
+                "version": 1
+              },
+              "contentRef": "sdar-task-business://remote-task-binding-mcp-invocation-caf966cc-ee75-4463-a14b-e06770a9e0a3/495b0c012f3c89d8651a916415e1fadedc29fe8dc6113ac6f726f202730be931",
+              "digest": "495b0c012f3c89d8651a916415e1fadedc29fe8dc6113ac6f726f202730be931",
+              "ref": {
+                "id": "route-line",
+                "kind": "artifact",
+                "revision": 2
+              },
+              "resolution": "resolved"
+            },
+            {
+              "artifactRef": {
+                "artifactId": "task-business-ee894bad-ffcb-4293-85a9-19054c27fb57",
+                "byteSize": 7870,
+                "mediaType": "application/json",
+                "sha256": "sha256:a66c2a0af39c40f6cef22a0d047afe8571aa69a8b43100a62e70300c2a67ebc2",
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-ee894bad-ffcb-4293-85a9-19054c27fb57/1/content",
+                "version": 1
+              },
+              "contentRef": "sdar-task-business://remote-task-binding-mcp-invocation-caf966cc-ee75-4463-a14b-e06770a9e0a3/1a10ed3095b032eb460d53a8b4c2dc11ecf1505e268beb0a3f40b214a7bdc61b",
+              "digest": "1a10ed3095b032eb460d53a8b4c2dc11ecf1505e268beb0a3f40b214a7bdc61b",
+              "ref": {
+                "id": "trajectory-256",
+                "kind": "artifact",
+                "revision": 1
+              },
+              "resolution": "resolved"
+            },
+            {
+              "artifactRef": {
+                "artifactId": "task-business-6593f63c-9ec0-43f0-91d7-cfcc17399663",
+                "byteSize": 3346,
+                "mediaType": "application/json",
+                "sha256": "sha256:cfd5ccd1c50942daa97b86bf2dc058f900804369a513c06676bdff88f1095277",
+                "uri": "artifact://runtime/v1/remote_task_observation/task-business-6593f63c-9ec0-43f0-91d7-cfcc17399663/1/content",
+                "version": 1
+              },
+              "contentRef": "sdar-task-business://remote-task-binding-mcp-invocation-caf966cc-ee75-4463-a14b-e06770a9e0a3/f64baad317aeaf85c7ab45433e3428ade655bc7ab24a3c7415d4bc9453638440",
+              "digest": "f64baad317aeaf85c7ab45433e3428ade655bc7ab24a3c7415d4bc9453638440",
+              "ref": {
+                "id": "intervention-1",
+                "kind": "intervention",
+                "revision": 2
+              },
+              "resolution": "resolved"
+            }
+          ],
+          "projectedAt": "2026-10-11T16:23:55.493Z",
+          "projectionRevision": 5,
+          "quality": {
+            "currentStateComplete": true,
+            "gaps": [
+              "business_event_history_gap",
+              "provider_trajectory_has_no_per_sample_receive_time",
+              "provider_retained_samples_may_be_sampled"
+            ],
+            "historyContinuous": false,
+            "requiredObjectsResolved": true,
+            "trajectoryTimeComplete": false
+          },
+          "schemaVersion": "sdar.task-business-projection/v1",
+          "sdarReceivedAt": "2026-10-11T16:23:54.169Z",
+          "skillSuccessCondition": {
+            "equals": "completed",
+            "jsonPointer": "/status"
+          },
+          "snapshotWatermark": {
+            "afterSequence": "3",
+            "streamId": "stream:09104404-e397-420e-b45a-e34732518c87"
+          },
+          "sourceTime": "2026-10-11T16:23:38.711Z",
+          "sourceTimeBasis": "provider_received_at",
+          "sourceTimeFieldPath": "/context/summary/properties/trajectoryLast/observedAt",
+          "status": "current",
+          "taskId": "9b35ba67-8afe-4562-a42a-5cc312672ede"
+        },
+        "recordType": "task_business.projection"
+      }
+    },
+    {
+      "sourceRef": {
+        "artifactId": "task-business-97b0408e-1e5b-4b1a-bb31-904207e6c775",
+        "version": 1,
+        "uri": "artifact://runtime/v1/remote_task_observation/task-business-97b0408e-1e5b-4b1a-bb31-904207e6c775/1/content",
+        "sha256": "sha256:483a19c080a56c90ecb3216b2ec7131c4e541c27dc8c3f11214f8b14fd27298e",
+        "mediaType": "application/json",
+        "byteSize": 1309
+      },
+      "envelope": {
+        "bytes": "eyJraW5kIjoiZ2VvanNvbiIsImNycyI6Ik9HQzpDUlM4NCIsImdlb21ldHJ5Ijp7InR5cGUiOiJQb2ludCIsImNvb3JkaW5hdGVzIjpbMTE2LDM5XX19",
+        "encoding": "base64",
+        "identity": {
+          "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+          "operationName": "vehicle_navigate",
+          "providerId": "isr.vehicle.ugv.ugv",
+          "resourceId": "vehicle:ugv",
+          "taskId": "09104404-e397-420e-b45a-e34732518c87"
+        },
+        "metadata": {
+          "artifactId": "destination-point",
+          "artifactType": "navigation.destination",
+          "availability": "available",
+          "content": {
+            "crs": "OGC:CRS84",
+            "geometry": {
+              "coordinates": [
+                116,
+                39
+              ],
+              "type": "Point"
+            },
+            "kind": "geojson"
+          },
+          "createdAt": "2026-09-23T00:00:00Z",
+          "identity": {
+            "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+            "operationName": "vehicle_navigate",
+            "providerId": "isr.vehicle.ugv.ugv",
+            "resourceId": "vehicle:ugv",
+            "taskId": "09104404-e397-420e-b45a-e34732518c87"
+          },
+          "lifecycle": "active",
+          "properties": {
+            "intent": "requested"
+          },
+          "revision": 1,
+          "schemaVersion": "sdar.task-artifact/1.0-rc2",
+          "semantics": "requested",
+          "source": {
+            "producer": "device_planner",
+            "sourceRecordRef": "catalog-source-1"
+          },
+          "updatedAt": "2026-09-23T00:01:00Z"
+        },
+        "rawByteSize": 87,
+        "rawSha256": "sha256:56745a37b49a85957da9f299b73621bd7e5c8762b3f336ff929405bc720d1063",
+        "ref": {
+          "id": "destination-point",
+          "kind": "artifact",
+          "revision": 1
+        },
+        "schemaVersion": "sdar.task-business-source-artifact/v1"
+      }
+    },
+    {
+      "sourceRef": {
+        "artifactId": "task-business-5588c45c-b1fb-4215-b58c-979add7c1530",
+        "version": 1,
+        "uri": "artifact://runtime/v1/remote_task_observation/task-business-5588c45c-b1fb-4215-b58c-979add7c1530/1/content",
+        "sha256": "sha256:476f1d36f53a00136a24169980b509c169c94642873bcc282584e242f7fa7c27",
+        "mediaType": "application/json",
+        "byteSize": 1399
+      },
+      "envelope": {
+        "bytes": "eyJraW5kIjoiZ2VvanNvbiIsImNycyI6Ik9HQzpDUlM4NCIsImdlb21ldHJ5Ijp7InR5cGUiOiJMaW5lU3RyaW5nIiwiY29vcmRpbmF0ZXMiOltbMTE2LDM5XSxbMTE2LjAwMSwzOS4wMDFdXX19",
+        "encoding": "base64",
+        "identity": {
+          "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+          "operationName": "vehicle_navigate",
+          "providerId": "isr.vehicle.ugv.ugv",
+          "resourceId": "vehicle:ugv",
+          "taskId": "09104404-e397-420e-b45a-e34732518c87"
+        },
+        "metadata": {
+          "artifactId": "route-line",
+          "artifactType": "navigation.route",
+          "availability": "available",
+          "content": {
+            "crs": "OGC:CRS84",
+            "geometry": {
+              "coordinates": [
+                [
+                  116,
+                  39
+                ],
+                [
+                  116.001,
+                  39.001
+                ]
+              ],
+              "type": "LineString"
+            },
+            "kind": "geojson"
+          },
+          "createdAt": "2026-09-23T00:00:00Z",
+          "identity": {
+            "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+            "operationName": "vehicle_navigate",
+            "providerId": "isr.vehicle.ugv.ugv",
+            "resourceId": "vehicle:ugv",
+            "taskId": "09104404-e397-420e-b45a-e34732518c87"
+          },
+          "lifecycle": "active",
+          "properties": {
+            "adoption": "adopted",
+            "purpose": "navigation",
+            "routeSource": "catalog_fixture"
+          },
+          "revision": 2,
+          "schemaVersion": "sdar.task-artifact/1.0-rc2",
+          "semantics": "planned",
+          "source": {
+            "producer": "device_planner",
+            "sourceRecordRef": "catalog-source-1"
+          },
+          "updatedAt": "2026-09-23T00:01:00Z"
+        },
+        "rawByteSize": 111,
+        "rawSha256": "sha256:495b0c012f3c89d8651a916415e1fadedc29fe8dc6113ac6f726f202730be931",
+        "ref": {
+          "id": "route-line",
+          "kind": "artifact",
+          "revision": 2
+        },
+        "schemaVersion": "sdar.task-business-source-artifact/v1"
+      }
+    },
+    {
+      "sourceRef": {
+        "artifactId": "task-business-ee894bad-ffcb-4293-85a9-19054c27fb57",
+        "version": 1,
+        "uri": "artifact://runtime/v1/remote_task_observation/task-business-ee894bad-ffcb-4293-85a9-19054c27fb57/1/content",
+        "sha256": "sha256:a66c2a0af39c40f6cef22a0d047afe8571aa69a8b43100a62e70300c2a67ebc2",
+        "mediaType": "application/json",
+        "byteSize": 7870
+      },
+      "envelope": {
+        "bytes": "eyJraW5kIjoiZ2VvanNvbiIsImNycyI6Ik9HQzpDUlM4NCIsImdlb21ldHJ5Ijp7InR5cGUiOiJMaW5lU3RyaW5nIiwiY29vcmRpbmF0ZXMiOltbMTA2LjgsMjkuN10sWzEwNi44MDAwMSwyOS43XSxbMTA2LjgwMDAyLDI5LjddLFsxMDYuODAwMDI5OTk5OTk5OTksMjkuN10sWzEwNi44MDAwNCwyOS43XSxbMTA2LjgwMDA1LDI5LjddLFsxMDYuODAwMDYsMjkuN10sWzEwNi44MDAwNjk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDA4LDI5LjddLFsxMDYuODAwMDksMjkuN10sWzEwNi44MDAxLDI5LjddLFsxMDYuODAwMTEsMjkuN10sWzEwNi44MDAxMTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDEzLDI5LjddLFsxMDYuODAwMTQsMjkuN10sWzEwNi44MDAxNSwyOS43XSxbMTA2LjgwMDE1OTk5OTk5OTk5LDI5LjddLFsxMDYuODAwMTcsMjkuN10sWzEwNi44MDAxOCwyOS43XSxbMTA2LjgwMDE5LDI5LjddLFsxMDYuODAwMiwyOS43XSxbMTA2LjgwMDIwOTk5OTk5OTk5LDI5LjddLFsxMDYuODAwMjIsMjkuN10sWzEwNi44MDAyMywyOS43XSxbMTA2LjgwMDI0LDI5LjddLFsxMDYuODAwMjQ5OTk5OTk5OTksMjkuN10sWzEwNi44MDAyNiwyOS43XSxbMTA2LjgwMDI3LDI5LjddLFsxMDYuODAwMjgsMjkuN10sWzEwNi44MDAyOSwyOS43XSxbMTA2LjgwMDMsMjkuN10sWzEwNi44MDAzMSwyOS43XSxbMTA2LjgwMDMyLDI5LjddLFsxMDYuODAwMzMsMjkuN10sWzEwNi44MDAzMzk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDM1LDI5LjddLFsxMDYuODAwMzYsMjkuN10sWzEwNi44MDAzNywyOS43XSxbMTA2LjgwMDM4LDI5LjddLFsxMDYuODAwMzksMjkuN10sWzEwNi44MDA0LDI5LjddLFsxMDYuODAwNDEsMjkuN10sWzEwNi44MDA0MiwyOS43XSxbMTA2LjgwMDQyOTk5OTk5OTk5LDI5LjddLFsxMDYuODAwNDQsMjkuN10sWzEwNi44MDA0NSwyOS43XSxbMTA2LjgwMDQ2LDI5LjddLFsxMDYuODAwNDcsMjkuN10sWzEwNi44MDA0OCwyOS43XSxbMTA2LjgwMDQ5LDI5LjddLFsxMDYuODAwNSwyOS43XSxbMTA2LjgwMDUxLDI5LjddLFsxMDYuODAwNTE5OTk5OTk5OTksMjkuN10sWzEwNi44MDA1MywyOS43XSxbMTA2LjgwMDU0LDI5LjddLFsxMDYuODAwNTUsMjkuN10sWzEwNi44MDA1NTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDU3LDI5LjddLFsxMDYuODAwNTgsMjkuN10sWzEwNi44MDA1OSwyOS43XSxbMTA2LjgwMDYsMjkuN10sWzEwNi44MDA2MDk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDYyLDI5LjddLFsxMDYuODAwNjMsMjkuN10sWzEwNi44MDA2NCwyOS43XSxbMTA2LjgwMDY0OTk5OTk5OTk5LDI5LjddLFsxMDYuODAwNjYsMjkuN10sWzEwNi44MDA2NywyOS43XSxbMTA2LjgwMDY4LDI5LjddLFsxMDYuODAwNjksMjkuN10sWzEwNi44MDA2OTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDcxLDI5LjddLFsxMDYuODAwNzIsMjkuN10sWzEwNi44MDA3MywyOS43XSxbMTA2LjgwMDczOTk5OTk5OTk5LDI5LjddLFsxMDYuODAwNzUsMjkuN10sWzEwNi44MDA3NiwyOS43XSxbMTA2LjgwMDc3LDI5LjddLFsxMDYuODAwNzgsMjkuN10sWzEwNi44MDA3ODk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDgsMjkuN10sWzEwNi44MDA4MSwyOS43XSxbMTA2LjgwMDgyLDI5LjddLFsxMDYuODAwODI5OTk5OTk5OTksMjkuN10sWzEwNi44MDA4NCwyOS43XSxbMTA2LjgwMDg1LDI5LjddLFsxMDYuODAwODYsMjkuN10sWzEwNi44MDA4NywyOS43XSxbMTA2LjgwMDg3OTk5OTk5OTk5LDI5LjddLFsxMDYuODAwODksMjkuN10sWzEwNi44MDA5LDI5LjddLFsxMDYuODAwOTEsMjkuN10sWzEwNi44MDA5MTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMDkzLDI5LjddLFsxMDYuODAwOTQsMjkuN10sWzEwNi44MDA5NSwyOS43XSxbMTA2LjgwMDk2LDI5LjddLFsxMDYuODAwOTY5OTk5OTk5OTksMjkuN10sWzEwNi44MDA5OCwyOS43XSxbMTA2LjgwMDk5LDI5LjddLFsxMDYuODAxLDI5LjddLFsxMDYuODAxMDA5OTk5OTk5OTksMjkuN10sWzEwNi44MDEwMiwyOS43XSxbMTA2LjgwMTAzLDI5LjddLFsxMDYuODAxMDQsMjkuN10sWzEwNi44MDEwNSwyOS43XSxbMTA2LjgwMTA1OTk5OTk5OTk5LDI5LjddLFsxMDYuODAxMDcsMjkuN10sWzEwNi44MDEwOCwyOS43XSxbMTA2LjgwMTA5LDI5LjddLFsxMDYuODAxMDk5OTk5OTk5OTksMjkuN10sWzEwNi44MDExMSwyOS43XSxbMTA2LjgwMTEyLDI5LjddLFsxMDYuODAxMTMsMjkuN10sWzEwNi44MDExNCwyOS43XSxbMTA2LjgwMTE0OTk5OTk5OTk5LDI5LjddLFsxMDYuODAxMTYsMjkuN10sWzEwNi44MDExNywyOS43XSxbMTA2LjgwMTE4LDI5LjddLFsxMDYuODAxMTg5OTk5OTk5OTksMjkuN10sWzEwNi44MDEyLDI5LjddLFsxMDYuODAxMjEsMjkuN10sWzEwNi44MDEyMiwyOS43XSxbMTA2LjgwMTIzLDI5LjddLFsxMDYuODAxMjM5OTk5OTk5OTksMjkuN10sWzEwNi44MDEyNSwyOS43XSxbMTA2LjgwMTI2LDI5LjddLFsxMDYuODAxMjcsMjkuN10sWzEwNi44MDEyNzk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMTI5LDI5LjddLFsxMDYuODAxMywyOS43XSxbMTA2LjgwMTMxLDI5LjddLFsxMDYuODAxMzIsMjkuN10sWzEwNi44MDEzMywyOS43XSxbMTA2LjgwMTM0LDI5LjddLFsxMDYuODAxMzUsMjkuN10sWzEwNi44MDEzNiwyOS43XSxbMTA2LjgwMTM2OTk5OTk5OTk5LDI5LjddLFsxMDYuODAxMzgsMjkuN10sWzEwNi44MDEzOSwyOS43XSxbMTA2LjgwMTQsMjkuN10sWzEwNi44MDE0MSwyOS43XSxbMTA2LjgwMTQyLDI5LjddLFsxMDYuODAxNDMsMjkuN10sWzEwNi44MDE0NCwyOS43XSxbMTA2LjgwMTQ1LDI5LjddLFsxMDYuODAxNDU5OTk5OTk5OTksMjkuN10sWzEwNi44MDE0NywyOS43XSxbMTA2LjgwMTQ4LDI5LjddLFsxMDYuODAxNDksMjkuN10sWzEwNi44MDE0OTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMTUxLDI5LjddLFsxMDYuODAxNTIsMjkuN10sWzEwNi44MDE1MywyOS43XSxbMTA2LjgwMTU0LDI5LjddLFsxMDYuODAxNTQ5OTk5OTk5OTksMjkuN10sWzEwNi44MDE1NiwyOS43XSxbMTA2LjgwMTU3LDI5LjddLFsxMDYuODAxNTgsMjkuN10sWzEwNi44MDE1ODk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMTYsMjkuN10sWzEwNi44MDE2MSwyOS43XSxbMTA2LjgwMTYyLDI5LjddLFsxMDYuODAxNjMsMjkuN10sWzEwNi44MDE2Mzk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMTY1LDI5LjddLFsxMDYuODAxNjYsMjkuN10sWzEwNi44MDE2NywyOS43XSxbMTA2LjgwMTY3OTk5OTk5OTk5LDI5LjddLFsxMDYuODAxNjksMjkuN10sWzEwNi44MDE3LDI5LjddLFsxMDYuODAxNzEsMjkuN10sWzEwNi44MDE3MiwyOS43XSxbMTA2LjgwMTcyOTk5OTk5OTk5LDI5LjddLFsxMDYuODAxNzQsMjkuN10sWzEwNi44MDE3NSwyOS43XSxbMTA2LjgwMTc2LDI5LjddLFsxMDYuODAxNzY5OTk5OTk5OTksMjkuN10sWzEwNi44MDE3OCwyOS43XSxbMTA2LjgwMTc5LDI5LjddLFsxMDYuODAxOCwyOS43XSxbMTA2LjgwMTgxLDI5LjddLFsxMDYuODAxODE5OTk5OTk5OTksMjkuN10sWzEwNi44MDE4MywyOS43XSxbMTA2LjgwMTg0LDI5LjddLFsxMDYuODAxODUsMjkuN10sWzEwNi44MDE4NTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMTg3LDI5LjddLFsxMDYuODAxODgsMjkuN10sWzEwNi44MDE4OSwyOS43XSxbMTA2LjgwMTksMjkuN10sWzEwNi44MDE5MDk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMTkyLDI5LjddLFsxMDYuODAxOTMsMjkuN10sWzEwNi44MDE5NCwyOS43XSxbMTA2LjgwMTk0OTk5OTk5OTk5LDI5LjddLFsxMDYuODAxOTYsMjkuN10sWzEwNi44MDE5NywyOS43XSxbMTA2LjgwMTk4LDI5LjddLFsxMDYuODAxOTksMjkuN10sWzEwNi44MDE5OTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMjAxLDI5LjddLFsxMDYuODAyMDIsMjkuN10sWzEwNi44MDIwMywyOS43XSxbMTA2LjgwMjAzOTk5OTk5OTk5LDI5LjddLFsxMDYuODAyMDUsMjkuN10sWzEwNi44MDIwNiwyOS43XSxbMTA2LjgwMjA3LDI5LjddLFsxMDYuODAyMDgsMjkuN10sWzEwNi44MDIwODk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMjEsMjkuN10sWzEwNi44MDIxMSwyOS43XSxbMTA2LjgwMjEyLDI5LjddLFsxMDYuODAyMTI5OTk5OTk5OTksMjkuN10sWzEwNi44MDIxNCwyOS43XSxbMTA2LjgwMjE1LDI5LjddLFsxMDYuODAyMTYsMjkuN10sWzEwNi44MDIxNywyOS43XSxbMTA2LjgwMjE3OTk5OTk5OTk5LDI5LjddLFsxMDYuODAyMTksMjkuN10sWzEwNi44MDIyLDI5LjddLFsxMDYuODAyMjEsMjkuN10sWzEwNi44MDIyMTk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMjIzLDI5LjddLFsxMDYuODAyMjQsMjkuN10sWzEwNi44MDIyNSwyOS43XSxbMTA2LjgwMjI2LDI5LjddLFsxMDYuODAyMjcsMjkuN10sWzEwNi44MDIyOCwyOS43XSxbMTA2LjgwMjI5LDI5LjddLFsxMDYuODAyMywyOS43XSxbMTA2LjgwMjMwOTk5OTk5OTk5LDI5LjddLFsxMDYuODAyMzIsMjkuN10sWzEwNi44MDIzMywyOS43XSxbMTA2LjgwMjM0LDI5LjddLFsxMDYuODAyMzUsMjkuN10sWzEwNi44MDIzNiwyOS43XSxbMTA2LjgwMjM3LDI5LjddLFsxMDYuODAyMzgsMjkuN10sWzEwNi44MDIzOSwyOS43XSxbMTA2LjgwMjM5OTk5OTk5OTk5LDI5LjddLFsxMDYuODAyNDEsMjkuN10sWzEwNi44MDI0MiwyOS43XSxbMTA2LjgwMjQzLDI5LjddLFsxMDYuODAyNDQsMjkuN10sWzEwNi44MDI0NSwyOS43XSxbMTA2LjgwMjQ2LDI5LjddLFsxMDYuODAyNDcsMjkuN10sWzEwNi44MDI0OCwyOS43XSxbMTA2LjgwMjQ4OTk5OTk5OTk5LDI5LjddLFsxMDYuODAyNSwyOS43XSxbMTA2LjgwMjUxLDI5LjddLFsxMDYuODAyNTIsMjkuN10sWzEwNi44MDI1Mjk5OTk5OTk5OSwyOS43XSxbMTA2LjgwMjU0LDI5LjddLFsxMDYuODAyNTUsMjkuN11dfX0=",
+        "encoding": "base64",
+        "identity": {
+          "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+          "operationName": "vehicle_navigate",
+          "providerId": "isr.vehicle.ugv.ugv",
+          "resourceId": "vehicle:ugv",
+          "taskId": "09104404-e397-420e-b45a-e34732518c87"
+        },
+        "metadata": {
+          "artifactId": "trajectory-256",
+          "artifactType": "navigation.trajectory",
+          "availability": "available",
+          "content": {
+            "artifactId": "trajectory-256",
+            "expiresAt": "2026-10-11T16:33:38.711Z",
+            "handle": "trajectory-256_1",
+            "kind": "content_ref",
+            "mediaType": "application/geo+json",
+            "readMethod": "business_artifact_content",
+            "revision": 1,
+            "sha256": "1a10ed3095b032eb460d53a8b4c2dc11ecf1505e268beb0a3f40b214a7bdc61b",
+            "sizeBytes": 4853
+          },
+          "createdAt": "2026-09-23T00:00:00Z",
+          "identity": {
+            "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+            "operationName": "vehicle_navigate",
+            "providerId": "isr.vehicle.ugv.ugv",
+            "resourceId": "vehicle:ugv",
+            "taskId": "09104404-e397-420e-b45a-e34732518c87"
+          },
+          "lifecycle": "active",
+          "properties": {
+            "sampleCount": 256
+          },
+          "revision": 1,
+          "schemaVersion": "sdar.task-artifact/1.0-rc2",
+          "semantics": "observed",
+          "source": {
+            "producer": "device_planner",
+            "sourceRecordRef": "catalog-source-1"
+          },
+          "updatedAt": "2026-09-23T00:01:00Z"
+        },
+        "rawByteSize": 4853,
+        "rawSha256": "sha256:1a10ed3095b032eb460d53a8b4c2dc11ecf1505e268beb0a3f40b214a7bdc61b",
+        "ref": {
+          "id": "trajectory-256",
+          "kind": "artifact",
+          "revision": 1
+        },
+        "schemaVersion": "sdar.task-business-source-artifact/v1"
+      }
+    },
+    {
+      "sourceRef": {
+        "artifactId": "task-business-6593f63c-9ec0-43f0-91d7-cfcc17399663",
+        "version": 1,
+        "uri": "artifact://runtime/v1/remote_task_observation/task-business-6593f63c-9ec0-43f0-91d7-cfcc17399663/1/content",
+        "sha256": "sha256:cfd5ccd1c50942daa97b86bf2dc058f900804369a513c06676bdff88f1095277",
+        "mediaType": "application/json",
+        "byteSize": 3346
+      },
+      "envelope": {
+        "bytes": "eyJpZGVudGl0eSI6eyJ0YXNrSWQiOiIwOTEwNDQwNC1lMzk3LTQyMGUtYjQ1YS1lMzQ3MzI1MThjODciLCJleGVjdXRpb25JZCI6ImV4ZWN1dGlvbjowOTEwNDQwNC1lMzk3LTQyMGUtYjQ1YS1lMzQ3MzI1MThjODciLCJwcm92aWRlcklkIjoiaXNyLnZlaGljbGUudWd2LnVndiIsInJlc291cmNlSWQiOiJ2ZWhpY2xlOnVndiIsIm9wZXJhdGlvbk5hbWUiOiJ2ZWhpY2xlX25hdmlnYXRlIn0sInJldmlzaW9uIjoyLCJzY2hlbWFWZXJzaW9uIjoic2Rhci5ydW50aW1lLWludGVydmVudGlvbi8xLjAtcmMyIiwiaW50ZXJ2ZW50aW9uSWQiOiJpbnRlcnZlbnRpb24tMSIsImludGVydmVudGlvblR5cGUiOiJuYXZpZ2F0aW9uLmFkanVzdF9wbGFuIiwiZWZmZWN0aXZlUGxhblJldmlzaW9uIjozLCJibG9ja2luZyI6ZmFsc2UsInN0YXRlIjoiYXBwbGllZCIsInRpdGxlIjoiQWRqdXN0IHJvdXRlIiwiaW5wdXRTY2hlbWEiOnsidHlwZSI6Im9iamVjdCIsInJlcXVpcmVkIjpbIndheXBvaW50cyIsImRlbnNpdHkiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlLCJwcm9wZXJ0aWVzIjp7IndheXBvaW50cyI6eyJ0eXBlIjoiYXJyYXkiLCJtaW5JdGVtcyI6MSwiaXRlbXMiOnsidHlwZSI6Im9iamVjdCIsInJlcXVpcmVkIjpbImxvbmdpdHVkZSIsImxhdGl0dWRlIl0sImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZSwicHJvcGVydGllcyI6eyJsb25naXR1ZGUiOnsidHlwZSI6Im51bWJlciIsIm1pbmltdW0iOi0xODAsIm1heGltdW0iOjE4MH0sImxhdGl0dWRlIjp7InR5cGUiOiJudW1iZXIiLCJtaW5pbXVtIjotOTAsIm1heGltdW0iOjkwfX19fSwiZGVuc2l0eSI6eyJlbnVtIjpbInNwYXJzZSIsIm5vcm1hbCIsImRlbnNlIl19fX0sImFwcGxpZXNUbyI6W3sia2luZCI6ImFydGlmYWN0IiwiaWQiOiJyb3V0ZS1saW5lIiwicmV2aXNpb24iOjJ9XSwicmVhc29uQ29kZSI6IkFESlVTVE1FTlRfQVZBSUxBQkxFIiwiY3JlYXRlZEF0IjoiMjAyNi0xMC0xMVQxNjoyMzozOC43MTFaIiwidmFsaWRVbnRpbCI6IjIwMjYtMTAtMTFUMTY6MzM6MzguNzExWiIsImFjY2VwdGVkQ29tbWFuZElkIjoiYnVzaW5lc3MtbmF2aWdhdGlvbi1lODY5M2U5ZDE0Mzg5YzFjODE2ODE2OThkNmExZDlhNjA5MDFmNzBlYWMxZWNjY2Y0N2Q0ZDJmMDcxYjY4MjZhIiwicmVzdWx0UmVmcyI6W3sia2luZCI6ImFydGlmYWN0IiwiaWQiOiJyb3V0ZS1saW5lIiwicmV2aXNpb24iOjJ9XX0=",
+        "encoding": "base64",
+        "identity": {
+          "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+          "operationName": "vehicle_navigate",
+          "providerId": "isr.vehicle.ugv.ugv",
+          "resourceId": "vehicle:ugv",
+          "taskId": "09104404-e397-420e-b45a-e34732518c87"
+        },
+        "metadata": {
+          "acceptedCommandId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+          "appliesTo": [
+            {
+              "id": "route-line",
+              "kind": "artifact",
+              "revision": 2
+            }
+          ],
+          "blocking": false,
+          "createdAt": "2026-10-11T16:23:38.711Z",
+          "effectivePlanRevision": 3,
+          "identity": {
+            "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+            "operationName": "vehicle_navigate",
+            "providerId": "isr.vehicle.ugv.ugv",
+            "resourceId": "vehicle:ugv",
+            "taskId": "09104404-e397-420e-b45a-e34732518c87"
+          },
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "density": {
+                "enum": [
+                  "sparse",
+                  "normal",
+                  "dense"
+                ]
+              },
+              "waypoints": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "latitude": {
+                      "maximum": 90,
+                      "minimum": -90,
+                      "type": "number"
+                    },
+                    "longitude": {
+                      "maximum": 180,
+                      "minimum": -180,
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "longitude",
+                    "latitude"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "waypoints",
+              "density"
+            ],
+            "type": "object"
+          },
+          "interventionId": "intervention-1",
+          "interventionType": "navigation.adjust_plan",
+          "reasonCode": "ADJUSTMENT_AVAILABLE",
+          "resultRefs": [
+            {
+              "id": "route-line",
+              "kind": "artifact",
+              "revision": 2
+            }
+          ],
+          "revision": 2,
+          "schemaVersion": "sdar.runtime-intervention/1.0-rc2",
+          "state": "applied",
+          "title": "Adjust route",
+          "validUntil": "2026-10-11T16:33:38.711Z"
+        },
+        "rawByteSize": 1223,
+        "rawSha256": "sha256:f64baad317aeaf85c7ab45433e3428ade655bc7ab24a3c7415d4bc9453638440",
+        "ref": {
+          "id": "intervention-1",
+          "kind": "intervention",
+          "revision": 2
+        },
+        "schemaVersion": "sdar.task-business-source-artifact/v1"
+      }
+    },
+    {
+      "sourceRef": {
+        "artifactId": "task-business-bc715c0b-767a-45ef-b537-4557392135cc",
+        "version": 1,
+        "uri": "artifact://runtime/v1/remote_task_observation/task-business-bc715c0b-767a-45ef-b537-4557392135cc/1/content",
+        "sha256": "sha256:76339c31e58a5a79d7c4459b22e1b1f6b876440c68b93db7d6936effbacd188a",
+        "mediaType": "application/json",
+        "byteSize": 4093
+      },
+      "envelope": {
+        "command": {
+          "confirmationFact": {
+            "actorHash": "sha256:738572f1b31f0de5c9e71029ab977c8f4b4c7d44d9833d4514d373ee7b2612ac",
+            "confirmationId": "governed-confirmation-6fdfa9d7-9c5e-4ae1-b8d6-5e90c98648e2",
+            "confirmedAt": "2026-10-11T16:23:46.682Z",
+            "contentHash": "sha256:0504c7e138d1e25679086a1c8628b1f989bd35d9c20f85c605e35fa353beab33",
+            "expiresAt": "2026-10-11T16:28:46.682Z",
+            "scopeHash": "sha256:f00a936f95e2e1fff8a08caa4973f3d376c87819b15a48808f9184b29f1581fe"
+          },
+          "confirmationId": "governed-confirmation-6fdfa9d7-9c5e-4ae1-b8d6-5e90c98648e2",
+          "dispatchClaim": {
+            "confirmationId": "governed-confirmation-6fdfa9d7-9c5e-4ae1-b8d6-5e90c98648e2",
+            "consumedAt": "2026-10-11T16:23:47.530Z",
+            "dispatchHash": "sha256:0504c7e138d1e25679086a1c8628b1f989bd35d9c20f85c605e35fa353beab33",
+            "invocationId": "task-business:business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a"
+          },
+          "dispatchLeaseExpiresAt": "2026-10-11T16:24:17.530Z",
+          "dispatchToken": "37335ef6-b039-4774-867d-1241f30f2ff2",
+          "evidence": {
+            "adoptedRouteRef": {
+              "id": "route-line",
+              "kind": "artifact",
+              "revision": 2
+            },
+            "contextDigest": "sha256:b4efab80663f4a44803c80cf40a35de334fb8cbda61ca5a0a150289b428cea19",
+            "contextRevision": 2,
+            "effectiveNavigation": {
+              "commandId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+              "planRevision": 3,
+              "routeRef": {
+                "id": "route-line",
+                "kind": "artifact",
+                "revision": 2
+              }
+            },
+            "identity": {
+              "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+              "operationName": "vehicle_navigate",
+              "providerId": "isr.vehicle.ugv.ugv",
+              "resourceId": "vehicle:ugv",
+              "taskId": "09104404-e397-420e-b45a-e34732518c87"
+            },
+            "ownCommandApplied": true,
+            "snapshotWatermark": {
+              "afterSequence": "2",
+              "streamId": "stream:09104404-e397-420e-b45a-e34732518c87"
+            }
+          },
+          "intent": {
+            "authority": {
+              "capabilityAttemptId": "capability-attempt-9b35ba67-8afe-4562-a42a-5cc312672ede-1",
+              "capabilityBindingId": "binding-9b35ba67-8afe-4562-a42a-5cc312672ede",
+              "capabilityId": "capability-6721c808-14c2-482b-ab15-5d4be6da34e4",
+              "capabilityVersion": 1,
+              "planHash": "429b4e614698ad1d60ecd74179c006da22cbfa92d425fc9394d3d44cd37b9f5e",
+              "planId": "plan-task-9b35ba67-8afe-4562-a42a-5cc312672ede-ff2a038c-9afa-4bd3-9126-d4fdc18c70dd",
+              "providerBindingId": "provider-6721c808-14c2-482b-ab15-5d4be6da34e4",
+              "serverId": "smpp-6721c808-14c2-482b-ab15-5d4be6da34e4",
+              "skillId": "skill-6721c808-14c2-482b-ab15-5d4be6da34e4",
+              "skillVersion": 1,
+              "taskId": "9b35ba67-8afe-4562-a42a-5cc312672ede",
+              "toolName": "vehicle_navigate"
+            },
+            "bindingId": "remote-task-binding-mcp-invocation-caf966cc-ee75-4463-a14b-e06770a9e0a3",
+            "contentHash": "sha256:0504c7e138d1e25679086a1c8628b1f989bd35d9c20f85c605e35fa353beab33",
+            "createdAt": "2026-10-11T16:23:46.648Z",
+            "frozenBindingHash": "sha256:25042ab06e77d64edca172a2b4c8d372317f0d21d0163889aba6ff4faf8687a9",
+            "goalId": "goal-6df98851-4b1f-4515-b71b-5d78102ea2f1",
+            "goalVersion": 1,
+            "identity": {
+              "executionId": "execution:09104404-e397-420e-b45a-e34732518c87",
+              "operationName": "vehicle_navigate",
+              "providerId": "isr.vehicle.ugv.ugv",
+              "resourceId": "vehicle:ugv",
+              "taskId": "09104404-e397-420e-b45a-e34732518c87"
+            },
+            "intentId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+            "reconcileUntil": "2026-10-11T16:33:46.648Z",
+            "request": {
+              "commandId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+              "density": "normal",
+              "expectedEffectivePlanRevision": 2,
+              "expectedInterventionRevision": 1,
+              "interventionId": "intervention-1",
+              "operation": "navigation_adjust_plan",
+              "waypoints": [
+                {
+                  "latitude": 29.7,
+                  "longitude": 106.802
+                }
+              ]
+            },
+            "schemaVersion": "sdar.task-business-command/v1",
+            "taskId": "9b35ba67-8afe-4562-a42a-5cc312672ede",
+            "userRequestHash": "sha256:0fe71ef29437f7b40fc6a136e436a7a7a339ff3e3bb4e7a5667536ef29a83cdf",
+            "validUntil": "2026-10-11T16:33:38.711Z"
+          },
+          "readAttempts": 1,
+          "receipt": {
+            "businessApplied": false,
+            "commandId": "business-navigation-e8693e9d14389c1c81681698d6a1d9a60901f70eac1ecccf47d4d2f071b6826a",
+            "commandSequence": 1,
+            "commandState": "accepted",
+            "duplicate": false,
+            "durablyAccepted": true,
+            "protocolRevision": "2026-07-28"
+          },
+          "revision": 6,
+          "state": "confirmed",
+          "updatedAt": "2026-10-11T16:23:50.303Z"
+        },
+        "recordType": "task_business.command"
+      }
+    }
+  ],
+  "site": "NOT_RUN"
+}

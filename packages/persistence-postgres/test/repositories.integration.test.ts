@@ -24,6 +24,7 @@ import {
 } from '../../mcp-adapter/src/index.js';
 import { buildTaskBusinessSourceArtifact } from '../../domain/src/task-business-evidence.js';
 import { PostgresTaskBusinessRepository } from '../src/task-business-repository.js';
+import { verifySkillEvolutionCommitCases } from './skill-evolution.postgres-cases.js';
 import { verifyWorkflowPlanCommitCases } from './workflow-plan-commit.postgres-cases.js';
 
 import { applyRuntimeMigrations, startServerRuntime } from '../../../apps/server/src/runtime.js';
@@ -355,6 +356,9 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('publishes verified Skill evolution atomically with correction, CAS and idempotent recovery', async () => {
+    expect(await verifySkillEvolutionCommitCases(pool)).toHaveLength(9);
+  });
   it('keeps formal Workflow readiness, deferred audits, failure records and revision CAS atomic', async () => {
     const results = await verifyWorkflowPlanCommitCases(
       pool,

@@ -1043,3 +1043,9 @@ h2 {
 .sr-status {
   min-height: 1.4rem;
 }
+
+.dag-node fieldset { border: 0; padding: 0; min-width: 0; display: grid; gap: 0.6rem; }
+.dag-node textarea, .dag-node select { width: 100%; box-sizing: border-box; }
+.dag-node textarea { min-height: 5rem; resize: vertical; font: 0.8rem ui-monospace, monospace; }
+.dag-node details { margin-top: 0.65rem; }
+.dag-node details summary { cursor: pointer; margin-bottom: 0.6rem; }

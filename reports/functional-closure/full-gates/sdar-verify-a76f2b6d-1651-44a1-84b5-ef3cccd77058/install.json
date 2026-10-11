@@ -1,0 +1,12 @@
+{
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 42429,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 43,
+    "peakRssBytes": 1574666240,
+    "peakProcesses": 2
+  },
+  "cleanupErrors": []
+}

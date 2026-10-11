@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "frozenRunId": "sdar-verify-f49c363d-9b5c-47c8-ba0b-27b47c3958b2",
+  "equalByteHashes": {
+    "apps/console/src/WorkflowPanel.tsx": "6646b7490f464a96d01b59412c1107bf085f16e16a11121d3f413316f885175f",
+    "apps/console/src/WorkflowNodeParameters.tsx": "671d105fd65675f3e47892c3d6e2be653f97fa536aae878c0568e20778f07142",
+    "apps/console/src/styles.css": "08760a048536cfcc323e3e3c8f3b5216721ff0465f0d24bf29f99fec534e4a79",
+    "apps/server/src/runtime.ts": "b574663783363436fed80ac88e2111fb2e47be3910c9cbe1ffc650be2ed9ac38",
+    "packages/persistence-postgres/src/repositories.ts": "5af742bf08bbed60de2b3f6c8bd3d22b5dcbbe2659cfc9b8fbd8f4669172c19e"
+  },
+  "evidence": "reports/functional-closure/console-browser-20261012/result.json"
+}

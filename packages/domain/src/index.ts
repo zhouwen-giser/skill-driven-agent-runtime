@@ -173,3 +173,4 @@ export * from './workflow-scope-state.js';
 export * from './workflow-child-call.js';
 
 export * from './skill-schema-contract.js';
+export * from './skill-evolution-validation.js';

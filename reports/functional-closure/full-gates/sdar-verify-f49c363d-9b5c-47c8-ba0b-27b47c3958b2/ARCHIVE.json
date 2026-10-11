@@ -1,0 +1,131 @@
+{
+  "originalDirectory": "reports/runtime-semantic-closure/sdar-verify-f49c363d-9b5c-47c8-ba0b-27b47c3958b2",
+  "scope": "failed_final_attempt_e2e_induction",
+  "logs": [
+    {
+      "step": "format",
+      "rawSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641",
+      "file": "format.log.gz"
+    },
+    {
+      "step": "verification-runner-contract",
+      "rawSha256": "ea80413bb98810a58fc575ccc6528d5c45852a6de7da7f0e73d09e27e334b7cd",
+      "file": "verification-runner-contract.log.gz"
+    },
+    {
+      "step": "lint",
+      "rawSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1",
+      "file": "lint.log.gz"
+    },
+    {
+      "step": "typecheck",
+      "rawSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "file": "typecheck.log.gz"
+    },
+    {
+      "step": "unit",
+      "rawSha256": "435620b1696f8428e90f7be547af41ccb2dff45859f2722d13e4d7217a3f0ded",
+      "file": "unit.log.gz"
+    },
+    {
+      "step": "contract",
+      "rawSha256": "8f42f251ebc7c2b42eda566bed5ee1175ba6fc0d3ffc0e021a9f0e33ccfbdcca",
+      "file": "contract.log.gz"
+    },
+    {
+      "step": "evidence-contract",
+      "rawSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4",
+      "file": "evidence-contract.log.gz"
+    },
+    {
+      "step": "evidence-coverage",
+      "rawSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634",
+      "file": "evidence-coverage.log.gz"
+    },
+    {
+      "step": "architecture",
+      "rawSha256": "60522698f5fba61c94516260f4919786f0bb983473e8c7d005469a90c0573ffe",
+      "file": "architecture.log.gz"
+    },
+    {
+      "step": "a2a-baseline",
+      "rawSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f",
+      "file": "a2a-baseline.log.gz"
+    },
+    {
+      "step": "management-openapi",
+      "rawSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a",
+      "file": "management-openapi.log.gz"
+    },
+    {
+      "step": "node-control-contract",
+      "rawSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab",
+      "file": "node-control-contract.log.gz"
+    },
+    {
+      "step": "node-control-implementation-conformance",
+      "rawSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b",
+      "file": "node-control-implementation-conformance.log.gz"
+    },
+    {
+      "step": "smpp-registry-projection",
+      "rawSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab",
+      "file": "smpp-registry-projection.log.gz"
+    },
+    {
+      "step": "acceptance",
+      "rawSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788",
+      "file": "acceptance.log.gz"
+    },
+    {
+      "step": "sources",
+      "rawSha256": "a382d8438c8da8d0e65f5155682361a1be32937cfef504dc8228567d4b4e49cc",
+      "file": "sources.log.gz"
+    },
+    {
+      "step": "protocol",
+      "rawSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27",
+      "file": "protocol.log.gz"
+    },
+    {
+      "step": "infra",
+      "rawSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d",
+      "file": "infra.log.gz"
+    },
+    {
+      "step": "project-license",
+      "rawSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861",
+      "file": "project-license.log.gz"
+    },
+    {
+      "step": "licenses",
+      "rawSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c",
+      "file": "licenses.log.gz"
+    },
+    {
+      "step": "build",
+      "rawSha256": "f26594184c751c1b52b0c0d396df583e47f991bdf96688a4a5123605627470cf",
+      "file": "build.log.gz"
+    },
+    {
+      "step": "cognitive-replay-no-physical-provider",
+      "rawSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2",
+      "file": "cognitive-replay-no-physical-provider.log.gz"
+    },
+    {
+      "step": "clean-baseline-reset-seed",
+      "rawSha256": "a4f896036c02a4380dddb219a229b904d8329c9e8e27941b807b0a793b32263a",
+      "file": "clean-baseline-reset-seed.log.gz"
+    },
+    {
+      "step": "postgres-redis-integration",
+      "rawSha256": "e843ccef7fa365ea2af025d26895073142e8dbb232e147180f8528c242b64b3d",
+      "file": "postgres-redis-integration.log.gz"
+    },
+    {
+      "step": "postgres-redis-model-mcp-e2e",
+      "rawSha256": "ab0c45fab94b61fe638f7ce3cd65ac312bd32b4c371df93abbf718d57e0dd5b6",
+      "file": "postgres-redis-model-mcp-e2e.log.gz"
+    }
+  ]
+}

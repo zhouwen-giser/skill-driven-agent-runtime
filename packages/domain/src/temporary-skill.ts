@@ -1,8 +1,9 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
-import type { ToolReference } from './skill.js';
+import type { ToolReference, SkillVersion, SkillToolPolicy, SkillRuntimePolicy } from './skill.js';
 import type { SkillUsageSpecification } from './skill-usage.js';
 import type { SkillOutcomeSpecification } from './user-goal-runtime.js';
+import type { SkillEvolutionValidationReceipt } from './skill-evolution-validation.js';
 
 export interface TemporarySkill {
   readonly temporarySkillId: string;
@@ -91,6 +92,12 @@ export interface SkillSimulationCaseResult {
 }
 
 export interface SkillSimulationReport {
+  readonly inductionInvocationIds?: readonly string[];
+  readonly authority?: Readonly<{
+    base?: SkillVersion;
+    newPolicy?: Readonly<{ toolPolicy: SkillToolPolicy; runtimePolicy: SkillRuntimePolicy }>;
+  }>;
+  readonly executionValidation?: SkillEvolutionValidationReceipt;
   readonly allPassed: boolean;
   readonly cases: readonly SkillSimulationCaseResult[];
   readonly decisionSummary: string;

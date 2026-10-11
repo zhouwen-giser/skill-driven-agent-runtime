@@ -1,0 +1,150 @@
+{
+  "runId": "sdar-smpp-gowm-d2e3e90d-d7e3-4812-98c4-7b04b2d0eee1",
+  "ownerCommit": "dca0fcdbbe35f94ddaf968b6489decdbf228755a",
+  "sourceDirectory": "/tmp/sdar-smpp-gowm-d2e3e90d-d7e3-4812-98c4-7b04b2d0eee1-AkKc6y/gowm",
+  "databaseName": "sdar_smpp_gowm_test_f38c7d40550efbda",
+  "reportDirectory": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-d2e3e90d-d7e3-4812-98c4-7b04b2d0eee1",
+  "scope": "owned_loopback_fixture",
+  "site": "NOT_RUN",
+  "steps": [
+    {
+      "label": "owner-export",
+      "durationMs": 191,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-extract",
+      "durationMs": 119,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "postgres-start",
+      "durationMs": 329,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "redis-start",
+      "durationMs": 269,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-core-bootstrap",
+      "durationMs": 3404,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-domain-install",
+      "durationMs": 2357,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "formal-navigation-recon-shared-storage",
+      "durationMs": 58463,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "native-storage-boundaries",
+      "durationMs": 4402,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "inputSha256": "cb8a1ab70fc4fa3c7309afce17ae6870cb55f0d53468e7bd85bcb6b2fb36a27e",
+  "baselineSha256": "77107c3ba2c1363bd0c8038a0941678354be8aaada2a222858d40eec5bbdbfd6",
+  "images": {
+    "postgresImage": "sha256:f8631c8babdbb9099cdfca09664e8454c06618c0b7ba5903ab246e781e470f11",
+    "redisImage": "sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+    "provenance": "captured_local_immutable_ids; owner source independently pinned"
+  },
+  "ports": {
+    "postgresPort": 32979,
+    "redisPort": 32980
+  },
+  "extensions": [
+    {
+      "extname": "fuzzystrmatch",
+      "extversion": "1.2"
+    },
+    {
+      "extname": "h3",
+      "extversion": "4.5.0"
+    },
+    {
+      "extname": "h3_postgis",
+      "extversion": "4.5.0"
+    },
+    {
+      "extname": "mobilitydb",
+      "extversion": "1.3.0"
+    },
+    {
+      "extname": "pg_trgm",
+      "extversion": "1.6"
+    },
+    {
+      "extname": "pgcrypto",
+      "extversion": "1.4"
+    },
+    {
+      "extname": "plpgsql",
+      "extversion": "1.0"
+    },
+    {
+      "extname": "postgis",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "postgis_raster",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "postgis_tiger_geocoder",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "postgis_topology",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "vector",
+      "extversion": "0.8.5"
+    }
+  ],
+  "consumerPrivileges": {
+    "native_ddl": false,
+    "private_write": false,
+    "native_observation_write": true
+  },
+  "schemaBeforeFormal": "25774a268fba9805f91ad1e4ed4aa74082f669525fd371d5bd879b83709176e4",
+  "privateSmppBeforeFormal": {
+    "rows": 0
+  },
+  "schemaAfterFormal": "25774a268fba9805f91ad1e4ed4aa74082f669525fd371d5bd879b83709176e4",
+  "privateSmppAfterFormal": {
+    "rows": 0
+  },
+  "schemaAfterBoundarySuite": "25774a268fba9805f91ad1e4ed4aa74082f669525fd371d5bd879b83709176e4",
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "status": "PASS",
+  "cleanup": [
+    {
+      "id": "efbfd5c0595911d5aae7f73ad73f4dc610508b0c9e544e31aed0b00f187feedd",
+      "ownershipChecked": true,
+      "exitCode": 0
+    },
+    {
+      "id": "2989e6aa4521a662b09d88ea96db0fee2f866a0f2a65428dded27bb3a1bc4083",
+      "ownershipChecked": true,
+      "exitCode": 0
+    }
+  ],
+  "cleanupErrors": []
+}

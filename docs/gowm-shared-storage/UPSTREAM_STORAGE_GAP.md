@@ -1,5 +1,14 @@
 # 固定 GOWM 合同缺口
 
+## 2026-10-11 本地修复进展
+
+用户已明确授权在本地 GOWM owner 仓库修复并重新摄取合同。当前合同固定到 `dca0fcdbbe35f94ddaf968b6489decdbf228755a`，新增 owner 前向 overlay `terminal_link_ownership_v1.sql`，未修改旧迁移校验和；SDAR 启动仍只读校验，不执行 DDL。
+
+带已有链接的升级、旧校验和保留、重复安装以及 43 个 owner PostgreSQL 场景通过。SDAR 受限角色 32 个仓储场景通过，包括两个设备的 12 个临时 Skill 终态/缺证据变体、跨设备相同原始 handle 的两个链接，以及越权、幂等、不可变性和伪造身份反例。运行 `sdar-smpp-gowm-6ae4b1b4-189b-4b25-ab37-390cf5e6e617`，schema 未被 consumer 改动，清理 0。完整当前源码门禁和浏览器验证尚待最终收口；现场/部署 NOT_RUN。
+
+## 历史缺口与复现（保留原结论，不作当前验收）
+
+
 状态：INCOMPLETE。以下来自固定摄取合同及隔离已安装数据库，不代表已修复。SDAR 不修改上游 DDL、触发器或约束，不增加影子表。
 
 ## 临时 Skill 终态经验缺少设备归属

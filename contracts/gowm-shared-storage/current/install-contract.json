@@ -405,6 +405,11 @@
       "family": "GOWM_OVERLAY",
       "file": "derived_ownership_v1.sql",
       "checksum": "bb590ee330a0af44b87fe93d8150a000039598837b77aa2e524ceca00e2036cd"
+    },
+    {
+      "family": "GOWM_OVERLAY",
+      "file": "terminal_link_ownership_v1.sql",
+      "checksum": "7ff257a3b878cb9f431994abd5f8b597959279cb5f0ac4bb72b61311903322f6"
     }
   ]
 }
