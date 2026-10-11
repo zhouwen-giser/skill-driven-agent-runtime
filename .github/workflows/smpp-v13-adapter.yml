@@ -1,0 +1,62 @@
+name: SMPP UGV v1.3 Adapter
+on:
+  push:
+    branches:
+      - codex/sdar-smpp-ugv-v1.3-taskbusiness
+  pull_request:
+    paths:
+      - packages/mcp-adapter/**
+      - packages/application/**
+      - apps/server/src/runtime.ts
+      - .github/workflows/smpp-v13-adapter.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: format
+        continue-on-error: true
+        run: |
+          pnpm exec prettier --check packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts docs/SDAR_SMPP_UGV_V13_ADAPTER.md .github/workflows/smpp-v13-adapter.yml
+      - name: Show exact formatter changes on failure
+        if: steps.format.outcome == 'failure'
+        run: |
+          pnpm exec prettier --write packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
+          git diff -- packages/mcp-adapter packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
+      - id: lint
+        continue-on-error: true
+        run: |
+          pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
+      - id: typecheck
+        continue-on-error: true
+        run: pnpm typecheck
+      - id: tests
+        continue-on-error: true
+        run: pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts
+      - name: Require all compatibility checks
+        if: always()
+        env:
+          FORMAT: ${{ steps.format.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          TYPES: ${{ steps.typecheck.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+        run: |
+          printf 'format=%s lint=%s typecheck=%s tests=%s\n' "$FORMAT" "$LINT" "$TYPES" "$TESTS"
+          test "$FORMAT" = success
+          test "$LINT" = success
+          test "$TYPES" = success
+          test "$TESTS" = success

@@ -354,6 +354,7 @@ import {
   FrozenV1RuntimeNotificationAdapter,
   FrozenBusinessEventsRuntimeAdapter,
   FrozenBusinessEventsClient,
+  SmppTaskBusinessClient,
   FrozenV1McpClient,
   createMcpOutboundFetch,
 } from '../../../packages/mcp-adapter/src/index.js';
@@ -2410,6 +2411,43 @@ export async function startServerRuntime(
       now: clock.now,
       client: frozenMcpClient,
     }),
+    frozenBusinessRead: {
+      getContext: (input) =>
+        new SmppTaskBusinessClient({
+          client: frozenMcpClient,
+          endpoint: input.endpoint,
+          headers: input.headers,
+          now: clock.now,
+          expectedProviderId: input.expectedProviderId,
+          expectedResourceId: input.expectedResourceId,
+        }).getContext({ taskId: input.taskId }),
+      getArtifact: (input) =>
+        new SmppTaskBusinessClient({
+          client: frozenMcpClient,
+          endpoint: input.endpoint,
+          headers: input.headers,
+          now: clock.now,
+          expectedProviderId: input.expectedProviderId,
+          expectedResourceId: input.expectedResourceId,
+        }).getArtifact({
+          taskId: input.taskId,
+          artifactId: input.artifactId,
+          revision: input.revision,
+        }),
+      getArtifactContent: (input) =>
+        new SmppTaskBusinessClient({
+          client: frozenMcpClient,
+          endpoint: input.endpoint,
+          headers: input.headers,
+          now: clock.now,
+          expectedProviderId: input.expectedProviderId,
+          expectedResourceId: input.expectedResourceId,
+        }).readArtifactContent({
+          taskId: input.taskId,
+          artifactId: input.artifactId,
+          revision: input.revision,
+        }),
+    },
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
