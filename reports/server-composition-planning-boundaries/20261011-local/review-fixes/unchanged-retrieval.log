@@ -1,0 +1,101 @@
+$ node scripts/test-integration.mjs -- packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 824B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 1.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.9s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#7 DONE 0.0s
+
+#8 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.1s done
+#9 DONE 0.1s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:a6c268271134851751f99559c3132348f119187394aa0f3f5cae12af062a1bf1
+#13 exporting manifest sha256:a6c268271134851751f99559c3132348f119187394aa0f3f5cae12af062a1bf1 0.1s done
+#13 exporting config sha256:126e7d88c6865d49e83ae91fe842e31720d2832a5f6797bd55534a82713b8db7
+#13 exporting config sha256:126e7d88c6865d49e83ae91fe842e31720d2832a5f6797bd55534a82713b8db7 0.1s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.2s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-local Creating 
+ Network sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-local Created 
+ Volume sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-postgres-data Creating 
+ Volume sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-postgres-data Created 
+ Volume sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-redis-data Creating 
+ Volume sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-redis-data Created 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Creating 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Creating 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Created 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Created 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Starting 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Starting 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Started 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Started 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Waiting 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Waiting 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Healthy 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Healthy 
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/tmp/sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848-i6mWRV/source[39m
+
+[90mstdout[2m | packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts[2m > [22m[2mP07 P06 Active -> P02 Repository -> retrieval audit integration[2m > [22m[2mmeasures the PostgreSQL-authoritative active retrieval path without bypassing audit writes
+[22m[39m{"evidence":"P07_PERFORMANCE","samples":25,"p50Ms":7.028249999999389,"p95Ms":13.480908999999883,"authority":"postgresql_active_pointer_and_artifact_match_log"}
+
+ [32m✓[39m [30m[45m integration [49m[39m packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 3855[2mms[22m[39m
+     [33m[2m✓[22m[39m uses the PostgreSQL active pointer, writes a durable match audit and records a revalidation signal [33m 301[2mms[22m[39m
+     [33m[2m✓[22m[39m measures the PostgreSQL-authoritative active retrieval path without bypassing audit writes [33m 328[2mms[22m[39m
+     [33m[2m✓[22m[39m fails the forward backfill on a contradictory selected ref and recovers with the exact version [33m 416[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 18:50:01
+[2m   Duration [22m 10.45s[2m (transform 4.40s, setup 0ms, import 6.41s, tests 3.86s, environment 0ms)[22m
+
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Stopping 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Stopping 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Stopped 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Removing 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Stopped 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Removing 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-postgres-1 Removed 
+ Container sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98-redis-1 Removed 
+ Network sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-local Removing 
+ Network sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98_sdar-local Removed 
+{"project":"sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98","source":"/tmp/sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848-i6mWRV/source","sourceCommit":"6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766","sourceOverlay":[],"runtimeInputSha256":"57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c","baselineSha256":"ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2","command":["pnpm","test:integration","--","packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"],"exitCode":0,"cleanupExitCode":0,"scope":"focused_task_revision_on_fresh_owned_loopback_postgres","site":"NOT_RUN","deployment":"NOT_RUN"}

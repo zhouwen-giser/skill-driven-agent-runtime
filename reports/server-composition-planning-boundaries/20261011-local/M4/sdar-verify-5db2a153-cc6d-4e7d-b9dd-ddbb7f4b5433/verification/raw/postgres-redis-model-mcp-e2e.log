@@ -1,0 +1,357 @@
+$ node scripts/test-e2e.mjs
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 807B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.1s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.1s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.8s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:ecb41b46136d6c5002690400605f4ea5203ea0223114d919f1eaec662905a03e done
+#13 exporting config sha256:8d0df009224e3bc8c90eb9aedf591eca3ff4394525ff987aae46c97cea9b95f4 done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.1s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433_sdar-local Creating 
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433_sdar-local Created 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Creating 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Creating 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Created 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Created 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Starting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Starting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Started 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Started 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Waiting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Waiting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Healthy 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Healthy 
+
+ RUN  v4.1.10 /tmp/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-WmwfMM/source
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":1,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":14,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"remote_task_reconcile.failed","error":"REMOTE_TASK_PROVIDER_EXECUTION_LINK_CONFLICT"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":4,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"77bb13d3-f660-4bef-b473-0eba313d597f","workflowPlanId":"plan-task-77bb13d3-f660-4bef-b473-0eba313d597f-a66d0b79-314a-4901-ad15-6c71ec324f8c","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"0027396e-95f4-4d1d-b466-354f007da012","workflowPlanId":"plan-task-0027396e-95f4-4d1d-b466-354f007da012-fe3dbe6e-2c3f-4c0b-b249-9d52d685e56a","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"edf2f1a8-ec3f-4315-8abd-2e17c9885688","workflowPlanId":"plan-task-edf2f1a8-ec3f-4315-8abd-2e17c9885688-ed5141e0-f097-4678-a234-050cd234cc28","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"4c6c2a29-471e-451d-9f51-903f0e82cd7a","workflowPlanId":"plan-task-4c6c2a29-471e-451d-9f51-903f0e82cd7a-aa2e9b29-6036-48f8-9814-4528f1fc3559","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"ea6dffa6-b5e2-427b-a344-c64b3d04db24","workflowPlanId":"plan-task-ea6dffa6-b5e2-427b-a344-c64b3d04db24-158ede58-6b0d-4763-a190-d21c8091f403","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"015602ef-c062-421a-9686-5e1b8f667260","workflowPlanId":"plan-task-015602ef-c062-421a-9686-5e1b8f667260-dc6b16b6-a493-4d7f-941b-ac4adcc14e26","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"e4c5d557-6591-4810-a024-31da085b5e0a","workflowPlanId":"plan-task-e4c5d557-6591-4810-a024-31da085b5e0a-0d0b5cc6-24a8-4150-9409-f933ebfcc6ff","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"d1665f02-e9ab-43bc-a777-01fed1d97338","workflowPlanId":"plan-task-d1665f02-e9ab-43bc-a777-01fed1d97338-8cbf709a-acbb-49bf-9985-4dc7358ff411","errorCode":"RESULT_SCHEMA_MISMATCH","errorSummary":"Structured result does not conform to the Skill output schema."}
+{"event":"a2a_terminal_projection.reconciled","scanned":33,"reconciled":22,"alreadyConverged":1,"nonTerminal":10,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":32,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":4,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-11T11:41:54.949Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+ ✓ |e2e| packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts (64 tests | 1 skipped) 48926ms
+     ✓ routes an ambiguous prompt-injection attempt through persisted Task Understanding  1200ms
+     ✓ uses real pgvector scores as candidate context while the decider makes the final selection  314ms
+     ✓ induces a frequent successful Workflow Template and tracks adjusted reuse effects  2209ms
+     ✓ executes skill_call as an independent LangGraph child Workflow using the current Skill version  348ms
+     ✓ requires an independent child Skill confirmation before the parent Task can continue  2780ms
+     ✓ retrieves the same globally shared formal Skill for different user_id values  619ms
+     ✓ executes a simulated 'document_normalize' business through default Skill selection and A2A artifacts  522ms
+     ✓ executes a simulated 'data_aggregate' business through default Skill selection and A2A artifacts  505ms
+     ✓ binds prioritized A2A structured Skill input into real MCP arguments  496ms
+     ✓ continues the same Task after a top-level Skill input-required checkpoint  460ms
+     ✓ rejects a generated Task plan when the selected Skill required Tool is missing  415ms
+     ✓ replaces a failed selected Skill only through an alternative plan and fresh confirmation  693ms
+     ✓ pauses before the next real MCP node and resumes without replay  898ms
+     ✓ runs a confirmed Skill through availability, LangGraph, a remote MCP Task, continuation, evaluation, and A2A completion  5356ms
+     ✓ rejects ungoverned embodied.move_to in guidance mode with immediate_success before the Provider boundary  3147ms
+     ✓ rejects ungoverned embodied.move_to in template mode with remote_success before the Provider boundary  511ms
+     ✓ rejects ungoverned embodied.move_to in template mode with remote_notification_success before the Provider boundary  458ms
+     ✓ rejects ungoverned embodied.move_to in procedure mode with remote_success before the Provider boundary  436ms
+     ✓ rejects ungoverned embodied.move_to in template mode with remote_missing_evidence before the Provider boundary  492ms
+     ✓ rejects ungoverned recursive embodied.area_patrol with remote_success before the Provider boundary  865ms
+     ✓ rejects ungoverned recursive embodied.area_patrol with remote_degraded before the Provider boundary  763ms
+     ✓ blocks embodied.move_to for forbidden area permission before any Provider side effect  492ms
+     ✓ preserves embodied.move_to restricted availability windows for procedure-mode rescheduling  1067ms
+     ✓ persists a standalone LangGraph human interrupt and rejects continuation without Task authority  433ms
+     ✓ invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation  609ms
+     ✓ evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds  1150ms
+     ✓ projects a Goal-evaluation capability gap onto the persisted A2A Task  1450ms
+     ✓ stores source-linked memory and retrieves it globally across user identities  1084ms
+     ✓ infers missing Goal input from global memory before asking an explicit question  951ms
+     ✓ continues a Goal-evaluation input request with a new plan and real MCP argument  457ms
+     ✓ configures Memory retention fields while V1 keeps automatic cleanup disabled  358ms
+     ✓ retains repeated Temporary Skill experience while both evolution publication entries remain deferred  1023ms
+     ✓ resolves a capability gap into a confirmed task-scoped Temporary Skill execution  324ms
+     ✓ runs the documented example A2A client through plan confirmation and Mock MCP  383ms
+     ✓ submits, streams, persists, lists, and cancels at the plan-confirmation boundary  759ms
+     ✓ automatically cancels a confirmation wait using the managed unified timeout  1441ms
+     ✓ uses one authoritative Task path for management confirm, reject, and plan revision  1151ms
+     ✓ reuses one active Goal across multiple A2A Tasks in the same context  484ms
+     ✓ cancels an active Goal without rewriting an already-terminal sibling Task  468ms
+     ✓ stores create/update Skill requests as drafts without exposing them in Agent Card  454ms
+     ✓ returns schema-validated natural-language and structured final output  2036ms
+     ✓ returns the A2A terminal result even when post-commit Memory enhancement fails  518ms
+     ✓ routes a low-quality report into Skill evidence and an inactive Prompt candidate  588ms
+     ✓ auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results  1398ms
+     ✓ retains Prompt corrections, failure reasons and evaluations without deferred Skill correction publication  453ms
+     ✓ continues after stream disconnect and supports polling plus standard resubscribe  361ms
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-11T11:42:20.244Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":5,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-11T11:42:52.487Z"}
+ ✓ |e2e| apps/server/test/smpp-task-business.e2e.test.ts (2 tests) 52240ms
+     ✓ AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch  34633ms
+     ✓ AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch  17605ms
+ ✓ |e2e| apps/server/test/artifact-operational-flags-p13.e2e.test.ts (5 tests) 8967ms
+     ✓ starts every additive Artifact path off by default  5214ms
+     ✓ gates bearer-backed approval and activation while preserving the explicitly enabled path  1000ms
+ ✓ |e2e| packages/persistence-postgres/test/case-model-runtime-p11.e2e.test.ts (1 test) 2974ms
+ ✓ |e2e| apps/server/test/artifact-management-p12.e2e.test.ts (3 tests) 19623ms
+ ✓ |e2e| packages/a2a-adapter/test/fast-gateway-p10.e2e.test.ts (1 test) 5473ms
+     ✓ projects policy denial as the existing formal failed Task and never falls back  407ms
+ ✓ |e2e| apps/server/test/business-events-runtime.e2e.test.ts (1 test) 5629ms
+
+ Test Files  7 passed (7)
+      Tests  76 passed | 1 skipped (77)
+   Start at  19:41:01
+   Duration  164.09s (transform 5.38s, setup 0ms, import 19.05s, tests 143.83s, environment 1ms)
+
+name: sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance
+services:
+  postgres:
+    build:
+      context: /tmp/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-WmwfMM/source
+      dockerfile: infra/postgres/Dockerfile.pgvector-hardened
+      args:
+        SOURCE_DATE_EPOCH: "0"
+      provenance: "false"
+      sbom: "false"
+    environment:
+      POSTGRES_DB: sdar
+      POSTGRES_PASSWORD: sdar_local_only
+      POSTGRES_USER: sdar
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      timeout: 3s
+      interval: 2s
+      retries: 30
+      start_period: 5s
+    image: sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+    networks:
+      sdar-local: null
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5432
+        published: "36177"
+        protocol: tcp
+    pull_policy: never
+    restart: "no"
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+        tmpfs:
+          size: "2147483648"
+      - type: bind
+        source: /tmp/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-WmwfMM/source/infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql
+        target: /docker-entrypoint-initdb.d/0001_sdar_v1_2_2_baseline.sql
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /tmp/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-WmwfMM/source/infra/postgres/seed/0001_sdar_v1_2_2_minimal_seed.sql
+        target: /docker-entrypoint-initdb.d/0002_sdar_v1_2_2_minimal_seed.sql
+        read_only: true
+        bind: {}
+  redis:
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - "60"
+      - "1"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 3s
+      interval: 2s
+      retries: 30
+      start_period: 2s
+    image: redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
+    networks:
+      sdar-local: null
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 6379
+        published: "43917"
+        protocol: tcp
+    restart: "no"
+    volumes:
+      - type: volume
+        source: sdar-redis-data
+        target: /data
+        volume: {}
+networks:
+  sdar-local:
+    name: sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-local
+    driver: bridge
+volumes:
+  sdar-redis-data:
+    name: sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-redis-data
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-local Creating 
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-local Created 
+ Volume sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-redis-data Creating 
+ Volume sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-redis-data Created 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Creating 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Creating 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Created 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Created 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Starting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Starting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Started 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Started 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Waiting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Waiting 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Healthy 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Healthy 
+aabb7384d4a16b2573ecbd1dac0c6b78a7407c7a581820edc19bfd9948ec39a9
+ae8c8b0f0cc00192cbef0984e601bb2f614af4a11b58db8db282510690bc24f7
+
+ RUN  v4.1.10 /tmp/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-WmwfMM/source
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"phase13.performance.append_raw_metrics","appendP95RawMs":2.53914099999929,"appendSamplesMs":[2.3498080000008486,2.225822000000335,2.4772589999993215,2.2460440000013477,2.201182000000699,2.187649000001329,2.2655180000001565,2.2277649999996356,2.53914099999929,2.2989890000008018,2.3079470000011497,2.3092329999999492,2.468978999999308,3.251333000000159,2.397949999998673,2.404372000000876,2.282857000000149,2.2895079999998416,2.3302349999994476,2.433555999999953,2.34988500000145,2.354987999999139,2.321390999999494,2.5727700000006735,2.3624850000014703,2.2643170000010286,2.25828299999921,2.153193000000101,2.1300260000007256,5.825745000000097,2.1848970000010013,2.1619559999999183,2.23748599999999,2.5305179999995744,2.168075999999928,2.2520839999997406,2.253867999999784,2.2062630000000354,2.272291999999652,2.219867999998314,2.239303000000291,2.2076250000009168,2.3264970000000176,2.359215000000404,2.3731040000002395,2.2356159999999363,2.33328900000015,2.329110999999102,2.623888000000079,2.2951780000003055,2.262934000000314,2.1908990000010817,2.2030240000003687,2.3058639999999286,2.4446090000001277,2.708357999999862,2.5306799999998475,2.3857939999998052,2.158995000001596,2.1290750000007392,2.061786000000211,2.1751249999997526,2.2532570000003034,2.177478000001429,2.1781630000004952,2.33987100000013,2.498180999999022,2.321259000000282,2.1636149999994814,2.160781999999017,2.2600389999988693,2.2746700000006967,2.217971000000034,2.0875269999996817,2.097955000001093,2.042953000000125,2.2043439999997645,2.251925000000483,2.1664880000007543,2.2037449999988894,2.145430000000488,2.0640560000010737,2.0335890000005747,2.094739000000118,2.094828999999663,2.038769000000684,2.1103950000015175,2.193959000000177,2.221638000000894,2.1327799999999115,2.0895220000002155,2.0693330000012793,2.0355670000008104,2.0115030000015395,2.015423999999257,2.0341720000014902,2.023924999999508,2.0228150000002643,2.0446680000004562,2.0260220000000118],"appendTailMs":[2.4772589999993215,2.498180999999022,2.5305179999995744,2.5306799999998475,2.53914099999929,2.5727700000006735,2.623888000000079,2.708357999999862,3.251333000000159,5.825745000000097],"evidenceOutboxRowCount":"110","forwardReferencePlan":[{"Plan":{"Node Type":"Seq Scan","Parallel Aware":false,"Async Capable":false,"Relation Name":"evidence_outbox","Alias":"evidence_outbox","Startup Cost":0,"Total Cost":13.81,"Plan Rows":1,"Plan Width":32,"Actual Startup Time":0.045,"Actual Total Time":0.046,"Actual Rows":0,"Actual Loops":1,"Filter":"(evidence_refs ? 'phase13-diagnostic-record-id'::text)","Rows Removed by Filter":110,"Shared Hit Blocks":13,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning":{"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.036,"Triggers":[],"Execution Time":0.05}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":82,"reconciled":82,"alreadyConverged":0,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":150,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":138,"reconciled":56,"alreadyConverged":82,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":226,"reconciled":88,"alreadyConverged":138,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"phase13.performance.raw_metrics","baselineP95RawMs":532.1675440000035,"evidenceEnabledP95RawMs":429.19565000000875,"regressionRawPercent":-19.349525381802334,"baselineWindowMediansRawMs":[330.67330750000474,308.10010100000363,331.24977450000006],"baselineMedianDriftRawPercent":7.2416291570846765,"appendP95RawMs":2.53914099999929,"appendSamplesMs":[2.3498080000008486,2.225822000000335,2.4772589999993215,2.2460440000013477,2.201182000000699,2.187649000001329,2.2655180000001565,2.2277649999996356,2.53914099999929,2.2989890000008018,2.3079470000011497,2.3092329999999492,2.468978999999308,3.251333000000159,2.397949999998673,2.404372000000876,2.282857000000149,2.2895079999998416,2.3302349999994476,2.433555999999953,2.34988500000145,2.354987999999139,2.321390999999494,2.5727700000006735,2.3624850000014703,2.2643170000010286,2.25828299999921,2.153193000000101,2.1300260000007256,5.825745000000097,2.1848970000010013,2.1619559999999183,2.23748599999999,2.5305179999995744,2.168075999999928,2.2520839999997406,2.253867999999784,2.2062630000000354,2.272291999999652,2.219867999998314,2.239303000000291,2.2076250000009168,2.3264970000000176,2.359215000000404,2.3731040000002395,2.2356159999999363,2.33328900000015,2.329110999999102,2.623888000000079,2.2951780000003055,2.262934000000314,2.1908990000010817,2.2030240000003687,2.3058639999999286,2.4446090000001277,2.708357999999862,2.5306799999998475,2.3857939999998052,2.158995000001596,2.1290750000007392,2.061786000000211,2.1751249999997526,2.2532570000003034,2.177478000001429,2.1781630000004952,2.33987100000013,2.498180999999022,2.321259000000282,2.1636149999994814,2.160781999999017,2.2600389999988693,2.2746700000006967,2.217971000000034,2.0875269999996817,2.097955000001093,2.042953000000125,2.2043439999997645,2.251925000000483,2.1664880000007543,2.2037449999988894,2.145430000000488,2.0640560000010737,2.0335890000005747,2.094739000000118,2.094828999999663,2.038769000000684,2.1103950000015175,2.193959000000177,2.221638000000894,2.1327799999999115,2.0895220000002155,2.0693330000012793,2.0355670000008104,2.0115030000015395,2.015423999999257,2.0341720000014902,2.023924999999508,2.0228150000002643,2.0446680000004562,2.0260220000000118],"appendTailMs":[2.4772589999993215,2.498180999999022,2.5305179999995744,2.5306799999998475,2.53914099999929,2.5727700000006735,2.623888000000079,2.708357999999862,3.251333000000159,5.825745000000097]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":240,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+ ✓ |e2e| packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts (64 tests | 63 skipped) 139884ms
+     ✓ keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds  93112ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 63 skipped (64)
+   Start at  19:43:56
+   Duration  147.13s (transform 5.01s, setup 0ms, import 7.05s, tests 139.88s, environment 0ms)
+
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Stopping 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Stopping 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Stopped 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Removing 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Stopped 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Removing 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-postgres-1 Removed 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance-redis-1 Removed 
+ Volume sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-redis-data Removing 
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-local Removing 
+ Volume sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-redis-data Removed 
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-e2e-performance_sdar-local Removed 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Stopping 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Stopping 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Stopped 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Removing 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Stopped 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Removing 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-redis-1 Removed 
+ Container sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-postgres-1 Removed 
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433_sdar-local Removing 
+ Network sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433_sdar-local Removed 

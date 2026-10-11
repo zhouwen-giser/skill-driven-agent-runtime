@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "runId": 38131929285,
+  "headSha": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "event": "pull_request",
+  "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/actions/runs/38131929285",
+  "actualCheckout": "990230d98550f335f809701f23d9e1a774f4711b",
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "sameFrozenRuntimeInputs": true,
+  "planningTests": 148,
+  "adapterRegistryTests": 103,
+  "requiredSteps": [
+    "Run pnpm format:check",
+    "Run pnpm typecheck",
+    "Run pnpm verify:architecture",
+    "Run pnpm test:verification",
+    "Require all compatibility checks"
+  ],
+  "jobs": "jobs.json",
+  "run": "run.json",
+  "sourceIdentity": "checkout-source-identity.json",
+  "rawLog": "raw.log",
+  "rawLogSha256": "d82e84a5f68c775d49b0b84ebf875dc39713b4557a2a8114bff7e464aaf441fd"
+}

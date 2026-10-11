@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "scope": "unchanged_frozen_P07_retrieval_diagnostic",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+  "inputFilesChangedAfterFocusedTest": [],
+  "cases": 4,
+  "samples": 25,
+  "p95Ms": 13.480908999999883,
+  "limitMs": 100,
+  "fullGate": "NOT_A_REPLACEMENT",
+  "rawLog": "review-fixes/unchanged-retrieval.log",
+  "rawLogSha256": "ae95b48edc03c7193fd34c6974c0d5d27ec8590b8349bd2a252384c3c9c98018",
+  "fixture": "FRESH_OWNED_PERSISTENT_POSTGRES",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

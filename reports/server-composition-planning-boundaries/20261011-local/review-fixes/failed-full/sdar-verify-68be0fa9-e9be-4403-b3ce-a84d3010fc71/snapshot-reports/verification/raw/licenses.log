@@ -1,0 +1,2 @@
+$ node scripts/generate-sbom.mjs --check
+Verified SBOM and licenses for 286 npm packages, 2 external services, 1 excluded build tool, and 1 excluded release tool.

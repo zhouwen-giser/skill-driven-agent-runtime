@@ -1,0 +1,43 @@
+{
+  "runId": "sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503",
+  "source": "/tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "inputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+  "command": [
+    "pnpm",
+    "test:e2e",
+    "--",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "--testNamePattern",
+    "keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds"
+  ],
+  "scope": "focused_unchanged_performance_test_on_owned_loopback_infrastructure",
+  "ownedCpuSetContainers": [],
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "rawLog": "focused/post-review-performance.log",
+  "rawLogSha256": "84b6b3c4ecbcd392aab11ee3a513ff86bb869f93857790990b89b106f4d110ea",
+  "result": "focused/post-review-performance-result.json",
+  "fixture": "focused/post-review-performance-fixture.json",
+  "fullGate": "NOT_A_REPLACEMENT",
+  "status": "PASS",
+  "actualBenchmark": {
+    "baselineMedianDriftPercent": 11.241,
+    "regressionPercent": -1.738,
+    "appendP95Ms": 2.717,
+    "samples": {
+      "runtimeBaselineInterleaved": 72,
+      "runtimeEvidenceEnabled": 72,
+      "evidenceAppend": 100
+    },
+    "thresholds": {
+      "baselineMedianDriftPercentMaximum": 15,
+      "runtimeP95RegressionPercentMaximum": 10,
+      "evidenceAppendP95MsMaximum": 20,
+      "evaluatedBeforeDisplayRounding": true
+    }
+  }
+}

@@ -6,15 +6,15 @@
     "node",
     "scripts/sdar-smpp-v13/verify-gowm.mjs"
   ],
-  "cwd": "/tmp/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-HsI3Ci/source",
+  "cwd": "/tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source",
   "exitCode": 0,
   "signal": null,
-  "runId": "sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8",
-  "frozenRunId": "sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b",
-  "sourceCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
-  "fullFrozenRuntimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
-  "localRuntimeInputSha256": "a8ab9dfd6e8825fb6883444ad716d151b6eafd7762a1e7c759833d0dc0e96473",
-  "localBaselineSha256": "a2eb495293ef1fab9cb7ef457c22627d220cda59541cb5d5303b67a36c4fbf8d",
+  "runId": "sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03",
+  "frozenRunId": "sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "fullFrozenRuntimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "localRuntimeInputSha256": "0c0c1cc40da0c8870da363816814240703cee7bb0fec305326751388cde7cdab",
+  "localBaselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
   "sameLocalFrozenInputs": true,
   "externalVerificationInputs": [
     {
@@ -64,49 +64,49 @@
   "driverSteps": [
     {
       "label": "owner-export",
-      "durationMs": 188,
+      "durationMs": 186,
       "exitCode": 0,
       "signal": null
     },
     {
       "label": "owner-extract",
-      "durationMs": 116,
+      "durationMs": 117,
       "exitCode": 0,
       "signal": null
     },
     {
       "label": "postgres-start",
-      "durationMs": 466,
+      "durationMs": 336,
       "exitCode": 0,
       "signal": null
     },
     {
       "label": "redis-start",
-      "durationMs": 322,
+      "durationMs": 368,
       "exitCode": 0,
       "signal": null
     },
     {
       "label": "owner-core-bootstrap",
-      "durationMs": 2617,
+      "durationMs": 3445,
       "exitCode": 0,
       "signal": null
     },
     {
       "label": "owner-domain-install",
-      "durationMs": 2360,
+      "durationMs": 2498,
       "exitCode": 0,
       "signal": null
     },
     {
       "label": "formal-navigation-recon-shared-storage",
-      "durationMs": 57817,
+      "durationMs": 65086,
       "exitCode": 0,
       "signal": null
     },
     {
       "label": "native-storage-boundaries",
-      "durationMs": 3683,
+      "durationMs": 4004,
       "exitCode": 0,
       "signal": null
     }
@@ -114,40 +114,40 @@
   "formalCases": [
     {
       "operation": "vehicle_area_recon",
-      "taskId": "62295b00-e7fa-4a9b-8b2a-549c980d47b1",
-      "deviceId": "business-device-a5dc17e9-3b49-4b75-b82c-02bf6a2e1cc3",
-      "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/formal-vehicle_area_recon-a5dc17e9-3b49-4b75-b82c-02bf6a2e1cc3/evidence.json"
+      "taskId": "c9a82d5a-aeda-4cb3-bb77-24684b29ed95",
+      "deviceId": "business-device-11bec2fe-b02f-417e-b29c-fab8453e0943",
+      "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03/formal-vehicle_area_recon-11bec2fe-b02f-417e-b29c-fab8453e0943/evidence.json"
     },
     {
       "operation": "vehicle_navigate",
-      "taskId": "9a839045-9033-48ae-b119-8e1f3070e160",
-      "deviceId": "business-device-9c45517c-c13a-4952-bf4c-a8f816203420",
-      "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/formal-vehicle_navigate-9c45517c-c13a-4952-bf4c-a8f816203420/evidence.json"
+      "taskId": "d8d940b5-2e5b-4d82-a5bf-26ceeb274e58",
+      "deviceId": "business-device-e0c4b8f6-625b-4a6b-9f1c-b256472405a3",
+      "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03/formal-vehicle_navigate-e0c4b8f6-625b-4a6b-9f1c-b256472405a3/evidence.json"
     }
   ],
-  "nativeScenarioCount": 26,
+  "nativeScenarioCount": 30,
   "nativeBoundarySuiteProjectAcceptance": "INCOMPLETE",
   "knownContractGaps": [
     "auxiliary-link-contract-gap.json"
   ],
   "cleanup": [
     {
-      "id": "03d47f9a9dafe02fd6b918e28ef207f7e38bbe9a9e504fefda602a6ad36aeec6",
+      "id": "400d8f3798cfe75a7986a66d3243a3b040fc4fbd879ea21631c4722bf907fda5",
       "ownershipChecked": true,
       "exitCode": 0
     },
     {
-      "id": "a2860a96af06d413d81450f73a3bb665bd6bdaec60696a53c253190b3240f40c",
+      "id": "e586a12543e2ff448dc53af4e9762456699c3917cd467d1d36d5fb82dbb656e6",
       "ownershipChecked": true,
       "exitCode": 0
     }
   ],
   "cleanupErrors": [],
-  "originalReportDirectory": "/tmp/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-HsI3Ci/source/reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8",
-  "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8",
+  "originalReportDirectory": "/tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source/reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03",
+  "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03",
   "runnerLog": "reports/server-composition-planning-boundaries/20261011-local/M4-gowm-runner.log",
-  "archivedRawLog": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/raw/runner.log",
-  "rawLogSha256": "7019f5d85c9d5cd300b2dab2428363fc46584bb3a627108844eb0bfaf247c459",
+  "archivedRawLog": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03/raw/runner.log",
+  "rawLogSha256": "7a4bdc18644fb62902616e2555741b08602b4deac13e9cfe983f3f4795cb81a0",
   "classification": {
     "database": "REAL_OWNED_LOOPBACK_RESTRICTED_ROLES",
     "model": "SIMULATED_LOOPBACK",
@@ -155,5 +155,8 @@
     "physicalProvider": "NOT_RUN",
     "site": "NOT_RUN",
     "deployment": "NOT_RUN"
-  }
+  },
+  "currentFrozenRunId": "sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433",
+  "sameCurrentLocalFrozenInputs": true,
+  "currentFrozenEquivalenceEvidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM_CURRENT_FROZEN_EQUIVALENCE.json"
 }

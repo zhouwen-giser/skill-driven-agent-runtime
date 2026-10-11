@@ -1,0 +1,56 @@
+{
+  "capturedAt": "2026-10-11T10:33:01.111995+00:00",
+  "sourceRuntimeCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "frozenRunId": "sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848",
+  "cwd": "/tmp/sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848-i6mWRV/source",
+  "os": "Linux 6.8.0-124-generic x86_64 GNU/Linux",
+  "node": "v22.23.2",
+  "pnpm": "11.25.0",
+  "python": "Python 3.12.14",
+  "pythonPathPrefix": "/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin",
+  "dockerClient": "29.3.0",
+  "dockerServer": "29.3.0",
+  "pnpm_config_verify_deps_before_run": "false",
+  "versionCommands": [
+    [
+      "uname",
+      "-srmo"
+    ],
+    [
+      "node",
+      "--version"
+    ],
+    [
+      "pnpm",
+      "--version"
+    ],
+    [
+      "/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "--version"
+    ],
+    [
+      "docker",
+      "version",
+      "--format",
+      "{{.Client.Version}}|{{.Server.Version}}"
+    ]
+  ],
+  "commandExitCodes": [
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frozenInstallPnpmVersion": "11.7.0",
+  "frozenInstallVersionEvidence": "reports/runtime-semantic-closure/sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848/install.log",
+  "historicalPerformancePlatformLabel": "Unchanged raw performance JSON carries its prior literal Windows label; this record supplies actual execution environment.",
+  "classification": {
+    "database": "REAL_OWNED_LOOPBACK",
+    "model": "SIMULATED_LOOPBACK",
+    "mcp": "SIMULATED_LOOPBACK",
+    "physicalProvider": "NOT_RUN",
+    "site": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  }
+}

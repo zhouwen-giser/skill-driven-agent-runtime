@@ -1,0 +1,21 @@
+{
+  "name": "build",
+  "command": "pnpm build",
+  "status": "passed",
+  "startedAt": "2026-10-11T11:30:42.301Z",
+  "finishedAt": "2026-10-11T11:31:28.452Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/build.log",
+  "outputSha256": "19a9c176050e14eb52735d18cf3039d0f4a4c5b63593a4d06a200eddcdc523b9",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 46151,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 46,
+    "peakRssBytes": 1680900096,
+    "peakProcesses": 6
+  },
+  "cleanupErrors": []
+}

@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "status": "PASS",
   "baseCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
-  "runtimeCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+  "runtimeCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
   "command": [
     "git",
     "diff",
     "--exit-code",
-    "a230bac9b61e6cf901a91c094dbfe63704717fce..870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+    "a230bac9b61e6cf901a91c094dbfe63704717fce..6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
     "--",
     "package.json",
     "pnpm-lock.yaml",
@@ -49,5 +49,9 @@
   ],
   "scope": "Immutable dependency, migration, schema and protocol inputs only; behavior additionally verified by full contract and safety suites. Traceability and the new refactor ADR are deliberate evidence updates.",
   "site": "NOT_RUN",
-  "deployment": "NOT_RUN"
+  "deployment": "NOT_RUN",
+  "priorTraceabilityBaselinePrefix": {
+    "status": "UNCHANGED",
+    "sha256": "4db0c5ec7524d9f45f935589e1384d21400047412811863c5d3b1f5e57d78f12"
+  }
 }

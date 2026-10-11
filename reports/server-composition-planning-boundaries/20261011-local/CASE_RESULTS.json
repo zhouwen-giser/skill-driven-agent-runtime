@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "scope": "server_composition_planning_authority_refactor",
   "status": "LOCAL_VERIFIED_PUBLICATION_PENDING",
-  "sourceCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
-  "runtimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
-  "baselineSha256": "a2eb495293ef1fab9cb7ef457c22627d220cda59541cb5d5303b67a36c4fbf8d",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
   "cases": [
     {
       "id": "RF-01",
@@ -21,29 +21,29 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         },
         {
           "stage": "infrastructure-smoke",
           "command": "pnpm smoke:infra",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/infrastructure-smoke.log",
-          "rawLogSha256": "3c4c528fa9e52a4b0e1f13ce9789a91c261390b3401f9e6f482c9d417428460e"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/infrastructure-smoke.log",
+          "rawLogSha256": "5927ef73a68de1048c2c6d215b2612dd81c431a2ccba0dd6fa71b9f8e7ede1fa"
         },
         {
           "stage": "server-console-smoke",
           "command": "pnpm smoke:server",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/server-console-smoke.log",
-          "rawLogSha256": "f125b7a39a2f2802738c783119e8f6962e52c88c53d905043d82d82da20653a7"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/server-console-smoke.log",
+          "rawLogSha256": "8c59fdb1e60564777b1b099bcf3ce8d21197dab3307c5019724247a3182377e0"
         },
         {
           "stage": "node-control-api-worker-smoke",
           "command": "pnpm smoke:node-control",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/node-control-api-worker-smoke.log",
-          "rawLogSha256": "4c1876f38a51815b38207cb843e13eb7d4d517106a80007e31e9da1ae6621baa"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/node-control-api-worker-smoke.log",
+          "rawLogSha256": "c753c89aaf222543b305fd7d97de987de7aef025665ed1f178a01410707cb91b"
         }
       ]
     },
@@ -60,8 +60,8 @@
           "stage": "architecture",
           "command": "pnpm verify:architecture",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/architecture.log",
-          "rawLogSha256": "fb27c46406b5d10e0696b4147c907ef96aeb8d233dfb5a07e3f99182a66cc436"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/architecture.log",
+          "rawLogSha256": "fbd00a9c421480476c4690c6e28db6640899eef2cd0e039f04594ec9a5085ef1"
         }
       ]
     },
@@ -81,8 +81,8 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         }
       ]
     },
@@ -102,8 +102,8 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         }
       ]
     },
@@ -126,15 +126,15 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         },
         {
           "stage": "postgres-redis-integration",
           "command": "pnpm test:integration",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-integration.log",
-          "rawLogSha256": "ce0096e83c11225bce28d37179519ddd4c42d67a13667d7c9ff3a60f430e2923"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/postgres-redis-integration.log",
+          "rawLogSha256": "195d89d6ab3797fd00b851f8d5120ea420cb252b099b48e8cf41061cc94f1ffa"
         }
       ]
     },
@@ -156,8 +156,8 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         }
       ]
     },
@@ -178,8 +178,8 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         }
       ]
     },
@@ -203,8 +203,8 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         }
       ]
     },
@@ -225,15 +225,15 @@
           "stage": "postgres-redis-model-mcp-e2e",
           "command": "pnpm test:e2e",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-model-mcp-e2e.log",
-          "rawLogSha256": "d7b0f4e002df96b2716853cead72de67f73f9442f30c5a9efb621e7a6c18a1ac"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "rawLogSha256": "5c0c591e2f1fe0320e07aa6cd4adc0d882aa2087df6411d8c88595af0fc6cc9e"
         },
         {
           "stage": "postgres-redis-integration",
           "command": "pnpm test:integration",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-integration.log",
-          "rawLogSha256": "ce0096e83c11225bce28d37179519ddd4c42d67a13667d7c9ff3a60f430e2923"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/postgres-redis-integration.log",
+          "rawLogSha256": "195d89d6ab3797fd00b851f8d5120ea420cb252b099b48e8cf41061cc94f1ffa"
         }
       ]
     },
@@ -255,8 +255,8 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         }
       ]
     },
@@ -280,15 +280,15 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         },
         {
           "stage": "postgres-redis-integration",
           "command": "pnpm test:integration",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-integration.log",
-          "rawLogSha256": "ce0096e83c11225bce28d37179519ddd4c42d67a13667d7c9ff3a60f430e2923"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/postgres-redis-integration.log",
+          "rawLogSha256": "195d89d6ab3797fd00b851f8d5120ea420cb252b099b48e8cf41061cc94f1ffa"
         }
       ]
     },
@@ -308,22 +308,22 @@
           "stage": "contract",
           "command": "pnpm test:contract",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/contract.log",
-          "rawLogSha256": "8a242dad0af8f86e22e70f87c389ff66eda1c73e490f0fd00cdcd9c8c09c5f8d"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/contract.log",
+          "rawLogSha256": "76e8f944bae436b9309a1aa259771b8f009960846c7be887a339b948801e756b"
         },
         {
           "stage": "postgres-redis-model-mcp-e2e",
           "command": "pnpm test:e2e",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-model-mcp-e2e.log",
-          "rawLogSha256": "d7b0f4e002df96b2716853cead72de67f73f9442f30c5a9efb621e7a6c18a1ac"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "rawLogSha256": "5c0c591e2f1fe0320e07aa6cd4adc0d882aa2087df6411d8c88595af0fc6cc9e"
         }
       ]
     },
     {
       "id": "RF-13",
       "status": "PASS",
-      "claim": "GOWM candidate audit issues zero SQL; final frozen runtime passes two restricted-role formal cases and 26 native boundary scenarios without consumer DDL/private SMPP updates",
+      "claim": "GOWM candidate audit issues zero SQL; final frozen runtime passes two restricted-role formal cases and 30 native boundary scenarios without consumer DDL/private SMPP updates",
       "requirements": [
         "FR-EXE-001",
         "FR-EXE-002",
@@ -337,13 +337,13 @@
           "stage": "unit",
           "command": "pnpm test:unit",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
-          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
         },
         {
           "validation": "reports/server-composition-planning-boundaries/20261011-local/GOWM_VALIDATION.json",
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/raw/runner.log",
-          "rawLogSha256": "7019f5d85c9d5cd300b2dab2428363fc46584bb3a627108844eb0bfaf247c459",
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03/raw/runner.log",
+          "rawLogSha256": "7a4bdc18644fb62902616e2555741b08602b4deac13e9cfe983f3f4795cb81a0",
           "command": [
             "node",
             "scripts/sdar-smpp-v13/verify-gowm.mjs"
@@ -352,18 +352,18 @@
           "formalCases": [
             {
               "operation": "vehicle_area_recon",
-              "taskId": "62295b00-e7fa-4a9b-8b2a-549c980d47b1",
-              "deviceId": "business-device-a5dc17e9-3b49-4b75-b82c-02bf6a2e1cc3",
-              "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/formal-vehicle_area_recon-a5dc17e9-3b49-4b75-b82c-02bf6a2e1cc3/evidence.json"
+              "taskId": "c9a82d5a-aeda-4cb3-bb77-24684b29ed95",
+              "deviceId": "business-device-11bec2fe-b02f-417e-b29c-fab8453e0943",
+              "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03/formal-vehicle_area_recon-11bec2fe-b02f-417e-b29c-fab8453e0943/evidence.json"
             },
             {
               "operation": "vehicle_navigate",
-              "taskId": "9a839045-9033-48ae-b119-8e1f3070e160",
-              "deviceId": "business-device-9c45517c-c13a-4952-bf4c-a8f816203420",
-              "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/formal-vehicle_navigate-9c45517c-c13a-4952-bf4c-a8f816203420/evidence.json"
+              "taskId": "d8d940b5-2e5b-4d82-a5bf-26ceeb274e58",
+              "deviceId": "business-device-e0c4b8f6-625b-4a6b-9f1c-b256472405a3",
+              "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03/formal-vehicle_navigate-e0c4b8f6-625b-4a6b-9f1c-b256472405a3/evidence.json"
             }
           ],
-          "nativeScenarioCount": 26
+          "nativeScenarioCount": 30
         }
       ]
     },
@@ -382,7 +382,7 @@
             "git",
             "diff",
             "--exit-code",
-            "a230bac9b61e6cf901a91c094dbfe63704717fce..870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+            "a230bac9b61e6cf901a91c094dbfe63704717fce..6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
             "--",
             "package.json",
             "pnpm-lock.yaml",
@@ -452,8 +452,8 @@
             "--frozen"
           ],
           "exitCode": 0,
-          "runtimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
-          "sourceCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+          "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+          "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
           "cleanupExitCode": 0
         }
       ]
@@ -471,13 +471,47 @@
           "stage": "postgres-redis-model-mcp-e2e",
           "command": "pnpm test:e2e",
           "exitCode": 0,
-          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-model-mcp-e2e.log",
-          "rawLogSha256": "d7b0f4e002df96b2716853cead72de67f73f9442f30c5a9efb621e7a6c18a1ac"
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "rawLogSha256": "5c0c591e2f1fe0320e07aa6cd4adc0d882aa2087df6411d8c88595af0fc6cc9e"
         },
         {
-          "performanceResult": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/performance-result.json",
-          "fixture": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/performance-fixture.json",
+          "performanceResult": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/performance-result.json",
+          "fixture": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/performance-fixture.json",
           "actualEnvironment": "reports/server-composition-planning-boundaries/20261011-local/verification-environment.json"
+        }
+      ]
+    },
+    {
+      "id": "RF-18",
+      "status": "PASS",
+      "claim": "Atomic PostgreSQL formal submission rolls back deferred attempts/root/readiness on SQL or stale CAS failure, retries the identical candidate, preserves durable confirmation blockers and records formal planning failures",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002",
+        "FR-EXE-007"
+      ],
+      "tests": [
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "packages/persistence-postgres/test/gowm-workflow-ownership.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/postgres-redis-integration.log",
+          "rawLogSha256": "195d89d6ab3797fd00b851f8d5120ea420cb252b099b48e8cf41061cc94f1ffa"
+        },
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/unit.log",
+          "rawLogSha256": "b0280615433004c23d07b42ed0a5bff53aff5fbdba9eab02a60b22af1eb1f452"
+        },
+        {
+          "validation": "reports/server-composition-planning-boundaries/20261011-local/GOWM_VALIDATION.json",
+          "nativeScenarioCount": 30
         }
       ]
     },

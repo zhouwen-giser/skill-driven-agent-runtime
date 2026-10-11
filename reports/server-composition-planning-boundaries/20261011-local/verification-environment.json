@@ -1,10 +1,12 @@
 {
-  "capturedAt": "2026-10-11T07:31:11.704310+00:00",
-  "sourceRuntimeCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+  "capturedAt": "2026-10-11T11:48:40.405103+00:00",
+  "sourceRuntimeCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "frozenRunId": "sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433",
+  "cwd": "/tmp/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433-WmwfMM/source",
   "os": "Linux 6.8.0-124-generic x86_64 GNU/Linux",
   "node": "v22.23.2",
   "pnpm": "11.25.0",
-  "python": "3.12.14",
+  "python": "Python 3.12.14",
   "pythonPathPrefix": "/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin",
   "dockerClient": "29.3.0",
   "dockerServer": "29.3.0",
@@ -30,17 +32,25 @@
       "docker",
       "version",
       "--format",
-      "{{.Client.Version}}/{{.Server.Version}}"
+      "{{.Client.Version}}|{{.Server.Version}}"
     ]
   ],
-  "versionCommandsExitCode": 0,
-  "performanceEnvironmentNote": "The unchanged historical performance test JSON includes a literal Windows environment label. The actual current run is Linux as captured here and in the owned PostgreSQL/Docker fixture; original test output is preserved without rewriting. It is a local relative regression benchmark, not a production SLO.",
+  "commandExitCodes": [
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frozenInstallPnpmVersion": "11.7.0",
+  "frozenInstallVersionEvidence": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433/verification/raw/frozen-install.log",
+  "historicalPerformancePlatformLabel": "Unchanged raw performance JSON carries its prior literal Windows label; this record supplies actual execution environment.",
   "classification": {
     "database": "REAL_OWNED_LOOPBACK",
     "model": "SIMULATED_LOOPBACK",
     "mcp": "SIMULATED_LOOPBACK",
-    "site": "NOT_RUN",
     "physicalProvider": "NOT_RUN",
+    "site": "NOT_RUN",
     "deployment": "NOT_RUN"
   }
 }
