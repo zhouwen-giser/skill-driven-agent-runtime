@@ -1,0 +1,23 @@
+{
+  "scope": "OFFICIAL_HTTP_JSON_MUST_PROTOCOL_HARNESS",
+  "stats": {
+    "tests": 235,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 161,
+    "passed": 74
+  },
+  "skipsAreNotAcceptance": true,
+  "frozenRunId": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3",
+  "configuration": "pnpm test:a2a-tck",
+  "artifacts": [
+    {
+      "file": "compatibility.json.gz",
+      "rawSha256": "5ab2a01b7d27f5c3aa06aa0cd88f011f5d14fc544678d0783680fa51e565b8a1"
+    },
+    {
+      "file": "junitreport.xml.gz",
+      "rawSha256": "20ed16747f0500a96822394e59a867d4b4270f628b205769dbeb8e54eadd3c85"
+    }
+  ]
+}

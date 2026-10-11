@@ -1,0 +1,92 @@
+{
+  "status": "PASS",
+  "frozenRunId": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3",
+  "sourceBaseCommit": "3b7a07566c5310ec00b2db07ea311fa6b27a6e32",
+  "runtimeInputSha256": "8ab70b92e5c5c28b19a293120e28ea86b2f3352c2c2b5d821a9a747db32037ee",
+  "baselineSha256": "2674debf0d58b9eef05487ab232c76d8d99db85304e736342a2dbf63d811207d",
+  "verifiedLocalRuntimeAndBaselineFiles": 2888,
+  "allLocalFrozenInputsMatch": true,
+  "commands": [
+    {
+      "command": "pnpm --dir apps/console build",
+      "exitCode": 0,
+      "log": "build.log.gz"
+    },
+    {
+      "command": "node --import tsx .codex/functional-closure/console-fixture.mts",
+      "exitCode": 0,
+      "log": "server.log.gz"
+    }
+  ],
+  "browserActions": [
+    "load real PostgreSQL plan",
+    "add condition node",
+    "change to result",
+    "remove original result",
+    "set exit",
+    "malformed JSON displays error; validation/revision/confirmation blocked",
+    "apply valid expression",
+    "validate through HTTP",
+    "save immutable V2",
+    "confirm V2",
+    "load succeeded real LangGraph trace and two node events"
+  ],
+  "apiExecution": {
+    "method": "POST",
+    "path": "/api/v1/workflows/plans/sdar-console-30df15c5-review-v2/execute",
+    "status": 201
+  },
+  "assertions": {
+    "oldPlan": "superseded",
+    "newVersion": 2,
+    "newConfirmation": "confirmed",
+    "executionStatus": "succeeded",
+    "actualResult": "review-frozen-browser-result",
+    "llmCalls": 0,
+    "mcpCalls": 0,
+    "nodeEvents": 2
+  },
+  "classification": {
+    "database": "REAL_OWNED_LOOPBACK",
+    "runtime": "REAL_LANGGRAPH",
+    "browser": "REAL_LOCAL_UI",
+    "model": "NOT_RUN",
+    "physicalProvider": "NOT_RUN",
+    "site": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "ownedContainersRemoved": 2
+  },
+  "artifacts": [
+    {
+      "path": "invalid-parameters.txt",
+      "sha256": "6ae68427e12b0f5eac1a3788f05a74b69a2dd2cbf131102ca37c252015a5322f"
+    },
+    {
+      "path": "execution-trace.txt",
+      "sha256": "d0df6bd453aac71240a827c3341d1714e1a92c46ce5e11bac1d0682b69443d22"
+    },
+    {
+      "path": "execution-trace.jpg",
+      "sha256": "d72a56ebd1b639632df5482af556c073b736ca00487807195bc000090e716eab"
+    },
+    {
+      "path": "api-results.json",
+      "sha256": "f4b6e64a444f15578eace2990276b75bd1a60483fe15656e319eaf187685d67e"
+    },
+    {
+      "path": "confirmed-revision.txt",
+      "sha256": "ae30f0a19be535e1db689df13263b24472d69d841360f26422a02c2b53a21e74"
+    },
+    {
+      "path": "build.log.gz",
+      "rawSha256": "9f5c17369cac2cfde2404eebb325b9f9dcee513e7b3695a39bff5d1186981f0a"
+    },
+    {
+      "path": "server.log.gz",
+      "rawSha256": "aee37ba0ea4b4f271ad6157a92dbf989b07641a3799202e0e8536a0af97943c1"
+    }
+  ]
+}

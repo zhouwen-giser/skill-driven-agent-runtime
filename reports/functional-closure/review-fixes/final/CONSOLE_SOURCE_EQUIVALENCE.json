@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "frozenRunId": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3",
+  "runtimeInputSha256": "8ab70b92e5c5c28b19a293120e28ea86b2f3352c2c2b5d821a9a747db32037ee",
+  "browserResult": "reports/functional-closure/console-browser-20261012-review/result.json",
+  "verifiedLocalRuntimeAndBaselineFiles": 2888,
+  "method": "SHA-256 of every frozen local nonstatus input equals the browser fixture working source after browser cleanup"
+}

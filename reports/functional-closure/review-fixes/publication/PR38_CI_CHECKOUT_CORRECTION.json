@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "finding": "automatic PR CI checks a synthetic merge ref; manual CI checks exact head",
+  "bothCheckoutTreesEqual": true,
+  "runs": [
+    {
+      "runId": 38158146555,
+      "checkout": "3230bfff507a7e4bb9b0b271d08f1f9e003b0f72",
+      "checkoutKind": "refs/remotes/pull/38/merge",
+      "tree": "46cc1e643a6094aa2b2518ae03882d22cc002360",
+      "log": "reports/functional-closure/publication/ci-38158146555.log.gz",
+      "rawLogSha256": "6d8357da2d1b8ae758b2eddac08c4740388c96df7ff0a9dfa8374d9beec040d3"
+    },
+    {
+      "runId": 38158164375,
+      "checkout": "3dbe619ba8f1cd376d4ab8118941b1afac872d7f",
+      "checkoutKind": "exact_source_head",
+      "tree": "46cc1e643a6094aa2b2518ae03882d22cc002360",
+      "log": "reports/functional-closure/publication/ci-38158164375.log.gz",
+      "rawLogSha256": "4a041eed4be964bbeb058d9265bc9cd748114165440e6b995adb381ba2df12cf"
+    }
+  ]
+}
