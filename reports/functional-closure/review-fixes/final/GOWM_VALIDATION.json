@@ -154,5 +154,5 @@
     "site": "NOT_RUN",
     "deployment": "NOT_RUN"
   },
-  "compressedRawLog": "reports/functional-closure/review-fixes/final/GOWM/sdar-smpp-gowm-ef4545a7-e16d-4518-b690-87eda7097293/raw/runner.log.gz"
+  "compressedRawLog": "reports/functional-closure/review-fixes/final/gowm-runner.log.gz"
 }

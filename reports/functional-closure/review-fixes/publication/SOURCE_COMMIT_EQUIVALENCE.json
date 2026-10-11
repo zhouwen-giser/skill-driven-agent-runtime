@@ -1,0 +1,21 @@
+{
+  "status": "PASS_WITH_DOCUMENTED_ACCEPTANCE_STATUS_DELTA",
+  "commit": "18c7438e28818361a98b34973b984340c87be73f",
+  "tree": "35a817e786a6162885ae386e7afdfb6e78aa4e34",
+  "equalRuntimeFiles": 2041,
+  "equalBaselineFiles": 846,
+  "baselineCloseoutDeltas": [
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "frozenSha256": "11d3ba85573d874181b3e9ce1d313b7e269659f07b7562862a0d905b649ab4eb",
+      "committedSha256": "c4393fca46991e24db7fc7ae044f2be287b1cdcba8197cfb4d4564c7fa9f78aa",
+      "reason": "Reconcile actual final test receipts, publication evidence and remaining open scope after the gate; no requirement semantics or runtime edits."
+    }
+  ],
+  "runtimeInputSha256": "8ab70b92e5c5c28b19a293120e28ea86b2f3352c2c2b5d821a9a747db32037ee",
+  "frozenBaselineSha256": "2674debf0d58b9eef05487ab232c76d8d99db85304e736342a2dbf63d811207d",
+  "frozenRunId": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3",
+  "method": "Every frozen local runtime/baseline blob compared by SHA-256; only explicitly receipted acceptance-status appendix delta allowed",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}
