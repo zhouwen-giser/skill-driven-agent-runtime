@@ -42,10 +42,35 @@ function database(failAttempt = false, finalized = false) {
   });
   const release = vi.fn();
   const connect = vi.fn().mockResolvedValue({ query, release });
-  return { query, release, pool: { connect, query } as unknown as Pool };
+  return { query, release, connect, pool: { connect, query } as unknown as Pool };
 }
 
 describe('GOWM Workflow ownership and creation order', () => {
+  it('submits every deferred attempt and the final plan through one transaction client', async () => {
+    const db = database();
+    await new PostgresWorkflowPlanRepository(db.pool, undefined, scope).savePlanWithAudits(
+      {
+        planId: attempt.planId,
+        executionTaskId: 'task',
+        goalId: goalContract.goalId,
+        goalVersion: goalContract.version,
+        goalContract,
+        confirmationStatus: 'failed',
+        attemptCount: 2,
+        createdAt: attempt.createdAt,
+      },
+      { attempts: [attempt, { ...attempt, attempt: 2 }], readiness: [] },
+    );
+    const statements = db.query.mock.calls.map(([sql]) => sql);
+    expect(statements.filter((sql) => sql === 'BEGIN')).toHaveLength(1);
+    expect(statements.filter((sql) => sql === 'COMMIT')).toHaveLength(1);
+    expect(
+      statements.filter((sql) => sql.includes('INSERT INTO workflow_plan_attempt')),
+    ).toHaveLength(2);
+    expect(statements.at(-1)).toBe('COMMIT');
+    expect(db.connect).toHaveBeenCalledOnce();
+    expect(db.release).toHaveBeenCalledOnce();
+  });
   it('commits the unexecuted root before its attempt on the same transaction client', async () => {
     const db = database();
     await new PostgresWorkflowPlanRepository(db.pool, undefined, scope).saveAttempt(attempt);

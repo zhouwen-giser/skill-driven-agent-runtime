@@ -1,6 +1,6 @@
 # EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES
 
-Status: LOCAL_VERIFIED_PUBLICATION_PENDING (2026-10-11, Asia/Shanghai). Base: a230bac9b61e6cf901a91c094dbfe63704717fce. Publication is authorized; site operations and deployment are NOT_RUN.
+Status: REVIEW_FIXES_REVALIDATION_PENDING (2026-10-11, Asia/Shanghai). Base: a230bac9b61e6cf901a91c094dbfe63704717fce. Publication is authorized; site operations and deployment are NOT_RUN.
 
 ## 1. Purpose / Outcome
 
@@ -26,6 +26,8 @@ Explicit typed composition stages retain construction/recovery order and one ins
 - [x] M3: User Goal/Workflow generators and commit services, candidate-only interactive/experience injection and formal initial-task orchestration verified. Full isolated `sdar-verify-53662b2d-8114-4df1-8c51-889c8d1d7898` PASS, all 30 stages; 2650 unit / 552 contract / 270 integration / 77 E2E. Runtime inputs and baseline unchanged, cleanup 0. All 2024 local runtime inputs and six external verification inputs match commit 870e94b6; M3_VALIDATION.json and M3_SOURCE_IDENTITY.json retain exact identities.
 - [ ] M4: final `pnpm verify:isolated -- --frozen` PASS (`sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b`), all 30 stages, 2650 unit / 552 contract / 270 integration / 77 E2E, frozen install 0, cleanup 0 and unchanged inputs/baseline. Restricted-role GOWM `sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8` PASS on the same local frozen inputs: 8 steps, 2 formal E2E cases, 26 native boundary scenarios; consumer DDL/private SMPP update denied, two owned containers cleaned up. M4_VALIDATION.json and GOWM_VALIDATION.json retain raw evidence. Git publication/CI/normal merge remains pending.
 
+- [x] Post-review fixes: PR36 P1 readiness loss and P1 non-atomic deferred GOWM audit fixed. Focused 66 unit tests, typecheck, lint and 8 architecture negative fixtures PASS; owned restricted-role GOWM `sdar-smpp-gowm-3e4c5d7b-faa4-45ee-947a-80acb1e16a88` passes two formal E2E and 30 native scenarios on unchanged working-tree inputs. New four PostgreSQL scenarios cover rollback/exact retry, durable readiness, stale CAS and formal failure. Previous acceptance is preserved in PRE_REVIEW and its original run directories. Final freeze and publication are pending.
+
 ## 6. Discoveries and Surprises
 
 - Artifact architecture currently permits only the literal runtime.ts composition root. Replace that location exception with a bounded composition allowlist and negative fixtures, preserving SDK and authority restrictions.
@@ -37,6 +39,9 @@ Explicit typed composition stages retain construction/recovery order and one ins
 - M1/M2 retries use independent copies of the original frozen snapshots and retain all failed run logs; active M3 work never contaminates earlier milestone inputs.
 - Performance failures also reproduce on the previously accepted pre-refactor frozen source (24.25% baseline drift, 15.48% P95 regression). CPU affinity did not resolve them. The repository already accepted real tmpfs PostgreSQL performance isolation in `reports/resource-identity-20260909/performance-isolated.json`. The isolated driver now uses a separately owned tmpfs PostgreSQL and the same pinned Redis/image/settings for only the unchanged performance test; functional/integration/migration durability gates retain persistent volumes. The outer cleanup includes this owned project even if its child is killed. No test threshold or product setting changes.
 
+- PR36 review found that PostgreSQL plan reads omitted append-only readiness, so an idempotent return could lose a confirmation blocker. Both plan and confirmed-definition reads now hydrate durable planning readiness rather than accepting a fresh candidate assessment.
+- Deferred attempts previously committed separate GOWM roots before readiness and source CAS. PostgreSQL now saves all deferred attempts, readiness/snapshots, source CAS, final plan/targets and command effect in one fenced transaction. A planning failure is thrown only after its formal failed record commits.
+
 ## 7. Decision Log
 
 - D1: Preserve APIs, wire schemas, error codes, defaults, migrations, dependencies and protocol pins (ADR-161).
@@ -45,6 +50,9 @@ Explicit typed composition stages retain construction/recovery order and one ins
 - D5: TaskBusiness operation support uses an explicit profile policy port with a frozen contract-data default for compatibility; generic lifecycle writers remain unchanged.
 - D4: Each formal milestone receives the full isolated gate. No external services or physical devices are used.
 - D6: Use the existing accepted tmpfs PostgreSQL performance practice in the isolated test driver; preserve the original 72/72 runtime samples, 100 append samples, 15% baseline drift, 10% P95 regression and 20 ms append limits. Record this fixture separately from persistent-store verification (ADR-161).
+
+- D7: Reload authoritative PostgreSQL readiness for idempotent plan/confirmed-definition reads; preserve persisted blockers and confirmation status.
+- D8: Use an optional formal atomic persistence port backed by one PostgreSQL transaction. Existing repository methods remain compatible, candidate-only ports remain writer-free, command fencing and device ownership precede writes.
 
 ## 8. Implementation Steps
 
@@ -67,4 +75,4 @@ Evidence root: `reports/server-composition-planning-boundaries/20261011-local`. 
 
 ## 12. Outcomes and Retrospective
 
-Local refactor acceptance is verified: 15 typed composition stages, internal UGV/SMPP policy boundaries and writer-free User Goal/Workflow generators with formal submission services. Four complete 30-stage gates PASS; final runtime input 65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5 matches commit 870e94b6. Sixteen local acceptance groups PASS, Git delivery remains pending, and site/deployment remain NOT_RUN. Same-source restricted-role GOWM passes; original project-level upstream gaps remain open. Nine failed full-gate attempts and diagnostics are preserved. Publication is recorded only after actual CI and merge.
+Pre-review local refactor acceptance was verified on commit 870e94b6; PR36 review fixes require a new complete frozen gate before current-version acceptance. Previous results: 15 typed composition stages, internal UGV/SMPP policy boundaries and writer-free User Goal/Workflow generators with formal submission services. Four complete 30-stage gates PASS; final runtime input 65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5 matches commit 870e94b6. Sixteen local acceptance groups PASS, Git delivery remains pending, and site/deployment remain NOT_RUN. Same-source restricted-role GOWM passes; original project-level upstream gaps remain open. Nine failed full-gate attempts and diagnostics are preserved. Publication is recorded only after actual CI and merge.

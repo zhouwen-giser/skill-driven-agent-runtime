@@ -24,6 +24,7 @@ import {
 } from '../../mcp-adapter/src/index.js';
 import { buildTaskBusinessSourceArtifact } from '../../domain/src/task-business-evidence.js';
 import { PostgresTaskBusinessRepository } from '../src/task-business-repository.js';
+import { verifyWorkflowPlanCommitCases } from './workflow-plan-commit.postgres-cases.js';
 
 import { applyRuntimeMigrations, startServerRuntime } from '../../../apps/server/src/runtime.js';
 import {
@@ -354,6 +355,14 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('keeps formal Workflow readiness, deferred audits, failure records and revision CAS atomic', async () => {
+    const results = await verifyWorkflowPlanCommitCases(
+      pool,
+      'workflow-commit-regression',
+      testGoalContract('workflow-commit-goal'),
+    );
+    expect(results).toHaveLength(4);
+  });
   it('persists cognitive management idempotency, result audit, and conflicting-key rejection', async () => {
     const repository = new PostgresCognitiveManagementActionRepository(pool);
     const claim = {

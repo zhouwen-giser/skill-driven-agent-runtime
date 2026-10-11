@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "baseCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+  "runtimeCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+  "command": [
+    "git",
+    "diff",
+    "--exit-code",
+    "a230bac9b61e6cf901a91c094dbfe63704717fce..870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+    "--",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    ":(glob)**/package.json",
+    "infra",
+    "protocol",
+    "contracts",
+    "schemas",
+    "third_party"
+  ],
+  "exitCode": 0,
+  "protectedDiff": "EMPTY",
+  "authoritativeBaselineIdentity": [
+    {
+      "path": "source/Agent通用模板Server需求规格说明书_V1.0.docx",
+      "baselineSha256": "5a0d94be36096316566400621e00a3d90324807b2bfe811bbdc8dd92ad44be82",
+      "runtimeRefSha256": "5a0d94be36096316566400621e00a3d90324807b2bfe811bbdc8dd92ad44be82",
+      "status": "UNCHANGED"
+    },
+    {
+      "path": "docs/01_REQUIREMENTS_BASELINE.md",
+      "baselineSha256": "86042a5dfe276089c088c5d952bde8628141185facdd0bdc60c038e0bdbb7919",
+      "runtimeRefSha256": "86042a5dfe276089c088c5d952bde8628141185facdd0bdc60c038e0bdbb7919",
+      "status": "UNCHANGED"
+    },
+    {
+      "path": "docs/16_DEFINITION_OF_DONE.md",
+      "baselineSha256": "505491e8054360151763687809cbfab6e65f6aa1eddd998f626bf3c9bb993026",
+      "runtimeRefSha256": "505491e8054360151763687809cbfab6e65f6aa1eddd998f626bf3c9bb993026",
+      "status": "UNCHANGED"
+    },
+    {
+      "path": "third_party/sources.lock.yaml",
+      "baselineSha256": "5c0534ab4ce3c79ebad1a7f2ee4a28d78e8dbdba9ff65643f24f8840a93b69a1",
+      "runtimeRefSha256": "5c0534ab4ce3c79ebad1a7f2ee4a28d78e8dbdba9ff65643f24f8840a93b69a1",
+      "status": "UNCHANGED"
+    }
+  ],
+  "scope": "Immutable dependency, migration, schema and protocol inputs only; behavior additionally verified by full contract and safety suites. Traceability and the new refactor ADR are deliberate evidence updates.",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

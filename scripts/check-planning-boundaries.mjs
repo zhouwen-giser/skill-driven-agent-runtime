@@ -34,7 +34,7 @@ export function assertPlanningBoundary(file, source) {
   }
   if (/\/(?:user-goal|workflow|task-planning)-candidate-generator\.ts$/u.test(normalized)) {
     if (
-      /\b(?:WorkflowPlanRepository|UserGoalPlanningRepository|WorkflowExecutionService|TaskService|UserGoalPlanningService|WorkflowPlanCommitService|UserGoalPlanCommitService|savePlan|savePlanAndSupersede|saveContract|createPlan|replacePlan|confirmPlan|bindInitialPlan|saveTask)\b/u.test(
+      /\b(?:WorkflowPlanRepository|UserGoalPlanningRepository|WorkflowExecutionService|TaskService|UserGoalPlanningService|WorkflowPlanCommitService|UserGoalPlanCommitService|savePlan|savePlanAndSupersede|savePlanWithAudits|saveContract|createPlan|replacePlan|confirmPlan|bindInitialPlan|saveTask)\b/u.test(
         source,
       )
     )
@@ -79,6 +79,11 @@ const fixtures = [
     'await repository.replacePlan(input);',
     /ARCH_CANDIDATE_FORMAL_WRITER/u,
   ],
+  [
+    'packages/application/src/workflow-candidate-generator.ts',
+    'await repository.savePlanWithAudits(plan, audits);',
+    /ARCH_CANDIDATE_FORMAL_WRITER/u,
+  ],
 ];
 for (const [file, source, code] of fixtures)
   assert.throws(() => assertPlanningBoundary(file, source), code);
@@ -116,4 +121,6 @@ for (const directory of [
   for (const file of await collect(directory))
     assertPlanningBoundary(file, await readFile(file, 'utf8'));
 }
-console.log('Planning/profile boundaries: PASS (7 forbidden fixtures rejected).');
+console.log(
+  `Planning/profile boundaries: PASS (${String(fixtures.length)} forbidden fixtures rejected).`,
+);

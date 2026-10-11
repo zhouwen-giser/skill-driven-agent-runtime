@@ -23,6 +23,26 @@ import {
 } from '../src/index.js';
 
 describe('WorkflowPlannerService', () => {
+  it('uses the atomic formal writer instead of independently flushing deferred audits', async () => {
+    const repository = Object.assign(new MemoryPlanRepository(), {
+      saveCandidateAttempt: () => Promise.resolve(false),
+      savePlanWithAudits: vi.fn(() => Promise.resolve()),
+    });
+    const legacyAttempt = vi.spyOn(repository, 'saveAttempt');
+    const legacyPlan = vi.spyOn(repository, 'savePlan');
+    const formal = planner(repository, new SequenceModel([validDefinition()]));
+    const candidate = await formal.candidates.generate(input());
+    expect(repository.savePlanWithAudits).not.toHaveBeenCalled();
+    await formal.commits.commit(candidate, input());
+    expect(repository.savePlanWithAudits).toHaveBeenCalledExactlyOnceWith(candidate.plan, {
+      attempts: candidate.planningAudits.flatMap((audit) =>
+        audit.kind === 'attempt' ? [audit.attempt] : [],
+      ),
+      readiness: [],
+    });
+    expect(legacyAttempt).not.toHaveBeenCalled();
+    expect(legacyPlan).not.toHaveBeenCalled();
+  });
   it('carries GOWM audit data without creating a planning root and flushes it only on formal commit', async () => {
     const repository = Object.assign(new MemoryPlanRepository(), {
       saveCandidateAttempt: () => Promise.resolve(false),

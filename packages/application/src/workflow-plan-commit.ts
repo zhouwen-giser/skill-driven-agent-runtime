@@ -14,7 +14,7 @@ import type { WorkflowTemplateService } from './workflow-template.js';
 export class WorkflowPlanCommitService {
   readonly #repository: Pick<
     WorkflowPlanRepository,
-    'findPlan' | 'savePlan' | 'savePlanAndSupersede' | 'saveAttempt'
+    'findPlan' | 'savePlan' | 'savePlanAndSupersede' | 'saveAttempt' | 'savePlanWithAudits'
   >;
   readonly #readinessAudit: Pick<McpTaskReadinessService, 'persistPlanningAudit'> | undefined;
   readonly #templates: Pick<WorkflowTemplateService, 'recordUse'> | undefined;
@@ -22,7 +22,7 @@ export class WorkflowPlanCommitService {
     dependencies: Readonly<{
       repository: Pick<
         WorkflowPlanRepository,
-        'findPlan' | 'savePlan' | 'savePlanAndSupersede' | 'saveAttempt'
+        'findPlan' | 'savePlan' | 'savePlanAndSupersede' | 'saveAttempt' | 'savePlanWithAudits'
       >;
       readinessAudit?: Pick<McpTaskReadinessService, 'persistPlanningAudit'>;
       templates?: Pick<WorkflowTemplateService, 'recordUse'>;
@@ -84,6 +84,33 @@ export class WorkflowPlanCommitService {
           'Repair source confirmation belongs to a different Goal execution contract.',
         );
     }
+    if (candidate.supersedeSourcePlan && plan.sourcePlanId === undefined)
+      throw new WorkflowPlannerError(
+        'WORKFLOW_REVISION_SOURCE_REQUIRED',
+        'Superseding revision requires a source plan.',
+      );
+    if (this.#repository.savePlanWithAudits !== undefined) {
+      await this.#repository.savePlanWithAudits(plan, {
+        attempts: candidate.planningAudits.flatMap((audit) =>
+          audit.kind === 'attempt' && !audit.persisted ? [audit.attempt] : [],
+        ),
+        readiness: candidate.planningAudits.flatMap((audit) =>
+          audit.kind === 'readiness' ? [audit.evaluation] : [],
+        ),
+        ...(candidate.supersedeSourcePlan && plan.sourcePlanId !== undefined
+          ? { supersedeSourcePlanId: plan.sourcePlanId }
+          : {}),
+      });
+    } else await this.#commitLegacy(candidate);
+    if (candidate.outcome === 'failed') throwPlanningFailure(candidate);
+    if (candidate.preferredTemplate !== undefined && plan.definition !== undefined)
+      await this.#templates?.recordUse(candidate.preferredTemplate, plan.planId, plan.definition);
+    return plan;
+  }
+
+  /** Compatibility for existing repositories without deferred transactional audits. */
+  async #commitLegacy(candidate: WorkflowPlanCandidate): Promise<void> {
+    const plan = candidate.plan;
     for (const audit of candidate.planningAudits) {
       if (audit.kind === 'attempt') {
         if (!audit.persisted) await this.#repository.saveAttempt(audit.attempt);
@@ -101,10 +128,6 @@ export class WorkflowPlanCommitService {
         );
       await this.#repository.savePlanAndSupersede(plan, plan.sourcePlanId);
     } else await this.#repository.savePlan(plan);
-    if (candidate.outcome === 'failed') throwPlanningFailure(candidate);
-    if (candidate.preferredTemplate !== undefined && plan.definition !== undefined)
-      await this.#templates?.recordUse(candidate.preferredTemplate, plan.planId, plan.definition);
-    return plan;
   }
 }
 function throwPlanningFailure(candidate: WorkflowPlanCandidate): never {

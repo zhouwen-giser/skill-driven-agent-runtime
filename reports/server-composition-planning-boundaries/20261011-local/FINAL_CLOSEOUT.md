@@ -1,12 +1,14 @@
 # Server composition and planning authority acceptance
 
-Status: **LOCAL_VERIFIED_PUBLICATION_PENDING**, 2026-10-11, Asia/Shanghai. This report certifies the user-approved local refactor scope. Git publication is authorized and follows successful CI; site/provider operations and deployment are **NOT_RUN**.
+Status: **REVIEW_FIXES_REVALIDATION_PENDING**, 2026-10-11, Asia/Shanghai. This report tracks the user-approved local refactor scope; current-source full acceptance is pending. Git publication is authorized and follows successful CI; site/provider operations and deployment are **NOT_RUN**.
 
 The server now composes fifteen typed stages in dependency order, retains its original runtime exports, and cleans up partially acquired resources once. UGV admission/input/candidate/authorization/terminal-evidence policies live in the internal Profile package; the MCP adapter owns SMPP client construction. Generic Task, Remote Task and TaskBusiness lifecycle writers remain in the existing kernel.
 
 User Goal and Workflow generators return immutable candidates through read/model/planning-audit ports. Separate formal services validate identity, persist plans and failures, supersede versions with CAS and preserve confirmed-plan idempotence. Initial Task orchestration writes Skill evidence and optionally confirms only after formal commit; Capability binding still precedes Task publication. Interactive/experience paths receive generator objects; revision, Goal Patch, replanning and child workflows retain compatible formal facades. No new migration, dependency or external contract/default is introduced.
 
-## Tested identities
+PR36 review fixes have passed 66 focused unit cases, typecheck, lint, eight architecture negative fixtures and the owned GOWM driver (two formal E2E and 30 native scenarios). The full gate results below certify the pre-review commit 870e94b6 only; the previous closeout is preserved in PRE_REVIEW.
+
+## Pre-review tested identities
 
 - Runtime source commit: `870e94b6bfa9ba4889e28c90abd2caf2258420e6` (base `a230bac9b61e6cf901a91c094dbfe63704717fce`).
 - Final runtime input SHA-256: `65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5`.

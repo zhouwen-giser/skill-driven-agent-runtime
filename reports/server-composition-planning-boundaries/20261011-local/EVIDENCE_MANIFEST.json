@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "scope": "Archived local gate, diagnostic and acceptance evidence",
+  "scope": "Historical accepted gates plus focused review-fix evidence; current source awaits full frozen validation.",
   "runtimeCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
   "runtimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
   "entries": [
@@ -26,8 +26,8 @@
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/FINAL_CLOSEOUT.md",
-      "sha256": "11d80095a65ec4cc082d63abb7630a489cb562eb15d9ea1f469d84b701e01117",
-      "bytes": 7133
+      "sha256": "e2cb9053c6b7dbae1224755a76cd65b0e2df2b5671f05370ee4ca8de298b82ab",
+      "bytes": 7482
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/formal-vehicle_area_recon-a5dc17e9-3b49-4b75-b82c-02bf6a2e1cc3/evidence.json",
@@ -1536,6 +1536,51 @@
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/M4_VALIDATION.json",
+      "sha256": "b44110d59703a15ae029ede8fa94dda48df1849ced9e8dc32278d315020d20bb",
+      "bytes": 27367
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/BASELINE_COMPATIBILITY.json",
+      "sha256": "f085d4077f6e132816c83b44608a4634422c7438b1e34852a9f764ec5df8e6a1",
+      "bytes": 1991
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/CASE_RESULTS.json",
+      "sha256": "97e5cbf3686a9dfbd73226dc34db8ab56388e658d7ad45f6715ff0387eef897e",
+      "bytes": 21236
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/EVIDENCE_MANIFEST.json",
+      "sha256": "46da093ccd9ded761e964908ef3eaf136b2008c7ec5855579239d342c4c8773b",
+      "bytes": 193913
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/FINAL_CLOSEOUT.md",
+      "sha256": "11d80095a65ec4cc082d63abb7630a489cb562eb15d9ea1f469d84b701e01117",
+      "bytes": 7133
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/GOWM_VALIDATION.json",
+      "sha256": "3e7c7bbec38a84484fbf707481e307a8431df33aaff414447f4ad7a87ac3884d",
+      "bytes": 5843
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/M4-gowm-runner.log",
+      "sha256": "7019f5d85c9d5cd300b2dab2428363fc46584bb3a627108844eb0bfaf247c459",
+      "bytes": 5190
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/M4-runner.log",
+      "sha256": "1fc14f182266c9d1b8d08df9f51ec496143d3417bdb77c45567765194ca1d882",
+      "bytes": 172825
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/M4_SOURCE_IDENTITY.json",
+      "sha256": "9e7e0c61851f30efd47b80c75e0ac34c8ab57e41f386d8529d873baf026db3c4",
+      "bytes": 707
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/PRE_REVIEW/M4_VALIDATION.json",
       "sha256": "b44110d59703a15ae029ede8fa94dda48df1849ced9e8dc32278d315020d20bb",
       "bytes": 27367
     },
@@ -3500,6 +3545,76 @@
       "bytes": 29868
     },
     {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/formal-vehicle_area_recon-19ee20a7-a05c-4ff5-8ae4-a78e65ec5740/evidence.json",
+      "sha256": "a2edc5daf996a97b6eddcc6cf092973d3f17d8283fd20b942c8b45e71a7b31b5",
+      "bytes": 100143
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/formal-vehicle_navigate-82a294ac-0c46-4b67-9022-1adeb4bb5fe2/evidence.json",
+      "sha256": "b0406d72f7f33cbf4918faa7349914d27ef304bdcc42fe532aceb856fe848e55",
+      "bytes": 101611
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/formal-vehicle_navigate-82a294ac-0c46-4b67-9022-1adeb4bb5fe2/same-skill-negative.json",
+      "sha256": "730cc7c653d4f9c20b727acab1130b7d6a8c4517a65082f9be26a47274fa5f87",
+      "bytes": 149039
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-architecture-2.log",
+      "sha256": "fbd00a9c421480476c4690c6e28db6640899eef2cd0e039f04594ec9a5085ef1",
+      "bytes": 479
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-focused-gowm.log",
+      "sha256": "d227431ad63b50be3aad3465d97a65fca4ad23c4af2c76f09446144441fceb3f",
+      "bytes": 4819
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-lint-2.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-lint.log",
+      "sha256": "a4c9160ea088ac5f8eec9d089d3124ffc46bbc0058f16e6d725904a7d8201cf5",
+      "bytes": 1245
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-typecheck-2.log",
+      "sha256": "3709c94120d438fba513476ed188ae10dc370fdfd369f2669a14053538ac5adf",
+      "bytes": 251
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-typecheck-3.log",
+      "sha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "bytes": 32
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-unit-expanded.log",
+      "sha256": "85320283452d471a9aa3157b3f7263e3bea9c6a2ad56deaa8c483f613ef006c6",
+      "bytes": 229
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/review-fixes-unit.log",
+      "sha256": "67b0cf27a409cb0d761b8fa05223a4a7b4c02111486d16aec2d7914e6923737f",
+      "bytes": 227
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/sdar-smpp-gowm-3e4c5d7b-faa4-45ee-947a-80acb1e16a88/inputs.json",
+      "sha256": "f9e1d6a0a73a114ed7f6c290109f76bf6ec29708369d599afed9154097bf2ca4",
+      "bytes": 500086
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/sdar-smpp-gowm-3e4c5d7b-faa4-45ee-947a-80acb1e16a88/native-storage/postgres-task-workflow-results.json",
+      "sha256": "5def02f1ffa71cc3b435787adf8790437a094942a1afef6d93c4f0a60f7eb343",
+      "bytes": 6057
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/sdar-smpp-gowm-3e4c5d7b-faa4-45ee-947a-80acb1e16a88/result.json",
+      "sha256": "1bc15af1595a2b1d178f12f6aa8560fbe4ff5f56d66217c2af5f6cfd2af26d84",
+      "bytes": 3748
+    },
+    {
       "path": "reports/server-composition-planning-boundaries/20261011-local/serial-gates.json",
       "sha256": "23aefcfa6ea3b8450ed018c79e83e290707865dadf7f5694abe68354652f449e",
       "bytes": 1467
@@ -3514,5 +3629,6 @@
       "sha256": "2ed9103011cef13e51c51f758ef64dfc7d0cf6a58a2948f6bf0d70f07ab324bb",
       "bytes": 1438
     }
-  ]
+  ],
+  "verificationStatus": "REVIEW_FIXES_REVALIDATION_PENDING"
 }

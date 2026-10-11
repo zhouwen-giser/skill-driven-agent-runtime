@@ -1,6 +1,6 @@
 # ADR-161: Server composition and candidate write boundaries
 
-Status: Accepted; local implementation verified (explicit user-approved plan, 2026-10-11). Git publication pending.
+Status: Accepted; review fixes awaiting final frozen validation (explicit user-approved plan, 2026-10-11). Git publication pending.
 
 ## Context
 
@@ -16,6 +16,8 @@ No schema, dependencies, frozen contract, Task semantics, recovery permissions, 
 
 GOWM planning attempts require a native planning root. Candidate-only PostgreSQL auditing therefore returns a deferral fact without a database write; the candidate carries ordered immutable attempt/readiness audits. The formal commit service creates the root and persists those audits before finalizing the plan. Ordinary append-only attempt auditing remains available during generation. Readiness evaluation returns planning evidence without the persistence writer. Discarded or late candidates never create GOWM execution roots. This uses the existing schema and device ownership checks.
 
+Formal PostgreSQL submission groups deferred attempts/root creation, readiness/snapshots, source CAS, final plan/targets and fenced command effect in one transaction. An intermediate SQL/audit/CAS failure rolls everything back and permits the identical candidate to retry. Formal failed planning records commit before the application reports the planning failure. Existing direct persistence methods remain compatibility entry points. Plan and confirmed-definition reads hydrate authoritative append-only planning readiness, preserving confirmation blockers on idempotent returns even when a fresh candidate assessment differs. No candidate receives this atomic write port.
+
 TaskBusiness operation support is an explicit application port supplied by the internal UGV profile. Existing callers retain a frozen contract-data lookup default; enumerated public operation names remain immutable Domain compatibility data. The generic command/terminal services contain no UGV operation-name branches and retain all confirmation, binding and lifecycle checks.
 
 ## Verification
@@ -24,4 +26,6 @@ Negative architecture fixtures, candidate/commit regressions, existing ordinary/
 
 The pre-refactor frozen source reproduces the current host performance failure. Following the existing accepted `reports/resource-identity-20260909/performance-isolated.json` practice, the isolated test driver uses a separate owned real PostgreSQL tmpfs data directory and the same pinned Redis for the unchanged relative performance case. Functional, integration, migration and recovery tests keep persistent volumes. Sample design and all three numerical limits are unchanged; the fixture records resolved Compose hash, image IDs, ownership and cleanup, and outer cleanup covers a killed child. This changes only local verification infrastructure, with no production configuration, dependency or schema change.
 
-Full M1–M4 isolated gates pass all 30 stages each. Final fresh frozen install and runtime input `65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5` match runtime commit `870e94b6`; 2650 unit, 552 contract, 270 integration and 77 E2E tests pass. Same frozen local inputs pass eight restricted-role GOWM steps, two formal E2E cases and 26 native boundary scenarios. Case results, unchanged baseline/protocol/dependency checks, original logs and failed attempts are retained in `reports/server-composition-planning-boundaries/20261011-local/`. Site/deployment are NOT_RUN; original project-level upstream gaps remain open.
+Pre-review version: full M1–M4 isolated gates pass all 30 stages each. Final fresh frozen install and runtime input `65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5` match runtime commit `870e94b6`; 2650 unit, 552 contract, 270 integration and 77 E2E tests pass. Same frozen local inputs pass eight restricted-role GOWM steps, two formal E2E cases and 26 native boundary scenarios. Case results, unchanged baseline/protocol/dependency checks, original logs and failed attempts are retained in `reports/server-composition-planning-boundaries/20261011-local/`. Site/deployment are NOT_RUN; original project-level upstream gaps remain open.
+
+Post-review focused verification: 66 unit cases, typecheck, lint and eight architecture negative fixtures PASS; restricted-role PostgreSQL verifies four new formal-commit scenarios alongside the existing 26 native scenarios and two formal E2E cases. New final frozen validation remains pending.

@@ -1,3 +1,7 @@
+import {
+  PostgresTaskAvailabilityEvidenceRepository,
+  saveTaskAvailabilityEvaluation,
+} from './task-availability-repository.js';
 import { requireOutcomeTask, requireLayeredOutcomeSource } from './gowm-outcome-scope.js';
 import { McpRegistryError } from '../../application/src/mcp-registry.js';
 import { taskChildScopeSql, taskInputSourceProjection } from './gowm-work-scope.js';
@@ -5870,35 +5874,15 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
-    return {
-      planId: row.plan_id,
-      ...(row.gowm_task_id == null ? {} : { executionTaskId: row.gowm_task_id }),
-      ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
-      ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
-      goalId: row.goal_id,
-      goalVersion: row.goal_version,
-      goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
-      mcpProtocolContract: McpProtocolContractSchema.parse(row.mcp_protocol_contract_json),
-      ...mapWorkflowPlanCompositionAuthority(row),
-      ...(row.definition_json === null
-        ? {}
-        : {
-            definition: mapStoredWorkflowDefinition(row.definition_json),
-          }),
-      ...(row.source_confirmed_plan_id === null
-        ? {}
-        : { sourceConfirmedPlanId: row.source_confirmed_plan_id }),
-      ...(row.source_plan_id === null ? {} : { sourcePlanId: row.source_plan_id }),
-      ...(row.revision_kind === null ? {} : { revisionKind: row.revision_kind }),
-      confirmationStatus: row.confirmation_status,
-      ...(row.confirmation_task_id === null
-        ? {}
-        : { confirmationTaskId: row.confirmation_task_id }),
-      ...(row.confirmed_at === null ? {} : { confirmedAt: toIsoString(row.confirmed_at) }),
-      attemptCount: row.attempt_count,
-      createdAt: toIsoString(row.created_at),
-    };
+    return this.#withPlanningReadiness(mapWorkflowPlanRow(row));
   }
+  async #withPlanningReadiness(plan: WorkflowPlanRecord): Promise<WorkflowPlanRecord> {
+    const evaluation = await new PostgresTaskAvailabilityEvidenceRepository(
+      this.#pool,
+    ).findLatestPlanning(plan.planId);
+    return evaluation === undefined ? plan : { ...plan, executionReadiness: evaluation.readiness };
+  }
+
   async findConfirmedDefinition(
     workflowDefinitionId: string,
     workflowVersion: number,
@@ -5913,7 +5897,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       [workflowDefinitionId, workflowVersion, ...filter.values],
     );
     const row = result.rows[0];
-    return row === undefined ? undefined : mapWorkflowPlanRow(row);
+    return row === undefined ? undefined : this.#withPlanningReadiness(mapWorkflowPlanRow(row));
   }
   async confirmPlan(
     planId: string,
@@ -5937,37 +5921,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     const client = this.#deviceScope === undefined ? undefined : await this.#pool.connect();
     try {
       if (client !== undefined) await client.query('BEGIN');
-      const owner =
-        client === undefined || this.#deviceScope === undefined
-          ? undefined
-          : await readGowmPlanOwner(client, this.#deviceScope, attempt.executionTaskId);
-      if (client !== undefined && owner !== undefined)
-        await ensureGowmPlanningRoot(client, attempt, owner);
-      await (client ?? this.#pool).query(
-        `INSERT INTO workflow_plan_attempt
-         (plan_id,skill_goal_id,skill_attempt_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
-          tool_execution_semantics_json,mcp_protocol_contract_json,attempt,candidate_json,
-          validation_errors_json,valid,created_at${owner === undefined ? '' : ',device_id'})
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb,$12,$13${owner === undefined ? '' : ',$14'})`,
-        [
-          attempt.planId,
-          attempt.skillGoalId ?? null,
-          attempt.skillAttemptId ?? null,
-          JSON.stringify(attempt.goalContract),
-          attempt.compositionContext === undefined
-            ? null
-            : JSON.stringify(attempt.compositionContext),
-          JSON.stringify(attempt.capabilityGapSkillIds ?? []),
-          JSON.stringify(attempt.toolExecutionSemantics ?? []),
-          JSON.stringify(attempt.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
-          attempt.attempt,
-          JSON.stringify(attempt.candidate),
-          JSON.stringify(attempt.validationErrors),
-          attempt.valid,
-          attempt.createdAt,
-          ...(owner === undefined ? [] : [owner.deviceId]),
-        ],
-      );
+      await this.#writeAttempt(attempt, client);
       if (client !== undefined) await client.query('COMMIT');
     } catch (error: unknown) {
       if (client !== undefined) await client.query('ROLLBACK');
@@ -5975,6 +5929,39 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     } finally {
       client?.release();
     }
+  }
+  async #writeAttempt(attempt: WorkflowPlanAttempt, client?: PoolClient): Promise<void> {
+    const owner =
+      client === undefined || this.#deviceScope === undefined
+        ? undefined
+        : await readGowmPlanOwner(client, this.#deviceScope, attempt.executionTaskId);
+    if (client !== undefined && owner !== undefined)
+      await ensureGowmPlanningRoot(client, attempt, owner);
+    await (client ?? this.#pool).query(
+      `INSERT INTO workflow_plan_attempt
+         (plan_id,skill_goal_id,skill_attempt_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
+          tool_execution_semantics_json,mcp_protocol_contract_json,attempt,candidate_json,
+          validation_errors_json,valid,created_at${owner === undefined ? '' : ',device_id'})
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb,$12,$13${owner === undefined ? '' : ',$14'})`,
+      [
+        attempt.planId,
+        attempt.skillGoalId ?? null,
+        attempt.skillAttemptId ?? null,
+        JSON.stringify(attempt.goalContract),
+        attempt.compositionContext === undefined
+          ? null
+          : JSON.stringify(attempt.compositionContext),
+        JSON.stringify(attempt.capabilityGapSkillIds ?? []),
+        JSON.stringify(attempt.toolExecutionSemantics ?? []),
+        JSON.stringify(attempt.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
+        attempt.attempt,
+        JSON.stringify(attempt.candidate),
+        JSON.stringify(attempt.validationErrors),
+        attempt.valid,
+        attempt.createdAt,
+        ...(owner === undefined ? [] : [owner.deviceId]),
+      ],
+    );
   }
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
     const command = this.#commandContext?.current();
@@ -5987,57 +5974,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
         await client.query('BEGIN');
         if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
       }
-      const owner =
-        client === undefined || this.#deviceScope === undefined
-          ? undefined
-          : await readGowmPlanOwner(client, this.#deviceScope, plan.executionTaskId);
-      const written = await (client ?? this.#pool).query(
-        `INSERT INTO workflow_plan
-         (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
-          capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
-          mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at${owner === undefined ? '' : ',device_id,gowm_task_id'})
-       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17${owner === undefined ? '' : ',$18,$19'})
-       ${owner === undefined ? '' : GOWM_FINALIZE_PLANNING_ROOT_SQL}`,
-        [
-          plan.planId,
-          plan.skillGoalId ?? null,
-          plan.skillAttemptId ?? null,
-          plan.goalId,
-          plan.goalVersion,
-          JSON.stringify(plan.goalContract),
-          plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
-          JSON.stringify(plan.capabilityGapSkillIds ?? []),
-          JSON.stringify(plan.toolExecutionSemantics ?? []),
-          plan.definition === undefined
-            ? null
-            : JSON.stringify(
-                this.#deviceScope === undefined
-                  ? plan.definition
-                  : encodeGowmWorkflowDefinition(plan.definition),
-              ),
-          plan.sourceConfirmedPlanId ?? null,
-          plan.sourcePlanId ?? null,
-          JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
-          plan.revisionKind ?? null,
-          plan.confirmationStatus,
-          plan.attemptCount,
-          plan.createdAt,
-          ...(owner === undefined ? [] : [owner.deviceId, owner.taskId]),
-        ],
-      );
-      if (owner !== undefined && written.rowCount !== 1)
-        throw new Error('WORKFLOW_PLANNING_ROOT_CONFLICT');
-      if (client !== undefined && this.#deviceScope !== undefined && owner?.taskId != null)
-        await this.#saveTargets(client, plan, owner.taskId);
-      if (client !== undefined && command !== undefined)
-        await recordAgentTaskCommandEffect(client, command, 'workflow_plan_saved', plan.planId, {
-          planId: plan.planId,
-          goalId: plan.goalId,
-          goalVersion: plan.goalVersion,
-          sourcePlanId: plan.sourcePlanId,
-          revisionKind: plan.revisionKind,
-          confirmationStatus: plan.confirmationStatus,
-        });
+      await this.#writePlan(plan, client, command);
       if (client !== undefined) await client.query('COMMIT');
     } catch (error: unknown) {
       if (client !== undefined) await client.query('ROLLBACK');
@@ -6046,70 +5983,103 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       client?.release();
     }
   }
+  async #writePlan(
+    plan: WorkflowPlanRecord,
+    client: PoolClient | undefined,
+    command: ReturnType<PostgresAgentTaskCommandContext['current']>,
+  ): Promise<void> {
+    const owner =
+      client === undefined || this.#deviceScope === undefined
+        ? undefined
+        : await readGowmPlanOwner(client, this.#deviceScope, plan.executionTaskId);
+    const written = await (client ?? this.#pool).query(
+      `INSERT INTO workflow_plan
+         (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
+          capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
+          mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at${owner === undefined ? '' : ',device_id,gowm_task_id'})
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17${owner === undefined ? '' : ',$18,$19'})
+       ${owner === undefined ? '' : GOWM_FINALIZE_PLANNING_ROOT_SQL}`,
+      [
+        plan.planId,
+        plan.skillGoalId ?? null,
+        plan.skillAttemptId ?? null,
+        plan.goalId,
+        plan.goalVersion,
+        JSON.stringify(plan.goalContract),
+        plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
+        JSON.stringify(plan.capabilityGapSkillIds ?? []),
+        JSON.stringify(plan.toolExecutionSemantics ?? []),
+        plan.definition === undefined
+          ? null
+          : JSON.stringify(
+              this.#deviceScope === undefined
+                ? plan.definition
+                : encodeGowmWorkflowDefinition(plan.definition),
+            ),
+        plan.sourceConfirmedPlanId ?? null,
+        plan.sourcePlanId ?? null,
+        JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
+        plan.revisionKind ?? null,
+        plan.confirmationStatus,
+        plan.attemptCount,
+        plan.createdAt,
+        ...(owner === undefined ? [] : [owner.deviceId, owner.taskId]),
+      ],
+    );
+    if (owner !== undefined && written.rowCount !== 1)
+      throw new Error('WORKFLOW_PLANNING_ROOT_CONFLICT');
+    if (client !== undefined && this.#deviceScope !== undefined && owner?.taskId != null)
+      await this.#saveTargets(client, plan, owner.taskId);
+    if (client !== undefined && command !== undefined)
+      await recordAgentTaskCommandEffect(client, command, 'workflow_plan_saved', plan.planId, {
+        planId: plan.planId,
+        goalId: plan.goalId,
+        goalVersion: plan.goalVersion,
+        sourcePlanId: plan.sourcePlanId,
+        revisionKind: plan.revisionKind,
+        confirmationStatus: plan.confirmationStatus,
+      });
+  }
   async savePlanAndSupersede(plan: WorkflowPlanRecord, sourcePlanId: string): Promise<void> {
     const command = this.#commandContext?.current();
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
       if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
-      const sourceFilter = workflowPlanScopeSql(this.#deviceScope, 2);
-      const source = await client.query(
-        `UPDATE workflow_plan SET confirmation_status='superseded'
+      await this.#supersedeSource(client, sourcePlanId);
+      await this.#writePlan(plan, client, command);
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async #supersedeSource(client: PoolClient, sourcePlanId: string): Promise<void> {
+    const sourceFilter = workflowPlanScopeSql(this.#deviceScope, 2);
+    const source = await client.query(
+      `UPDATE workflow_plan SET confirmation_status='superseded'
          WHERE plan_id=$1 AND confirmation_status IN ('awaiting_confirmation','confirmed') AND ${sourceFilter.predicate}`,
-        [sourcePlanId, ...sourceFilter.values],
-      );
-      if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
-      const owner =
-        this.#deviceScope === undefined
-          ? undefined
-          : await readGowmPlanOwner(client, this.#deviceScope, plan.executionTaskId);
-      const written = await client.query(
-        `INSERT INTO workflow_plan
-           (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
-            capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
-            mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at${owner === undefined ? '' : ',device_id,gowm_task_id'})
-         VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17${owner === undefined ? '' : ',$18,$19'})
-       ${owner === undefined ? '' : GOWM_FINALIZE_PLANNING_ROOT_SQL}`,
-        [
-          plan.planId,
-          plan.skillGoalId ?? null,
-          plan.skillAttemptId ?? null,
-          plan.goalId,
-          plan.goalVersion,
-          JSON.stringify(plan.goalContract),
-          plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
-          JSON.stringify(plan.capabilityGapSkillIds ?? []),
-          JSON.stringify(plan.toolExecutionSemantics ?? []),
-          plan.definition === undefined
-            ? null
-            : JSON.stringify(
-                this.#deviceScope === undefined
-                  ? plan.definition
-                  : encodeGowmWorkflowDefinition(plan.definition),
-              ),
-          plan.sourceConfirmedPlanId ?? null,
-          plan.sourcePlanId ?? null,
-          JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
-          plan.revisionKind ?? null,
-          plan.confirmationStatus,
-          plan.attemptCount,
-          plan.createdAt,
-          ...(owner === undefined ? [] : [owner.deviceId, owner.taskId]),
-        ],
-      );
-      if (owner !== undefined && written.rowCount !== 1)
-        throw new Error('WORKFLOW_PLANNING_ROOT_CONFLICT');
-      if (this.#deviceScope !== undefined && owner?.taskId != null)
-        await this.#saveTargets(client, plan, owner.taskId);
-      if (command !== undefined)
-        await recordAgentTaskCommandEffect(client, command, 'workflow_plan_saved', plan.planId, {
-          planId: plan.planId,
-          goalId: plan.goalId,
-          goalVersion: plan.goalVersion,
-          sourcePlanId: plan.sourcePlanId,
-          revisionKind: plan.revisionKind,
-          confirmationStatus: plan.confirmationStatus,
-        });
+      [sourcePlanId, ...sourceFilter.values],
+    );
+    if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
+  }
+  async savePlanWithAudits(
+    plan: WorkflowPlanRecord,
+    audits: Parameters<NonNullable<WorkflowPlanRepository['savePlanWithAudits']>>[1],
+  ): Promise<void> {
+    const command = this.#commandContext?.current();
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
+      for (const attempt of audits.attempts) await this.#writeAttempt(attempt, client);
+      for (const evaluation of audits.readiness)
+        await saveTaskAvailabilityEvaluation(client, evaluation.readiness, evaluation.snapshots);
+      if (audits.supersedeSourcePlanId !== undefined)
+        await this.#supersedeSource(client, audits.supersedeSourcePlanId);
+      await this.#writePlan(plan, client, command);
       await client.query('COMMIT');
     } catch (error: unknown) {
       await client.query('ROLLBACK');
