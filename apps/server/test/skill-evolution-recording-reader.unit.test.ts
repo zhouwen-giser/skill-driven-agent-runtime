@@ -12,11 +12,30 @@ import {
 import { PostgresBackedSkillRecordingReader } from '../src/composition/skill-evolution.js';
 
 describe('retained evolution recording ownership', () => {
+  it.each(['adjust_plan', 'unachievable'] as const)(
+    'retains a succeeded Workflow when Goal evaluation is %s',
+    async (decision) => {
+      const fixture = setup(true);
+      const experience = {
+        ...fixture.experience,
+        evaluation: { decision, summary: 'Workflow finished, Goal remains unmet.' },
+        successful: false,
+      };
+      await expect(fixture.reader.read(experience)).resolves.toEqual({
+        instanceStatus: 'succeeded',
+        invocations: [fixture.invocation],
+      });
+      expect(fixture.reads()).toBe(1);
+    },
+  );
   it.each([true, false])(
     'reads only exact instance invocations (successful=%s)',
     async (successful) => {
       const fixture = setup(successful);
-      expect(await fixture.reader.read(fixture.experience)).toEqual([fixture.invocation]);
+      expect(await fixture.reader.read(fixture.experience)).toEqual({
+        instanceStatus: successful ? 'succeeded' : 'failed',
+        invocations: [fixture.invocation],
+      });
     },
   );
   it.each(['task', 'plan', 'goal', 'input', 'result', 'errors', 'status'] as const)(

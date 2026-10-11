@@ -1,0 +1,22 @@
+# Functional repair local acceptance — 2026-10-12
+
+Status: COMPLETE for this scoped repair batch; SDAR PR38 and GOWM PR23 are merged. This is not full FR-EVO or whole-project acceptance.
+
+Implemented: GOWM device-attributed Temporary Skill terminal writes and binding-scoped auxiliary Provider links; Console node/parameter editing with immutable revisions and draft confirmation protection; ordinary recorded Tool Skill evolution with real candidate planning/LangGraph execution, retained correction feedback and atomic PostgreSQL CAS publication.
+
+`pnpm verify:isolated -- --frozen` passes all 30 stages on `sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f`: 2,683 unit, 553 contract, 272 integration and 77 E2E. Fresh install, final exit and owned cleanup are 0. Runtime input `d7b0a6d9fcdc000e9e9804c8b812972c2e496a0759bb3d48aa073c6ece8ff40b` and baseline `77107c3ba2c1363bd0c8038a0941678354be8aaada2a222858d40eec5bbdbfd6` remained unchanged. The freeze records base SHA 2029f4b7 plus dirty input hashes; all 2,888 local runtime/baseline files now match committed source `3dbe619ba8f1cd376d4ab8118941b1afac872d7f` and merged source `272be96826a48da92f14151b1ffc4fa5d1719804`. [Exact commands, hashes and original logs](final/VALIDATION.json).
+
+- Real PostgreSQL evolution checks cover nine groups: new Skill/new version, failed then corrected candidate, version/correction transaction rollback and retry, candidate/base/Tool authority drift and incomplete receipt rejection. Repeated/concurrent publication returns the durable receipt without duplicate version/outbox writes.
+- Same-source restricted GOWM: 8 steps / 2 formal TaskBusiness flows / 32 native database cases PASS; consumer DDL/private writes denied, schema/private SMPP state unchanged, both owned containers removed. [Receipt](final/GOWM_VALIDATION.json).
+- Browser edit → invalid JSON rejection → validation → immutable V2 → confirmation → actual LangGraph success/trace PASS; 0 Model/MCP calls. Every production input is unchanged from that browser build. [Browser result](console-browser-20261012/result.json), [source equality](final/CONSOLE_SOURCE_EQUIVALENCE.json).
+- GOWM narrow owner delivery dca0fcd is merged in [PR23](https://github.com/zhouwen-giser/geospatial-operational-world-model/pull/23), merge d6bcd289. Owner verify: 682 Vitest + 41 STAS passes, 33 existing opt-in skips; fresh PG 43 cases and populated predecessor upgrade/repeat pass. [Owner evidence](owner-delivery/validated/DELIVERY_VALIDATION.json) and [merged-source/CI receipt](owner-delivery/publication/SOURCE_EQUIVALENCE.json).
+- Official HTTP/JSON MUST protocol harness: 74 passed, 161 skipped, 0 failures/errors. Skips are not acceptance. [Scope and original reports](final/TCK/SCOPE.json). Performance: 7.33% Runtime P95 increase, 3.02 ms Evidence append P95, within unchanged thresholds.
+
+Missing inspection-provider authority, source trajectory clocks/complete-history contract and unsupported remote/provider/LLM/child/subworkflow/human-confirmation evolution recordings remain OPEN. Restricted UGV/home/device profiles stay deferred. Models and Tool results in tests are simulated; PostgreSQL, Redis, browser and LangGraph are real local owned processes. Field operations and deployment: NOT_RUN.
+
+Earlier failed/canceled attempts are preserved in `full-gates/` with their original status. The source repair and strict assertions were retained; the final E2E rerun fixes only loopback routing that confused retained Skill content with an operation. [Gap-by-gap scope](REPAIR_SCOPE.md).
+
+
+## Publication
+
+[SDAR PR38](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/38) is merged. [Automatic CI](https://github.com/zhouwen-giser/skill-driven-agent-runtime/actions/runs/38158146555) and [manual exact-head CI](https://github.com/zhouwen-giser/skill-driven-agent-runtime/actions/runs/38158164375) both pass on source `3dbe619b`. The final Git tree and every frozen local runtime/baseline byte match the merge. See [merged-source equality](publication/SOURCE_EQUIVALENCE.json), [source-commit equality](publication/SOURCE_COMMIT_EQUIVALENCE.json), `publication/ci-runs.json`, compressed original CI logs, `pr-before.json`, `pr-after.json` and `merge.json`. SDAR commits use the user's requested identity zhouwen-giser <zhouwen.tm@gmail.com>. This closeout adds evidence/status only and leaves the frozen runtime and baseline unchanged.

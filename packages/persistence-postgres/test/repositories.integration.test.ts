@@ -357,7 +357,7 @@ afterAll(async () => {
 
 describe('PostgreSQL protocol-domain repositories', () => {
   it('publishes verified Skill evolution atomically with correction, CAS and idempotent recovery', async () => {
-    expect(await verifySkillEvolutionCommitCases(pool)).toHaveLength(9);
+    expect(await verifySkillEvolutionCommitCases(pool)).toHaveLength(10);
   });
   it('keeps formal Workflow readiness, deferred audits, failure records and revision CAS atomic', async () => {
     const results = await verifyWorkflowPlanCommitCases(

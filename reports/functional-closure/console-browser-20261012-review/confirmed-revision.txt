@@ -1,0 +1,118 @@
+- complementary:
+  - generic: S
+  - strong: SDAR
+  - generic: OPERATIONS CONSOLE
+  - navigation "主导航":
+    - button "运行概览 System":
+      - generic: 运行概览
+      - generic: System
+    - button "任务与 Goal Trace":
+      - generic: 任务与 Goal
+      - generic: Trace
+    - button "Skills Lifecycle":
+      - generic: Skills
+      - generic: Lifecycle
+    - button "Capabilities Public Card":
+      - generic: Capabilities
+      - generic: Public Card
+    - button "Cognitive Governance Experience":
+      - generic: Cognitive Governance
+      - generic: Experience
+    - button "Artifacts Governance":
+      - generic: Artifacts
+      - generic: Governance
+    - button "Workflows DAG":
+      - generic: Workflows
+      - generic: DAG
+    - button "MCP Servers Tools":
+      - generic: MCP Servers
+      - generic: Tools
+    - button "Business Events Inbox":
+      - generic: Business Events
+      - generic: Inbox
+    - button "Prompts Versions":
+      - generic: Prompts
+      - generic: Versions
+    - button "长期记忆 Recall":
+      - generic: 长期记忆
+      - generic: Recall
+    - button "评估分析 Quality":
+      - generic: 评估分析
+      - generic: Quality
+    - button "System Config Models":
+      - generic: System Config
+      - generic: Models
+    - button "隔离软件演示 No Device":
+      - generic: 隔离软件演示
+      - generic: No Device
+  - paragraph:
+    - text: 默认无认证 · 仅限可信内网
+    - text: Do not expose publicly
+  - text: Optional write token
+  - textbox "Optional write token"
+  - button "Use for this tab"
+- main:
+  - text: SKILL-DRIVEN AGENT RUNTIME
+  - heading "Workflows" [level=1]
+  - generic: LIVE API
+  - text: IMMUTABLE PLAN WORKBENCH
+  - heading "Workflow DAG & Replay" [level=2]
+  - generic: confirmed
+  - text: Plan ID
+  - textbox "Plan ID": sdar-console-30df15c5-review-v2
+  - button "载入计划"
+  - text: Instance ID
+  - textbox "Instance ID"
+  - button "载入轨迹"
+  - paragraph: "sdar-console-30df15c5-review-v2: confirmed."
+  - generic: sdar-console-30df15c5-fb88-481a-86b2-ae13b034a1f5-plan · V2
+  - heading "Workflow draft" [level=2]
+  - generic: 1 nodes / 0 edges
+  - generic: Visual edits update the restricted DSL draft only. Validate and create an immutable revision before confirmation.
+  - text: New node ID
+  - textbox "New node ID": verified
+  - text: Node type
+  - combobox "Node type":
+    - option "llm"
+    - option "mcp_tool"
+    - option "result"
+    - option "condition" [selected]
+    - option "parallel"
+    - option "loop"
+    - option "subworkflow"
+    - option "human_confirmation"
+    - option "error_handler"
+    - option "skill_call"
+  - button "Add node"
+  - generic "Visual Workflow editor":
+    - article:
+      - text: Type (changing type clears parameters)
+      - combobox "Node verified type":
+        - option "llm"
+        - option "mcp_tool"
+        - option "result" [selected]
+        - option "condition"
+        - option "parallel"
+        - option "loop"
+        - option "subworkflow"
+        - option "human_confirmation"
+        - option "error_handler"
+        - option "skill_call"
+      - text: Node name
+      - textbox "Node verified name": verified
+      - code: verified
+      - generic "Node parameters"
+      - button "Remove node verified" [disabled]: Remove node
+      - radio "ENTRY" [checked]
+      - text: ENTRY
+      - checkbox "EXIT" [checked]
+      - text: EXIT
+  - generic "Workflow edges"
+  - button "Add edge" [disabled]
+  - text: RESTRICTED JSON DSL
+  - textbox "Workflow DSL editor": "{ \"workflowDefinitionId\": \"sdar-console-30df15c5-fb88-481a-86b2-ae13b034a1f5-plan\", \"version\": 2, \"goalId\": \"sdar-console-30df15c5-fb88-481a-86b2-ae13b034a1f5-goal\", \"goalVersion\": 1, \"executionSemanticsVersion\": \"2.0\", \"entryNodeId\": \"verified\", \"exitNodeIds\": [ \"verified\" ], \"nodes\": [ { \"nodeId\": \"verified\", \"name\": \"verified\", \"type\": \"result\", \"value\": { \"op\": \"literal\", \"value\": \"review-frozen-browser-result\" } } ], \"edges\": [] }"
+  - button "仅校验"
+  - text: New Plan ID
+  - textbox "New Plan ID": sdar-console-30df15c5-review-v2
+  - button "创建不可变修订"
+  - button "确认计划" [disabled]

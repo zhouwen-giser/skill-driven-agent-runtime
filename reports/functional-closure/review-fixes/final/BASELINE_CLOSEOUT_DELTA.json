@@ -1,0 +1,8 @@
+{
+  "status": "DOCUMENTED_ACCEPTANCE_STATUS_ONLY_DELTA",
+  "path": "docs/17_TRACEABILITY_MATRIX.md",
+  "frozenSha256": "11d3ba85573d874181b3e9ce1d313b7e269659f07b7562862a0d905b649ab4eb",
+  "finalSha256": "c4393fca46991e24db7fc7ae044f2be287b1cdcba8197cfb4d4564c7fa9f78aa",
+  "requirementPrefixUnchanged": true,
+  "reason": "Reconcile actual final test receipts, publication evidence and remaining open scope after the gate; no requirement semantics or runtime edits."
+}

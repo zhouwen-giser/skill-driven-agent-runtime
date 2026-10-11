@@ -239,7 +239,7 @@ export async function verifySkillEvolutionCommitCases(pool: Pool) {
   ]);
   outcomes.push('correction_transaction_rollback_and_retry');
 
-  for (const drift of ['candidate', 'base', 'tool', 'receipt'] as const) {
+  for (const drift of ['candidate', 'base', 'tool', 'receipt', 'terminal'] as const) {
     const fixture = await setup();
     // Retain a fully validated receipt without publishing; the next transaction changes its authority.
     fixture.setWrongResult(true);
@@ -298,6 +298,27 @@ export async function verifySkillEvolutionCommitCases(pool: Pool) {
             cases: staged.candidate.validationReport.cases.filter(
               (item) => item.kind !== 'boundary',
             ),
+          },
+        },
+      };
+    }
+    if (drift === 'terminal') {
+      assert.ok(staged.candidate.validationReport?.executionValidation);
+      staged = {
+        ...staged,
+        candidate: {
+          ...staged.candidate,
+          validationReport: {
+            ...staged.candidate.validationReport,
+            executionValidation: {
+              ...staged.candidate.validationReport.executionValidation,
+              executions: staged.candidate.validationReport.executionValidation.executions.map(
+                (execution) =>
+                  execution.caseId === 'history-history-4'
+                    ? { ...execution, recordedInstanceStatus: 'failed' }
+                    : execution,
+              ),
+            },
           },
         },
       };

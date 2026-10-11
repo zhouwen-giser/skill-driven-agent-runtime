@@ -1,0 +1,46 @@
+{
+  "status": "PASS_AFTER_REPRODUCED_DEFECT",
+  "readerBeforeFix": {
+    "failed": 2,
+    "passed": 9
+  },
+  "afterFixUnitPassed": 26,
+  "postgresScenarioGroups": 10,
+  "postgresTestsSelected": 1,
+  "postgresTestsDeselected": 97,
+  "postgresOwnedContainersRemoved": 2,
+  "fullGate": "PASS",
+  "results": [
+    {
+      "name": "sdar-evolution-goal-status-red2",
+      "exitCode": 1,
+      "rawLog": "sdar-evolution-goal-status-red2.log.gz",
+      "rawSha256": "7514061ef8234c3652cfde0c9f8a544345f07982cbcae11348e99964075fe002"
+    },
+    {
+      "name": "sdar-evolution-review-unit2",
+      "exitCode": 0,
+      "rawLog": "sdar-evolution-review-unit2.log.gz",
+      "rawSha256": "f9bfc0d3d88a68e41e8212a616861ac4f4d90866f79d99f92d42b667d04e7f5c"
+    },
+    {
+      "name": "sdar-evolution-review-postgres2",
+      "exitCode": 0,
+      "rawLog": "sdar-evolution-review-postgres2.log.gz",
+      "rawSha256": "b0e49a323132f540a3b573cd58cbbd049836d2fd060dddd6bee903f690797c58"
+    },
+    {
+      "name": "sdar-evolution-review-types2",
+      "exitCode": 0,
+      "rawLog": "sdar-evolution-review-types2.log.gz",
+      "rawSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+    },
+    {
+      "name": "sdar-evolution-review-lint",
+      "exitCode": 0,
+      "rawLog": "sdar-evolution-review-lint.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "fullGateReceipt": "final/VALIDATION.json"
+}

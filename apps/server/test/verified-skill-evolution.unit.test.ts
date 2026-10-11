@@ -15,7 +15,7 @@ describe('verified Skill evolution orchestration', () => {
       const published = await fixture.service.evaluateAndPublish(fixture.initial.candidateId);
       expect(published.status, JSON.stringify(published.validationReport)).toBe('published');
       expect(published.publishedSkillVersion).toBe(newSkill ? 1 : 2);
-      expect(published.validationReport?.executionValidation?.executions).toHaveLength(10);
+      expect(published.validationReport?.executionValidation?.executions).toHaveLength(11);
       expect(published.validationReport?.cases.map((item) => item.kind)).toEqual([
         'static_validation',
         'source_experience',
@@ -25,11 +25,20 @@ describe('verified Skill evolution orchestration', () => {
         'historical_replay',
         'historical_replay',
         'historical_replay',
+        'historical_replay',
         'normal',
         'boundary',
         'exception',
       ]);
-      expect(fixture.candidateCalls()).toBe(10);
+      expect(fixture.candidateCalls()).toBe(11);
+      expect(published.validationReport?.cases).toContainEqual(
+        expect.objectContaining({
+          caseId: 'history-history-4',
+          kind: 'historical_replay',
+          expectedOutcome: 'success',
+          passed: true,
+        }),
+      );
       expect(fixture.inductionInputs[0]).toContain('replayCorpus');
       expect(fixture.inductionInputs[0]).toContain('DEVICE_OFFLINE');
       const calls = fixture.modelCalls();
@@ -40,6 +49,33 @@ describe('verified Skill evolution orchestration', () => {
       expect(fixture.commits).toHaveLength(1);
     },
   );
+
+  it('does not count a succeeded but unmet-Goal round as an execution exception', async () => {
+    const fixture = setup(false);
+    fixture.setExceptionInput('not-achieved');
+    const candidate = await fixture.service.evaluateAndPublish(fixture.initial.candidateId);
+    expect(candidate.status).toBe('validation_failed');
+    expect(candidate.publishedSkillId).toBeUndefined();
+    expect(candidate.validationReport?.cases).toContainEqual(
+      expect.objectContaining({ caseId: 'exception', kind: 'exception', passed: false }),
+    );
+  });
+
+  it('selects an achieved normal recording when an unmet-Goal round has the same input', async () => {
+    const fixture = setup(false);
+    const unmet = fixture.histories.pop();
+    if (unmet === undefined || unmet.successful) throw new Error('Unmet-Goal fixture missing');
+    fixture.histories.unshift({ ...unmet, input: { id: 'normal' } });
+    const candidate = await fixture.service.evaluateAndPublish(fixture.initial.candidateId);
+    expect(candidate.status, JSON.stringify(candidate.validationReport?.cases)).toBe('published');
+    expect(candidate.validationReport?.executionValidation?.executions).toContainEqual(
+      expect.objectContaining({
+        caseId: 'normal',
+        experienceId: 'history-0',
+        recordedInstanceStatus: 'succeeded',
+      }),
+    );
+  });
 
   it('feeds persisted failed corrections back into subsequent induction', async () => {
     const fixture = setup(false);

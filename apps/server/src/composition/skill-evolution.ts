@@ -102,8 +102,9 @@ export class PostgresBackedSkillRecordingReader implements SkillCandidateRecordi
     if (
       experience.taskId === undefined ||
       instance?.completedAt === undefined ||
-      !['succeeded', 'failed'].includes(instance.status) ||
-      (instance.status === 'succeeded') !== experience.successful ||
+      (instance.status !== 'succeeded' && instance.status !== 'failed') ||
+      (instance.status === 'succeeded' && experience.evaluation.decision === 'achieved') !==
+        experience.successful ||
       canonicalHash(instance.input) !== canonicalHash(experience.input) ||
       canonicalHash({ result: instance.result }) !== canonicalHash({ result: experience.result }) ||
       canonicalHash(instance.errors) !== canonicalHash(experience.errors)
@@ -122,11 +123,14 @@ export class PostgresBackedSkillRecordingReader implements SkillCandidateRecordi
     const completed = Date.parse(instance.completedAt);
     if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started)
       throw new SkillEvolutionValidationError('SKILL_EVOLUTION_SOURCE_TIME_RANGE_INVALID');
-    return (await this.dependencies.mcp.listInvocationsByTask(experience.taskId)).filter(
-      (invocation) =>
-        invocation.taskId === experience.taskId &&
-        Date.parse(invocation.startedAt) >= started &&
-        Date.parse(invocation.completedAt) <= completed,
-    );
+    return {
+      instanceStatus: instance.status,
+      invocations: (await this.dependencies.mcp.listInvocationsByTask(experience.taskId)).filter(
+        (invocation) =>
+          invocation.taskId === experience.taskId &&
+          Date.parse(invocation.startedAt) >= started &&
+          Date.parse(invocation.completedAt) <= completed,
+      ),
+    };
   }
 }

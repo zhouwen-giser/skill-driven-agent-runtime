@@ -1,0 +1,10 @@
+{
+  "rawLogSha256": "8ebb9bce7d34ed46f9e7fe84798b871d22755afd05a3827d489d2b3edf6d6dd9",
+  "log": "ci-38160668014.log.gz",
+  "checkoutLines": [
+    "compat\tRun actions/checkout@11d5960a326750d5838078e36cf38b85af677262\t2026-10-11T17:41:04.3100888Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +70b633ae3dc3deef514a203124b6eac553dd7d19:refs/remotes/pull/39/merge",
+    "compat\tRun actions/checkout@11d5960a326750d5838078e36cf38b85af677262\t2026-10-11T17:41:06.4469117Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/39/merge",
+    "compat\tRun actions/checkout@11d5960a326750d5838078e36cf38b85af677262\t2026-10-11T17:41:08.3112034Z Note: switching to 'refs/remotes/pull/39/merge'.",
+    "compat\tRun actions/checkout@11d5960a326750d5838078e36cf38b85af677262\t2026-10-11T17:41:08.4015252Z [command]/usr/bin/git log -1 --format=%H"
+  ]
+}

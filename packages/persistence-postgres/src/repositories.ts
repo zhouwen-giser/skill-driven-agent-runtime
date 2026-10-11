@@ -709,6 +709,7 @@ const EvolutionValidationReceiptSchema = z
             .transform((value) => mapStoredWorkflowDefinition(value))
             .optional(),
           status: z.string(),
+          recordedInstanceStatus: z.enum(['succeeded', 'failed']).optional(),
           actualResultHash: z.string().optional(),
           errorCodes: z.array(z.string()),
           assertions: z.array(z.object({ name: z.string(), passed: z.boolean() }).strict()),
@@ -5106,7 +5107,11 @@ export class PostgresSkillRepository implements SkillRepository {
               (item) =>
                 !receipt.executions.some(
                   (execution) =>
-                    execution.caseId === item.caseId && execution.status !== 'not_executed',
+                    execution.caseId === item.caseId &&
+                    execution.status ===
+                      (item.expectedOutcome === 'success' ? 'succeeded' : 'failed') &&
+                    execution.recordedInstanceStatus === execution.status &&
+                    (item.kind !== 'exception' || execution.recordedInstanceStatus === 'failed'),
                 ),
             ) ||
           receipt.executions.some(

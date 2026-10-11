@@ -14,6 +14,7 @@ export interface SkillCandidateExecutionEvidence {
   readonly planningAttempts: readonly WorkflowPlanAttempt[];
   readonly definition?: WorkflowDefinition;
   readonly status: string;
+  readonly recordedInstanceStatus?: 'succeeded' | 'failed';
   readonly actualResultHash?: string;
   readonly errorCodes: readonly string[];
   readonly assertions: readonly Readonly<{ name: string; passed: boolean }>[];

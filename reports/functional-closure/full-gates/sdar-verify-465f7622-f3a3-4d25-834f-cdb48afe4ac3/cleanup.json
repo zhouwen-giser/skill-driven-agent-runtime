@@ -1,0 +1,84 @@
+[
+  {
+    "name": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3",
+    "file": "compose.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 151,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 29028352,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3-control-smoke",
+    "file": "compose.node-control.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 85,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 29147136,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3-runtime-smoke",
+    "file": "compose.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 87,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 0,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3-e2e-performance",
+    "file": "compose.verification-performance.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 89,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  },
+  {
+    "resource": "migration-container-inventory",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 22,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  },
+  {
+    "resource": "migration-volume-inventory",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 21,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  }
+]

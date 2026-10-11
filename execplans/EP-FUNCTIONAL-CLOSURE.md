@@ -23,11 +23,11 @@ SDAR starts at main `2029f4b7fca908724e58b77f079fc893eff69cb4`. Fresh audit run 
 
 - [x] 2026-10-11 Audited current main and retained fresh full baseline evidence.
 - [x] 2026-10-11 User explicitly extended scope to local GOWM repairs and contract re-intake.
-- [x] 2026-10-11 Implement additive owner storage fixes and consumer regressions/re-intake. Owner source `2e1af12`; 43 owner and 32 restricted consumer PG scenarios pass; full milestone gate pending.
-- [x] 2026-10-11 Implement Console node editing and draft confirmation guard; 43 focused tests and UI build pass. Browser acceptance passed with real API revision, confirmation, LangGraph execution and trace; full milestone gate pending.
+- [x] 2026-10-11 Implement additive owner storage fixes and consumer regressions/re-intake. Owner source `2e1af12`; 43 owner and 32 restricted consumer PG scenarios pass; the final post-review milestone gate is recorded below.
+- [x] 2026-10-11 Implement Console node editing and draft confirmation guard; 43 focused tests and UI build pass. Browser acceptance passed with real API revision, confirmation, LangGraph execution and trace; the final post-review milestone gate is recorded below.
 - [x] Implement ordinary recorded Skill candidate validation and atomic publication; focused tests pass. Full gate and remaining unsupported recording kinds are explicitly separate.
 - [x] 2026-10-12 Freeze final source, run all 30 isolated stages and same-source restricted-role GOWM verification.
-- [ ] Commit, push, check actual-head CI and merge SDAR delivery. GOWM PR23 is merged and post-merge CI passes.
+- [x] 2026-10-12 Commit/push `3dbe619b`; PR38 PR merge-ref CI passes (automatic 38158146555 / checkout 3230bfff), and exact-head CI passes (manual 38158164375 / checkout 3dbe619b); merge `272be968`. All 2,888 frozen local runtime/baseline files match the merged source. GOWM PR23 is merged and post-merge CI passes.
 
 ## Discoveries and Surprises
 
@@ -58,11 +58,11 @@ Use isolated test databases and owner installer history; do not migrate field da
 
 ## Artifacts and Evidence
 
-Baseline: `reports/runtime-semantic-closure/sdar-verify-59d697db-893a-4815-9867-6199a1d988d0/`. Known owner reproducers: `docs/gowm-shared-storage/UPSTREAM_STORAGE_GAP.md`, `apps/server/test/gowm-temporary-skill-scope.ts`, auxiliary-link gap report. Focused and browser evidence: `reports/functional-closure/`; full source freeze evidence pending.
+Baseline: `reports/runtime-semantic-closure/sdar-verify-59d697db-893a-4815-9867-6199a1d988d0/`. Known owner reproducers: `docs/gowm-shared-storage/UPSTREAM_STORAGE_GAP.md`, `apps/server/test/gowm-temporary-skill-scope.ts`, auxiliary-link gap report. Focused and browser evidence: `reports/functional-closure/`; first-delivery frozen evidence is archived in `reports/functional-closure/final/VALIDATION.json`; current review-fix acceptance is tracked below.
 
 ## Outcomes and Retrospective
 
-LOCAL_COMPLETE for the scoped repair. All 30 final frozen stages pass; publication remains in progress. Full FR-EVO and whole-project acceptance remain OPEN. Field operations and deployment NOT_RUN. Patrol capability, per-sample trajectory clocks and production operational evidence remain open unless a real authoritative implementation/contract is supplied and verified.
+COMPLETE scoped local implementation. PR38 and GOWM PR23 are merged. The post-merge recording-status defect is repaired and has fresh full acceptance; delivery is tracked by PR39 and its final CI/merge record. Full FR-EVO and whole-project acceptance remain OPEN. Field operations and deployment NOT_RUN. Patrol capability, per-sample trajectory clocks and production operational evidence remain open unless a real authoritative implementation/contract is supplied and verified.
 
 ### Increment discoveries and validation
 
@@ -88,6 +88,20 @@ Delivery discovery: GOWM local base 506315b includes unrelated unmerged history 
 Final attempt `f49c363d` passed format/lint/types, 2,683 unit, 553 contract and 272 integration cases, then failed ordinary E2E (75 passed / one failed; the isolated performance case was not reached). The full-file reproducer confirmed that induction carried prior Skill guidance and the loopback model's broad keyword routing selected another operation. Production correctly saved a failed induction receipt without publishing. Route the induction outer operation before legacy content-based branches, retain strict proposed-candidate/correction/no-live-call assertions, and rerun the full frozen gate. Original failures are archived without reclassification.
 
 
-### Final local acceptance — 2026-10-12
+### First-delivery local acceptance — 2026-10-12 (historical)
 
 Frozen run `sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f` passes all 30 stages: 2,683 unit, 553 contract, 272 integration and 77 E2E; install/exit/cleanup 0, runtime and baseline unchanged. Runtime input `d7b0a6d9fcdc000e9e9804c8b812972c2e496a0759bb3d48aa073c6ece8ff40b`, baseline `77107c3ba2c1363bd0c8038a0941678354be8aaada2a222858d40eec5bbdbfd6`. Official HTTP/JSON MUST protocol harness: 74 passed / 161 skipped / 0 failed; skips are not acceptance. Independent performance regression 7.33%, append P95 3.02 ms. Same-source GOWM run `d2e3e90d` passes eight steps, two formal flows and 32 native cases, with unchanged schema/private state and owned cleanup. Browser production inputs match this freeze; only the E2E mock routing changed after browser acceptance. GOWM owner PR23 and actual merged-head CI pass; source equality is recorded. See `reports/functional-closure/FINAL_CLOSEOUT.md` and `final/VALIDATION.json`. This scoped milestone does not close unsupported recordings, real inspection/trajectory authority or whole-project DoD.
+
+
+### Post-merge review correction — 2026-10-12
+
+- [x] Reproduce two valid recordings rejected when an instance succeeded but the Goal requested plan adjustment or remained unachievable.
+- [x] Separate the authoritative recorded instance terminal status from the existing combined experience-success flag. Candidate replay compares native terminal/output/error oracles; normal source qualification still requires Goal achievement. An unmet Goal cannot substitute for an execution exception. PostgreSQL preserves and checks terminal evidence in the atomic receipt.
+- [x] Finish 26 focused unit tests, ten PostgreSQL scenario groups, the fresh 30-stage gate, same-source restricted GOWM and fresh browser verification.
+- [x] Reconcile final traceability and CI checkout labels; publish review code and its successful CI in PR39. Final review resolution, head CI and merge are tracked by the PR publication record.
+
+The first delivery was 3dbe619b / PR38 merge 272be968. Automatic CI checkout was synthetic PR merge commit 3230bfff507a7e4bb9b0b271d08f1f9e003b0f72, whose tree equals the source; manual CI checked exact 3dbe619b. Documentation closeout 3b7a0756 passed manual CI 38158519503, but PR39 merging was blocked by unresolved traceability/CI-label discussions. Those findings and the late PR38 recording finding are addressed within PR39. No prior PASS is reused as acceptance of the changed source.
+
+### Post-review final acceptance
+
+`sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3`: 2,689 unit / 553 contract / 272 integration / 77 E2E, 30/30 stages PASS, install/exit/cleanup 0. Snapshot runtime `8ab70b92e5c5c28b19a293120e28ea86b2f3352c2c2b5d821a9a747db32037ee` and baseline `2674debf0d58b9eef05487ab232c76d8d99db85304e736342a2dbf63d811207d` were unchanged. `reports/functional-closure/review-fixes/final/VALIDATION.json` archives commands, original logs and hashes; matching GOWM and browser receipts are adjacent. Only the final traceability acceptance appendix changed after the gate, explicitly receipted without altering requirement semantics. Review code `fedf99c6` passed CI 38160668014 on PR merge ref `70b633ae` with identical tree. PR39 provides the final checked delivery record; prior failed runs and pre-review acceptance remain historical.

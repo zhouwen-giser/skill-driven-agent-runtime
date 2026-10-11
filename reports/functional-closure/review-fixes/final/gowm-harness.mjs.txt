@@ -1,0 +1,93 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { inputClass, inputDigest } from '../../scripts/lib/verification-inputs.mjs';
+
+const root = '/home/sz/code/skill-driven-agent-runtime';
+const evidence = path.join(root, process.argv[4] ?? 'reports/functional-closure/final');
+await mkdir(evidence, { recursive: true });
+const [frozenSource, frozenManifest] = process.argv.slice(2);
+assert.match(frozenSource, /^\/tmp\/sdar-verify-[^/]+\/source$/u);
+const manifest = JSON.parse(await readFile(frozenManifest, 'utf8'));
+const base = path.join(frozenSource, 'reports/sdar-smpp-v13-upgrade/20261010-local');
+const before = new Set(await readdir(base));
+const runnerLog = path.join(evidence, 'M4-gowm-runner.log');
+const output = createWriteStream(runnerLog);
+const command = ['node', 'scripts/sdar-smpp-v13/verify-gowm.mjs'];
+const child = spawn(command[0], command.slice(1), {
+  cwd: frozenSource,
+  env: { ...process.env, PATH: '/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin:' + process.env.PATH },
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+child.stdout.pipe(output, { end: false });
+child.stderr.pipe(output, { end: false });
+const result = await new Promise((resolve, reject) => {
+  child.once('error', reject);
+  child.once('close', (exitCode, signal) => resolve({ exitCode, signal }));
+});
+await new Promise((resolve) => output.end(resolve));
+const created = (await readdir(base)).filter((name) => !before.has(name));
+const runs = created.filter((name) => name.startsWith('sdar-smpp-gowm-'));
+assert.equal(runs.length, 1);
+const report = JSON.parse(await readFile(path.join(base, runs[0], 'result.json'), 'utf8'));
+const destination = path.join(evidence, 'GOWM', report.runId);
+await mkdir(destination, { recursive: true });
+await cp(path.join(base, runs[0]), destination, { recursive: true });
+await mkdir(path.join(destination, 'raw'), { recursive: true });
+await cp(runnerLog, path.join(destination, 'raw/runner.log'));
+const formal = created.filter((name) => name.startsWith('formal-'));
+for (const name of formal) await cp(path.join(base, name), path.join(destination, name), { recursive: true });
+assert.equal(result.exitCode, 0);
+assert.equal(result.signal, null);
+assert.equal(report.status, 'PASS');
+assert.equal(report.inputUnchanged, true);
+assert.equal(report.baselineUnchanged, true);
+assert.equal(report.steps.length, 8);
+for (const step of report.steps) { assert.equal(step.exitCode, 0); assert.equal(step.signal, null); }
+assert.equal(report.cleanup.length, 2);
+assert.deepEqual(report.cleanupErrors, []);
+for (const step of report.cleanup) { assert.equal(step.exitCode, 0); assert.equal(step.ownershipChecked, true); }
+assert.deepEqual(report.consumerPrivileges, { native_ddl: false, private_write: false, native_observation_write: true });
+assert.equal(report.schemaBeforeFormal, report.schemaAfterFormal);
+assert.equal(report.schemaBeforeFormal, report.schemaAfterBoundarySuite);
+assert.deepEqual(report.privateSmppBeforeFormal, report.privateSmppAfterFormal);
+const inputs = JSON.parse(await readFile(path.join(destination, 'inputs.json'), 'utf8'));
+const frozenLocal = manifest.inputs.filter((entry) => !entry.path.startsWith('../') && inputClass(entry.path) !== 'status').map(({ path, sha256 }) => ({ path, sha256 })).sort((a,b) => a.path.localeCompare(b.path,'en'));
+assert.deepEqual([...inputs].sort((a,b) => a.path.localeCompare(b.path,'en')), frozenLocal);
+assert.equal(inputDigest(inputs, 'runtime'), report.inputSha256);
+assert.equal(inputDigest(inputs, 'baseline'), report.baselineSha256);
+const native = JSON.parse(await readFile(path.join(destination, 'native-storage/postgres-task-workflow-results.json'), 'utf8'));
+assert.equal(native.status, 'PASS');
+assert.equal(native.results.length, 32);
+for (const scenario of native.results) assert.equal(scenario.status, 'PASS');
+assert.equal(formal.length, 2);
+const cases = [];
+for (const name of formal) {
+  const entry = JSON.parse(await readFile(path.join(destination, name, 'evidence.json'), 'utf8'));
+  assert.equal(entry.storageMode, 'gowm_shared_business');
+  cases.push({ operation: entry.identity.operationName, taskId: entry.taskId, deviceId: entry.deviceId, evidence: path.relative(root,path.join(destination, name, 'evidence.json')) });
+}
+assert.deepEqual(cases.map((entry) => entry.operation).sort(), ['vehicle_area_recon', 'vehicle_navigate']);
+const raw = await readFile(path.join(destination, 'raw/runner.log'));
+const record = {
+  schemaVersion: 1, status: 'PASS', scope: 'functional_closure_restricted_role_gowm',
+  command, cwd: frozenSource, ...result, runId: report.runId, frozenRunId: manifest.runId,
+  sourceCommit: manifest.commit, fullFrozenRuntimeInputSha256: manifest.inputSha256,
+  localRuntimeInputSha256: report.inputSha256, localBaselineSha256: report.baselineSha256,
+  sameLocalFrozenInputs: true, externalVerificationInputs: manifest.inputs.filter((entry) => entry.path.startsWith('../')),
+  inputUnchanged: report.inputUnchanged, baselineUnchanged: report.baselineUnchanged,
+  ownerCommit: report.ownerCommit, images: report.images, privileges: report.consumerPrivileges,
+  driverSteps: report.steps, formalCases: cases, nativeScenarioCount: native.results.length,
+  nativeBoundarySuiteProjectAcceptance: native.acceptanceStatus,
+  knownContractGaps: native.knownContractGaps,
+  cleanup: report.cleanup, cleanupErrors: report.cleanupErrors,
+  originalReportDirectory: path.join(base, runs[0]), archivedReportDirectory: path.relative(root, destination),
+  runnerLog: path.relative(root, runnerLog), archivedRawLog: path.relative(root, path.join(destination, 'raw/runner.log')),
+  rawLogSha256: createHash('sha256').update(raw).digest('hex'),
+  classification: { database: 'REAL_OWNED_LOOPBACK_RESTRICTED_ROLES', model: 'SIMULATED_LOOPBACK', mcp: 'SIMULATED_LOOPBACK', physicalProvider: 'NOT_RUN', site: 'NOT_RUN', deployment: 'NOT_RUN' },
+};
+await writeFile(path.join(evidence, 'GOWM_VALIDATION.json'), JSON.stringify(record, null, 2) + '\n');
+console.log(JSON.stringify({ status: record.status, runId: record.runId, frozenRunId: record.frozenRunId, driverSteps: report.steps.length, formalCases: cases.length, nativeScenarios: native.results.length, exitCode: result.exitCode, sameLocalFrozenInputs: true }));
