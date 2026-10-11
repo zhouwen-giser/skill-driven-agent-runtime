@@ -1,9 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import { WorkflowNodeParameters, parseNodeParameters } from './WorkflowNodeParameters.js';
 import { App } from './App.js';
 import {
   applyVisualWorkflowEdit,
+  workflowDraftChanged,
+  prepareWorkflowRevision,
   parseVisualWorkflowDefinition,
   WorkflowEventDuration,
   WorkflowPanel,
@@ -325,6 +328,156 @@ describe('operational console static accessibility contract', () => {
     });
     expect(parseVisualWorkflowDefinition(edited)?.edges).toHaveLength(2);
     expect(parseVisualWorkflowDefinition('{')).toBeUndefined();
+  });
+
+  it('adds, configures and changes a node without publishing or losing unrelated DSL fields', () => {
+    const definition = {
+      workflowDefinitionId: 'w',
+      version: 2,
+      executionSemanticsVersion: '2.0',
+      goalId: 'g',
+      goalVersion: 1,
+      entryNodeId: 'start',
+      exitNodeIds: ['start'],
+      nodes: [
+        { nodeId: 'start', name: 'Start', type: 'result', value: { op: 'literal', value: null } },
+      ],
+      edges: [],
+      skillUsagePolicy: { frozen: 'preserve' },
+    };
+    let editor = applyVisualWorkflowEdit(JSON.stringify(definition), {
+      kind: 'add_node',
+      nodeId: 'call',
+      type: 'mcp_tool',
+    });
+    expect(() =>
+      applyVisualWorkflowEdit(editor, { kind: 'add_node', nodeId: 'call', type: 'llm' }),
+    ).toThrow('unique node ID');
+    editor = applyVisualWorkflowEdit(editor, {
+      kind: 'configure_node',
+      nodeId: 'call',
+      parameters: parseNodeParameters('mcp_tool', {
+        tool: '{"serverId":"registered","toolName":"read"}',
+        arguments: '{"target":{"op":"ref","path":["input","target"]}}',
+      }),
+    });
+    expect(parseVisualWorkflowDefinition(editor)?.nodes[1]).toMatchObject({
+      type: 'mcp_tool',
+      tool: { serverId: 'registered', toolName: 'read' },
+      arguments: { target: { op: 'ref', path: ['input', 'target'] } },
+    });
+    expect(() =>
+      applyVisualWorkflowEdit(editor, {
+        kind: 'configure_node',
+        nodeId: 'call',
+        parameters: { nodeId: 'hijack' },
+      }),
+    ).toThrow('does not belong');
+    editor = applyVisualWorkflowEdit(editor, {
+      kind: 'change_type',
+      nodeId: 'call',
+      type: 'human_confirmation',
+    });
+    expect(parseVisualWorkflowDefinition(editor)?.nodes[1]).toEqual({
+      nodeId: 'call',
+      name: 'call',
+      type: 'human_confirmation',
+    });
+    expect(JSON.parse(editor)).toMatchObject({
+      skillUsagePolicy: { frozen: 'preserve' },
+      nodes: [definition.nodes[0], {}],
+    });
+    const source = parseVisualWorkflowDefinition(JSON.stringify(definition));
+    expect(source).toBeDefined();
+    if (source === undefined) throw new Error('Fixture invalid');
+    expect(prepareWorkflowRevision(editor, source)).toMatchObject({
+      version: 3,
+      workflowDefinitionId: 'w',
+      goalId: 'g',
+      skillUsagePolicy: { frozen: 'preserve' },
+    });
+    expect(() =>
+      prepareWorkflowRevision(JSON.stringify({ ...definition, goalId: 'foreign' }), source),
+    ).toThrow('preserve');
+    expect(workflowDraftChanged(editor, definition)).toBe(true);
+    expect(workflowDraftChanged(JSON.stringify(definition, null, 2), definition)).toBe(false);
+    expect(
+      workflowDraftChanged(
+        JSON.stringify({
+          ...definition,
+          nodes: definition.nodes.map((node) => Object.fromEntries(Object.entries(node).reverse())),
+        }),
+        Object.fromEntries(Object.entries(definition).reverse()),
+      ),
+    ).toBe(false);
+    expect(workflowDraftChanged('{', definition)).toBe(true);
+  });
+
+  it('removes incident edges but refuses to strand control references or remove the last node', () => {
+    const raw = {
+      nodes: [
+        { nodeId: 'a', type: 'result' },
+        { nodeId: 'b', type: 'loop', bodyEntryNodeId: 'a' },
+      ],
+      edges: [{ sourceNodeId: 'a', targetNodeId: 'b' }],
+      entryNodeId: 'a',
+      exitNodeIds: ['a', 'b'],
+    };
+    expect(() =>
+      applyVisualWorkflowEdit(JSON.stringify(raw), { kind: 'remove_node', nodeId: 'a' }),
+    ).toThrow('control references');
+    const edited = applyVisualWorkflowEdit(
+      JSON.stringify({
+        ...raw,
+        nodes: raw.nodes.map((node) => ({ nodeId: node.nodeId, type: 'result' })),
+      }),
+      { kind: 'remove_node', nodeId: 'a' },
+    );
+    expect(JSON.parse(edited)).toMatchObject({
+      entryNodeId: 'b',
+      exitNodeIds: ['b'],
+      edges: [],
+      nodes: [{ nodeId: 'b' }],
+    });
+    expect(() => applyVisualWorkflowEdit(edited, { kind: 'remove_node', nodeId: 'b' })).toThrow(
+      'at least one',
+    );
+  });
+
+  it('validates node parameters as data and presents type-specific operational controls', () => {
+    expect(() =>
+      parseNodeParameters('loop', {
+        condition: '{}',
+        bodyEntryNodeId: 'body',
+        maxIterations: 'Infinity',
+      }),
+    ).toThrow('positive integer');
+    expect(() =>
+      parseNodeParameters('mcp_tool', { tool: 'eval("unsafe")', arguments: '{}' }),
+    ).toThrow('valid JSON');
+    expect(
+      parseNodeParameters('result', { value: '{"op":"literal","value":"not executable"}' }),
+    ).toEqual({ value: { op: 'literal', value: 'not executable' } });
+    expect(() => parseNodeParameters('skill_call', { input: '{}' })).toThrow(
+      'Skill ID is required',
+    );
+    const markup = renderToStaticMarkup(
+      <WorkflowNodeParameters
+        node={{
+          nodeId: 'mcp',
+          type: 'mcp_tool',
+          arguments: { limit: 2 },
+          tool: { serverId: 's', toolName: 't' },
+        }}
+        disabled={false}
+        onApply={() => undefined}
+        onPending={() => undefined}
+      />,
+    );
+    expect(markup).toContain('Tool arguments');
+    expect(markup).toContain('Task timing and availability');
+    expect(markup).toContain('Apply node parameters');
+    expect(markup).toContain('Discard parameter edits');
   });
 
   it('renders the reverse Workflow-to-Task link from an authoritative lookup', () => {

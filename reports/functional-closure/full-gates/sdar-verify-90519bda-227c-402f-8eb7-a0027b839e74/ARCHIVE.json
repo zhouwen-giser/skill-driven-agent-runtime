@@ -1,0 +1,26 @@
+{
+  "originalDirectory": "reports/runtime-semantic-closure/sdar-verify-90519bda-227c-402f-8eb7-a0027b839e74",
+  "scope": "failed_or_canceled_increment",
+  "logs": [
+    {
+      "step": "format",
+      "rawSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641",
+      "file": "format.log.gz"
+    },
+    {
+      "step": "verification-runner-contract",
+      "rawSha256": "f73e13c6184b0be7b8fdc09910dc3168de110944281710546f7ff450efae247f",
+      "file": "verification-runner-contract.log.gz"
+    },
+    {
+      "step": "lint",
+      "rawSha256": "0f444fd3b085cc0626581f3d8791d4ab74a87a752b537736e7105a0f16a2d5d1",
+      "file": "lint.log.gz"
+    },
+    {
+      "step": "install",
+      "rawSha256": "11c21ab8ead4dbf4eea99e1ae406c0fa3a6fc125a8ca837b5452274ece916946",
+      "file": "install.log.gz"
+    }
+  ]
+}

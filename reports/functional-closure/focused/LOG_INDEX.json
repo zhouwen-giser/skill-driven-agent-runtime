@@ -1,0 +1,40 @@
+{
+  "logs": [
+    {
+      "file": "sdar-evolution-focused-final2.log.gz",
+      "rawSha256": "38a812b16099369384331b60a9e58f5ad6944dc0f7494bf9bf2147474647cc07",
+      "scope": "incremental diagnostics; final frozen source gate is authoritative"
+    },
+    {
+      "file": "sdar-evolution-postgres-final.log.gz",
+      "rawSha256": "715bf00313b1d0106996a7dcb20e9bad0c2a4ec802547785d79d709cb475934a",
+      "scope": "incremental diagnostics; final frozen source gate is authoritative"
+    },
+    {
+      "file": "sdar-evolution-e2e2.log.gz",
+      "rawSha256": "2230020723e426fc22469439e9913d95ec213e2805722507ca021d76b72c9c65",
+      "scope": "incremental diagnostics; final frozen source gate is authoritative"
+    },
+    {
+      "file": "sdar-evolution-reader.log.gz",
+      "rawSha256": "56bb673a1cd46b29f91f1f6b9484ef9fcbc6749a8245157bbd69e7bda7a9da85",
+      "scope": "incremental diagnostics; final frozen source gate is authoritative"
+    },
+    {
+      "file": "sdar-evolution-supervisor.log.gz",
+      "rawSha256": "54e1f13f985cdb349ca1ac17d4123bdd89bff2fff452e51917589434d4365dec",
+      "scope": "incremental diagnostics; final frozen source gate is authoritative"
+    },
+    {
+      "file": "sdar-evolution-types11.log.gz",
+      "rawSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "scope": "incremental diagnostics; final frozen source gate is authoritative"
+    },
+    {
+      "file": "sdar-evolution-lint-final.log.gz",
+      "rawSha256": "668510305e799c9bef9a9eaff6d9564cf4dd29704cb58a4d62a0d8bfa6d2f708",
+      "scope": "incremental diagnostics; final frozen source gate is authoritative"
+    }
+  ],
+  "note": "Focused selection skips are deselected tests, never acceptance; the complete frozen gate reruns all relevant suites."
+}

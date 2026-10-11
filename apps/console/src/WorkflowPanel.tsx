@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { managementRequest } from './api.js';
+import {
+  WorkflowNodeParameters,
+  workflowNodeFields,
+  isEditableNodeType,
+  type EditableNodeType,
+} from './WorkflowNodeParameters.js';
 
 interface WorkflowNodeRecord {
+  readonly [key: string]: unknown;
   readonly nodeId: string;
   readonly name: string;
   readonly type: string;
@@ -89,6 +96,14 @@ interface TaskReadinessResponse {
 }
 
 type VisualWorkflowEdit =
+  | Readonly<{ kind: 'add_node'; nodeId: string; type: EditableNodeType }>
+  | Readonly<{ kind: 'remove_node'; nodeId: string }>
+  | Readonly<{ kind: 'change_type'; nodeId: string; type: EditableNodeType }>
+  | Readonly<{
+      kind: 'configure_node';
+      nodeId: string;
+      parameters: Readonly<Record<string, unknown>>;
+    }>
   | Readonly<{ kind: 'rename_node'; nodeId: string; name: string }>
   | Readonly<{ kind: 'set_entry'; nodeId: string }>
   | Readonly<{ kind: 'toggle_exit'; nodeId: string }>
@@ -146,6 +161,7 @@ export function parseVisualWorkflowDefinition(
       entryNodeId: value.entryNodeId,
       exitNodeIds: value.exitNodeIds,
       nodes: nodes.map((node) => ({
+        ...node,
         nodeId: String(node.nodeId),
         name: String(node.name),
         type: String(node.type),
@@ -177,7 +193,76 @@ export function applyVisualWorkflowEdit(editor: string, edit: VisualWorkflowEdit
   let edges: unknown[] = rawEdges.map((edge) => (isObject(edge) ? { ...edge } : edge));
   const result: Record<string, unknown> = { ...value, nodes, edges };
 
-  if (edit.kind === 'rename_node') {
+  if (
+    'nodeId' in edit &&
+    edit.kind !== 'add_node' &&
+    !nodes.some((node) => isObject(node) && node.nodeId === edit.nodeId)
+  )
+    throw new Error('Node does not exist in this draft');
+  if (edit.kind === 'add_node') {
+    if (
+      !/^[A-Za-z0-9_.:-]+$/u.test(edit.nodeId) ||
+      nodes.some((node) => isObject(node) && node.nodeId === edit.nodeId)
+    )
+      throw new Error(
+        'Provide a unique node ID using letters, numbers, dots, colons, underscores or hyphens',
+      );
+    result.nodes = [...nodes, { nodeId: edit.nodeId, name: edit.nodeId, type: edit.type }];
+    if (nodes.length === 0) result.entryNodeId = edit.nodeId;
+  } else if (edit.kind === 'remove_node') {
+    if (nodes.length <= 1) throw new Error('Keep at least one Workflow node');
+    const referenced = (value: unknown): boolean => {
+      if (Array.isArray(value)) return value.some(referenced);
+      if (!isObject(value)) return false;
+      for (const [key, child] of Object.entries(value)) {
+        if (
+          ['bodyEntryNodeId', 'joinNodeId', 'handledNodeId', 'gotoNodeId', 'targetNodeId'].includes(
+            key,
+          ) &&
+          child === edit.nodeId
+        )
+          return true;
+        if (key === 'branchEntryNodeIds' && Array.isArray(child) && child.includes(edit.nodeId))
+          return true;
+        if (key === 'path' && Array.isArray(child) && child.includes(edit.nodeId)) return true;
+        if (referenced(child)) return true;
+      }
+      return false;
+    };
+    if (nodes.some((node) => isObject(node) && node.nodeId !== edit.nodeId && referenced(node)))
+      throw new Error('Update node expressions and control references before removing this node');
+    result.nodes = nodes.filter((node) => !isObject(node) || node.nodeId !== edit.nodeId);
+    result.edges = edges.filter(
+      (edge) =>
+        !isObject(edge) || (edge.sourceNodeId !== edit.nodeId && edge.targetNodeId !== edit.nodeId),
+    );
+    if (value.entryNodeId === edit.nodeId)
+      result.entryNodeId = nodes
+        .filter(isObject)
+        .find((node) => node.nodeId !== edit.nodeId)?.nodeId;
+    result.exitNodeIds = Array.isArray(value.exitNodeIds)
+      ? value.exitNodeIds.filter((id) => id !== edit.nodeId)
+      : [];
+  } else if (edit.kind === 'change_type') {
+    result.nodes = nodes.map((node) =>
+      isObject(node) && node.nodeId === edit.nodeId
+        ? { nodeId: node.nodeId, name: node.name, type: edit.type }
+        : node,
+    );
+  } else if (edit.kind === 'configure_node') {
+    result.nodes = nodes.map((node) => {
+      if (!isObject(node) || node.nodeId !== edit.nodeId) return node;
+      if (typeof node.type !== 'string' || !isEditableNodeType(node.type))
+        throw new Error('Unknown node type');
+      const keys = workflowNodeFields[node.type].map((field) => field.key);
+      if (Object.keys(edit.parameters).some((key) => !keys.includes(key as (typeof keys)[number])))
+        throw new Error('Parameter does not belong to this node type');
+      const updated = Object.fromEntries(
+        Object.entries(node).filter(([key]) => !keys.includes(key as (typeof keys)[number])),
+      );
+      return { ...updated, ...edit.parameters };
+    });
+  } else if (edit.kind === 'rename_node') {
     result.nodes = nodes.map((node) =>
       isObject(node) && node.nodeId === edit.nodeId ? { ...node, name: edit.name } : node,
     );
@@ -276,6 +361,9 @@ export function WorkflowPanel({
   const [trace, setTrace] = useState<WorkflowTraceRecord>();
   const [editor, setEditor] = useState('');
   const [validation, setValidation] = useState<unknown>();
+  const [pendingNodes, setPendingNodes] = useState<readonly string[]>([]);
+  const [newNodeId, setNewNodeId] = useState('');
+  const [newNodeType, setNewNodeType] = useState<EditableNodeType>('result');
   const [message, setMessage] = useState<string>();
   const [replayIndex, setReplayIndex] = useState(0);
   const [linkedTaskId, setLinkedTaskId] = useState<string>();
@@ -299,6 +387,8 @@ export function WorkflowPanel({
       const readiness = await managementRequest<TaskReadinessResponse>(
         `/api/v1/workflows/plans/${encodeURIComponent(id)}/task-readiness?limit=100`,
       );
+      setPendingNodes([]);
+      setValidation(undefined);
       setPlan(loaded);
       setTaskReadiness(readiness);
       setLinkedTaskId(linked.items[0]?.taskId);
@@ -325,11 +415,14 @@ export function WorkflowPanel({
   }
   async function revise() {
     await run(async () => {
-      const definition: unknown = JSON.parse(editor);
+      if (plan?.definition === undefined) throw new Error('Load a plan before creating a revision');
+      const definition = prepareWorkflowRevision(editor, plan.definition);
       const revised = await managementRequest<WorkflowPlanRecord>(
-        `/api/v1/workflows/plans/${encodeURIComponent(planId)}/revisions`,
+        `/api/v1/workflows/plans/${encodeURIComponent(plan.planId)}/revisions`,
         { method: 'POST', body: JSON.stringify({ newPlanId, format: 'dag', definition }) },
       );
+      setValidation(undefined);
+      setPendingNodes([]);
       setPlan(revised);
       setPlanId(revised.planId);
       setEditor(JSON.stringify(revised.definition, null, 2));
@@ -339,7 +432,7 @@ export function WorkflowPanel({
   async function confirm() {
     await run(async () => {
       const confirmed = await managementRequest<WorkflowPlanRecord>(
-        `/api/v1/workflows/plans/${encodeURIComponent(planId)}/confirm`,
+        `/api/v1/workflows/plans/${encodeURIComponent(plan?.planId ?? '')}/confirm`,
         { method: 'POST' },
       );
       setPlan(confirmed);
@@ -365,7 +458,18 @@ export function WorkflowPanel({
     }
   }
 
-  const visualEditingEnabled = visualDefinition !== undefined;
+  const visualEditingEnabled = visualDefinition !== undefined && pendingNodes.length === 0;
+  const draftChanged = workflowDraftChanged(editor, plan?.definition);
+  function editGraph(edit: VisualWorkflowEdit) {
+    try {
+      setEditor(applyVisualWorkflowEdit(editor, edit));
+      setValidation(undefined);
+      setMessage(undefined);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Workflow edit failed');
+    }
+  }
+
   return (
     <div className="stack">
       <section className="panel">
@@ -422,7 +526,7 @@ export function WorkflowPanel({
                 <span className="eyebrow">
                   {definition.workflowDefinitionId} · V{definition.version}
                 </span>
-                <h2>Validated Graph</h2>
+                <h2>Workflow draft</h2>
               </div>
               <span>
                 {definition.nodes.length} nodes / {definition.edges.length} edges
@@ -432,6 +536,44 @@ export function WorkflowPanel({
               Visual edits update the restricted DSL draft only. Validate and create an immutable
               revision before confirmation.
             </div>
+            <form
+              className="action-row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                editGraph({ kind: 'add_node', nodeId: newNodeId.trim(), type: newNodeType });
+              }}
+            >
+              <label>
+                New node ID
+                <input
+                  required
+                  value={newNodeId}
+                  disabled={!visualEditingEnabled}
+                  onChange={(event) => {
+                    setNewNodeId(event.target.value);
+                  }}
+                />
+              </label>
+              <label>
+                Node type
+                <select
+                  value={newNodeType}
+                  disabled={!visualEditingEnabled}
+                  onChange={(event) => {
+                    if (isEditableNodeType(event.target.value)) setNewNodeType(event.target.value);
+                  }}
+                >
+                  {Object.keys(workflowNodeFields).map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button disabled={!visualEditingEnabled} type="submit">
+                Add node
+              </button>
+            </form>
             <div className="dag-nodes" aria-label="Visual Workflow editor">
               {definition.nodes.map((node, index) => (
                 <article
@@ -439,7 +581,31 @@ export function WorkflowPanel({
                   className={`dag-node ${nodeStates.get(node.nodeId) ?? ''}`}
                   style={{ '--node-order': index } as React.CSSProperties}
                 >
-                  <small>{node.type}</small>
+                  <label>
+                    Type (changing type clears parameters)
+                    <select
+                      aria-label={`Node ${node.nodeId} type`}
+                      value={node.type}
+                      disabled={!visualEditingEnabled}
+                      onChange={(event) => {
+                        if (isEditableNodeType(event.target.value))
+                          editGraph({
+                            kind: 'change_type',
+                            nodeId: node.nodeId,
+                            type: event.target.value,
+                          });
+                      }}
+                    >
+                      {!isEditableNodeType(node.type) ? (
+                        <option value={node.type}>{node.type}</option>
+                      ) : null}
+                      {Object.keys(workflowNodeFields).map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label>
                     Node name
                     <input
@@ -458,6 +624,35 @@ export function WorkflowPanel({
                     />
                   </label>
                   <code>{node.nodeId}</code>
+                  <WorkflowNodeParameters
+                    key={`${plan?.planId ?? ''}:${JSON.stringify(node)}`}
+                    node={node}
+                    disabled={
+                      visualDefinition === undefined ||
+                      pendingNodes.some((id) => id !== node.nodeId)
+                    }
+                    onApply={(parameters) => {
+                      editGraph({ kind: 'configure_node', nodeId: node.nodeId, parameters });
+                    }}
+                    onPending={(pending) => {
+                      setPendingNodes((ids) =>
+                        pending
+                          ? [...new Set([...ids, node.nodeId])]
+                          : ids.filter((id) => id !== node.nodeId),
+                      );
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!visualEditingEnabled || definition.nodes.length <= 1}
+                    aria-label={`Remove node ${node.nodeId}`}
+                    onClick={() => {
+                      editGraph({ kind: 'remove_node', nodeId: node.nodeId });
+                    }}
+                  >
+                    Remove node
+                  </button>
+
                   <label className="node-marker">
                     <input
                       type="radio"
@@ -585,14 +780,25 @@ export function WorkflowPanel({
             <span className="eyebrow">RESTRICTED JSON DSL</span>
             <textarea
               aria-label="Workflow DSL editor"
+              disabled={pendingNodes.length > 0}
               spellCheck="false"
               value={editor}
               onChange={(event) => {
                 setEditor(event.target.value);
               }}
             />
+            {pendingNodes.length > 0 ? (
+              <p role="status">
+                Apply or discard node parameter edits before validating or submitting this draft.
+              </p>
+            ) : null}
+            {draftChanged ? (
+              <p role="status">Create a revision to confirm these draft changes.</p>
+            ) : null}
             <div className="action-row">
-              <button onClick={() => void validate()}>仅校验</button>
+              <button disabled={pendingNodes.length > 0} onClick={() => void validate()}>
+                仅校验
+              </button>
               <label className="inline-field">
                 New Plan ID
                 <input
@@ -602,11 +808,18 @@ export function WorkflowPanel({
                   }}
                 />
               </label>
-              <button disabled={newPlanId === ''} onClick={() => void revise()}>
+              <button
+                disabled={newPlanId.trim() === '' || pendingNodes.length > 0}
+                onClick={() => void revise()}
+              >
                 创建不可变修订
               </button>
               <button
-                disabled={plan?.confirmationStatus !== 'awaiting_confirmation'}
+                disabled={
+                  plan?.confirmationStatus !== 'awaiting_confirmation' ||
+                  pendingNodes.length > 0 ||
+                  draftChanged
+                }
                 onClick={() => void confirm()}
               >
                 确认计划
@@ -770,4 +983,41 @@ export function WorkflowTaskLink({
       Open owning Task · {taskId}
     </button>
   );
+}
+
+export function workflowDraftChanged(editor: string, definition: unknown): boolean {
+  try {
+    return (
+      JSON.stringify(orderedJson(JSON.parse(editor) as unknown)) !==
+      JSON.stringify(orderedJson(definition))
+    );
+  } catch {
+    return true;
+  }
+}
+
+function orderedJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(orderedJson);
+  if (!isObject(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, orderedJson(entry)]),
+  );
+}
+
+export function prepareWorkflowRevision(
+  editor: string,
+  source: WorkflowDefinitionRecord,
+): Record<string, unknown> {
+  const draft: unknown = JSON.parse(editor);
+  if (
+    !isObject(draft) ||
+    draft.workflowDefinitionId !== source.workflowDefinitionId ||
+    draft.goalId !== source.goalId ||
+    draft.goalVersion !== source.goalVersion ||
+    (draft.version !== source.version && draft.version !== source.version + 1)
+  )
+    throw new Error('Revision must preserve the loaded Workflow and Goal identity');
+  return { ...draft, version: source.version + 1 };
 }

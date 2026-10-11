@@ -46,7 +46,7 @@ import type {
   SkillRegistryService,
   SkillGraphService,
   TemporarySkillService,
-  SkillEvolutionService,
+  VerifiedSkillEvolutionService,
   EvolutionExperienceService,
   EvolutionPolicyService,
   WorkflowValidator,
@@ -881,7 +881,7 @@ export interface ManagementOperations {
   readonly cognitiveManagementAudit?: Pick<CognitiveManagementActionRepository, 'list'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
-    SkillEvolutionService,
+    VerifiedSkillEvolutionService,
     'correctAndRevalidate' | 'evaluateAndPublish' | 'get' | 'listCorrections'
   >;
   readonly evolutionExperiences: Pick<

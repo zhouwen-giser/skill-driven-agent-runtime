@@ -230,12 +230,12 @@ export interface WorkflowValidationContext {
 
 export class WorkflowValidator {
   readonly #tools: McpToolCatalog;
-  readonly #skills: SkillRepository;
+  readonly #skills: Pick<SkillRepository, 'findCurrentVersion'>;
   readonly #schemas: JsonSchemaValidator;
   constructor(
     dependencies: Readonly<{
       tools: McpToolCatalog;
-      skills: SkillRepository;
+      skills: Pick<SkillRepository, 'findCurrentVersion'> | SkillRepository;
       schemas: JsonSchemaValidator;
     }>,
   ) {

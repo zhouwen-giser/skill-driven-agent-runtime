@@ -1,3 +1,4 @@
+import type { SkillEvolutionOperations } from './skill-evolution.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import type {
@@ -23,7 +24,6 @@ import type {
   WorkflowPlannerService,
 } from '../../../../packages/application/src/index.js';
 import {
-  DeferredSkillEvolutionService,
   RemoteTaskContinuationReconciler,
   RemoteTaskContinuationService,
   RemoteTaskInputService,
@@ -99,6 +99,7 @@ import {
 } from './runtime-support.js';
 import type { RuntimeValueRef } from './runtime-value-ref.js';
 export interface composeControllerDependencies {
+  readonly skillEvolution: SkillEvolutionOperations;
   readonly cleanupScope: RuntimeCleanupScope;
   options: ServerRuntimeOptions;
   readonly pool: Pool;
@@ -518,8 +519,7 @@ export function composeController(dependencies: composeControllerDependencies) {
         return completed.formalizationCandidate?.candidateId;
       },
       async enhanceSkillEvolution(candidateId) {
-        // Retain the committed candidate without running deferred validation/publication.
-        await skillEvolution.get(candidateId);
+        await skillEvolution.enhanceAutomatic(candidateId);
       },
     },
     terminalAuthority: userGoalPlanController,
@@ -711,7 +711,7 @@ export function composeController(dependencies: composeControllerDependencies) {
     model: modelRuntime,
     temporarySkills,
   });
-  const skillEvolution = new DeferredSkillEvolutionService(temporarySkillRepository);
+  const skillEvolution = dependencies.skillEvolution;
   dependencies.projectSkillExecutionControl.value = async (
     workflowPlanId: string,
     control: Awaited<ReturnType<typeof dependencies.workflowController.value.get>>,

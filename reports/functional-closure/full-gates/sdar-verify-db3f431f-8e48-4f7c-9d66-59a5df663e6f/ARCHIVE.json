@@ -1,0 +1,156 @@
+{
+  "originalDirectory": "reports/runtime-semantic-closure/sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f",
+  "scope": "final_frozen_gate",
+  "logs": [
+    {
+      "step": "format",
+      "file": "format.log.gz",
+      "rawSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+    },
+    {
+      "step": "verification-runner-contract",
+      "file": "verification-runner-contract.log.gz",
+      "rawSha256": "1ff4e607dfa842907a3e186653d3a5c51fee7b13d0a79c39734fe7a705f6ef3f"
+    },
+    {
+      "step": "lint",
+      "file": "lint.log.gz",
+      "rawSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+    },
+    {
+      "step": "typecheck",
+      "file": "typecheck.log.gz",
+      "rawSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+    },
+    {
+      "step": "unit",
+      "file": "unit.log.gz",
+      "rawSha256": "645a4ce710004ce554368c79dd4aa8235e5324a25d72d9625fd30cb9da23e702"
+    },
+    {
+      "step": "contract",
+      "file": "contract.log.gz",
+      "rawSha256": "d447992d3c7745a04b620190a7dbafee341276ef7be234629326d59aa11cf7c8"
+    },
+    {
+      "step": "evidence-contract",
+      "file": "evidence-contract.log.gz",
+      "rawSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+    },
+    {
+      "step": "evidence-coverage",
+      "file": "evidence-coverage.log.gz",
+      "rawSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+    },
+    {
+      "step": "architecture",
+      "file": "architecture.log.gz",
+      "rawSha256": "60522698f5fba61c94516260f4919786f0bb983473e8c7d005469a90c0573ffe"
+    },
+    {
+      "step": "a2a-baseline",
+      "file": "a2a-baseline.log.gz",
+      "rawSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+    },
+    {
+      "step": "management-openapi",
+      "file": "management-openapi.log.gz",
+      "rawSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+    },
+    {
+      "step": "node-control-contract",
+      "file": "node-control-contract.log.gz",
+      "rawSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+    },
+    {
+      "step": "node-control-implementation-conformance",
+      "file": "node-control-implementation-conformance.log.gz",
+      "rawSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+    },
+    {
+      "step": "smpp-registry-projection",
+      "file": "smpp-registry-projection.log.gz",
+      "rawSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+    },
+    {
+      "step": "acceptance",
+      "file": "acceptance.log.gz",
+      "rawSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+    },
+    {
+      "step": "sources",
+      "file": "sources.log.gz",
+      "rawSha256": "a382d8438c8da8d0e65f5155682361a1be32937cfef504dc8228567d4b4e49cc"
+    },
+    {
+      "step": "protocol",
+      "file": "protocol.log.gz",
+      "rawSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+    },
+    {
+      "step": "infra",
+      "file": "infra.log.gz",
+      "rawSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+    },
+    {
+      "step": "project-license",
+      "file": "project-license.log.gz",
+      "rawSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+    },
+    {
+      "step": "licenses",
+      "file": "licenses.log.gz",
+      "rawSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+    },
+    {
+      "step": "build",
+      "file": "build.log.gz",
+      "rawSha256": "4431d95a3b7c3d459113e8c444025e474a946d26e5878ec28b3d06675d14bfcf"
+    },
+    {
+      "step": "cognitive-replay-no-physical-provider",
+      "file": "cognitive-replay-no-physical-provider.log.gz",
+      "rawSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2"
+    },
+    {
+      "step": "clean-baseline-reset-seed",
+      "file": "clean-baseline-reset-seed.log.gz",
+      "rawSha256": "093a49ae1890bfd0934f331dd9051cf5100cfc3b642a32e40d71f88ca870d353"
+    },
+    {
+      "step": "postgres-redis-integration",
+      "file": "postgres-redis-integration.log.gz",
+      "rawSha256": "a0c94f76b2cf5840a269a346451d8f522fe9a2f609297fddb4b8b3ce701d60b2"
+    },
+    {
+      "step": "postgres-redis-model-mcp-e2e",
+      "file": "postgres-redis-model-mcp-e2e.log.gz",
+      "rawSha256": "9dfdbbae7909ac151d80198d773b0f56b5c4af0a541a54fa0136c0ff951f7e3b"
+    },
+    {
+      "step": "official-a2a-tck",
+      "file": "official-a2a-tck.log.gz",
+      "rawSha256": "9973c44f52b5a079dcbe9c3f760773faa7e4d871c39c4d321ea480ebb8a017dd"
+    },
+    {
+      "step": "canonical-evidence-demo",
+      "file": "canonical-evidence-demo.log.gz",
+      "rawSha256": "7de47ee91b65a2b2f50af462a1f5dfaabb3d708b218663c883d563d237ec8cf4"
+    },
+    {
+      "step": "infrastructure-smoke",
+      "file": "infrastructure-smoke.log.gz",
+      "rawSha256": "865aa5467e77c89ce28543d93512e0b99f54e4277060d15d16b9f229b9e71076"
+    },
+    {
+      "step": "server-console-smoke",
+      "file": "server-console-smoke.log.gz",
+      "rawSha256": "a6cdcfffa7bf36b1866f8bc437dcd72ab2f39f10399eec623dfb1d1f22198e96"
+    },
+    {
+      "step": "node-control-api-worker-smoke",
+      "file": "node-control-api-worker-smoke.log.gz",
+      "rawSha256": "2cf7fd8d3cac51e237f30a77a1ceabc77246282545d16ed96529b43045905357"
+    }
+  ]
+}

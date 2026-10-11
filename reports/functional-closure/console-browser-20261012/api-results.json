@@ -1,0 +1,131 @@
+{
+  "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-plan": {
+    "status": 200,
+    "body": {
+      "planId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-plan",
+      "goalId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-goal",
+      "goalVersion": 1,
+      "goalContract": {
+        "goalId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-goal",
+        "version": 1,
+        "title": "Console node editor verification",
+        "description": "Return the operator-edited literal; isolated fixture, no tools",
+        "constraints": [],
+        "successCriteria": []
+      },
+      "mcpProtocolContract": {
+        "mode": "frozen_v1",
+        "protocolVersion": "2026-07-28",
+        "baselineSha256": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708"
+      },
+      "definition": {
+        "executionSemanticsVersion": "2.0",
+        "workflowDefinitionId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-plan",
+        "version": 1,
+        "goalId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-goal",
+        "goalVersion": 1,
+        "entryNodeId": "result",
+        "exitNodeIds": [
+          "result"
+        ],
+        "nodes": [
+          {
+            "name": "Result",
+            "type": "result",
+            "value": {
+              "op": "literal",
+              "value": "original"
+            },
+            "nodeId": "result"
+          }
+        ],
+        "edges": []
+      },
+      "confirmationStatus": "superseded",
+      "attemptCount": 1,
+      "createdAt": "2026-10-11T16:05:01.294Z"
+    }
+  },
+  "sdar-console-d9c40e19-final-v2": {
+    "status": 200,
+    "body": {
+      "planId": "sdar-console-d9c40e19-final-v2",
+      "goalId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-goal",
+      "goalVersion": 1,
+      "goalContract": {
+        "goalId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-goal",
+        "version": 1,
+        "title": "Console node editor verification",
+        "description": "Return the operator-edited literal; isolated fixture, no tools",
+        "constraints": [],
+        "successCriteria": []
+      },
+      "mcpProtocolContract": {
+        "mode": "frozen_v1",
+        "protocolVersion": "2026-07-28",
+        "baselineSha256": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708"
+      },
+      "definition": {
+        "executionSemanticsVersion": "2.0",
+        "workflowDefinitionId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-plan",
+        "version": 2,
+        "goalId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-goal",
+        "goalVersion": 1,
+        "entryNodeId": "verified",
+        "exitNodeIds": [
+          "verified"
+        ],
+        "nodes": [
+          {
+            "name": "verified",
+            "type": "result",
+            "value": {
+              "op": "literal",
+              "value": "final-frozen-browser-result"
+            },
+            "nodeId": "verified"
+          }
+        ],
+        "edges": []
+      },
+      "sourcePlanId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-plan",
+      "revisionKind": "admin_dag",
+      "confirmationStatus": "confirmed",
+      "confirmedAt": "2026-10-11T16:07:44.343Z",
+      "attemptCount": 1,
+      "createdAt": "2026-10-11T16:07:34.071Z"
+    }
+  },
+  "execution": {
+    "status": 201,
+    "body": {
+      "instanceId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-instance",
+      "planId": "sdar-console-d9c40e19-final-v2",
+      "workflowDefinitionId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-plan",
+      "workflowVersion": 2,
+      "goalId": "sdar-console-d9c40e19-2c1c-4bb9-a64f-5a1ccb24f9be-goal",
+      "goalVersion": 1,
+      "skillVersions": [],
+      "budgetLimits": {
+        "maxReplans": 3,
+        "maxDurationSeconds": 300,
+        "maxLlmCalls": 20,
+        "maxMcpCalls": 20,
+        "maxCost": 100
+      },
+      "budgetUsage": {
+        "replanCount": 0,
+        "durationMs": 43,
+        "llmCalls": 0,
+        "mcpCalls": 0,
+        "cost": 0
+      },
+      "status": "succeeded",
+      "input": {},
+      "errors": {},
+      "startedAt": "2026-10-11T16:08:16.588Z",
+      "result": "final-frozen-browser-result",
+      "completedAt": "2026-10-11T16:08:16.643Z"
+    }
+  }
+}

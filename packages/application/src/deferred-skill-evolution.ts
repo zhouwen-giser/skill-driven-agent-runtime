@@ -1,6 +1,6 @@
 import type { SkillFormalizationCandidate } from '../../domain/src/index.js';
 import type { TemporarySkillRepository } from './ports.js';
-import type { SkillEvolutionService } from './skill-evolution.js';
+import type { VerifiedSkillEvolutionService as SkillEvolutionService } from './verified-skill-evolution.js';
 
 export class SkillEvolutionPublicationDeferredError extends Error {
   readonly code = 'SKILL_EVOLUTION_PUBLICATION_DEFERRED';
@@ -11,7 +11,7 @@ export class SkillEvolutionPublicationDeferredError extends Error {
   }
 }
 
-/** The deployed runtime has read access only; no model, tool or registry writer is reachable. */
+/** Restricted profiles have read access only; no model, tool or registry writer is reachable. */
 export class DeferredSkillEvolutionService implements Pick<
   SkillEvolutionService,
   'get' | 'listCorrections' | 'evaluateAndPublish' | 'correctAndRevalidate'

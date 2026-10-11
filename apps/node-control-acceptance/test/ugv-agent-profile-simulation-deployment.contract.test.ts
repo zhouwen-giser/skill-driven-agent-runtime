@@ -473,7 +473,12 @@ async function inspectEmergencyProcess(pid: number): Promise<
       cwd: resolve(cwd),
     };
   } catch (error) {
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error.code === 'ENOENT' || error.code === 'ESRCH')
+    )
       return undefined;
     throw error;
   }
@@ -482,9 +487,10 @@ async function inspectEmergencyProcess(pid: number): Promise<
 async function inspectEmergencyProcessGroupMembership(
   pid: number,
   expectedProcessGroupId: number,
+  read: (path: string, encoding: 'utf8') => Promise<string> = readFile,
 ): Promise<{ readonly pid: number; readonly uid: number; readonly sessionId: number } | undefined> {
   try {
-    const stat = await readFile(`/proc/${String(pid)}/stat`, 'utf8');
+    const stat = await read(`/proc/${String(pid)}/stat`, 'utf8');
     const close = stat.lastIndexOf(') ');
     const fields =
       close < 0
@@ -495,14 +501,19 @@ async function inspectEmergencyProcessGroupMembership(
             .split(/\s+/u);
     if (Number(fields[2]) !== expectedProcessGroupId) return undefined;
     const sessionId = Number(fields[3]);
-    const status = await readFile(`/proc/${String(pid)}/status`, 'utf8');
+    const status = await read(`/proc/${String(pid)}/status`, 'utf8');
     const uidMatch = /^Uid:\s+([0-9]+)\s/mu.exec(status);
     const uid = uidMatch?.[1] === undefined ? Number.NaN : Number(uidMatch[1]);
     if (!Number.isSafeInteger(sessionId) || !Number.isSafeInteger(uid))
       throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
     return { pid, uid, sessionId };
   } catch (error) {
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error.code === 'ENOENT' || error.code === 'ESRCH')
+    )
       return undefined;
     throw error;
   }
@@ -632,6 +643,20 @@ afterEach(async () => {
 });
 
 describe('UGV Agent Profile simulation deployment contract', () => {
+  it('tolerates an unrelated process exiting during /proc enumeration and preserves permission failures', async () => {
+    for (const code of ['ENOENT', 'ESRCH'])
+      expect(
+        await inspectEmergencyProcessGroupMembership(12345, 12345, () =>
+          Promise.reject(Object.assign(new Error(code), { code })),
+        ),
+      ).toBeUndefined();
+    await expect(
+      inspectEmergencyProcessGroupMembership(12345, 12345, () =>
+        Promise.reject(Object.assign(new Error('denied'), { code: 'EACCES' })),
+      ),
+    ).rejects.toMatchObject({ code: 'EACCES' });
+  });
+
   it('accepts only a private regular local model configuration without requiring generated service tokens', async () => {
     const validator = await validationModule();
     const directory = await temporaryDirectory();

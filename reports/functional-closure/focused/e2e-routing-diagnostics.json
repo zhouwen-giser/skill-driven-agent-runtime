@@ -1,0 +1,18 @@
+[
+  {
+    "command": "node .codex/functional-closure/run-owned-tests.mjs exec vitest run --project e2e packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern ^(?!.*keeps critical Runtime P95).*$",
+    "exitCode": 1,
+    "rawLog": "reports/functional-closure/focused/sdar-evolution-e2e-full-file.log.gz",
+    "rawSha256": "101b2590628306f4a98529b8eb54d18835c999e7535bb51f66d605f60d212a12",
+    "classification": "diagnostic_failure_preserved",
+    "ownedCleanup": 2
+  },
+  {
+    "command": "node .codex/functional-closure/run-owned-tests.mjs exec vitest run --project e2e packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern ^(?!.*keeps critical Runtime P95).*$",
+    "exitCode": 1,
+    "rawLog": "reports/functional-closure/focused/sdar-evolution-e2e-diagnostic.log.gz",
+    "rawSha256": "90ed5afe42ac83fe1d1dd3071a4ee828085e0cbb64171ea1960b5e9d7487d54c",
+    "classification": "diagnostic_failure_preserved",
+    "ownedCleanup": 2
+  }
+]

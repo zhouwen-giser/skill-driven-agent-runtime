@@ -10,7 +10,8 @@ import { Pool } from 'pg';
 import { inputClass, inputDigest } from '../lib/verification-inputs.mjs';
 
 // Owned loopback fixtures only. Do not load .env/.state or reuse a site's database.
-const ownerCommit = 'a1a86186ea866911124de72374e17fe19897fa9e';
+const ownerCommit = JSON.parse(await readFile('contracts/gowm-shared-storage/current/source.json', 'utf8')).commit;
+assert.match(ownerCommit, /^[a-f0-9]{40}$/u);
 const ownerRepository = '/home/sz/code/geospatial-operational-world-model';
 const runId = `sdar-smpp-gowm-${randomUUID()}`;
 const databaseName = `sdar_smpp_gowm_test_${randomBytes(8).toString('hex')}`;
@@ -190,6 +191,7 @@ try {
     SDAR_REDIS_PORT: String(redisPort),
     SDAR_VERIFY_ISOLATED: 'true',
   };
+  if (!process.argv.includes('--boundaries-only')) {
   report.schemaBeforeFormal = await catalogDigest();
   report.privateSmppBeforeFormal = (
     await admin.query('SELECT count(*)::integer AS rows FROM ugv_smpp.provider_task')
@@ -214,6 +216,7 @@ try {
   assert.equal(report.schemaBeforeFormal, report.schemaAfterFormal);
   assert.equal(before, report.schemaAfterFormal);
   assert.deepEqual(report.privateSmppBeforeFormal, report.privateSmppAfterFormal);
+  } else report.formalRuntime = 'NOT_RUN: focused repository increment';
   // The repository boundary suite intentionally seeds partial legacy Skill rows.
   // Run the formal Server against the pristine owner-installed schema first.
   run(

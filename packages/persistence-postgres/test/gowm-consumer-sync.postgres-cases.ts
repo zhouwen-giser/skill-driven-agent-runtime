@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
 import type { Pool } from 'pg';
 import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
 import type { RemoteTaskBinding } from '../../domain/src/remote-task.js';
@@ -83,30 +82,47 @@ export async function verifyGowmConsumerSyncCases(
   assert.deepEqual(await links.save(foreignLink), foreignLink);
   assert.equal(await ownLinks.findByBindingId(b.bindingId), undefined);
   const ownLink = await createLink(a);
-  // This is a known contract limitation, not a passing cross-device link requirement.
-  await assert.rejects(links.save(ownLink), /REMOTE_TASK_PROVIDER_EXECUTION_LINK_CONFLICT/u);
-  assert.equal(await links.findByBindingId(a.bindingId), undefined);
+  assert.equal(a.remoteTaskId, b.remoteTaskId, 'exercise the same opaque provider handle');
+  assert.deepEqual(await ownLinks.save(ownLink), ownLink);
+  assert.deepEqual(await links.save(ownLink), ownLink);
+  assert.deepEqual(await links.findByBindingId(a.bindingId), ownLink);
   assert.deepEqual(await links.findByBindingId(b.bindingId), foreignLink);
-  await writeFile(
-    'reports/sdar-gowm-shared-storage-integration-v0.1/auxiliary-link-contract-gap.json',
-    JSON.stringify(
-      {
-        status: 'INCOMPLETE',
-        reproduced: true,
-        contract: 'a1a86186ea866911124de72374e17fe19897fa9e',
-        table: 'ugv_sdar.remote_task_provider_execution_link',
-        constraint: 'remote_task_provider_executio_runtime_server_id_remote_task_key',
-        identity: ['runtime_server_id', 'remote_task_id'],
-        missingScope: ['device_id', 'smpp_service_key'],
-        observed:
-          'Native Remote Bindings for two devices share one opaque handle, but only one auxiliary Provider execution link can persist. Second link rejects without modifying the first.',
-        next: 'Requires a contract-compatible resolution; not SOURCE_READY. Do not namespace opaque handles or alter GOWM DDL from SDAR.',
-      },
-      null,
-      2,
-    ) + '\n',
+  const owners = (
+    await pool.query<{ binding_id: string; device_id: string; smpp_service_key: string }>(
+      'SELECT binding_id,device_id,smpp_service_key FROM remote_task_provider_execution_link WHERE binding_id=ANY($1::text[]) ORDER BY binding_id',
+      [[a.bindingId, b.bindingId]],
+    )
+  ).rows;
+  assert.equal(owners.length, 2);
+  for (const binding of [a, b]) {
+    const row = owners.find((entry) => entry.binding_id === binding.bindingId);
+    assert.equal(row?.device_id, binding.deviceIdentity?.deviceId);
+    assert.equal(row?.smpp_service_key, binding.deviceIdentity?.smppServiceKey);
+  }
+  await assert.rejects(
+    pool.query('UPDATE remote_task_provider_execution_link SET device_id=$2 WHERE binding_id=$1', [
+      a.bindingId,
+      b.deviceIdentity.deviceId,
+    ]),
+    /REMOTE_TASK_CONSUMER_SYNC_IMMUTABLE/u,
   );
+  // Even raw consumer SQL cannot assert a different owner or source identity.
+  for (const [column, value] of [
+    ['device_id', b.deviceIdentity.deviceId],
+    ['remote_task_id', 'forged-handle'],
+    ['runtime_server_id', 'forged-server'],
+    ['smpp_service_key', 'forged-service'],
+  ] as const) {
+    await assert.rejects(
+      pool.query(
+        `INSERT INTO remote_task_provider_execution_link SELECT (jsonb_populate_record(NULL::remote_task_provider_execution_link, to_jsonb(link) || jsonb_build_object($2::text,$3::text))).* FROM remote_task_provider_execution_link link WHERE binding_id=$1`,
+        [a.bindingId, column, value],
+      ),
+      /REMOTE_PROVIDER_LINK_BINDING_MISMATCH/u,
+    );
+  }
   return [
+    'Two devices preserve identical opaque Provider handles in separate immutable execution links',
     'Reconciliation attempts and Provider links enforce Task/Binding scope and idempotency; no foreign row is exposed or overwritten',
   ];
 }

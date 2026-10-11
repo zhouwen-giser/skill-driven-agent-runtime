@@ -8,7 +8,8 @@ import type {
   TemporarySkillExperience,
 } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
-import { DeferredSkillEvolutionService, SkillEvolutionService } from '../src/index.js';
+import { DeferredSkillEvolutionService } from '../src/index.js';
+import { SkillEvolutionService } from '../src/skill-evolution.js';
 
 describe('SkillEvolutionService', () => {
   it.each(['awaiting_simulation', 'validation_failed', 'published'] as const)(

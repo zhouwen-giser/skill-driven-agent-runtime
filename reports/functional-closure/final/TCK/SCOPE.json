@@ -1,0 +1,23 @@
+{
+  "scope": "OFFICIAL_HTTP_JSON_MUST_PROTOCOL_HARNESS",
+  "stats": {
+    "tests": 235,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 161,
+    "passed": 74
+  },
+  "skipsAreNotAcceptance": true,
+  "commit": "5996b79f9cefa6fc390980e383e358a66fb9e49e",
+  "configuration": "pnpm test:a2a-tck",
+  "artifacts": [
+    {
+      "file": "compatibility.json.gz",
+      "rawSha256": "10891c53292477372385b73c2201ed5da140042c2648bbe8bd8769a9cfc4f89c"
+    },
+    {
+      "file": "junitreport.xml.gz",
+      "rawSha256": "ee760de3b94c34d4c5d1181261fa00850de5c2f9ed087a2d355053aa337e9335"
+    }
+  ]
+}

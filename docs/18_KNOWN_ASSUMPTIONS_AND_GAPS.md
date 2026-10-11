@@ -695,3 +695,12 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   no thresholds, freshness windows, output schemas or mandatory evidence were weakened.
 - Local TaskBusiness closure is distinct from project release readiness. The working tree is
   intentionally uncommitted and no remote push, merge or deployment was authorized.
+
+
+## 2026-10-11 functional closure scope (ADR-162 / ADR-163)
+
+GOWM Temporary Skill device attribution and auxiliary-link ownership are repaired in owner delivery commit `dca0fcd`; current consumer contracts and focused restricted-role PostgreSQL checks match it. Full final-source acceptance is pending.
+
+Ordinary Skill evolution supports complete synchronous recorded Tool workflows. Missing retained error/boundary inputs, explicit native contracts or policy authority keep a candidate unpublished. Remote/provider evidence, LLM execution, child/subworkflow and human-confirmation recordings remain unimplemented; UGV/home/device-scoped profiles retain explicit deferral. This is a scoped FR-EVO implementation, not full evolution or release certification. New Skill policy is an internal induction proposal bounded by existing source Tool authority and server budgets. Corrections are durably retained and included in subsequent induction for that candidate.
+
+`embodied.area_patrol` still requires real upstream `embodied.inspect_area` capability/provider. Frozen SMPP evidence still cannot supply missing per-sample trajectory timestamps/full-history authority. No local fixture is accepted as proof of these physical/source capabilities. Field operations and deployment remain NOT_RUN.

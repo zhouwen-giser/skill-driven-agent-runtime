@@ -1,4 +1,5 @@
 import {
+  createSkillVersion,
   MAX_SKILL_COMPOSITION_DEPTH,
   MAX_SKILL_COMPOSITION_RELATED_SKILLS,
   MAX_SKILL_COMPOSITION_RELATIONS,
@@ -298,6 +299,29 @@ export class SkillCompositionPlanner {
     root: SkillCompositionRoot,
     slotChoices: readonly SkillUsageSlotChoice[] = [],
   ): Promise<SkillUsageCompositionPlan> {
+    return this.#composeUsage(
+      await this.#requireExactCurrent(root.skillId, root.skillVersion, true),
+      slotChoices,
+    );
+  }
+
+  /** Validation-only root; formal child resolution retains the ordinary current/enabled checks. */
+  async composeCandidateUsage(
+    candidate: SkillVersion,
+    slotChoices: readonly SkillUsageSlotChoice[] = [],
+  ): Promise<SkillUsageCompositionPlan> {
+    if (candidate.status !== 'draft' || candidate.validationPassed)
+      throw usageCompositionError(
+        'SKILL_COMPOSITION_ROOT_STALE',
+        'Validation requires an unpublished draft root.',
+      );
+    return this.#composeUsage(createSkillVersion(candidate), slotChoices);
+  }
+
+  async #composeUsage(
+    selected: SkillVersion,
+    slotChoices: readonly SkillUsageSlotChoice[],
+  ): Promise<SkillUsageCompositionPlan> {
     const choiceKeys = slotChoices.map(
       (choice) => `${choice.parentSkillId}@${String(choice.parentSkillVersion)}:${choice.slotId}`,
     );
@@ -306,7 +330,6 @@ export class SkillCompositionPlanner {
         'SKILL_USAGE_COMPOSITION_SLOT_CHOICE_INVALID',
         'Capability slot choices must be unique by exact parent and slot.',
       );
-    const selected = await this.#requireExactCurrent(root.skillId, root.skillVersion, true);
     const rootUsage = usageOf(selected);
     const maxDepth = rootUsage.composition?.maxDepth ?? DEFAULT_SKILL_USAGE_DEPTH;
     const expanded: SkillVersion[] = [selected];

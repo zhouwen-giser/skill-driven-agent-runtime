@@ -1,0 +1,45 @@
+import { readFile, writeFile } from 'node:fs/promises';
+let source=await readFile('scripts/sdar-smpp-v13/verify-gowm.mjs','utf8');
+source=source.replace("from '../lib/verification-inputs.mjs'", "from '../../scripts/lib/verification-inputs.mjs'");
+source=source.replace("const ownerCommit = 'a1a86186ea866911124de72374e17fe19897fa9e';", "const ownerCommit = '506315b';");
+source=source.replace("assert.equal(output('git', ['rev-parse', ownerCommit], ownerRepository).trim(), ownerCommit);", "report.ownerBaseCommit = output('git', ['rev-parse', ownerCommit], ownerRepository).trim();");
+source=source.replace('reports/sdar-smpp-v13-upgrade/20261010-local/${runId}', 'reports/functional-closure/owner-upgrade-${runId}');
+// Base installer has no parser dependency at runtime. Existing native code is unchanged.
+const start=source.indexOf('  report.schemaBeforeFormal =');
+const end=source.indexOf("  report.status = 'PASS';",start);
+source=source.slice(0,start)+`
+  const baselineSource='/tmp/sdar-verify-59d697db-893a-4815-9867-6199a1d988d0-63jIEf/source';
+  run('predecessor-native-boundaries', resolve('node_modules/.bin/tsx'), ['scripts/gowm-storage-postgres.mts'], baselineSource, testEnvironment);
+  const linksBefore=(await admin.query('SELECT * FROM ugv_sdar.remote_task_provider_execution_link ORDER BY link_id')).rows;
+  assert.ok(linksBefore.length>0);
+  const historyBefore=(await admin.query('SELECT family,file,checksum FROM ugv_sdar.gowm_install_history ORDER BY family,file')).rows;
+  const structureModule=await import('file://'+sourceDirectory+'/scripts/business-storage/structure.ts');
+  const c=await admin.connect();
+  let beforeStructure; try { beforeStructure=await structureModule.structure(c); } finally { c.release(); }
+  for(const file of ['scripts/business-storage/installer.ts','scripts/business-storage/fixture.ts','database/shared-business-storage/install-manifest.json','database/shared-business-storage/overlays/sdar-terminal-link-ownership.sql']) {
+    await writeFile(resolve(sourceDirectory,file),await readFile(resolve(ownerRepository,file)));
+  }
+  run('owner-forward-upgrade',resolve('node_modules/.bin/tsx'),['scripts/business-storage/cli.ts','install','--domain','all'],sourceDirectory,ownerEnvironment);
+  const linksAfter=(await admin.query('SELECT * FROM ugv_sdar.remote_task_provider_execution_link ORDER BY link_id')).rows;
+  assert.deepEqual(linksAfter.map(({device_id,smpp_service_key,...link})=>link),linksBefore);
+  for(const link of linksAfter) {
+    const binding=(await admin.query('SELECT device_id,smpp_service_key FROM ugv_sdar.remote_task_binding WHERE binding_id=$1',[link.binding_id])).rows[0];
+    assert.equal(link.device_id,binding.device_id);assert.equal(link.smpp_service_key,binding.smpp_service_key);
+  }
+  const historyAfter=(await admin.query('SELECT family,file,checksum FROM ugv_sdar.gowm_install_history ORDER BY family,file')).rows;
+  assert.deepEqual(historyAfter.filter(e=>e.file!=='terminal_link_ownership_v1.sql'),historyBefore);
+  run('owner-repeat-upgrade',resolve('node_modules/.bin/tsx'),['scripts/business-storage/cli.ts','install','--domain','all'],sourceDirectory,ownerEnvironment);
+  assert.deepEqual((await admin.query('SELECT family,file,checksum FROM ugv_sdar.gowm_install_history ORDER BY family,file')).rows,historyAfter);
+  const c2=await admin.connect(); let actual;try{actual=await structureModule.structure(c2);}finally{c2.release();}
+  const allowedNames=new Set(['remote_task_provider_execution_link','finalize_task_temporary_skills','derive_remote_provider_link_owner']);
+  for(const key of Object.keys(actual)) assert.deepEqual(actual[key].filter(e=>!allowedNames.has(e.name)),beforeStructure[key].filter(e=>!allowedNames.has(e.name)),'unexpected owner structure change:'+key);
+  await writeFile(resolve(ownerRepository,'database/shared-business-storage/expected-structure.json'),JSON.stringify(actual,null,2)+'\\n');
+  await writeFile(resolve(sourceDirectory,'database/shared-business-storage/expected-structure.json'),JSON.stringify(actual,null,2)+'\\n');
+  run('owner-verify-upgrade',resolve('node_modules/.bin/tsx'),['scripts/business-storage/cli.ts','verify'],sourceDirectory,ownerEnvironment);
+  run('owner-postgres-regressions',resolve('node_modules/.bin/tsx'),['scripts/business-storage/cli.ts','test:postgres'],sourceDirectory,ownerEnvironment);
+  await writeFile(reportDirectory+'/owner-postgres-results.json',await readFile(resolve(sourceDirectory,'reports/device-shared-business-storage-v0.2/postgres-results.json')));
+  await writeFile(reportDirectory+'/structure-before.json',JSON.stringify(beforeStructure));
+  await writeFile(reportDirectory+'/structure-after.json',JSON.stringify(actual));
+  report.predecessorLinksPreserved=linksAfter.length; report.previousMigrationHashesPreserved=true; report.idempotentUpgrade=true;
+`+source.slice(end);
+await writeFile('.codex/functional-closure/owner-fixture.mjs',source);

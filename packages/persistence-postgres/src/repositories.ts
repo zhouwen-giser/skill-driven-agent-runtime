@@ -1,3 +1,7 @@
+import type { SkillEvolutionCommitPort } from '../../application/src/skill-evolution-commit.js';
+import { canonicalHash } from '../../application/src/mcp-task-readiness.js';
+import { NewEvolutionPolicySchema } from '../../application/src/skill-evolution-authority.js';
+import { SkillEvolutionValidationError } from '../../application/src/skill-evolution-authority.js';
 import {
   PostgresTaskAvailabilityEvidenceRepository,
   saveTaskAvailabilityEvaluation,
@@ -441,27 +445,41 @@ const ProposedEvolutionSkillSchema = z.object({
     .transform((value): SkillOutcomeSpecification => value as SkillOutcomeSpecification)
     .optional(),
 });
-const SkillSimulationReportSchema: z.ZodType<SkillSimulationReport> = z.object({
-  allPassed: z.boolean(),
-  cases: z.array(
-    z.object({
-      caseId: z.string(),
-      kind: z.enum([
-        'static_validation',
-        'source_experience',
-        'historical_replay',
-        'normal',
-        'boundary',
-        'exception',
-      ]),
-      input: z.record(z.string(), z.unknown()),
-      expectedOutcome: z.enum(['success', 'failure']),
-      passed: z.boolean(),
-      summary: z.string(),
-    }),
-  ),
-  decisionSummary: z.string(),
-});
+const SkillSimulationReportSchema = z
+  .object({
+    inductionInvocationIds: z.array(z.string()).optional(),
+    authority: z
+      .lazy(() =>
+        z
+          .object({
+            base: EvolutionSkillSnapshotSchema.optional(),
+            newPolicy: NewEvolutionPolicySchema.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+    executionValidation: z.lazy(() => EvolutionValidationReceiptSchema).optional(),
+    allPassed: z.boolean(),
+    cases: z.array(
+      z.object({
+        caseId: z.string(),
+        kind: z.enum([
+          'static_validation',
+          'source_experience',
+          'historical_replay',
+          'normal',
+          'boundary',
+          'exception',
+        ]),
+        input: z.record(z.string(), z.unknown()),
+        expectedOutcome: z.enum(['success', 'failure']),
+        passed: z.boolean(),
+        summary: z.string(),
+      }),
+    ),
+    decisionSummary: z.string(),
+  })
+  .transform((value): SkillSimulationReport => value as SkillSimulationReport);
 const EvolutionGoalSchema = z.object({
   goalId: z.string(),
   version: z.number().int().positive(),
@@ -608,6 +626,98 @@ const FROZEN_MCP_PROTOCOL_CONTRACT: McpProtocolContractSnapshot = Object.freeze(
   protocolVersion: '2026-07-28',
   baselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
 });
+// Receipts are parsed at the PostgreSQL JSON boundary; retain every validated authority field.
+const EvolutionSkillSnapshotSchema = SkillVersionSnapshotSchema.extend({
+  status: z.enum(['draft', 'enabled', 'disabled', 'deprecated']),
+  sourceKind: z.enum(['admin', 'a2a_draft', 'experience_evolution', 'manual_correction']),
+  validationPassed: z.boolean(),
+  previousVersion: z.number().int().positive().optional(),
+  outcomeSpecification: z.unknown().optional(),
+}).transform((value) => createSkillVersion(value as SkillVersion));
+const EvolutionServerSnapshotSchema = z
+  .object({
+    serverId: z.string(),
+    name: z.string(),
+    endpoint: z.string(),
+    transport: z.literal('streamable_http'),
+    status: z.enum(['enabled', 'disabled', 'unreachable']),
+    toolRevision: z.number().int(),
+    protocolMode: z.literal('frozen_v1').optional(),
+    currentProtocolSnapshotId: z.string().optional(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .strict()
+  .transform((value): McpServer => value as McpServer);
+const EvolutionToolSnapshotSchema = z
+  .object({
+    serverId: z.string(),
+    toolName: z.string(),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    inputSchema: z.unknown(),
+    outputSchema: z.unknown().optional(),
+    protocolMode: z.literal('frozen_v1').optional(),
+    enhancement: McpEnhancementSchema.optional(),
+    executionSemantics: McpExecutionSemanticsSchema,
+    declaredExecutionSemantics: McpExecutionSemanticsSchema.optional(),
+    adminExecutionSemanticsOverride: McpExecutionSemanticsSchema.optional(),
+    taskExecutionProfile: McpTaskExecutionProfileSchema.optional(),
+    discoveredAt: z.string(),
+  })
+  .strict()
+  .transform((value): McpTool => value as McpTool);
+const EvolutionPlanningAttemptSchema = z
+  .object({
+    planId: z.string(),
+    goalContract: GoalExecutionContractSchema,
+    attempt: z.number().int().positive(),
+    candidate: z.unknown(),
+    validationErrors: z.array(
+      z.object({ code: z.string(), path: z.string(), message: z.string() }).strict(),
+    ),
+    valid: z.boolean(),
+    createdAt: z.string(),
+  })
+  .loose()
+  .transform((value): WorkflowPlanAttempt => value);
+const EvolutionValidationReceiptSchema = z
+  .object({
+    schemaVersion: z.literal('2.0'),
+    inputCandidateHash: z.string(),
+    targetHash: z.string(),
+    target: EvolutionSkillSnapshotSchema,
+    base: EvolutionSkillSnapshotSchema.optional(),
+    dependencies: z.array(EvolutionSkillSnapshotSchema),
+    servers: z.array(EvolutionServerSnapshotSchema),
+    tools: z.array(EvolutionToolSnapshotSchema),
+    inductionInvocationIds: z.array(z.string()),
+    validatedAt: z.string(),
+    executions: z.array(
+      z
+        .object({
+          caseId: z.string(),
+          experienceId: z.string(),
+          recordingHash: z.string(),
+          expectationHash: z.string(),
+          planId: z.string(),
+          instanceId: z.string(),
+          modelInvocationIds: z.array(z.string()),
+          planningAttempts: z.array(EvolutionPlanningAttemptSchema),
+          definition: z
+            .unknown()
+            .transform((value) => mapStoredWorkflowDefinition(value))
+            .optional(),
+          status: z.string(),
+          actualResultHash: z.string().optional(),
+          errorCodes: z.array(z.string()),
+          assertions: z.array(z.object({ name: z.string(), passed: z.boolean() }).strict()),
+          invocationIds: z.array(z.string()),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 const SkillMetricsSchema = z.object({
   sampleCount: z.number().int().nonnegative(),
   successRate: z.number().min(0).max(1),
@@ -4919,97 +5029,7 @@ export class PostgresSkillRepository implements SkillRepository {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
-        `INSERT INTO skill (skill_id, current_version, created_at, updated_at)
-         VALUES ($1, $2, $3, $3) ON CONFLICT (skill_id) DO NOTHING`,
-        [version.skillId, version.version, timestamp],
-      );
-      await client.query(
-        `INSERT INTO skill_version (
-           skill_id, version, name, summary, description, capabilities_json,
-           workflow_guidance, output_instruction, input_schema_json, output_schema_json,
-           tool_policy_json, runtime_policy_json, usage_specification_json, status, source_kind,
-           validation_passed, previous_version, created_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-        [
-          version.skillId,
-          version.version,
-          version.name,
-          version.summary,
-          version.description,
-          JSON.stringify(version.capabilities),
-          version.workflowGuidance,
-          version.outputInstruction,
-          JSON.stringify(version.inputSchema),
-          JSON.stringify(version.outputSchema),
-          JSON.stringify(version.toolPolicy),
-          JSON.stringify(version.runtimePolicy),
-          version.usageSpecification === undefined
-            ? null
-            : JSON.stringify(version.usageSpecification),
-          version.status,
-          version.sourceKind,
-          version.validationPassed,
-          version.previousVersion ?? null,
-          version.createdAt,
-        ],
-      );
-      if (version.outcomeSpecification !== undefined)
-        await client.query(
-          `INSERT INTO skill_outcome_specification(
-             skill_id,skill_version,schema_version,specification_hash,specification_json,created_at)
-           VALUES($1,$2,$3,$4,$5::jsonb,$6)`,
-          [
-            version.skillId,
-            version.version,
-            version.outcomeSpecification.schemaVersion,
-            version.outcomeSpecification.specificationHash,
-            JSON.stringify(version.outcomeSpecification),
-            version.createdAt,
-          ],
-        );
-      if (packageImport !== undefined) {
-        await client.query(
-          `INSERT INTO skill_package_import_audit (
-             skill_id,skill_version,package_checksum,package_root,file_checksums_json,
-             validated_at,imported_at
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [
-            packageImport.skillId,
-            packageImport.skillVersion,
-            packageImport.packageChecksum,
-            packageImport.packageRoot,
-            JSON.stringify(packageImport.fileChecksums),
-            packageImport.validatedAt,
-            packageImport.importedAt,
-          ],
-        );
-      }
-      await client.query(
-        `UPDATE skill SET current_version = $2, updated_at = $3 WHERE skill_id = $1`,
-        [version.skillId, version.version, timestamp],
-      );
-      const catalogEventId = `skill.catalog_changed:${version.skillId}:${String(version.version)}`;
-      await client.query(
-        `INSERT INTO cognitive_runtime_outbox(
-           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
-           correlation,payload,occurred_at
-         ) VALUES ($1,'skill.catalog_changed','skill',$2,$3,$4,$5,$6)`,
-        [
-          catalogEventId,
-          version.skillId,
-          version.version,
-          JSON.stringify({ correlationId: catalogEventId }),
-          JSON.stringify({
-            skillId: version.skillId,
-            skillVersion: version.version,
-            status: version.status,
-            visibility: version.usageSpecification?.visibility ?? null,
-            outcomeSpecificationHash: version.outcomeSpecification?.specificationHash ?? null,
-          }),
-          timestamp,
-        ],
-      );
+      await this.#saveVersion(client, version, timestamp, packageImport);
       await client.query('COMMIT');
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -5017,6 +5037,302 @@ export class PostgresSkillRepository implements SkillRepository {
     } finally {
       client.release();
     }
+  }
+
+  async commitEvolutionValidation(
+    input: Parameters<SkillEvolutionCommitPort['commit']>[0],
+  ): Promise<SkillFormalizationCandidate> {
+    const client = await this.#pool.connect();
+    const fail = (code: string): never => {
+      throw new SkillEvolutionValidationError(code);
+    };
+    try {
+      await client.query('BEGIN');
+      const found = await client.query<FormalizationCandidateRow>(
+        'SELECT * FROM skill_formalization_candidate WHERE candidate_id=$1 FOR UPDATE',
+        [input.candidate.candidateId],
+      );
+      const row = found.rows[0];
+      if (row === undefined) return fail('SKILL_FORMALIZATION_CANDIDATE_NOT_FOUND');
+      const current = mapFormalizationCandidateRow(row);
+      const candidate = input.candidate;
+      const receipt = candidate.validationReport?.executionValidation;
+      if (current.status === 'published') {
+        if (receipt === undefined || canonicalHash(current) !== canonicalHash(candidate))
+          return fail('SKILL_EVOLUTION_PUBLICATION_CONFLICT');
+        await client.query('COMMIT');
+        return current;
+      }
+      if (
+        canonicalHash(current) !== input.expectedCandidateHash ||
+        current.capabilityFingerprint !== candidate.capabilityFingerprint ||
+        canonicalHash(current.sourceExperienceIds) !==
+          canonicalHash(candidate.sourceExperienceIds) ||
+        current.requiredSuccessThreshold !== candidate.requiredSuccessThreshold ||
+        current.successfulExperienceCount !== candidate.successfulExperienceCount ||
+        current.createdAt !== candidate.createdAt
+      )
+        return fail('SKILL_EVOLUTION_CANDIDATE_STALE');
+      if (candidate.status === 'published') {
+        if (
+          receipt?.schemaVersion !== '2.0' ||
+          receipt.inputCandidateHash !== input.expectedCandidateHash ||
+          canonicalHash(receipt.target) !== receipt.targetHash ||
+          receipt.target.status !== 'draft' ||
+          receipt.target.validationPassed ||
+          candidate.validationReport?.allPassed !== true ||
+          candidate.validationReport.cases.some((item) => !item.passed) ||
+          receipt.executions.length === 0 ||
+          receipt.inductionInvocationIds.length === 0 ||
+          new Set(candidate.validationReport.cases.map((item) => item.caseId)).size !==
+            candidate.validationReport.cases.length ||
+          ![
+            'static_validation',
+            'source_experience',
+            'historical_replay',
+            'normal',
+            'boundary',
+            'exception',
+          ].every((kind) => candidate.validationReport?.cases.some((item) => item.kind === kind)) ||
+          candidate.sourceExperienceIds.some(
+            (id) =>
+              !candidate.validationReport?.cases.some(
+                (item) => item.caseId === `source-${id}` && item.kind === 'source_experience',
+              ),
+          ) ||
+          candidate.validationReport.cases
+            .filter((item) => item.kind !== 'static_validation')
+            .some(
+              (item) =>
+                !receipt.executions.some(
+                  (execution) =>
+                    execution.caseId === item.caseId && execution.status !== 'not_executed',
+                ),
+            ) ||
+          receipt.executions.some(
+            (item) =>
+              item.assertions.length < 3 || item.assertions.some((assertion) => !assertion.passed),
+          ) ||
+          candidate.publishedSkillId !== receipt.target.skillId ||
+          candidate.publishedSkillVersion !== receipt.target.version
+        )
+          return fail('SKILL_EVOLUTION_VALIDATION_RECEIPT_INVALID');
+        for (const expected of [
+          ...receipt.dependencies,
+          ...(receipt.base === undefined ? [] : [receipt.base]),
+        ].sort((a, b) => a.skillId.localeCompare(b.skillId))) {
+          await client.query('SELECT skill_id FROM skill WHERE skill_id=$1 FOR UPDATE', [
+            expected.skillId,
+          ]);
+          await client.query(
+            'SELECT skill_id FROM skill_version WHERE skill_id=$1 AND version=$2 FOR UPDATE',
+            [expected.skillId, expected.version],
+          );
+          const actual = await client.query<SkillVersionRow>(
+            `${skillVersionSelect} JOIN skill s ON s.skill_id=v.skill_id AND s.current_version=v.version WHERE s.skill_id=$1`,
+            [expected.skillId],
+          );
+          const actualRow = actual.rows[0];
+          if (
+            actualRow === undefined ||
+            canonicalHash(mapSkillVersionRow(actualRow)) !== canonicalHash(expected)
+          )
+            return fail('SKILL_EVOLUTION_BASE_OR_DEPENDENCY_STALE');
+        }
+        if (receipt.base === undefined) {
+          const inserted = await client.query(
+            'INSERT INTO skill(skill_id,current_version,created_at,updated_at) VALUES($1,$2,$3,$3) ON CONFLICT(skill_id) DO NOTHING RETURNING skill_id',
+            [receipt.target.skillId, receipt.target.version, receipt.validatedAt],
+          );
+          if (inserted.rowCount !== 1 || receipt.target.version !== 1)
+            return fail('SKILL_EVOLUTION_NEW_SKILL_ALREADY_EXISTS');
+        } else if (
+          receipt.target.skillId !== receipt.base.skillId ||
+          receipt.target.version !== receipt.base.version + 1 ||
+          receipt.target.previousVersion !== receipt.base.version
+        )
+          return fail('SKILL_EVOLUTION_VALIDATION_RECEIPT_INVALID');
+        for (const expected of [...receipt.servers].sort((a, b) =>
+          a.serverId.localeCompare(b.serverId),
+        )) {
+          const actual = await client.query<McpServerRow>(
+            'SELECT * FROM mcp_server WHERE server_id=$1 FOR SHARE',
+            [expected.serverId],
+          );
+          if (
+            actual.rows[0] === undefined ||
+            canonicalHash(mapMcpServerRow(actual.rows[0])) !== canonicalHash(expected)
+          )
+            return fail('SKILL_EVOLUTION_TOOL_AUTHORITY_STALE');
+        }
+        for (const expected of receipt.tools) {
+          const actual = await client.query<McpToolRow>(
+            `SELECT t.*,s.protocol_mode FROM mcp_tool t JOIN mcp_server s ON s.server_id=t.server_id WHERE t.server_id=$1 AND t.tool_name=$2 FOR SHARE OF t`,
+            [expected.serverId, expected.toolName],
+          );
+          if (
+            actual.rows[0] === undefined ||
+            canonicalHash(mapMcpToolRow(actual.rows[0])) !== canonicalHash(expected)
+          )
+            return fail('SKILL_EVOLUTION_TOOL_AUTHORITY_STALE');
+        }
+        await this.#saveVersion(
+          client,
+          createSkillVersion({ ...receipt.target, status: 'enabled', validationPassed: true }),
+          receipt.validatedAt,
+        );
+      } else if (candidate.status !== 'validation_failed')
+        return fail('SKILL_EVOLUTION_VALIDATION_RECEIPT_INVALID');
+      await client.query(
+        `UPDATE skill_formalization_candidate SET status=$2,induction_report_json=$3,validation_report_json=$4,proposed_skill_json=$5,published_skill_id=$6,published_skill_version=$7,evaluated_at=$8 WHERE candidate_id=$1`,
+        [
+          candidate.candidateId,
+          candidate.status,
+          candidate.inductionReport === undefined
+            ? null
+            : JSON.stringify(candidate.inductionReport),
+          candidate.validationReport === undefined
+            ? null
+            : JSON.stringify(candidate.validationReport),
+          candidate.proposedSkill === undefined ? null : JSON.stringify(candidate.proposedSkill),
+          candidate.publishedSkillId ?? null,
+          candidate.publishedSkillVersion ?? null,
+          candidate.evaluatedAt ?? null,
+        ],
+      );
+      if (input.correction !== undefined) {
+        const correction = input.correction;
+        if (
+          correction.candidateId !== candidate.candidateId ||
+          correction.capabilityFingerprint !== candidate.capabilityFingerprint ||
+          correction.outcome !== candidate.status ||
+          canonicalHash(correction.validationReport) !== canonicalHash(candidate.validationReport)
+        )
+          return fail('SKILL_EVOLUTION_CORRECTION_CONFLICT');
+        await client.query(
+          `INSERT INTO skill_evolution_correction_experience(correction_id,candidate_id,capability_fingerprint,actor,summary,before_skill_json,after_skill_json,diff_json,validation_report_json,outcome,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            correction.correctionId,
+            correction.candidateId,
+            correction.capabilityFingerprint,
+            correction.actor,
+            correction.summary,
+            JSON.stringify(correction.beforeSkill),
+            JSON.stringify(correction.afterSkill),
+            JSON.stringify(correction.diff),
+            JSON.stringify(correction.validationReport),
+            correction.outcome,
+            correction.createdAt,
+          ],
+        );
+      }
+      await client.query('COMMIT');
+      return candidate;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async #saveVersion(
+    client: PoolClient,
+    version: SkillVersion,
+    timestamp: string,
+    packageImport?: SkillPackageImportAudit,
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO skill (skill_id, current_version, created_at, updated_at)
+         VALUES ($1, $2, $3, $3) ON CONFLICT (skill_id) DO NOTHING`,
+      [version.skillId, version.version, timestamp],
+    );
+    await client.query(
+      `INSERT INTO skill_version (
+           skill_id, version, name, summary, description, capabilities_json,
+           workflow_guidance, output_instruction, input_schema_json, output_schema_json,
+           tool_policy_json, runtime_policy_json, usage_specification_json, status, source_kind,
+           validation_passed, previous_version, created_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [
+        version.skillId,
+        version.version,
+        version.name,
+        version.summary,
+        version.description,
+        JSON.stringify(version.capabilities),
+        version.workflowGuidance,
+        version.outputInstruction,
+        JSON.stringify(version.inputSchema),
+        JSON.stringify(version.outputSchema),
+        JSON.stringify(version.toolPolicy),
+        JSON.stringify(version.runtimePolicy),
+        version.usageSpecification === undefined
+          ? null
+          : JSON.stringify(version.usageSpecification),
+        version.status,
+        version.sourceKind,
+        version.validationPassed,
+        version.previousVersion ?? null,
+        version.createdAt,
+      ],
+    );
+    if (version.outcomeSpecification !== undefined)
+      await client.query(
+        `INSERT INTO skill_outcome_specification(
+             skill_id,skill_version,schema_version,specification_hash,specification_json,created_at)
+           VALUES($1,$2,$3,$4,$5::jsonb,$6)`,
+        [
+          version.skillId,
+          version.version,
+          version.outcomeSpecification.schemaVersion,
+          version.outcomeSpecification.specificationHash,
+          JSON.stringify(version.outcomeSpecification),
+          version.createdAt,
+        ],
+      );
+    if (packageImport !== undefined) {
+      await client.query(
+        `INSERT INTO skill_package_import_audit (
+             skill_id,skill_version,package_checksum,package_root,file_checksums_json,
+             validated_at,imported_at
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          packageImport.skillId,
+          packageImport.skillVersion,
+          packageImport.packageChecksum,
+          packageImport.packageRoot,
+          JSON.stringify(packageImport.fileChecksums),
+          packageImport.validatedAt,
+          packageImport.importedAt,
+        ],
+      );
+    }
+    await client.query(
+      `UPDATE skill SET current_version = $2, updated_at = $3 WHERE skill_id = $1`,
+      [version.skillId, version.version, timestamp],
+    );
+    const catalogEventId = `skill.catalog_changed:${version.skillId}:${String(version.version)}`;
+    await client.query(
+      `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at
+         ) VALUES ($1,'skill.catalog_changed','skill',$2,$3,$4,$5,$6)`,
+      [
+        catalogEventId,
+        version.skillId,
+        version.version,
+        JSON.stringify({ correlationId: catalogEventId }),
+        JSON.stringify({
+          skillId: version.skillId,
+          skillVersion: version.version,
+          status: version.status,
+          visibility: version.usageSpecification?.visibility ?? null,
+          outcomeSpecificationHash: version.outcomeSpecification?.specificationHash ?? null,
+        }),
+        timestamp,
+      ],
+    );
   }
 }
 
@@ -7266,7 +7582,8 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
          proposed_skill_json = EXCLUDED.proposed_skill_json,
          published_skill_id = EXCLUDED.published_skill_id,
          published_skill_version = EXCLUDED.published_skill_version,
-         evaluated_at = EXCLUDED.evaluated_at`,
+         evaluated_at = EXCLUDED.evaluated_at
+       WHERE skill_formalization_candidate.status <> 'published'`,
       [
         candidate.candidateId,
         candidate.capabilityFingerprint,

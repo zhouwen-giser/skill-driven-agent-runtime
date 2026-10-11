@@ -1,0 +1,17 @@
+# ADR-163: Validate unpublished Skill candidates against retained executions
+
+Status: Accepted for implementation, 2026-10-11. Full current-source gate required before delivery.
+
+ADR-151 correctly disabled a publisher whose historical runner did not execute the proposed Skill and whose version/candidate writes were separate. The replacement supports ordinary synchronous, recorded Tool workflows. Restricted UGV, home-governed and device-scoped profiles retain explicit publication deferral.
+
+An unpublished candidate is composed through the ordinary Skill usage rules, planned through the read-only Workflow candidate generator and executed by the existing LangGraph executor. This validator receives recorded local IO and read ports only. It cannot reach a live broker, Task writer, remote continuation or formal Skill writer. The recording reader checks Task/Goal/plan/instance identity, input/result/error equality and invocation time range. Every recorded call must be consumed exactly once with identical Tool identity, arguments and execution semantics. Success requires the exact recorded output and candidate output Schema; failure requires the recorded stable error. Missing fixtures never count as a successful exception test.
+
+The induction model receives bounded retained input/result/error summaries and prior persisted corrections. Its judgments are proposals. Static validation, source experiences, retained success/failure histories and distinct normal/boundary/exception cases all must pass. A boundary case must reach an explicit input Schema bound. Each report retains plan attempts, generated DSL, model invocation IDs, recording/oracle hashes, actual assertions and consumed invocation IDs. Tests use synthetic recordings/models and real LangGraph/PostgreSQL, explicitly distinguished from production observations.
+
+For an existing Skill, capability, input/output Schemas, normative usage, provider fallback, composition and outcome contracts remain unchanged; Tool and runtime policies are copied exactly. Only adaptive guidance changes. A new Skill needs explicit internal `publicationPolicy`, limited to source Tools and server budget ceilings, with automatic confirmation disabled. This does not add a public request parameter or grant provider execution authority.
+
+PostgreSQL locks and checks the candidate, current base/dependencies, server and Tool snapshots. It commits the immutable enabled version, outcome specification, current pointer, validation receipt, optional correction and catalog outbox event in one transaction. Identical publication retries return the durable receipt; stale or conflicting candidates fail. Correction records become input to subsequent induction. JSON codecs preserve the full receipt on readback. No SDAR migration or runtime dependency is added.
+
+Remote task/provider evidence, LLM execution recordings, child Skill/subworkflow recordings and human-confirmation fixtures are not implemented by this change. Such candidates remain failed drafts; restricted profiles remain deferred. Missing source history and absent real inspection/trajectory authority remain open gaps. This scoped implementation cannot be reported as full FR-EVO or project acceptance.
+
+Validation paths: `skill-evolution-authority.unit`, `skill-evolution-recorded.unit`, `skill-evolution-recording-reader.unit`, `verified-skill-evolution.unit`, `skill-evolution.postgres-cases` in the real integration suite, ordinary management/A2A E2E, and architecture negative fixtures in `check-planning-boundaries.mjs`.

@@ -1,3 +1,4 @@
+import { verifyGowmTemporarySkillScope } from '../apps/server/test/gowm-temporary-skill-scope.js';
 import { verifyGowmOutcomeWriteScope } from '../packages/persistence-postgres/test/gowm-outcome-write-scope.postgres-cases.js';
 import { verifyGowmGoalOutcomes } from '../packages/persistence-postgres/test/gowm-goal-outcome.postgres-cases.js';
 import { verifyGowmGatewayCases } from '../packages/persistence-postgres/test/gowm-gateway.postgres-cases.js';
@@ -246,6 +247,10 @@ if (!url || !consumerUrl || !peerUrl || process.env['GOWM_BUSINESS_SMOKE_ENABLE'
       scenario: 'Scoped reads exclude the other device; GOWM read model sees both native Tasks',
       status: 'PASS',
     });
+    const temporary = await verifyGowmTemporarySkillScope(pool, [0, 1].map((index) => `${run}-task-${index}`));
+    assert.equal(temporary.status, 'PASS');
+    assert.equal(temporary.results.length, 12);
+    results.push({ scenario: 'Two devices: all Temporary Skill terminal outcomes expire once with true ownership; unknown success is not promoted', status: 'PASS' });
     for (const scenario of await verifyGowmGatewayCases(pool, scope, run))
       results.push({ scenario, status: 'PASS' });
     for (const scenario of await verifyGowmProjectionCases(pool, scope, run))
@@ -294,7 +299,8 @@ if (!url || !consumerUrl || !peerUrl || process.env['GOWM_BUSINESS_SMOKE_ENABLE'
           status: 'PASS',
           scope: 'Repository subset only; normal Server/MCP smoke remains pending',
           acceptanceStatus: 'INCOMPLETE',
-          knownContractGaps: ['auxiliary-link-contract-gap.json'],
+          knownContractGaps: [],
+          temporarySkillTerminalEvidence: temporary,
           run,
           results,
         },
