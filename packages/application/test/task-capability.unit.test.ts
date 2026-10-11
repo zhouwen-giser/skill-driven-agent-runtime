@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { businessMutationPolicy } from '../../domain/test/task-business-command-fixture.js';
 
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
@@ -1483,6 +1484,37 @@ describe('RuntimeTaskCapabilityService', () => {
     });
   });
 
+  it('validates the published non-weapon business policy at terminal proof without weakening original physical evidence', async () => {
+    const scenario = physicalScenario();
+    const withPolicy: PhysicalScenario = {
+      ...scenario,
+      resolution: {
+        ...scenario.resolution,
+        constraints: [...scenario.resolution.constraints, businessMutationPolicy],
+      },
+    };
+    await expect(exercisePhysicalTerminal(withPolicy)).resolves.toMatchObject({
+      attemptId: 'capability-attempt-physical',
+    });
+    await expect(
+      exercisePhysicalTerminal({
+        ...withPolicy,
+        resolution: {
+          ...withPolicy.resolution,
+          constraints: [
+            ...scenario.resolution.constraints,
+            { ...businessMutationPolicy, confirmation: 'model_output' },
+          ],
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
+    await expect(
+      exercisePhysicalTerminal({
+        ...withPolicy,
+        physicalEvidence: { ...withPolicy.physicalEvidence, dispatches: [] },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
+  });
   it.each([
     [
       'an invocation-less uncertain admission intent in the same attempt',

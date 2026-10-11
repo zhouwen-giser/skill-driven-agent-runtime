@@ -1,0 +1,11 @@
+$ tsc -p tsconfig.build.json && pnpm --dir apps/console build
+$ tsc -b && vite build
+vite v8.1.4 building client environment for production...
+[2Ktransforming...✓ 33 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.47 kB │ gzip:  0.30 kB
+dist/assets/index-BroyGNYG.css   14.19 kB │ gzip:  3.88 kB
+dist/assets/index-CCTNHZs6.js   315.93 kB │ gzip: 89.28 kB │ map: 1,216.12 kB
+
+✓ built in 266ms

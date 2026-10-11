@@ -1,0 +1,103 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |unit| packages/application/test/task-business-sync.unit.test.ts (6 tests | 6 failed) 25ms
+     × AC-010 reads and recovers the same binding without any start or Tool dispatch port 16ms
+     × AC-007 refuses foreign Artifact execution before requesting its content 2ms
+     × AC-009 leaves unsupported Providers on their original Task lifecycle 2ms
+     × AC-012 keeps distinct inbox checkpoints at the same Context revision 1ms
+     × AC-015 retains a discontinuity when a current snapshot moves to a new stream 1ms
+     × AC-016 bounds concurrent reads, cancels shutdown work, and leaves no new sends 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/task-business-sync.unit.test.ts > TaskBusiness sync through the admitted Task authority > AC-010 reads and recovers the same binding without any start or Tool dispatch port
+DomainError: Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.
+ ❯ createRemoteTaskBinding packages/domain/src/remote-task.ts:352:11
+    350|     !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as cons…
+    351|   )
+    352|     throw new DomainError(
+       |           ^
+    353|       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+    354|       'Frozen Remote Task admission requires taskBehavior, runtimeRevi…
+ ❯ fixture packages/application/test/task-business-sync.unit.test.ts:14:19
+ ❯ packages/application/test/task-business-sync.unit.test.ts:91:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  |unit| packages/application/test/task-business-sync.unit.test.ts > TaskBusiness sync through the admitted Task authority > AC-007 refuses foreign Artifact execution before requesting its content
+DomainError: Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.
+ ❯ createRemoteTaskBinding packages/domain/src/remote-task.ts:352:11
+    350|     !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as cons…
+    351|   )
+    352|     throw new DomainError(
+       |           ^
+    353|       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+    354|       'Frozen Remote Task admission requires taskBehavior, runtimeRevi…
+ ❯ fixture packages/application/test/task-business-sync.unit.test.ts:14:19
+ ❯ packages/application/test/task-business-sync.unit.test.ts:116:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  |unit| packages/application/test/task-business-sync.unit.test.ts > TaskBusiness sync through the admitted Task authority > AC-009 leaves unsupported Providers on their original Task lifecycle
+DomainError: Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.
+ ❯ createRemoteTaskBinding packages/domain/src/remote-task.ts:352:11
+    350|     !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as cons…
+    351|   )
+    352|     throw new DomainError(
+       |           ^
+    353|       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+    354|       'Frozen Remote Task admission requires taskBehavior, runtimeRevi…
+ ❯ fixture packages/application/test/task-business-sync.unit.test.ts:14:19
+ ❯ packages/application/test/task-business-sync.unit.test.ts:131:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  |unit| packages/application/test/task-business-sync.unit.test.ts > TaskBusiness sync through the admitted Task authority > AC-012 keeps distinct inbox checkpoints at the same Context revision
+DomainError: Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.
+ ❯ createRemoteTaskBinding packages/domain/src/remote-task.ts:352:11
+    350|     !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as cons…
+    351|   )
+    352|     throw new DomainError(
+       |           ^
+    353|       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+    354|       'Frozen Remote Task admission requires taskBehavior, runtimeRevi…
+ ❯ fixture packages/application/test/task-business-sync.unit.test.ts:14:19
+ ❯ packages/application/test/task-business-sync.unit.test.ts:140:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  |unit| packages/application/test/task-business-sync.unit.test.ts > TaskBusiness sync through the admitted Task authority > AC-015 retains a discontinuity when a current snapshot moves to a new stream
+DomainError: Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.
+ ❯ createRemoteTaskBinding packages/domain/src/remote-task.ts:352:11
+    350|     !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as cons…
+    351|   )
+    352|     throw new DomainError(
+       |           ^
+    353|       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+    354|       'Frozen Remote Task admission requires taskBehavior, runtimeRevi…
+ ❯ fixture packages/application/test/task-business-sync.unit.test.ts:14:19
+ ❯ packages/application/test/task-business-sync.unit.test.ts:160:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  |unit| packages/application/test/task-business-sync.unit.test.ts > TaskBusiness sync through the admitted Task authority > AC-016 bounds concurrent reads, cancels shutdown work, and leaves no new sends
+DomainError: Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.
+ ❯ createRemoteTaskBinding packages/domain/src/remote-task.ts:352:11
+    350|     !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as cons…
+    351|   )
+    352|     throw new DomainError(
+       |           ^
+    353|       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+    354|       'Frozen Remote Task admission requires taskBehavior, runtimeRevi…
+ ❯ fixture packages/application/test/task-business-sync.unit.test.ts:14:19
+ ❯ packages/application/test/task-business-sync.unit.test.ts:171:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  6 failed | 103 passed (109)
+   Start at  22:39:00
+   Duration  5.05s (transform 9.45s, setup 0ms, import 13.65s, tests 1.24s, environment 1ms)
+

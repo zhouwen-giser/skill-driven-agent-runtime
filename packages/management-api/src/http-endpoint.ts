@@ -2,6 +2,8 @@ import { once } from 'node:events';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type Server as HttpServer } from 'node:http';
 import path from 'node:path';
+import { taskBusinessMutationPolicySchema } from '../../domain/src/task-business-command.js';
+import { taskBusinessEvidencePolicySchema } from '../../domain/src/task-business-evidence.js';
 import {
   IsolatedDemoError,
   type IsolatedDemoService,
@@ -101,9 +103,12 @@ import type {
   GovernedControlPrincipal,
   GovernedControlPrincipalResolver,
   RuntimeSkillGovernanceService,
+  TaskBusinessCommandService,
+  TaskBusinessRepository,
 } from '../../application/src/index.js';
 import {
   MODEL_STAGES,
+  TaskBusinessError,
   type SkillExecutionView,
   type SkillUsageSpecification,
 } from '../../domain/src/index.js';
@@ -317,6 +322,8 @@ const RegisterSkillSchema = z.object({
   }),
   runtimePolicy: z.object({
     autoConfirmPlan: z.boolean(),
+    taskBusinessMutationPolicy: taskBusinessMutationPolicySchema.optional(),
+    taskBusinessEvidencePolicy: taskBusinessEvidencePolicySchema.optional(),
     maxReplans: z.number().int().nonnegative().optional(),
     maxDurationSeconds: z.number().int().positive().optional(),
     maxLlmCalls: z.number().int().nonnegative().optional(),
@@ -927,6 +934,25 @@ export interface ManagementOperations {
   /** Optional P10 read-only projection. PostgreSQL remains the evidence authority. */
   readonly gatewayEvidence?: Readonly<{
     findByTaskId(taskId: string): Promise<unknown>;
+  }>;
+  readonly taskBusiness?: Readonly<{
+    list(taskId: string): ReturnType<TaskBusinessRepository['listByTask']>;
+    content(taskId: string, bindingId: string, digest: string): Promise<Buffer>;
+    sourceArtifact?(
+      taskId: string,
+      ref: Readonly<{
+        artifactId: string;
+        version: number;
+        uri: string;
+        sha256: `sha256:${string}`;
+        mediaType: string;
+        byteSize: number;
+      }>,
+    ): Promise<Uint8Array>;
+    commands: Pick<
+      TaskBusinessCommandService,
+      'list' | 'prepareNavigation' | 'confirm' | 'dispatch' | 'reconcile' | 'rollbackPreflight'
+    >;
   }>;
   /** Optional P11 secret-free Case/Model Route runtime evidence. */
   readonly caseModelRuntimeEvidence?: Readonly<{
@@ -1869,6 +1895,136 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get(
+    '/api/v1/tasks/:taskId/business',
+    asyncRoute(async (request, response) => {
+      const business = requireTaskBusiness(options.operations.taskBusiness);
+      await options.operations.tasks.get(pathValue(request, 'taskId'));
+      response.json({ items: await business.list(pathValue(request, 'taskId')) });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/business/commands',
+    asyncRoute(async (request, response) => {
+      const business = requireTaskBusiness(options.operations.taskBusiness);
+      await options.operations.tasks.get(pathValue(request, 'taskId'));
+      response.json({
+        items: await business.commands.list(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/business/content/:bindingId/:digest',
+    asyncRoute(async (request, response) => {
+      const bytes = await requireTaskBusiness(options.operations.taskBusiness).content(
+        pathValue(request, 'taskId'),
+        pathValue(request, 'bindingId'),
+        pathValue(request, 'digest'),
+      );
+      response.setHeader('Content-Type', 'application/json');
+      response.setHeader('ETag', `"sha256:${createHash('sha256').update(bytes).digest('hex')}"`);
+      response.send(bytes);
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/business/source-artifact',
+    asyncRoute(async (request, response) => {
+      const taskId = pathValue(request, 'taskId');
+      await options.operations.tasks.get(taskId);
+      const sourceArtifact = requireTaskBusiness(options.operations.taskBusiness).sourceArtifact;
+      if (sourceArtifact === undefined) {
+        response.status(503).json({ code: 'TASK_BUSINESS_SOURCE_ARTIFACT_UNAVAILABLE' });
+        return;
+      }
+      const ref = z
+        .object({
+          artifactId: z.string().min(1).max(512),
+          version: z.coerce.number().int().positive(),
+          uri: z.string().min(1).max(2048),
+          sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+          mediaType: z.literal('application/json'),
+          byteSize: z.coerce
+            .number()
+            .int()
+            .nonnegative()
+            .max(16 * 1024 * 1024),
+        })
+        .strict()
+        .parse(request.query);
+      const bytes = await sourceArtifact(taskId, {
+        ...ref,
+        sha256: ref.sha256 as `sha256:${string}`,
+      });
+      response.setHeader('Content-Type', ref.mediaType);
+      response.setHeader('ETag', `"${ref.sha256}"`);
+      response.send(Buffer.from(bytes));
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/business/navigation/prepare',
+    asyncRoute(async (request, response) => {
+      const input = z
+        .object({
+          idempotencyKey: z.string().min(1).max(256),
+          waypoints: z
+            .array(
+              z
+                .object({
+                  longitude: z.number().min(-180).max(180),
+                  latitude: z.number().min(-90).max(90),
+                })
+                .strict(),
+            )
+            .min(1)
+            .max(256),
+          density: z.string().min(1).max(64),
+        })
+        .strict()
+        .parse(request.body);
+      response.json(
+        await requireTaskBusiness(options.operations.taskBusiness).commands.prepareNavigation({
+          taskId: pathValue(request, 'taskId'),
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/business/commands/:intentId/confirm',
+    asyncRoute(async (request, response) => {
+      const input = z
+        .object({ reason: z.string().min(1).max(2000) })
+        .strict()
+        .parse(request.body);
+      const governed = requireGovernedControl(options.governedControl);
+      const principal = await resolveGovernedControlPrincipal(governed.principalResolver, request);
+      const commands = requireTaskBusiness(options.operations.taskBusiness).commands;
+      const taskId = pathValue(request, 'taskId');
+      const intentId = pathValue(request, 'intentId');
+      await commands.confirm(taskId, intentId, principal, input.reason);
+      response.json(await commands.dispatch(taskId, intentId));
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/business/commands/:intentId/reconcile',
+    asyncRoute(async (request, response) => {
+      z.object({}).strict().parse(request.body);
+      response.json(
+        await requireTaskBusiness(options.operations.taskBusiness).commands.reconcile(
+          pathValue(request, 'taskId'),
+          pathValue(request, 'intentId'),
+        ),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/task-business/rollback-preflight',
+    asyncRoute(async (_request, response) => {
+      response.json(
+        await requireTaskBusiness(options.operations.taskBusiness).commands.rollbackPreflight(),
+      );
+    }),
+  );
+  app.get(
     '/api/v1/artifacts/runtime-evidence/:requestRef',
     asyncRoute(async (request, response) => {
       if (options.operations.caseModelRuntimeEvidence === undefined) {
@@ -2292,6 +2448,13 @@ export async function startManagementHttpEndpoint(
     '/api/v1/tasks/:taskId/actions',
     asyncRoute(async (request, response) => {
       const input = TaskActionSchema.parse(request.body);
+      const principal =
+        input.action === 'provide_input' && options.governedControl !== undefined
+          ? await resolveGovernedControlPrincipal(
+              options.governedControl.principalResolver,
+              request,
+            )
+          : undefined;
       response.json(
         await options.operations.tasks.followUp({
           taskId: pathValue(request, 'taskId'),
@@ -2299,6 +2462,7 @@ export async function startManagementHttpEndpoint(
           messageText: input.messageText,
           ...(input.inputRequestId === undefined ? {} : { inputRequestId: input.inputRequestId }),
           ...(input.inputContent === undefined ? {} : { inputContent: input.inputContent }),
+          ...(principal === undefined ? {} : { confirmationAuthority: { principal } }),
         }),
       );
     }),
@@ -4701,6 +4865,12 @@ function requireGovernedControl(
     throw new GovernedControlManagementError('GOVERNED_CONTROL_MANAGEMENT_UNAVAILABLE', 503);
   return value;
 }
+function requireTaskBusiness(
+  value: ManagementOperations['taskBusiness'],
+): NonNullable<ManagementOperations['taskBusiness']> {
+  if (value === undefined) throw new TaskBusinessError('TASK_BUSINESS_RUNTIME_UNAVAILABLE');
+  return value;
+}
 
 function resolveGovernedControlPrincipal(
   resolver: GovernedControlPrincipalResolver,
@@ -5107,6 +5277,12 @@ function skillRegistrationInput(
 function compactRuntimePolicy(policy: z.infer<typeof RegisterSkillSchema>['runtimePolicy']) {
   return {
     autoConfirmPlan: policy.autoConfirmPlan,
+    ...(policy.taskBusinessMutationPolicy === undefined
+      ? {}
+      : { taskBusinessMutationPolicy: policy.taskBusinessMutationPolicy }),
+    ...(policy.taskBusinessEvidencePolicy === undefined
+      ? {}
+      : { taskBusinessEvidencePolicy: policy.taskBusinessEvidencePolicy }),
     ...(policy.maxReplans === undefined ? {} : { maxReplans: policy.maxReplans }),
     ...(policy.maxDurationSeconds === undefined
       ? {}
@@ -5287,6 +5463,14 @@ function normalizeHttpError(error: unknown): Readonly<{
   }
   if (error instanceof GovernedControlManagementError)
     return { status: error.status, body: { code: error.code, message: error.message } };
+  if (error instanceof TaskBusinessError) {
+    const status = error.code.endsWith('UNAVAILABLE')
+      ? 503
+      : error.code.endsWith('NOT_FOUND')
+        ? 404
+        : 409;
+    return { status, body: { code: error.code, message: error.code } };
+  }
   if (error instanceof SkillGovernanceError) {
     return { status: error.status, body: { code: error.code, message: error.message } };
   }

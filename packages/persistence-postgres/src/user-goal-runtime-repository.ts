@@ -1,4 +1,6 @@
 import { requireOutcomeTask, requireLayeredOutcomeSource } from './gowm-outcome-scope.js';
+import { randomUUID } from 'node:crypto';
+import { markBusinessEventProcessedInTransaction } from './business-event-checkpoint.js';
 import { taskDeviceScopeSql } from './gowm-work-scope.js';
 import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
 import {
@@ -95,6 +97,7 @@ interface BusinessEventInboxRow extends QueryResultRow {
   envelope_json: unknown;
   status: BusinessEventInboxRecord['status'];
   admitted_at: Date | string;
+  error_code?: string | null;
 }
 
 export class PostgresUserGoalRuntimeRepository {
@@ -1278,48 +1281,49 @@ export class PostgresUserGoalRuntimeRepository {
     });
   }
 
-  async markBusinessEventProcessed(inboxId: string, processedAt: string): Promise<void> {
-    const filter = businessEventChildScope(this.deviceScope, 3, 'business_event_inbox');
-    await withTransaction(this.#pool, async (client) => {
-      const event = await client.query<{ subscription_id: string; sequence: string }>(
-        `UPDATE business_event_inbox
-         SET status='processed',processed_at=$2,error_code=NULL
-         WHERE inbox_id=$1 AND ${filter.predicate} AND status IN ('admitted','processing','retryable_failed')
-         RETURNING subscription_id,sequence::text`,
-        [inboxId, processedAt, ...filter.values],
-      );
-      const row = event.rows[0];
-      if (row === undefined)
-        throw new UserGoalRuntimePersistenceError(
-          'BUSINESS_EVENT_PROCESSING_CAS_FAILED',
-          'Business Event was not in a processable state.',
-        );
-      await client.query(
-        `UPDATE business_event_subscription
-         SET last_processed_sequence=GREATEST(last_processed_sequence,$2::numeric),
-             lock_version=lock_version+1,updated_at=$3
-         WHERE subscription_id=$1`,
-        [row.subscription_id, row.sequence, processedAt],
-      );
-    });
+  async markBusinessEventProcessed(
+    inboxId: string,
+    processedAt: string,
+    processingToken?: string,
+  ): Promise<void> {
+    await withTransaction(this.#pool, (client) =>
+      markBusinessEventProcessedInTransaction(
+        client,
+        inboxId,
+        processedAt,
+        this.deviceScope,
+        processingToken,
+      ),
+    );
   }
 
   async claimBusinessEventInbox(limit: number): Promise<readonly BusinessEventInboxRecord[]> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 256)
       throw new Error('BUSINESS_EVENT_CLAIM_LIMIT_INVALID');
-    const filter = businessEventChildScope(this.deviceScope, 2, 'business_event_inbox');
+    const filter = businessEventChildScope(this.deviceScope, 3, 'business_event_inbox');
+    const processingToken = `PROCESSING_LEASE:${String(Date.now() + 60_000)}:${randomUUID()}`;
     return withTransaction(this.#pool, async (client) => {
+      const exhaustedScope = businessEventChildScope(this.deviceScope, 1, 'business_event_inbox');
+      await client.query(
+        `UPDATE business_event_inbox SET status='terminal_failed',error_code='BUSINESS_EVENT_RETRY_EXHAUSTED'
+         WHERE ${exhaustedScope.predicate} AND attempt_count>=5 AND
+          (status='retryable_failed' OR (status='processing' AND error_code ~ '^PROCESSING_LEASE:[0-9]+:'
+            AND split_part(error_code,':',2)::numeric <= extract(epoch FROM clock_timestamp())*1000))`,
+        exhaustedScope.values,
+      );
       const result = await client.query<BusinessEventInboxRow>(
         `WITH candidates AS (
            SELECT inbox_id FROM business_event_inbox
-           WHERE ${filter.predicate} AND status IN ('admitted','retryable_failed')
+           WHERE ${filter.predicate} AND attempt_count<5 AND (status IN ('admitted','retryable_failed')
+             OR (status='processing' AND (error_code IS NULL OR
+               (error_code ~ '^PROCESSING_LEASE:[0-9]+:' AND split_part(error_code,':',2)::numeric <= extract(epoch FROM clock_timestamp())*1000))))
            ORDER BY admitted_at,sequence LIMIT $1 FOR UPDATE SKIP LOCKED)
          UPDATE business_event_inbox event
-         SET status='processing',attempt_count=attempt_count+1,error_code=NULL
+         SET status='processing',attempt_count=attempt_count+1,error_code=$2
          FROM candidates WHERE event.inbox_id=candidates.inbox_id
          RETURNING event.inbox_id,event.subscription_id,event.event_id,event.sequence::text,
-           event.envelope_hash,event.envelope_json,event.status,event.admitted_at`,
-        [limit, ...filter.values],
+           event.envelope_hash,event.envelope_json,event.status,event.admitted_at,event.error_code`,
+        [limit, processingToken, ...filter.values],
       );
       return result.rows.map(inboxFromRow);
     });
@@ -1329,13 +1333,22 @@ export class PostgresUserGoalRuntimeRepository {
     inboxId: string,
     errorCode: string,
     retryable: boolean,
+    processingToken?: string,
   ): Promise<void> {
-    const filter = businessEventChildScope(this.deviceScope, 4, 'business_event_inbox');
+    const filter = businessEventChildScope(this.deviceScope, 5, 'business_event_inbox');
     const result = await this.#pool.query(
       `UPDATE business_event_inbox
-       SET status=$2,error_code=$3
-       WHERE inbox_id=$1 AND ${filter.predicate} AND status='processing'`,
-      [inboxId, retryable ? 'retryable_failed' : 'terminal_failed', errorCode, ...filter.values],
+       SET status=CASE WHEN attempt_count>=5 THEN 'terminal_failed' ELSE $2 END,error_code=$3
+       WHERE inbox_id=$1 AND ${filter.predicate} AND status='processing'
+         AND (($4::text IS NOT NULL AND error_code=$4 AND split_part(error_code,':',2)::numeric > extract(epoch FROM clock_timestamp())*1000)
+           OR ($4::text IS NULL AND (error_code IS NULL OR error_code NOT LIKE 'PROCESSING_LEASE:%')))`,
+      [
+        inboxId,
+        retryable ? 'retryable_failed' : 'terminal_failed',
+        errorCode,
+        processingToken ?? null,
+        ...filter.values,
+      ],
     );
     if (result.rowCount !== 1)
       throw new UserGoalRuntimePersistenceError(
@@ -1652,6 +1665,9 @@ function inboxFromRow(row: BusinessEventInboxRow): BusinessEventInboxRecord {
     envelope: row.envelope_json,
     status: row.status,
     admittedAt: iso(row.admitted_at),
+    ...(row.error_code?.startsWith('PROCESSING_LEASE:') === true
+      ? { processingToken: row.error_code }
+      : {}),
   };
 }
 

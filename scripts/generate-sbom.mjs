@@ -8,6 +8,9 @@ const pnpmStore = path.join(root, 'node_modules', '.pnpm');
 const outputDir = path.join(root, 'reports', 'EP-00-repo-bootstrap');
 const checkOnly = process.argv.includes('--check');
 const projectManifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+const smppContractSource = JSON.parse(
+  await readFile(path.join(root, 'contracts/smpp-task-business/v1.3/SOURCE.lock.json'), 'utf8'),
+);
 const activePackageKeys = parsePackageKeys(
   await readFile(path.join(root, 'pnpm-lock.yaml'), 'utf8'),
 );
@@ -438,6 +441,15 @@ const licenseJson = `${JSON.stringify(
     ],
     adapted_sources: [
       {
+        name: 'SMPP UGV v1.3 TaskBusiness public contract',
+        commit: smppContractSource.commit,
+        license: 'Apache-2.0',
+        use: 'unmodified_public_contract',
+        local_file: 'contracts/smpp-task-business/v1.3/SOURCE.lock.json',
+        copied_code: false,
+        assets: smppContractSource.files,
+      },
+      {
         name: 'modelcontextprotocol/modelcontextprotocol frozen schema',
         commit: '26897cc322f356487da89113451bd16b520b9288',
         schema_blob: 'cc44564e33305dbc07e820cdd0a97648f3852019',
@@ -489,6 +501,10 @@ ${v123DesignReferences
       `- ${source.name} commit ${source.commit} — ${source.license}; ${source.licenseFile} blob ${source.licenseBlob}; root NOTICE ${source.notice}.`,
   )
   .join('\n')}
+
+## SMPP TaskBusiness public contract
+
+- SMPP commit ${smppContractSource.commit} — Apache-2.0. Unmodified public JSON schemas and positive catalog are retained under \`contracts/smpp-task-business/v1.3\` with the original LICENSE and per-file Git blob/SHA-256 provenance in SOURCE.lock.json. No SMPP runtime code is copied and no root NOTICE exists at the fixed commit.
 
 ## External services
 

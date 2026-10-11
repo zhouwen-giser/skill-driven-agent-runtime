@@ -1,0 +1,18 @@
+{
+  "command": [
+    "pnpm",
+    "verify:architecture"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "72071740fbd6b5d8e0f59768a43e63a3bb13c7f7145b7931425a5203ed8af99d",
+  "startedAt": "2026-10-10T20:33:34.420555+08:00",
+  "finishedAt": "2026-10-10T20:33:35.948951+08:00",
+  "durationSeconds": 1.528396,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "b903d6e5f80cb5ed5e6b3c494dafba0202ba6190b49c4ef7194ce90ac6dae0cb",
+  "environment": "local_source_or_loopback_fixture_only",
+  "evidenceStatus": "INVALIDATED",
+  "limitation": "Working source changed while this non-snapshot command was running; not accepted as original-head or frozen-source gate evidence."
+}

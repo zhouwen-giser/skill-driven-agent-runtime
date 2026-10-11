@@ -1,0 +1,21 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/application/test/plan-preparation-processor.unit.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "e1af9b4d80504696c3fd3383e94801db731bb85e0c9b5bd97453efa68443c589",
+  "startedAt": "2026-10-11T01:38:27.817527+08:00",
+  "finishedAt": "2026-10-11T01:38:32.960300+08:00",
+  "durationSeconds": 5.142773,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "d95fcb7e2573d585a1c181958555466d8638b40c96e8db75e3e40e0a0245d40f",
+  "environment": "local_source_or_loopback_fixture_only"
+}

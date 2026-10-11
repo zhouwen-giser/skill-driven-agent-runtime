@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "requestedAt": "2026-10-11T09:51:22.822551+08:00",
+  "authorization": "User explicitly requested commit, push and merge in this chat.",
+  "authorized": [
+    "local_commit",
+    "push_current_upgrade",
+    "create_update_and_merge_pull_requests"
+  ],
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+  "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+  "status": "PR34_MERGED_UPGRADE_PREPARED",
+  "originalPr": 34,
+  "upgradeBranch": "codex/sdar-smpp-v13-business-closure",
+  "mergeMethod": "merge",
+  "bypassProtection": false,
+  "originalPrMerge": {
+    "sha": "8fa2afec379df1f2b96ebe458428dc5bd788e794",
+    "merged": true,
+    "message": "Pull Request successfully merged"
+  }
+}

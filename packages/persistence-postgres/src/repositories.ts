@@ -4,6 +4,8 @@ import { taskChildScopeSql, taskInputSourceProjection } from './gowm-work-scope.
 import { insertMcpInvocation } from './mcp-invocation-writer.js';
 import { readGowmMcpOwner } from './gowm-mcp-ownership.js';
 import { hashCanonicalEvidenceJson } from '../../domain/src/evidence/canonical-evidence.js';
+import { taskBusinessMutationPolicySchema } from '../../domain/src/task-business-command.js';
+import { taskBusinessEvidencePolicySchema } from '../../domain/src/task-business-evidence.js';
 import { extractStructuredTargets } from '../../domain/src/structured-target.js';
 import { writeGowmTargets } from './gowm-targets.js';
 import {
@@ -482,6 +484,8 @@ const ToolPolicySchema = z.object({
 });
 const RuntimePolicySchema = z.object({
   autoConfirmPlan: z.boolean().default(false),
+  taskBusinessMutationPolicy: taskBusinessMutationPolicySchema.optional(),
+  taskBusinessEvidencePolicy: taskBusinessEvidencePolicySchema.optional(),
   maxReplans: z.number().int().optional(),
   maxDurationSeconds: z.number().int().optional(),
   maxLlmCalls: z.number().int().optional(),
@@ -8182,6 +8186,12 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
   const parsedRuntimePolicy = RuntimePolicySchema.parse(row.runtime_policy_json);
   const runtimePolicy: SkillRuntimePolicy = {
     autoConfirmPlan: parsedRuntimePolicy.autoConfirmPlan,
+    ...(parsedRuntimePolicy.taskBusinessMutationPolicy === undefined
+      ? {}
+      : { taskBusinessMutationPolicy: parsedRuntimePolicy.taskBusinessMutationPolicy }),
+    ...(parsedRuntimePolicy.taskBusinessEvidencePolicy === undefined
+      ? {}
+      : { taskBusinessEvidencePolicy: parsedRuntimePolicy.taskBusinessEvidencePolicy }),
     ...(parsedRuntimePolicy.maxReplans === undefined
       ? {}
       : { maxReplans: parsedRuntimePolicy.maxReplans }),

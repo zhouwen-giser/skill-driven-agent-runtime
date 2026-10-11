@@ -1,0 +1,22 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "packages/mcp-adapter/src/smpp-task-business-client.ts",
+    "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+    "packages/domain/src/business-contract-diff.ts",
+    "packages/domain/test/business-contract-diff.unit.test.ts",
+    "packages/persistence-postgres/test/repositories.integration.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "1ba012c0005433d0a636eafd6d13003fac54ecbb4ee0d0be791494a00922db91",
+  "startedAt": "2026-10-10T20:50:39.452878+08:00",
+  "finishedAt": "2026-10-10T20:50:51.403194+08:00",
+  "durationSeconds": 11.950316,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment": "local_source_or_loopback_fixture_only"
+}

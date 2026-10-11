@@ -126,6 +126,7 @@ export class A2AProjectionTaskStore implements TaskStore {
     const current = toA2ATask(
       authoritative,
       this.reader === undefined ? await this.#interaction?.(taskId) : snapshot?.interaction,
+      snapshot?.artifacts,
     );
     return Task.fromJSON({
       ...StoredDocumentSchema.parse(Task.toJSON(current)),

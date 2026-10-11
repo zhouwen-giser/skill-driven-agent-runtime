@@ -1,0 +1,24 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "packages/application/test/task-business-sync.unit.test.ts",
+    "packages/application/test/task-business-agent-facts.unit.test.ts",
+    "packages/application/test/result-processing-service.unit.test.ts",
+    "packages/application/test/business-events.unit.test.ts",
+    "packages/domain/test/task-business.unit.test.ts",
+    "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "9d4dba179f44e3d56a062c155f42f76bb37de04b23439ca819439b44e8693fe5",
+  "startedAt": "2026-10-10T22:57:42.236036+08:00",
+  "finishedAt": "2026-10-10T22:57:48.928257+08:00",
+  "durationSeconds": 6.692221,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "c34134d5d7c362b8cea0475b9a01fc08ca2854ca4d8f93f92df40a1ddf16b249",
+  "environment": "local_source_or_loopback_fixture_only"
+}

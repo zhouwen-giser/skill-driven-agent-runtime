@@ -66,6 +66,10 @@ export * from './mcp-protocol-operations.js';
 export * from './frozen-mcp-registry.js';
 export * from './frozen-task-notifications.js';
 export * from './business-events.js';
+export * from './task-business-sync.js';
+export * from './task-business-outcome.js';
+export * from './task-business-commands.js';
+export * from './task-business-events.js';
 export * from './business-event-impact.js';
 export * from './mcp-task-readiness.js';
 export * from './mcp-tool-enhancer.js';
@@ -95,3 +99,4 @@ export * from './task-projection.js';
 export * from './generic-capability-admission.js';
 
 export * from './capability-bound-skill-input.js';
+export * from './remote-task-initial-reconciliation.js';

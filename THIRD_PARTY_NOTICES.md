@@ -18,6 +18,10 @@ These exact commits are excluded design/algorithm references, not packaged runti
 - zorazrw/agent-workflow-memory commit 8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1 — Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; root NOTICE absent.
 - ace-agent/ace commit bcb7cea0504afad6f55fec4845dd4864c9f9eee7 — Apache-2.0; LICENSE.txt blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; root NOTICE absent.
 
+## SMPP TaskBusiness public contract
+
+- SMPP commit 0a4a7c36865d4c9920a4e65857c0903e9ef12533 — Apache-2.0. Unmodified public JSON schemas and positive catalog are retained under `contracts/smpp-task-business/v1.3` with the original LICENSE and per-file Git blob/SHA-256 provenance in SOURCE.lock.json. No SMPP runtime code is copied and no root NOTICE exists at the fixed commit.
+
 ## External services
 
 - sdar/postgres-pgvector 17.10-0.8.5-alpine3.23 — modified local standalone container built from digest-pinned PostgreSQL 17.10 Alpine and checksum-pinned pgvector v0.8.5. PostgreSQL and pgvector use the PostgreSQL License; su-exec 0.3-r0 is MIT and its license text is retained in the image. The P13 observed reproducible local image ID is sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762.

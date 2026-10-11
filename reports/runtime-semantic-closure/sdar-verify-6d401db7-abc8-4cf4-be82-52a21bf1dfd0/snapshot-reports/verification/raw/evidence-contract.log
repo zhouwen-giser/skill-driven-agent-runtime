@@ -1,0 +1,2 @@
+$ tsx scripts/verify-v141-evidence-contract.mts
+{"status":"PASSED","records":105,"familyCounts":{"runtime":18,"skill":16,"mcp_task":16,"capability":7,"experience":10,"replay":6,"artifact":6,"node_control":21,"evidence":5},"evaluationRoleCounts":{"required":100,"diagnostic":5},"deliveryGuaranteeCounts":{"transactional":0,"durable_projection":105},"registryHash":"sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197"}

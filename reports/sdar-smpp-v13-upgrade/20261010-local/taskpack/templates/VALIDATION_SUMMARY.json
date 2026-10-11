@@ -1,0 +1,376 @@
+{
+  "schemaVersion": "sdar-upgrade-validation/1",
+  "runId": null,
+  "sourceSha": null,
+  "runtimeSourceHash": null,
+  "environmentKind": null,
+  "scope": "template_not_executed",
+  "commands": [],
+  "caseResults": [
+    {
+      "caseId": "AC-001",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-002",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-003",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-004",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-005",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-006",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-007",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-008",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-009",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-010",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-011",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-012",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-013",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-014",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-015",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-016",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-017",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-018",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-019",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-020",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-021",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-022",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-023",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-024",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-025",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-026",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-027",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-028",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-029",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-030",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-031",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-032",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-033",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-034",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-035",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-036",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-037",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-038",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-039",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-040",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-041",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-042",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-043",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-044",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-045",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-046",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-047",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-048",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-049",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    },
+    {
+      "caseId": "AC-050",
+      "status": "NOT_RUN",
+      "environment": null,
+      "testPath": null,
+      "evidencePaths": []
+    }
+  ],
+  "levels": {
+    "contract": "NOT_RUN",
+    "governedRead": "NOT_RUN",
+    "governedWrite": "NOT_RUN",
+    "isolatedE2e": "NOT_RUN",
+    "selectedGowm": "NOT_RUN",
+    "siteRead": "NOT_RUN",
+    "siteBusiness": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  },
+  "deviceMutationCount": null,
+  "prohibitedActionCount": null,
+  "cleanupStatus": "NOT_RUN",
+  "failures": [],
+  "blockers": []
+}

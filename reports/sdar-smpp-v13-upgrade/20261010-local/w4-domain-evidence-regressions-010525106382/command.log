@@ -1,0 +1,52 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |unit| packages/domain/test/task-business-evidence.unit.test.ts (3 tests | 2 failed) 17150ms
+     × AC-031/037 keeps completed, business failure/partial/unknown and original Provider reason independent 14ms
+     × AC-033 keeps a large original trajectory byte-for-byte through bounded chunks and canonical ArtifactRef and rejects missing/modified chunks 17128ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/domain/test/task-business-evidence.unit.test.ts > Task business outcome and original source evidence > AC-031/037 keeps completed, business failure/partial/unknown and original Provider reason independent
+AssertionError: expected [ …(3) ] to deeply equal ArrayContaining{…}
+
+- Expected
++ Received
+
+- ArrayContaining [
++ [
++   "required_object_content_unresolved",
+    "business_event_history_gap",
+-   "trajectory_source_time_gap",
++   "protocol_completion_does_not_prove_skill_success",
+  ]
+
+ ❯ packages/domain/test/task-business-evidence.unit.test.ts:114:7
+    112|         policy: { ...policy, requireHistoryContinuity: true, requireTr…
+    113|       }).gaps,
+    114|     ).toEqual(expect.arrayContaining(['business_event_history_gap', 't…
+       |       ^
+    115|   });
+    116|   it('AC-032/036 uses frozen geometry types, exact adopted route and p…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |unit| packages/domain/test/task-business-evidence.unit.test.ts > Task business outcome and original source evidence > AC-033 keeps a large original trajectory byte-for-byte through bounded chunks and canonical ArtifactRef and rejects missing/modified chunks
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/domain/test/task-business-evidence.unit.test.ts:171:3
+    169|     expect(fov.gaps).toContain('estimated_geometry_is_not_measured_cov…
+    170|   });
+    171|   it('AC-033 keeps a large original trajectory byte-for-byte through b…
+       |   ^
+    172|     const bytes = Buffer.from(
+    173|       JSON.stringify({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  2 failed | 25 passed (27)
+   Start at  01:05:26
+   Duration  17.67s (transform 4.17s, setup 0ms, import 5.92s, tests 17.35s, environment 1ms)
+

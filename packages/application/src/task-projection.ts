@@ -1,11 +1,18 @@
 import type { AgentTask } from '../../domain/src/index.js';
 
+export interface TaskProjectionArtifact {
+  readonly artifactId: string;
+  readonly name: string;
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
 export interface TaskProjection {
   readonly task: AgentTask;
   readonly revision: string;
   readonly interaction?: Readonly<Record<string, unknown>>;
   readonly interactionVersion: string;
   readonly resultHash: string;
+  readonly artifacts?: readonly TaskProjectionArtifact[];
 }
 /** Read capability only: no planning handoff, reconciliation or command ports. */
 export interface TaskProjectionReader {
@@ -19,6 +26,7 @@ export class ReadOnlyTaskProjectionService implements TaskProjectionReader {
       ): Promise<Readonly<{ task: AgentTask; revision: string }> | undefined>;
       readInteraction(taskId: string): Promise<Readonly<Record<string, unknown>> | undefined>;
       hash(value: unknown): string;
+      readArtifacts?(taskId: string): Promise<readonly TaskProjectionArtifact[]>;
     }>,
   ) {}
   async read(taskId: string): Promise<TaskProjection | undefined> {
@@ -26,6 +34,7 @@ export class ReadOnlyTaskProjectionService implements TaskProjectionReader {
       const before = await this.dependencies.readState(taskId);
       if (before === undefined) return undefined;
       const interaction = await this.dependencies.readInteraction(taskId);
+      const artifacts = await this.dependencies.readArtifacts?.(taskId);
       const after = await this.dependencies.readState(taskId);
       if (after === undefined) return undefined;
       if (before.revision !== after.revision) continue;
@@ -34,6 +43,7 @@ export class ReadOnlyTaskProjectionService implements TaskProjectionReader {
         ...(interaction === undefined ? {} : { interaction }),
         interactionVersion: this.dependencies.hash(interaction ?? null),
         resultHash: this.dependencies.hash(after.task.output ?? null),
+        ...(artifacts === undefined ? {} : { artifacts }),
       };
     }
     throw Object.assign(new Error('Task changed while reading its projection; retry the read.'), {

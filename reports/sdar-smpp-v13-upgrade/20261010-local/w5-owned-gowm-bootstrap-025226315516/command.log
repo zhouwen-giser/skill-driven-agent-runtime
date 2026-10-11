@@ -1,0 +1,40 @@
+{"step":"owner-export","startedAt":"2026-10-10T18:52:26.405Z"}
+{"step":"owner-extract","startedAt":"2026-10-10T18:52:26.603Z"}
+{"step":"postgres-start","startedAt":"2026-10-10T18:52:27.496Z"}
+ffbe67cadf46dd15fb0689422331e67550b328bef00beed436e81ebeb3e84bef
+{"step":"redis-start","startedAt":"2026-10-10T18:52:27.839Z"}
+3cbf9b7dc2141eb5fe4f8d3ac52690ed76ddee25052d38363ffab077464e7314
+{"step":"owner-core-bootstrap","startedAt":"2026-10-10T18:52:39.315Z"}
+isolated core bootstrap PASS
+{"step":"owner-domain-install","startedAt":"2026-10-10T18:52:41.924Z"}
+INSTALL PASS
+{"step":"native-storage-boundaries","startedAt":"2026-10-10T18:52:44.448Z"}
+{"status":"PASS","run":"sdar-pg-9f610c26-b7ed-4868-a4b4-edc7c0043177","scenarios":26,"scope":"repository-subset-only"}
+{"step":"formal-navigation-recon-shared-storage","startedAt":"2026-10-10T18:52:47.930Z"}
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 91[2mms[22m[39m
+[31m     [31m×[31m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[32m 66[2mms[22m[39m
+[31m     [31m×[31m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[32m 23[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1merror[22m: duplicate key value violates unique constraint "device_resource_current"[39m
+[90m [2m❯[22m node_modules/.pnpm/pg-pool@3.14.0_pg@8.22.0/node_modules/pg-pool/index.js:[2m45:11[22m[39m
+[36m [2m❯[22m seedDeviceDirectory apps/server/test/smpp-task-business.e2e.test.ts:[2m1040:5[22m[39m
+
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m169:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 02:52:48
+[2m   Duration [22m 6.15s[2m (transform 4.04s, setup 0ms, import 5.88s, tests 91ms, environment 0ms)[22m
+
+{"report":"reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-472ec564-3492-46c7-bce0-85e46c5dfa7a/result.json","status":"FAIL","cleanup":[{"id":"3cbf9b7dc2141eb5fe4f8d3ac52690ed76ddee25052d38363ffab077464e7314","exitCode":0},{"id":"ffbe67cadf46dd15fb0689422331e67550b328bef00beed436e81ebeb3e84bef","exitCode":0}],"site":"NOT_RUN"}
+OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1

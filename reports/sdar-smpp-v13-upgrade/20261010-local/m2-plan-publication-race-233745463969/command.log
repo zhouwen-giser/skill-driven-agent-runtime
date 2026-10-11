@@ -1,0 +1,37 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |unit| packages/application/test/task-service.unit.test.ts (43 tests | 1 failed) 244ms
+     × does not expose a confirmable plan until its Capability attempt binding completes 28ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/task-service.unit.test.ts > TaskService > does not expose a confirmable plan until its Capability attempt binding completes
+AssertionError: expected { taskId: 'task-plan-race', …(14) } to match object { planId: 'plan-race', …(1) }
+(13 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "phase": "awaiting_plan_confirmation",
++   "phase": "planning",
+    "planId": "plan-race",
+  }
+
+ ❯ packages/application/test/task-service.unit.test.ts:75:26
+     73|     expect((await harness.service.get(submitted.task.taskId)).planId).…
+     74|     release();
+     75|     await expect(pending).resolves.toMatchObject({
+       |                          ^
+     76|       planId: 'plan-race',
+     77|       phase: 'awaiting_plan_confirmation',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 42 passed (43)
+   Start at  23:37:46
+   Duration  3.01s (transform 2.00s, setup 0ms, import 2.60s, tests 244ms, environment 0ms)
+

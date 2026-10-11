@@ -408,17 +408,27 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
         [input.eventId, input.claimedAt, input.claimToken, input.expiresAt],
       );
       const claimed = requiredRow(updated.rows[0]);
-      const binding = await client.query(
-        `UPDATE remote_task_binding
+      const binding =
+        claimed.event_type === 'task.input_required'
+          ? await client.query(
+              `SELECT 1 FROM remote_task_binding WHERE binding_id=$1
+            AND local_state='awaiting_input' AND protocol_status='input_required'
+            AND invalidated_at IS NULL AND terminal_at IS NULL FOR UPDATE`,
+              [claimed.binding_id],
+            )
+          : await client.query(
+              `UPDATE remote_task_binding
          SET local_state='terminal_event_claimed',version=version+1,updated_at=$2
          WHERE binding_id=$1
            AND local_state IN ('terminal_event_pending','terminal_event_claimed')`,
-        [claimed.binding_id, input.claimedAt],
-      );
+              [claimed.binding_id, input.claimedAt],
+            );
       if (binding.rowCount !== 1)
         throw new WorkflowContinuationPersistenceError(
           'WORKFLOW_CONTINUATION_BINDING_STATE_MISMATCH',
-          'The terminal remote Task binding cannot enter the claimed continuation state.',
+          claimed.event_type === 'task.input_required'
+            ? 'The exact remote Task is no longer awaiting this input.'
+            : 'The terminal remote Task binding cannot enter the claimed continuation state.',
         );
       return mapControl(claimed);
     });

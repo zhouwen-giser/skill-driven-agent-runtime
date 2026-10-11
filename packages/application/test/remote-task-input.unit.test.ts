@@ -9,11 +9,75 @@ import {
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
   RemoteTaskInputService,
+  type TaskBusinessCommandService,
   type RemoteTaskInputAttempt,
   type RemoteTaskInputRepository,
 } from '../src/index.js';
 
 describe('RemoteTaskInputService', () => {
+  it.each([
+    { revision: '2026-test', status: 'acknowledged', linkStatus: 'update_acknowledged' },
+    { revision: undefined, status: 'contract_invalid', linkStatus: 'update_uncertain' },
+    { revision: 'foreign-revision', status: 'contract_invalid', linkStatus: 'update_uncertain' },
+  ] as const)(
+    'preserves or rejects the governed acknowledgement revision $revision without a second send',
+    async ({ revision, status, linkStatus }) => {
+      const dispatchInput = vi.fn().mockResolvedValue({
+        handled: true,
+        acknowledged: true,
+        ...(revision === undefined ? {} : { protocolRevision: revision }),
+      });
+      const fixture = serviceFixture(
+        remoteBinding(),
+        {},
+        { authorizeInput: vi.fn(), dispatchInput },
+      );
+      fixture.link = { ...fixture.link, status: 'answered' };
+      await fixture.service.submitAnswer('input-request-1', {
+        approval: { action: 'accept', content: { approved: true } },
+      });
+      expect(dispatchInput).toHaveBeenCalledTimes(1);
+      expect(fixture.sender).not.toHaveBeenCalled();
+      expect(fixture.link.status).toBe(linkStatus);
+      expect(fixture.attempts).toEqual([
+        expect.objectContaining(
+          status === 'acknowledged'
+            ? { status, protocolRevision: '2026-test' }
+            : { status, errorCode: 'REMOTE_TASK_INPUT_ACK_REVISION_MISMATCH' },
+        ),
+      ]);
+    },
+  );
+  it('passes trusted input confirmation before saving an answer and routes a governed uncertain send without legacy fallback', async () => {
+    const authority = {
+      actorId: 'human:operator',
+      kind: 'human' as const,
+      authenticationMethod: 'trusted_intranet',
+      permissions: new Set<'physical_control.confirm'>(['physical_control.confirm']),
+      requestId: 'input-confirm',
+    };
+    const authorizeInput = vi.fn().mockResolvedValue(true);
+    const dispatchInput = vi.fn().mockResolvedValue({
+      handled: true,
+      acknowledged: false,
+      errorCode: 'TASK_BUSINESS_TRANSPORT_UNCERTAIN',
+    });
+    const fixture = serviceFixture(remoteBinding(), {}, { authorizeInput, dispatchInput });
+    const answer = { approval: { action: 'accept', content: { approved: true } } };
+    await fixture.service.prepareResponse('input-request-1', answer, authority);
+    expect(authorizeInput).toHaveBeenCalledWith('input-request-1', answer, authority);
+    fixture.link = { ...fixture.link, status: 'answered' };
+    await fixture.service.submitAnswer('input-request-1', answer);
+    expect(dispatchInput).toHaveBeenCalledWith('input-request-1', answer);
+    expect(fixture.sender).not.toHaveBeenCalled();
+    expect(fixture.link.status).toBe('update_uncertain');
+    expect(fixture.attempts).toEqual([
+      expect.objectContaining({
+        status: 'provider_unreachable',
+        errorCode: 'TASK_BUSINESS_TRANSPORT_UNCERTAIN',
+      }),
+    ]);
+  });
   it('activates an input_required control as an existing Task input without planning', async () => {
     const binding = remoteBinding();
     let activated: Parameters<RemoteTaskInputRepository['activate']>[0] | undefined;
@@ -102,6 +166,7 @@ describe('RemoteTaskInputService', () => {
 function serviceFixture(
   initialBinding: RemoteTaskBinding,
   overrides: Partial<RemoteTaskInputRepository> = {},
+  businessCommands?: Pick<TaskBusinessCommandService, 'authorizeInput' | 'dispatchInput'>,
 ) {
   const state: {
     binding: RemoteTaskBinding;
@@ -155,6 +220,7 @@ function serviceFixture(
       },
     },
     sender: { updateRemoteTask: sender },
+    ...(businessCommands === undefined ? {} : { businessCommands }),
     pollQueue: {
       enqueue(job) {
         pollJobs.push(job);

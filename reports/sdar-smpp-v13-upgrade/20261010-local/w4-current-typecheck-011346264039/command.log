@@ -1,0 +1,13 @@
+$ tsc -p tsconfig.json --noEmit
+packages/domain/test/task-business-evidence.unit.test.ts(58,9): error TS2375: Type '{ protocolStatus: "completed"; resultSnapshot: InternalToolResult | undefined; }' is not assignable to type 'Pick<RemoteTaskBinding, "protocolStatus" | "resultSnapshot" | "errorSnapshot">' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'resultSnapshot' are incompatible.
+    Type 'InternalToolResult | undefined' is not assignable to type 'InternalToolResult'.
+      Type 'undefined' is not assignable to type 'InternalToolResult'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(585,11): error TS2304: Cannot find name 'business'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1112,9): error TS2322: Type 'ArtifactRef' is not assignable to type 'EvidenceJsonValue'.
+  Type 'ArtifactRef' is not assignable to type 'Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+    Index signature for type 'string' is missing in type 'ArtifactRef'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1127,7): error TS2322: Type 'ArtifactRef' is not assignable to type 'EvidenceJsonValue'.
+  Type 'ArtifactRef' is not assignable to type 'Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+    Index signature for type 'string' is missing in type 'ArtifactRef'.
+[ELIFECYCLE] Command failed with exit code 2.

@@ -1,0 +1,173 @@
+$ node scripts/verify-isolated.mjs
+Cloning into bare repository '/tmp/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568-8c3g1Y/source-history.git'...
+done.
+Isolated verification sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568
+Source: /tmp/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568-8c3g1Y/source
+Evidence: /home/sz/code/skill-driven-agent-runtime/reports/runtime-semantic-closure/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568
+
+[verification] format: pnpm format:check (limit 300000 ms)
+$ prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json "apps/**/*.{ts,tsx,json}" "packages/**/*.{ts,tsx,json}" "infra/**/*.{ts,tsx,json}"
+Checking formatting...
+All matched files use Prettier code style!
+[verification] format: passed, 51598 ms
+
+[verification] verification-runner-contract: pnpm test:verification (limit 60000 ms)
+$ node scripts/test-verification-isolation.mjs && node scripts/test-verification-runner.mjs
+TAP version 13
+{"event":"test.ready","a2aUrl":"http://127.0.0.1:12345"}
+# Subtest: endpoint readiness comes from the started child, including split stdout records
+ok 1 - endpoint readiness comes from the started child, including split stdout records
+  ---
+  duration_ms: 39.197882
+  type: 'test'
+  ...
+# Subtest: a child that exits before readiness cannot authorize an HTTP probe
+ok 2 - a child that exits before readiness cannot authorize an HTTP probe
+  ---
+  duration_ms: 42.46734
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+# Subtest: service shutdown waits for delayed cleanup before allowing database teardown
+ok 3 - service shutdown waits for delayed cleanup before allowing database teardown
+  ---
+  duration_ms: 126.596896
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+{"event":"shutdown.ready"}
+# Subtest: service shutdown rejects nonzero exits and kills timed-out children
+ok 4 - service shutdown rejects nonzero exits and kills timed-out children
+  ---
+  duration_ms: 136.596538
+  type: 'test'
+  ...
+# Subtest: isolated build/config/cleanup always name the owned project and ignore local dotenv
+ok 5 - isolated build/config/cleanup always name the owned project and ignore local dotenv
+  ---
+  duration_ms: 158.121783
+  type: 'test'
+  ...
+# Subtest: isolated verification refuses the shared project before calling Docker
+ok 6 - isolated verification refuses the shared project before calling Docker
+  ---
+  duration_ms: 49.184805
+  type: 'test'
+  ...
+# Subtest: a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+ok 7 - a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+  ---
+  duration_ms: 91.603874
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 651.923338
+TAP version 13
+# Subtest: outer migration cleanup finds resources after a killed verifier and preserves removal errors
+ok 1 - outer migration cleanup finds resources after a killed verifier and preserves removal errors
+  ---
+  duration_ms: 9.869142
+  type: 'test'
+  ...
+# Subtest: migration cleanup never removes a resource outside its exact ownership set
+ok 2 - migration cleanup never removes a resource outside its exact ownership set
+  ---
+  duration_ms: 4.346562
+  type: 'test'
+  ...
+# Subtest: stage output is persisted before exit; nonzero exit cannot pass
+ok 3 - stage output is persisted before exit; nonzero exit cannot pass
+  ---
+  duration_ms: 452.351047
+  type: 'test'
+  ...
+descendant=3892273
+# Subtest: timeout kills a SIGTERM-resistant descendant, records reason and never passes
+ok 4 - timeout kills a SIGTERM-resistant descendant, records reason and never passes
+  ---
+  duration_ms: 808.30806
+  type: 'test'
+  ...
+# Subtest: successful leader cannot leak a background child or an inherited stdout pipe
+ok 5 - successful leader cannot leak a background child or an inherited stdout pipe
+  ---
+  duration_ms: 50.359882
+  type: 'test'
+  ...
+# Subtest: caller cancellation is retained even when the child exits with zero
+ok 6 - caller cancellation is retained even when the child exits with zero
+  ---
+  duration_ms: 504.923839
+  type: 'test'
+  ...
+# Subtest: missing executable produces a failed stage report
+ok 7 - missing executable produces a failed stage report
+  ---
+  duration_ms: 3.992667
+  type: 'test'
+  ...
+# Subtest: runtime identity ignores progress reports but binds code, tests, assets and lockfile
+ok 8 - runtime identity ignores progress reports but binds code, tests, assets and lockfile
+  ---
+  duration_ms: 22.337515
+  type: 'test'
+  ...
+# Subtest: full gate includes every bootstrap stage with independent limits and no aggregate command
+ok 9 - full gate includes every bootstrap stage with independent limits and no aggregate command
+  ---
+  duration_ms: 0.608121
+  type: 'test'
+  ...
+# Subtest: release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+ok 10 - release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+  ---
+  duration_ms: 1.39801
+  type: 'test'
+  ...
+# Subtest: sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+ok 11 - sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+  ---
+  duration_ms: 14.445752
+  type: 'test'
+  ...
+# Subtest: nested smoke projects belong to the outer run cleanup allowlist
+ok 12 - nested smoke projects belong to the outer run cleanup allowlist
+  ---
+  duration_ms: 0.37348
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1881.368373
+[verification] verification-runner-contract: passed, 10024 ms
+
+[verification] lint: pnpm lint (limit 1200000 ms)
+$ eslint .
+
+/tmp/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568-8c3g1Y/source/packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts
+  21:48  error  Invalid type "number" of template literal expression  @typescript-eslint/restrict-template-expressions
+  82:22  error  Forbidden non-null assertion                          @typescript-eslint/no-non-null-assertion
+
+/tmp/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568-8c3g1Y/source/packages/persistence-postgres/test/repositories.integration.test.ts
+  2529:8   error  Forbidden non-null assertion                           @typescript-eslint/no-non-null-assertion
+  2535:11  error  Forbidden non-null assertion                           @typescript-eslint/no-non-null-assertion
+  2537:18  error  Unsafe member access .tool_revision on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+✖ 5 problems (5 errors, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.
+[verification] lint: failed, 139071 ms
+[ELIFECYCLE] Command failed with exit code 1.

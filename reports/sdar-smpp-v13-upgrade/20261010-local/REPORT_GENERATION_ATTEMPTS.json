@@ -1,0 +1,20 @@
+{
+  "scope": "report metadata generation only; no runtime code change",
+  "attempts": [
+    {
+      "command": "python3 .codex/sdar-smpp-v13-closeout.py",
+      "exitCode": 1,
+      "reason": "Snapshot report copy changes filesystem mtimes; the initial time-based selection found 22 legacy/current samples instead of exactly 2. Source/gate assertions had passed.",
+      "resolution": "Select sample paths absent from immutable pre-run inputs, assert exactly two operations, and verify original projectedAt timestamps within the actual E2E stage."
+    },
+    {
+      "command": "python3 .codex/sdar-smpp-v13-closeout.py",
+      "exitCode": 0,
+      "cases": 50,
+      "localPassed": 48,
+      "siteNotRun": 2,
+      "gateStages": 30,
+      "newFinalSamples": 2
+    }
+  ]
+}

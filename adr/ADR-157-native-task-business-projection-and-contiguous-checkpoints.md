@@ -1,0 +1,17 @@
+# ADR-157 — Native TaskBusiness projection and continuous processing checkpoints
+
+Status: Accepted. Date: 2026-10-10. Extends ADR-086, ADR-093, ADR-153 and ADR-156.
+
+TaskBusiness needs a durable first Execution association, immutable object versions and complete provider-retained content. A task-scoped Context under the original frozen Registry authority can prove the first Execution when the existing admission execution link is unresolved. It cannot overwrite an exact execution link.
+
+Use the existing native `remote_task_observation` JSONB extension for versioned SDAR-owned projection, object metadata and bounded content chunks. Keep its binding ownership, row size, sequence and immutable history constraints. All appends lock the same native binding as polling. No new table, second binding authority, private SMPP writes, lifecycle status, runtime or schema migration is introduced. The logical content address inherits the native binding and is retrievable through the same operational Task read service. Full content is retained once per binding/digest; prompts and current Task artifacts carry bounded summaries and references.
+
+The existing Business Events inbox remains the only event checkpoint. Admission and its admitted cursor stay in their transaction. Projection for every related admitted Task and event completion commit in one later transaction. The processed cursor is the highest processed position below the first unprocessed admitted event. It cannot cross retryable or terminal failure holes. A task snapshot watermark never changes the subscription admitted cursor.
+
+Processing leases use a namespaced internal marker in the existing `error_code` field while native status is `processing`; failure clears it to the real failure code and success clears it. Only that lease owner can complete the row. Expired leases and historical crash-stranded processing rows are reclaimable for read-only work. The marker is not a Provider field, error evidence, control permission or retry permission for device commands. This avoids a shared GOWM DDL dependency. Lease races and crash recovery require real PostgreSQL tests.
+
+Projection is data. Skill/result processing receives validated summaries with provenance, incomplete-object and history/time gaps. Business strings do not grant control. Writes must separately use existing confirmation authority and immutable durable command claims. An original terminal Binding may retain current terminal facts for the original Skill outcome; it exposes no new control candidates. Invalidated, quarantined, canceled or failed owners retain late facts as history. No late fact reactivates a native Task.
+
+Initial receipt reconciliation retries CAS at most three times under the exact immutable native admission, preserving newer accepted Provider revisions without repeating Tool dispatch. Projection commits may rebase a changed polling lease only when the complete immutable admission and terminal evidence still match. A terminal evidence change requires a fresh bounded read. Both facts and commands acquire Task before Binding explicitly; control retains Goal -> Task -> Binding ordering. Task uses NO KEY UPDATE so existing GOWM ownership/FK KEY SHARE readers remain compatible while cancellation/control writes serialize.
+
+Rollback: old readers ignore the namespaced observation records. Unresolved control commands require the separate W3/W5 read-only rollback fence; reverting this projection does not authorize redispatch. No table/data deletion is required.

@@ -1,0 +1,21 @@
+{
+  "name": "smpp-registry-projection",
+  "command": "pnpm verify:smpp-registry-projection",
+  "status": "passed",
+  "startedAt": "2026-10-10T16:19:11.342Z",
+  "finishedAt": "2026-10-10T16:20:28.924Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/smpp-registry-projection.log",
+  "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 77582,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 78,
+    "peakRssBytes": 274558976,
+    "peakProcesses": 2
+  },
+  "cleanupErrors": []
+}

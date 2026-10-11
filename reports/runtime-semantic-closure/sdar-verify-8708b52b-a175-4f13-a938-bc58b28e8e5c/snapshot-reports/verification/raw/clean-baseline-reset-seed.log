@@ -1,0 +1,185 @@
+$ node scripts/verify-migration-path.mjs
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 807B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB 0.1s done
+#2 DONE 0.1s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 8.9s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 0B / 14.36MB 0.2s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 1.05MB / 14.36MB 2.4s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 2.10MB / 14.36MB 3.0s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 3.15MB / 14.36MB 3.2s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 4.19MB / 14.36MB 3.5s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 5.24MB / 14.36MB 3.9s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 6.29MB / 14.36MB 4.4s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 7.34MB / 14.36MB 4.5s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 8.39MB / 14.36MB 5.1s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 9.44MB / 14.36MB 5.3s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 10.49MB / 14.36MB 5.9s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 11.53MB / 14.36MB 6.0s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 12.58MB / 14.36MB 6.5s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 13.63MB / 14.36MB 7.1s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 14.36MB / 14.36MB 7.2s
+#4 sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 14.36MB / 14.36MB 8.2s done
+#4 DONE 8.3s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 extracting sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7
+#4 extracting sha256:50ba52cd6a2c01eaf1a9efbedc7c75b5da5e3965c1586001c722980487a73fd7 0.6s done
+#4 DONE 8.9s
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 1.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 CACHED
+
+#8 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#8 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#8 DONE 0.4s
+
+#9 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#9 ...
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 DONE 0.5s
+
+#9 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#9 DONE 1.5s
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 DONE 0.3s
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 0.430 + test 0 '=' 0
+#12 0.430 + test 0.8.5 '=' 0.8.5
+#12 0.430 + test 6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44 '=' 6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44
+#12 0.430 + test 0.5-r3 '=' 0.5-r3
+#12 0.430 + test 0.3-r0 '=' 0.3-r0
+#12 0.431 + apk add --no-cache --virtual .pgvector-build-deps 'build-base=0.5-r3'
+#12 9.335 ( 1/19) Installing jansson (2.14.1-r0)
+#12 9.642 ( 2/19) Installing binutils (2.45.1-r0)
+#12 10.91 ( 3/19) Installing libmagic (5.46-r2)
+#12 11.41 ( 4/19) Installing file (5.46-r2)
+#12 11.72 ( 5/19) Installing libgomp (15.2.0-r2)
+#12 12.38 ( 6/19) Installing libatomic (15.2.0-r2)
+#12 12.85 ( 7/19) Installing gmp (6.3.0-r4)
+#12 13.30 ( 8/19) Installing isl26 (0.26-r1)
+#12 14.13 ( 9/19) Installing mpfr4 (4.2.2-r0)
+#12 14.62 (10/19) Installing mpc1 (1.3.1-r1)
+#12 15.69 (11/19) Installing gcc (15.2.0-r2)
+#12 34.97 (12/19) Installing libstdc++-dev (15.2.0-r2)
+#12 36.26 (13/19) Installing musl-dev (1.2.5-r23)
+#12 37.39 (14/19) Installing g++ (15.2.0-r2)
+#12 42.56 (15/19) Installing make (4.4.1-r3)
+#12 43.33 (16/19) Installing fortify-headers (1.1-r5)
+#12 43.64 (17/19) Installing patch (2.8-r0)
+#12 44.11 (18/19) Installing build-base (0.5-r3)
+#12 44.11 (19/19) Installing .pgvector-build-deps (20261010.134033)
+#12 44.11 Executing busybox-1.37.0-r30.trigger
+#12 44.15 OK: 487.6 MiB in 64 packages
+#12 44.21 + mkdir /tmp/pgvector
+#12 44.23 + tar -xzf /tmp/pgvector.tar.gz '--strip-components=1' -C /tmp/pgvector
+#12 44.24 + make -C /tmp/pgvector clean
+#12 44.24 make: Entering directory '/tmp/pgvector'
+#12 44.26 rm -f vector.so   libvector.a  libvector.pc
+#12 44.26 rm -f sql/vector--0.8.5.sql
+#12 44.26 rm -f src/bitutils.o src/bitvec.o src/halfutils.o src/halfvec.o src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/sparsevec.o src/vector.o src/bitutils.bc src/bitvec.bc src/halfutils.bc src/halfvec.bc src/hnsw.bc src/hnswbuild.bc src/hnswinsert.bc src/hnswscan.bc src/hnswutils.bc src/hnswvacuum.bc src/ivfbuild.bc src/ivfflat.bc src/ivfinsert.bc src/ivfkmeans.bc src/ivfscan.bc src/ivfutils.bc src/ivfvacuum.bc src/sparsevec.bc src/vector.bc
+#12 44.26 rm -rf results/ regression.diffs regression.out tmp_check/ tmp_check_iso/ log/ output_iso/
+#12 44.26 make: Leaving directory '/tmp/pgvector'
+#12 44.26 + make -C /tmp/pgvector 'OPTFLAGS=' 'with_llvm=no'
+#12 44.26 make: Entering directory '/tmp/pgvector'
+#12 44.27 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/bitutils.o src/bitutils.c
+#12 45.11 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/bitvec.o src/bitvec.c
+#12 45.19 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/halfutils.o src/halfutils.c
+#12 46.28 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/halfvec.o src/halfvec.c
+#12 47.65 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/hnsw.o src/hnsw.c
+#12 47.87 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/hnswbuild.o src/hnswbuild.c
+#12 48.43 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/hnswinsert.o src/hnswinsert.c
+#12 48.89 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/hnswscan.o src/hnswscan.c
+#12 49.12 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/hnswutils.o src/hnswutils.c
+#12 50.61 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/hnswvacuum.o src/hnswvacuum.c
+#12 51.04 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/ivfbuild.o src/ivfbuild.c
+#12 51.53 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/ivfflat.o src/ivfflat.c
+#12 51.73 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/ivfinsert.o src/ivfinsert.c
+#12 51.91 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/ivfkmeans.o src/ivfkmeans.c
+#12 52.51 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/ivfscan.o src/ivfscan.c
+#12 52.79 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/ivfutils.o src/ivfutils.c
+#12 53.18 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/ivfvacuum.o src/ivfvacuum.c
+#12 53.37 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/sparsevec.o src/sparsevec.c
+#12 54.25 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -I. -I./ -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2   -c -o src/vector.o src/vector.c
+#12 55.43 gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2  -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math -fPIC -fvisibility=hidden -shared -o vector.so src/bitutils.o src/bitvec.o src/halfutils.o src/halfvec.o src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/sparsevec.o src/vector.o -L/usr/local/lib    -L/usr/local/lib -Wl,--as-needed -fvisibility=hidden 
+#12 55.46 cp sql/vector.sql sql/vector--0.8.5.sql
+#12 55.46 make: Leaving directory '/tmp/pgvector'
+#12 55.46 + make -C /tmp/pgvector install 'with_llvm=no'
+#12 55.46 make: Entering directory '/tmp/pgvector'
+#12 55.48 /bin/mkdir -p '/usr/local/lib/postgresql'
+#12 55.48 /bin/mkdir -p '/usr/local/share/postgresql/extension'
+#12 55.48 /bin/mkdir -p '/usr/local/share/postgresql/extension'
+#12 55.48 /usr/bin/install -c -m 755  vector.so '/usr/local/lib/postgresql/vector.so'
+#12 55.52 /usr/bin/install -c -m 644 .//vector.control '/usr/local/share/postgresql/extension/'
+#12 55.55 /usr/bin/install -c -m 644 .//sql/vector--0.1.0--0.1.1.sql .//sql/vector--0.1.1--0.1.3.sql .//sql/vector--0.1.3--0.1.4.sql .//sql/vector--0.1.4--0.1.5.sql .//sql/vector--0.1.5--0.1.6.sql .//sql/vector--0.1.6--0.1.7.sql .//sql/vector--0.1.7--0.1.8.sql .//sql/vector--0.1.8--0.2.0.sql .//sql/vector--0.2.0--0.2.1.sql .//sql/vector--0.2.1--0.2.2.sql .//sql/vector--0.2.2--0.2.3.sql .//sql/vector--0.2.3--0.2.4.sql .//sql/vector--0.2.4--0.2.5.sql .//sql/vector--0.2.5--0.2.6.sql .//sql/vector--0.2.6--0.2.7.sql .//sql/vector--0.2.7--0.3.0.sql .//sql/vector--0.3.0--0.3.1.sql .//sql/vector--0.3.1--0.3.2.sql .//sql/vector--0.3.2--0.4.0.sql .//sql/vector--0.4.0--0.4.1.sql .//sql/vector--0.4.1--0.4.2.sql .//sql/vector--0.4.2--0.4.3.sql .//sql/vector--0.4.3--0.4.4.sql .//sql/vector--0.4.4--0.5.0.sql .//sql/vector--0.5.0--0.5.1.sql .//sql/vector--0.5.1--0.6.0.sql .//sql/vector--0.6.0--0.6.1.sql .//sql/vector--0.6.1--0.6.2.sql .//sql/vector--0.6.2--0.7.0.sql .//sql/vector--0.7.0--0.7.1.sql .//sql/vector--0.7.1--0.7.2.sql .//sql/vector--0.7.2--0.7.3.sql .//sql/vector--0.7.3--0.7.4.sql .//sql/vector--0.7.4--0.8.0.sql .//sql/vector--0.8.0--0.8.1.sql .//sql/vector--0.8.1--0.8.2.sql .//sql/vector--0.8.2--0.8.3.sql .//sql/vector--0.8.3--0.8.4.sql .//sql/vector--0.8.4--0.8.5.sql sql/vector--0.8.5.sql '/usr/local/share/postgresql/extension/'
+#12 55.56 /bin/mkdir -p '/usr/local/include/postgresql/server/extension/vector/'
+#12 55.60 /usr/bin/install -c -m 644   .//src/halfvec.h .//src/sparsevec.h .//src/vector.h '/usr/local/include/postgresql/server/extension/vector/'
+#12 55.60 make: Leaving directory '/tmp/pgvector'
+#12 55.60 + mkdir -p /usr/share/doc/pgvector
+#12 55.60 + cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/
+#12 55.60 + rm -rf /tmp/pgvector /tmp/pgvector.tar.gz
+#12 55.61 + apk del .pgvector-build-deps
+#12 55.62 WARNING: opening from cache https://dl-cdn.alpinelinux.org/alpine/v3.23/main/x86_64/APKINDEX.tar.gz: No such file or directory
+#12 55.62 WARNING: opening from cache https://dl-cdn.alpinelinux.org/alpine/v3.23/community/x86_64/APKINDEX.tar.gz: No such file or directory
+#12 55.62 ( 1/19) Purging .pgvector-build-deps (20261010.134033)
+#12 55.62 ( 2/19) Purging build-base (0.5-r3)
+#12 55.62 ( 3/19) Purging file (5.46-r2)
+#12 55.62 ( 4/19) Purging g++ (15.2.0-r2)
+#12 55.63 ( 5/19) Purging libstdc++-dev (15.2.0-r2)
+#12 55.64 ( 6/19) Purging gcc (15.2.0-r2)
+#12 55.69 ( 7/19) Purging binutils (2.45.1-r0)
+#12 55.69 ( 8/19) Purging libatomic (15.2.0-r2)
+#12 55.69 ( 9/19) Purging libgomp (15.2.0-r2)
+#12 55.69 (10/19) Purging make (4.4.1-r3)
+#12 55.69 (11/19) Purging fortify-headers (1.1-r5)
+#12 55.69 (12/19) Purging patch (2.8-r0)
+#12 55.69 (13/19) Purging isl26 (0.26-r1)
+#12 55.70 (14/19) Purging jansson (2.14.1-r0)
+#12 55.70 (15/19) Purging libmagic (5.46-r2)
+#12 55.70 (16/19) Purging mpc1 (1.3.1-r1)
+#12 55.70 (17/19) Purging mpfr4 (4.2.2-r0)
+#12 55.70 (18/19) Purging musl-dev (1.2.5-r23)
+#12 55.70 (19/19) Purging gmp (6.3.0-r4)
+#12 55.70 Executing busybox-1.37.0-r30.trigger
+#12 55.71 OK: 223.9 MiB in 45 packages
+#12 55.71 + apk add --no-cache 'su-exec=0.3-r0'
+#12 71.20 (1/1) Installing su-exec (0.3-r0)
+#12 71.63 Executing busybox-1.37.0-r30.trigger
+#12 71.63 OK: 223.9 MiB in 46 packages
+#12 71.67 + sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh
+#12 71.69 + rm /usr/local/bin/gosu
+#12 DONE 71.8s
+
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 0.5s done
+#13 exporting manifest sha256:d8c18ca7f158a0807ddb7cbbfaee06a590e69e014f2bd27b3c118bfa69e0f844 0.1s done
+#13 exporting config sha256:82e7593af5a1319ac57f52b8f3d7aab801a3559e695038771330f34c0114d317 0.0s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.1s done
+#13 DONE 0.8s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+SDAR migration path verified: exact frozen v1.2.3 Compose image logical backup/restore into hardened Alpine, 76 additive migrations through 0183_v14_capability_admission_receipt, plus 12 independent Control migrations through 0012_mcp_binding_registration_health, idempotency, rollback/reapply, guarded reset, rogue-ledger rejection, representative data preservation, transactional interruption recovery, and incremental SHA-256 checksum drift rejection.

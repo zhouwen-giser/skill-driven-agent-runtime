@@ -1,0 +1,8 @@
+$ eslint .
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/test/business-events.unit.test.ts
+  129:26  error  void is only valid as a return type or generic type argument  @typescript-eslint/no-invalid-void-type
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

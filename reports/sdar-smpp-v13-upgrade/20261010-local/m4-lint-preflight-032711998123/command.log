@@ -1,0 +1,88 @@
+$ eslint .
+
+/home/sz/code/skill-driven-agent-runtime/apps/server/test-support/gowm-model-provider.ts
+  30:28  error  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/home/sz/code/skill-driven-agent-runtime/apps/server/test-support/smpp-business-provider.ts
+   79:16  error  Array type using 'Array<T>' is forbidden. Use 'T[]' instead                                                         @typescript-eslint/array-type
+  597:56  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  597:68  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+/home/sz/code/skill-driven-agent-runtime/apps/server/test/smpp-task-business.e2e.test.ts
+   127:13  error  Async method 'loadCurrentMcpProviderBinding' has no 'await' expression                                              @typescript-eslint/require-await
+   138:13  error  Async method 'load' has no 'await' expression                                                                       @typescript-eslint/require-await
+   187:19  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   222:23  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   553:31  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   570:33  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   579:18  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   616:34  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   621:20  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   631:37  error  Async arrow function has no 'await' expression                                                                      @typescript-eslint/require-await
+   632:13  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+   646:19  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   651:35  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   668:31  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   687:11  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   688:13  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   697:25  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   800:35  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   816:19  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   853:35  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   861:19  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   883:45  error  Unsafe member access .protocol_status on an `any` value                                                             @typescript-eslint/no-unsafe-member-access
+   884:49  error  Unsafe return of a value of type `any`                                                                              @typescript-eslint/no-unsafe-return
+   884:51  error  Unsafe member access .remote_task_id on an `any` value                                                              @typescript-eslint/no-unsafe-member-access
+   901:25  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   902:25  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+   915:25  error  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+  1028:13  error  Unsafe usage of ThrowStatement                                                                                      no-unsafe-finally
+  1052:55  error  Invalid type "number" of template literal expression                                                                @typescript-eslint/restrict-template-expressions
+
+/home/sz/code/skill-driven-agent-runtime/packages/a2a-adapter/src/task-service-executor.ts
+  31:14  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/test/task-business-outcome.unit.test.ts
+  89:28  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+/home/sz/code/skill-driven-agent-runtime/packages/domain/src/task-business-evidence.ts
+   35:67  error  `finite` is deprecated. In v4 and later, z.number() does not allow infinite values by default. This is a no-op  @typescript-eslint/no-deprecated
+  228:56  error  Unnecessary conditional, value is always truthy                                                                 @typescript-eslint/no-unnecessary-condition
+  236:5   error  Unnecessary conditional, value is always truthy                                                                 @typescript-eslint/no-unnecessary-condition
+
+/home/sz/code/skill-driven-agent-runtime/packages/domain/test/task-business-evidence.unit.test.ts
+  293:7  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/test/repositories.integration.test.ts
+  2628:46  error  Unsafe member access .definition on an `any` value  @typescript-eslint/no-unsafe-member-access
+  2686:44  error  ["recordType"] is better written in dot notation    @typescript-eslint/dot-notation
+  2689:44  error  ["recordType"] is better written in dot notation    @typescript-eslint/dot-notation
+  2730:19  error  Forbidden non-null assertion                        @typescript-eslint/no-non-null-assertion
+  2819:57  error  Forbidden non-null assertion                        @typescript-eslint/no-non-null-assertion
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/test/task-business-command.integration.test.ts
+  307:21  error  Unnecessary optional chain on a non-nullish value  @typescript-eslint/no-unnecessary-condition
+
+/home/sz/code/skill-driven-agent-runtime/packages/runtime-control-application/src/mcp-capability-evidence-projector.ts
+   424:23  error  Unsafe argument of type `any` assigned to a parameter of type `EvidenceJsonValue | undefined`             @typescript-eslint/no-unsafe-argument
+  1059:70  error  'payload['digest']' may use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+
+/home/sz/code/skill-driven-agent-runtime/scripts/sdar-smpp-v13/verify-gowm.mjs
+   17:29  error  'process' is not defined        no-undef
+   17:53  error  'process' is not defined        no-undef
+  121:35  error  'setTimeout' is not defined     no-undef
+  197:5   error  'process' is not defined        no-undef
+  205:5   error  'process' is not defined        no-undef
+  221:5   error  'process' is not defined        no-undef
+  264:32  error  Unsafe usage of ThrowStatement  no-unsafe-finally
+  273:3   error  'process' is not defined        no-undef
+  278:3   error  'process' is not defined        no-undef
+  281:3   error  'process' is not defined        no-undef
+  325:38  error  'process' is not defined        no-undef
+  339:42  error  'process' is not defined        no-undef
+  340:3   error  'process' is not defined        no-undef
+
+✖ 60 problems (60 errors, 0 warnings)
+  8 errors and 0 warnings potentially fixable with the `--fix` option.
+
+[ELIFECYCLE] Command failed with exit code 1.

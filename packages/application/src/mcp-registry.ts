@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import type { TaskBusinessMutationRequest } from '../../domain/src/task-business-command.js';
+import type { TaskBusinessMutationTransport } from './task-business-commands.js';
 
 import {
   createRuntimeExecutionContext,
@@ -135,10 +137,12 @@ export interface FrozenTaskAvailabilityRuntimePort {
 
 /** Read-only TaskBusiness endpoint, owned by the already-governed Frozen Task binding. */
 export interface FrozenTaskBusinessBindingInput {
+  readonly signal?: AbortSignal;
   readonly serverId: string;
   readonly operationName: string;
   readonly remoteTaskId: string;
   readonly resourceId: string;
+  readonly expectedExecutionId?: string;
   readonly executionContext: RuntimeExecutionContext;
   readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
   readonly credentialRevision: string;
@@ -148,35 +152,63 @@ export interface FrozenTaskBusinessBindingInput {
 export interface FrozenTaskBusinessReadRuntimePort {
   getContext(
     input: Readonly<{
+      signal?: AbortSignal;
       endpoint: string;
       headers: Readonly<Record<string, string>>;
       taskId: string;
       expectedProviderId: string;
       expectedResourceId: string;
+      expectedExecutionId?: string;
+      expectedOperationName?: string;
     }>,
   ): Promise<unknown>;
   getArtifact(
     input: Readonly<{
+      signal?: AbortSignal;
       endpoint: string;
       headers: Readonly<Record<string, string>>;
       taskId: string;
       expectedProviderId: string;
       expectedResourceId: string;
+      expectedExecutionId?: string;
+      expectedOperationName?: string;
       artifactId: string;
       revision: number;
     }>,
   ): Promise<unknown>;
   getArtifactContent(
     input: Readonly<{
+      signal?: AbortSignal;
       endpoint: string;
       headers: Readonly<Record<string, string>>;
       taskId: string;
       expectedProviderId: string;
       expectedResourceId: string;
+      expectedExecutionId?: string;
+      expectedOperationName?: string;
       artifactId: string;
       revision: number;
     }>,
   ): Promise<Buffer>;
+}
+
+export interface FrozenTaskBusinessMutationRuntimePort {
+  dispatch(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      taskId: string;
+      expectedProviderId: string;
+      expectedResourceId: string;
+      expectedExecutionId: string;
+      expectedOperationName: string;
+      signal?: AbortSignal;
+      request: TaskBusinessMutationRequest;
+      authorize: Parameters<
+        TaskBusinessMutationTransport['dispatchBusinessMutation']
+      >[0]['authorize'];
+    }>,
+  ): Promise<Readonly<Record<string, unknown>>>;
 }
 
 export interface FrozenTaskLifecycleRuntimePort {
@@ -251,6 +283,7 @@ export class McpRegistryService {
   readonly #frozenAvailability: FrozenTaskAvailabilityRuntimePort | undefined;
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #frozenBusinessRead: FrozenTaskBusinessReadRuntimePort | undefined;
+  readonly #frozenBusinessMutation: FrozenTaskBusinessMutationRuntimePort | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
   readonly #hardDeniedControlTools: ReadonlySet<string>;
@@ -266,6 +299,7 @@ export class McpRegistryService {
       frozenAvailability?: FrozenTaskAvailabilityRuntimePort;
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       frozenBusinessRead?: FrozenTaskBusinessReadRuntimePort;
+      frozenBusinessMutation?: FrozenTaskBusinessMutationRuntimePort;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
       controlAuthority?: GovernedControlInvocationAuthorityPort;
       hardDeniedControlTools?: readonly string[];
@@ -281,6 +315,7 @@ export class McpRegistryService {
     this.#frozenAvailability = dependencies.frozenAvailability;
     this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#frozenBusinessRead = dependencies.frozenBusinessRead;
+    this.#frozenBusinessMutation = dependencies.frozenBusinessMutation;
     this.#providerBindings = dependencies.providerBindings;
     this.#controlAuthority = dependencies.controlAuthority;
     this.#hardDeniedControlTools = new Set(
@@ -1040,6 +1075,29 @@ export class McpRegistryService {
     return this.#frozenBusinessRead.getContext(await this.#businessReadTarget(input));
   }
 
+  async dispatchBusinessMutation(
+    input: Parameters<TaskBusinessMutationTransport['dispatchBusinessMutation']>[0],
+  ): Promise<Readonly<Record<string, unknown>>> {
+    if (this.#frozenBusinessMutation === undefined || input.expectedExecutionId === undefined)
+      throw new McpRegistryError(
+        'MCP_FROZEN_RUNTIME_UNAVAILABLE',
+        'Governed Task business mutation is not configured.',
+      );
+    const target = await this.#businessReadTarget(input);
+    const receipt = await this.#frozenBusinessMutation.dispatch({
+      ...target,
+      expectedExecutionId: input.expectedExecutionId,
+      expectedOperationName: input.operationName,
+      request: input.request,
+      authorize: async (identity) => {
+        // Recheck the native Frozen authority after all Provider preflight reads, at the send boundary.
+        await this.#businessReadTarget(input);
+        return input.authorize(identity);
+      },
+    });
+    return { ...receipt, protocolRevision: input.protocolContract.protocolVersion };
+  }
+
   async readRemoteTaskBusinessArtifact(
     input: FrozenTaskBusinessBindingInput & Readonly<{ artifactId: string; revision: number }>,
   ): Promise<unknown> {
@@ -1078,6 +1136,9 @@ export class McpRegistryService {
     taskId: string;
     expectedProviderId: string;
     expectedResourceId: string;
+    expectedExecutionId?: string;
+    expectedOperationName?: string;
+    signal?: AbortSignal;
   }> {
     const runtime = await this.#runtimeBindingAuthority.loadRuntimeAuthority(input.serverId);
     await this.#assertRemoteTaskReadAuthority(input, runtime);
@@ -1098,6 +1159,11 @@ export class McpRegistryService {
       taskId: input.remoteTaskId,
       expectedProviderId: providerId,
       expectedResourceId: input.resourceId,
+      expectedOperationName: input.operationName,
+      ...(input.expectedExecutionId === undefined
+        ? {}
+        : { expectedExecutionId: input.expectedExecutionId }),
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
     };
   }
 

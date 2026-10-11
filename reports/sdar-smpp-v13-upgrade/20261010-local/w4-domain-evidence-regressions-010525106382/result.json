@@ -1,0 +1,25 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/domain/test/task-business-evidence.unit.test.ts",
+    "packages/domain/test/task-business.unit.test.ts",
+    "packages/application/test/task-projection.unit.test.ts",
+    "packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts",
+    "packages/a2a-adapter/test/task-mapping.unit.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "6da7f896d5633b209f55a176812fc9b23ab5264ee7268d0d2522ed2d0c970fd2",
+  "startedAt": "2026-10-11T01:05:25.106382+08:00",
+  "finishedAt": "2026-10-11T01:05:44.183940+08:00",
+  "durationSeconds": 19.077558,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "ec30485e9ab145fcc64a993846088623037d72c9ba6f9a799ae0a82b5072255e",
+  "environment": "local_source_or_loopback_fixture_only"
+}

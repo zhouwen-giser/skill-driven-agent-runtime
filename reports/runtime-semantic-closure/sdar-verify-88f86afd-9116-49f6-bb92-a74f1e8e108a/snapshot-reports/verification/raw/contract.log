@@ -1,0 +1,81 @@
+$ vitest run --project contract
+
+ RUN  v4.1.10 /tmp/sdar-verify-88f86afd-9116-49f6-bb92-a74f1e8e108a-0xR6JJ/source
+
+ ✓ |contract| packages/json-schema-adapter/test/evidence-schema.contract.test.ts (11 tests) 6029ms
+     ✓ compiles and validates a concrete envelope for all 100 record types  1871ms
+     ✓ fails closed for unknown Phase 8 authority enum values  994ms
+     ✓ rejects zero for every Phase 8 positive-version payload field  567ms
+     ✓ compiles Batch, ACK, Manifest, Issue and ArtifactRef protocol schemas  1678ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-deployment.contract.test.ts (121 tests) 7401ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts (13 tests) 4906ms
+     ✓ crosses the real offline supervisor spawn, manifest, status, restart, and B02 capture boundary  3787ms
+ ✓ |contract| packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts (4 tests) 3088ms
+     ✓ AC-002 validates all upstream positive objects without opening their schemas  2926ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-debug-command.contract.test.ts (45 tests) 1913ms
+ ✓ |contract| apps/node-control-api/test/operation-conformance.contract.test.ts (6 tests) 1343ms
+     ✓ matches the complete frozen inventory to production routes, RBAC, and executed coverage  1338ms
+ ✓ |contract| packages/management-api/test/http-endpoint.contract.test.ts (82 tests) 1003ms
+ ✓ |contract| packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts (11 tests) 944ms
+ ✓ |contract| apps/node-control-api/test/http-endpoint.contract.test.ts (8 tests) 588ms
+ ✓ |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts (12 tests) 590ms
+ ✓ |contract| packages/skill-package-adapter/test/skill-package.contract.test.ts (10 tests) 437ms
+ ✓ |contract| packages/skill-package-adapter/test/formal-skill-packages.contract.test.ts (4 tests) 428ms
+ ✓ |contract| packages/mcp-adapter/test/business-events-provider-fixtures.contract.test.ts (2 tests) 376ms
+ ✓ |contract| packages/json-schema-adapter/test/workflow-dsl-schema.contract.test.ts (4 tests) 373ms
+ ✓ |contract| packages/json-schema-adapter/test/cognitive-domain-schema.contract.test.ts (1 test) 326ms
+     ✓ accepts the golden fixture and rejects candidate-to-active schema drift  324ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-protocol-package.contract.test.ts (1 test) 274ms
+ ✓ |contract| packages/json-schema-adapter/test/artifact-domain-schema.contract.test.ts (12 tests) 238ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts (7 tests) 424ms
+ ✓ |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts (5 tests) 71ms
+ ✓ |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts (5 tests) 136ms
+ ✓ |contract| packages/model-provider-adapter/test/anthropic-messages-adapter.contract.test.ts (2 tests) 45ms
+ ✓ |contract| packages/evidence-export-adapter/test/http-evidence-export-transport.contract.test.ts (8 tests) 40ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-http.contract.test.ts (14 tests) 39ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-registry.contract.test.ts (8 tests) 28ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-task-subscriptions.contract.test.ts (8 tests) 46ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-evidence.contract.test.ts (5 tests) 20ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-task-lifecycle.contract.test.ts (18 tests) 47ms
+ ✓ |contract| packages/a2a-adapter/test/a2a-compatibility.contract.test.ts (11 tests) 17ms
+ ✓ |contract| packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts (3 tests) 13ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-shadow-p06.contract.test.ts (7 tests) 12ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-availability.contract.test.ts (6 tests) 29ms
+ ✓ |contract| packages/application/test/case-model-runtime-p11.contract.test.ts (5 tests) 12ms
+ ✓ |contract| packages/application/test/fast-gateway-p10.contract.test.ts (5 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-p02.contract.test.ts (4 tests) 12ms
+ ✓ |contract| packages/persistence-postgres/test/deterministic-capability-execution-action.contract.test.ts (5 tests) 9ms
+ ✓ |contract| packages/application/test/decision-rule-runtime-p09.contract.test.ts (4 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/experience-p03.contract.test.ts (5 tests) 10ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-b02-source-recovery-deployment.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/a2a-adapter/test/node-control-agent-card.contract.test.ts (4 tests) 8ms
+ ✓ |contract| packages/application/test/artifact-retrieval.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/initial-model-prompts.contract.test.ts (4 tests) 9ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-match-exact-version.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/capability-attempt-evidence-lineage.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts (4 tests) 8ms
+ ✓ |contract| packages/runtime-redis/test/artifact-shadow-workers.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-dispatch-consumption.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/runtime-control-persistence-postgres/test/task-revision-authority.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-cancellation-authority.contract.test.ts (3 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/mcp-execution-semantics-authority-repair.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-replay-p05.contract.test.ts (6 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/initial-task-admission.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/model-operation-routes.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-confirmation.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-authority-snapshot.contract.test.ts (3 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/mcp-task-consumer-sync-migration.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/runtime-task-control-actions.contract.test.ts (2 tests) 6ms
+ ✓ |contract| apps/server/test/runtime-migration-selection.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-authority-kind.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-admission-recovery.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-accepted-substate.contract.test.ts (2 tests) 5ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-catalog-lineage.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/task-capability-initial-plan-binding.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/domain/test/artifact-management-p12.contract.test.ts (2 tests) 5ms
+
+ Test Files  63 passed (63)
+      Tests  549 passed (549)
+   Start at  23:13:07
+   Duration  35.30s (transform 6.33s, setup 0ms, import 28.34s, tests 31.47s, environment 8ms)
+

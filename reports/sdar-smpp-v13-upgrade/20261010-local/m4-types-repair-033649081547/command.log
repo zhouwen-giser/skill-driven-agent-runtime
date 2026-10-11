@@ -1,0 +1,6 @@
+$ tsc -p tsconfig.json --noEmit
+packages/domain/src/task-business-evidence.ts(229,34): error TS18048: 'result' is possibly 'undefined'.
+packages/persistence-postgres/test/repositories.integration.test.ts(3343,58): error TS2339: Property 'find' does not exist on type 'PostgresAgentTaskRepository'.
+packages/persistence-postgres/test/repositories.integration.test.ts(10916,22): error TS4111: Property 'artifactId' comes from an index signature, so it must be accessed with ['artifactId'].
+packages/persistence-postgres/test/repositories.integration.test.ts(10926,66): error TS4111: Property 'content' comes from an index signature, so it must be accessed with ['content'].
+[ELIFECYCLE] Command failed with exit code 2.

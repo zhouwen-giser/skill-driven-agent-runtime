@@ -1,0 +1,18 @@
+{
+  "command": [
+    "env",
+    "PATH=/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin:/home/sz/.nvm/versions/node/v22.23.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "pnpm",
+    "verify:isolated"
+  ],
+  "cwd": "/tmp/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb-m5Gyyf/source-m3-repair",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "f820b67678b96477bfc0498ca9bd37f92faf34b55d8daa0c48b1d673100981cc",
+  "startedAt": "2026-10-11T01:45:22.463597+08:00",
+  "finishedAt": "2026-10-11T01:45:22.478295+08:00",
+  "durationSeconds": 0.014698,
+  "exitCode": 127,
+  "log": "command.log",
+  "logSha256": "ae82477dd72f6d6080afeb7701e52c50cb9a20ea494b1b3318c64bf113daf54b",
+  "environment": "local_source_or_loopback_fixture_only"
+}

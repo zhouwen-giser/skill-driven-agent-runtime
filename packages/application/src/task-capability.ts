@@ -3,6 +3,7 @@ import {
   createRuntimeExecutionContext,
   createTaskCapabilityBinding,
   createTaskCapabilityExecutionAttempt,
+  taskBusinessMutationPolicySchema,
   type AgentTask,
   type McpInvocation,
   type RuntimeTaskCapabilityTerminalProof,
@@ -675,7 +676,9 @@ export class RuntimeTaskCapabilityService {
     }
     for (const constraint of binding.constraintSnapshot) {
       if (!constraintSatisfied(constraint, result, binding, invocations, physicalDispatches))
-        terminal('A frozen safety or authorization constraint is not satisfied.');
+        terminal(
+          `Frozen safety or authorization constraint ${String(constraint['type'])} is not satisfied.`,
+        );
     }
     return Object.freeze({
       taskId,
@@ -1422,6 +1425,19 @@ function constraintSatisfied(
       expected !== undefined &&
       invocations.length > 0 &&
       invocations.every((invocation) => executionContextMatches(invocation, expected))
+    );
+  }
+  if (constraint['type'] === 'task_business_mutation_policy') {
+    const policy = taskBusinessMutationPolicySchema.safeParse(constraint);
+    // Actual command authority remains the original confirmation and final send boundary.
+    return (
+      policy.success &&
+      physicalDispatches?.valid === true &&
+      physicalDispatches.dispatches.every(
+        ({ invocation }) =>
+          invocation.toolName === 'vehicle_navigate' ||
+          invocation.toolName === 'vehicle_area_recon',
+      )
     );
   }
   if (constraint['type'] === 'bounded_movement_policy')

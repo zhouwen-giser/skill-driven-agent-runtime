@@ -1,0 +1,33 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |contract| packages/management-api/test/http-endpoint.contract.test.ts (84 tests | 1 failed) 1071ms
+     × exposes original Task business reads and review/confirmation/reconciliation without accepting client authority 95ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes original Task business reads and review/confirmation/reconciliation without accepting client authority
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ packages/management-api/test/http-endpoint.contract.test.ts:102:40
+    100|     });
+    101|     const base = `${endpoint.baseUrl}/api/v1/tasks/task-1/business`;
+    102|     expect((await fetch(base)).status).toBe(200);
+       |                                        ^
+    103|     const content = await fetch(`${base}/content/binding/digest`);
+    104|     expect(Buffer.from(await content.arrayBuffer())).toEqual(bytes);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 117 passed (118)
+   Start at  00:06:16
+   Duration  5.99s (transform 8.81s, setup 0ms, import 11.57s, tests 1.36s, environment 1ms)
+

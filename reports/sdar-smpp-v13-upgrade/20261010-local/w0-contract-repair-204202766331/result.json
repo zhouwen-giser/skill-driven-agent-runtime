@@ -1,0 +1,22 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+    "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+    "packages/mcp-adapter/test/frozen-v1-http.contract.test.ts",
+    "packages/application/test/mcp-registry.unit.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "db9e38a998822137d9f017e5326df38adf795430905a04481374ee19a3dd10f8",
+  "startedAt": "2026-10-10T20:42:02.766331+08:00",
+  "finishedAt": "2026-10-10T20:42:09.966260+08:00",
+  "durationSeconds": 7.199929,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "af30061aceb49262cc19fd501af16a8dba50d985cdb4caa1d29f43ccb33c2502",
+  "environment": "local_source_or_loopback_fixture_only"
+}

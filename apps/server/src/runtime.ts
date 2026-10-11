@@ -72,9 +72,14 @@ import {
   BusinessEventIngressWorker,
   BusinessEventRelationResolver,
   TaskImpactAssessmentService,
+  TaskBusinessSyncService,
+  TaskBusinessEventProcessor,
+  TaskBusinessCommandService,
+  assertTaskBusinessCurrentCapability,
   EventImpactRecoveryService,
   ContinuityImpactService,
   RemoteTaskAdmissionService,
+  reconcileInitialRemoteTaskSnapshot,
   RemoteTaskAdmissionRecoveryService,
   type RemoteTaskAdmissionIntent,
   type RemoteTaskAdmissionEnvelope,
@@ -271,6 +276,7 @@ import {
   type OperatorIdentityPort,
   type ManagementPrincipalResolver,
   type GovernedControlPrincipalResolver,
+  type TaskPlanConfirmationAuthority,
   type TaskAvailabilityBatchReader,
   type WorkflowCandidateGuard,
   type ArtifactShadowCurrentStateReader,
@@ -288,6 +294,7 @@ import {
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
+  TaskBusinessError,
   type AgentTask,
   type CognitiveInjectionMode,
   type GoalExecutionContract,
@@ -306,6 +313,7 @@ import {
   type WorkflowInstance,
 } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
+import { verifiedTaskBusinessOutcomeRefs } from '../../../packages/application/src/task-business-outcome.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
   PostgresEvidenceOperationsRepository,
@@ -319,6 +327,7 @@ import {
   PostgresRuntimeEvidenceExportStore,
   PostgresRuntimeTaskRevisionAuthority,
   PostgresSkillEvidenceSource,
+  PostgresRuntimeSourceArtifactResolver,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
   CatalogValidatingEvidenceWriter,
@@ -445,6 +454,8 @@ import {
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
+  PostgresTaskBusinessRepository,
+  PostgresTaskBusinessCommandRepository,
   PostgresRemoteTaskAdmissionIntentStore,
   PostgresRemoteTaskProviderExecutionLinkStore,
   PostgresRemoteTaskReconciliationAttemptStore,
@@ -730,6 +741,11 @@ export interface ServerRuntimeHandle {
   /** Present only when P10 is explicitly enabled and all deployment ports exist. */
   readonly fastGateway?: FastGatewayService;
   gatewayEvidence(taskId: string): ReturnType<PostgresFastGatewayRepository['findByTaskId']>;
+  taskBusiness(taskId: string): ReturnType<PostgresTaskBusinessRepository['listByTask']>;
+  taskBusinessContent(
+    bindingId: string,
+    digest: string,
+  ): ReturnType<PostgresTaskBusinessRepository['readContent']>;
   /** Explicit formal-runtime sidecar hook; it never selects/retrieves an Artifact. */
   enrollArtifactShadow(
     input: ArtifactShadowEnrollment,
@@ -2295,6 +2311,7 @@ export async function startServerRuntime(
     memories,
   });
   const resultProcessor = new ResultProcessor(schemaValidator);
+  const taskBusinessRepository = new PostgresTaskBusinessRepository(pool, deviceWorkScope);
   const resultProcessing = new ResultProcessingService({
     model: modelRuntime,
     processor: resultProcessor,
@@ -2302,6 +2319,7 @@ export async function startServerRuntime(
     clock,
     nextId: () => `processed-result-${randomUUID()}`,
     memories,
+    taskBusiness: taskBusinessRepository,
   });
   const runtimeTerminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(
     pool,
@@ -2418,8 +2436,15 @@ export async function startServerRuntime(
           endpoint: input.endpoint,
           headers: input.headers,
           now: clock.now,
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
           expectedProviderId: input.expectedProviderId,
           expectedResourceId: input.expectedResourceId,
+          ...(input.expectedExecutionId === undefined
+            ? {}
+            : { expectedExecutionId: input.expectedExecutionId }),
+          ...(input.expectedOperationName === undefined
+            ? {}
+            : { expectedOperationName: input.expectedOperationName }),
         }).getContext({ taskId: input.taskId }),
       getArtifact: (input) =>
         new SmppTaskBusinessClient({
@@ -2427,8 +2452,15 @@ export async function startServerRuntime(
           endpoint: input.endpoint,
           headers: input.headers,
           now: clock.now,
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
           expectedProviderId: input.expectedProviderId,
           expectedResourceId: input.expectedResourceId,
+          ...(input.expectedExecutionId === undefined
+            ? {}
+            : { expectedExecutionId: input.expectedExecutionId }),
+          ...(input.expectedOperationName === undefined
+            ? {}
+            : { expectedOperationName: input.expectedOperationName }),
         }).getArtifact({
           taskId: input.taskId,
           artifactId: input.artifactId,
@@ -2440,13 +2472,58 @@ export async function startServerRuntime(
           endpoint: input.endpoint,
           headers: input.headers,
           now: clock.now,
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
           expectedProviderId: input.expectedProviderId,
           expectedResourceId: input.expectedResourceId,
+          ...(input.expectedExecutionId === undefined
+            ? {}
+            : { expectedExecutionId: input.expectedExecutionId }),
+          ...(input.expectedOperationName === undefined
+            ? {}
+            : { expectedOperationName: input.expectedOperationName }),
         }).readArtifactContent({
           taskId: input.taskId,
           artifactId: input.artifactId,
           revision: input.revision,
         }),
+    },
+    frozenBusinessMutation: {
+      async dispatch(input) {
+        const client = new SmppTaskBusinessClient({
+          client: frozenMcpClient,
+          endpoint: input.endpoint,
+          headers: input.headers,
+          now: clock.now,
+          expectedProviderId: input.expectedProviderId,
+          expectedResourceId: input.expectedResourceId,
+          expectedExecutionId: input.expectedExecutionId,
+          expectedOperationName: input.expectedOperationName,
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
+          mutationAuthority: { authorize: input.authorize },
+        });
+        const request = input.request;
+        if (request.operation === 'input_response')
+          return client.respondToRequiredInput({
+            taskId: input.taskId,
+            executionId: input.expectedExecutionId,
+            requestId: request.requestId,
+            requestKey: request.requestKey,
+            expectedRequestRevision: request.expectedRequestRevision,
+            expectedSubjectBinding: request.expectedSubjectBinding,
+            action: request.response.action,
+            ...(request.response.action === 'accept' ? { content: request.response.content } : {}),
+          });
+        return client.applyNavigationAdjustment({
+          taskId: input.taskId,
+          executionId: input.expectedExecutionId,
+          interventionId: request.interventionId,
+          expectedInterventionRevision: request.expectedInterventionRevision,
+          expectedEffectivePlanRevision: request.expectedEffectivePlanRevision,
+          commandId: request.commandId,
+          waypoints: request.waypoints,
+          density: request.density,
+        });
+      },
     },
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
@@ -2864,6 +2941,85 @@ export async function startServerRuntime(
             ? {}
             : { queueName: remoteTaskCancellationQueueName }),
         });
+  const taskBusinessSync =
+    options.frozenMcpTasks === undefined
+      ? undefined
+      : new TaskBusinessSyncService({
+          repository: taskBusinessRepository,
+          reader: mcpRegistry,
+          clock,
+        });
+  const hydrateTaskBusiness = async (bindingId: string): Promise<void> => {
+    try {
+      await taskBusinessSync?.refresh(bindingId);
+    } catch (error: unknown) {
+      process.stderr.write(
+        `${JSON.stringify({ event: 'task_business.hydration_failed', bindingId, errorCode: runtimeErrorCode(error) })}\n`,
+      );
+    }
+  };
+  const taskBusinessCommandsRepository = new PostgresTaskBusinessCommandRepository(
+    pool,
+    deviceWorkScope,
+  );
+  const taskBusinessCommands =
+    taskBusinessSync === undefined
+      ? undefined
+      : new TaskBusinessCommandService({
+          repository: taskBusinessCommandsRepository,
+          business: taskBusinessRepository,
+          sync: taskBusinessSync,
+          reader: mcpRegistry,
+          transport: mcpRegistry,
+          confirmations: governedControlConfirmationService,
+          revocations: new PostgresGovernedControlManagementAuthorityReader(pool),
+          schemas: schemaValidator,
+          clock,
+          authority: {
+            async load(taskId) {
+              if (
+                options.capabilityAuthorityReader === undefined ||
+                options.currentMcpProviderBindingAuthorityReader === undefined
+              )
+                throw new TaskBusinessError('TASK_BUSINESS_CONTROL_AUTHORITY_REQUIRED');
+              const native = await taskBusinessCommandsRepository.loadAuthority(taskId);
+              const resource = z
+                .object({ resourceId: z.string().min(1) })
+                .loose()
+                .parse(native.inputSnapshot);
+              assertTaskBusinessCurrentCapability({
+                authority: await options.capabilityAuthorityReader.load(
+                  native.scope.capabilityId,
+                  native.scope.capabilityVersion,
+                ),
+                scope: native.scope,
+                constraints: native.constraints,
+                resourceId: resource.resourceId,
+              });
+              return { scope: native.scope, policy: native.policy };
+            },
+            async assertCurrent(target, scope) {
+              if (
+                options.currentMcpProviderBindingAuthorityReader === undefined ||
+                target.binding.serverId !== scope.serverId ||
+                target.binding.operationName !== scope.toolName ||
+                target.binding.authoritySnapshot?.providerBinding?.bindingId !==
+                  scope.providerBindingId
+              )
+                throw new TaskBusinessError('TASK_BUSINESS_CONTROL_SCOPE_INVALID');
+              const authority =
+                await options.currentMcpProviderBindingAuthorityReader.loadCurrentMcpProviderBinding(
+                  { bindingId: scope.providerBindingId, localServerId: scope.serverId },
+                );
+              await runtimeMcpBindingAuthority.assertCurrent({
+                authority,
+                bindingId: scope.providerBindingId,
+                localServerId: scope.serverId,
+                providerId: target.providerId,
+              });
+            },
+          },
+        });
   const remoteTaskPolling =
     remoteTaskRepository === undefined || remoteTaskQueue === undefined
       ? undefined
@@ -2880,6 +3036,7 @@ export async function startServerRuntime(
             nextProtocolAttemptId: () => `remote-task-protocol-attempt-${randomUUID()}`,
           },
           hash: (value) => createHash('sha256').update(canonicalJson(value)).digest('hex'),
+          onSnapshot: hydrateTaskBusiness,
           ...(options.frozenMcpTasks?.polling === undefined
             ? {}
             : { options: options.frozenMcpTasks.polling }),
@@ -2891,6 +3048,7 @@ export async function startServerRuntime(
           repository: remoteTaskRepository,
           queue: remoteTaskQueue,
           nextObservationId: () => `remote-task-observation-${randomUUID()}`,
+          onAdmitted: hydrateTaskBusiness,
         });
   const remoteTaskReconciler =
     remoteTaskRepository === undefined || remoteTaskQueue === undefined
@@ -3605,29 +3763,20 @@ export async function startServerRuntime(
           createdAt: clock.now(),
         });
         const reconciled = receipt.outcome.reconciledTask;
-        const reconciliation =
-          reconciled === undefined || remoteTaskRepository === undefined
-            ? undefined
-            : await remoteTaskRepository.recordExternalSnapshot({
-                bindingId: admitted.binding.bindingId,
-                expectedVersion: admitted.binding.version,
-                snapshot: reconciled,
-                observationId: `remote-task-observation-${randomUUID()}`,
-                source: 'reconciliation',
-                ...(reconciled.status === 'working'
-                  ? {}
-                  : {
-                      controlEventId: `remote-task-control-${randomUUID()}`,
-                      resultHash: createHash('sha256')
-                        .update(canonicalJson(reconciled))
-                        .digest('hex'),
-                    }),
-                observedAt: clock.now(),
-              });
-        if (reconciliation !== undefined && !reconciliation.applied)
-          throw new Error(
-            `REMOTE_TASK_INITIAL_RECONCILIATION_${reconciliation.reason.toUpperCase()}`,
-          );
+        if (reconciled !== undefined && remoteTaskRepository !== undefined)
+          await reconcileInitialRemoteTaskSnapshot({
+            repository: remoteTaskRepository,
+            admitted: admitted.binding,
+            snapshot: reconciled,
+            observationId: `remote-task-observation-${randomUUID()}`,
+            ...(reconciled.status === 'working'
+              ? {}
+              : {
+                  controlEventId: `remote-task-control-${randomUUID()}`,
+                  resultHash: createHash('sha256').update(canonicalJson(reconciled)).digest('hex'),
+                }),
+            observedAt: clock.now(),
+          });
         if (!admitted.pollScheduled)
           process.stderr.write(
             `${JSON.stringify({
@@ -4441,10 +4590,14 @@ export async function startServerRuntime(
       ? {}
       : {
           remoteTaskInputs: {
-            prepareResponse(inputRequestId: string, inputContent: unknown) {
+            prepareResponse(
+              inputRequestId: string,
+              inputContent: unknown,
+              principal?: TaskPlanConfirmationAuthority['principal'],
+            ) {
               if (remoteTaskInput === undefined)
                 throw new Error('REMOTE_TASK_INPUT_SERVICE_UNAVAILABLE');
-              return remoteTaskInput.prepareResponse(inputRequestId, inputContent);
+              return remoteTaskInput.prepareResponse(inputRequestId, inputContent, principal);
             },
           },
         }),
@@ -5092,7 +5245,28 @@ export async function startServerRuntime(
                       proof: capabilityTerminalProof,
                     }),
                   }
-                : {}),
+                : {
+                    ...(skill.runtimePolicy.taskBusinessEvidencePolicy === undefined
+                      ? {}
+                      : {
+                          verifiedOutcomeRefs: verifiedTaskBusinessOutcomeRefs({
+                            taskId,
+                            ...(task.selectedSkillId === undefined
+                              ? {}
+                              : { selectedSkillId: task.selectedSkillId }),
+                            ...(task.selectedSkillVersion === undefined
+                              ? {}
+                              : { selectedSkillVersion: task.selectedSkillVersion }),
+                            workflowSkillVersions: instance.skillVersions,
+                            ...(capabilityTerminalProof === undefined
+                              ? {}
+                              : { proof: capabilityTerminalProof }),
+                            skill,
+                            result: processedResult.output.structured,
+                            projections: await taskBusinessRepository.listByTask(taskId),
+                          }),
+                        }),
+                  }),
         });
       },
       enhanceResultMemory: (processed) => resultProcessing.enhance(processed),
@@ -5283,6 +5457,9 @@ export async function startServerRuntime(
               nextEventId: () => `remote-task-input-event-${randomUUID()}`,
             },
             onTaskChanged: publishTaskState,
+            ...(taskBusinessCommands === undefined
+              ? {}
+              : { businessCommands: taskBusinessCommands }),
           });
           return new RemoteTaskContinuationService({
             continuations: workflowContinuations,
@@ -6084,7 +6261,31 @@ export async function startServerRuntime(
       ? undefined
       : new BusinessEventIngressWorker({
           repository: businessEventRepository,
-          processor: eventImpact,
+          processor:
+            taskBusinessSync === undefined ||
+            remoteTaskRepository === undefined ||
+            businessEventRelations === undefined
+              ? eventImpact
+              : new TaskBusinessEventProcessor({
+                  impact: eventImpact,
+                  events: businessEventRepository,
+                  bindings: remoteTaskRepository,
+                  sync: taskBusinessSync,
+                  repository: taskBusinessRepository,
+                  relations: {
+                    async resolve(record, event, subscription) {
+                      const provider = await mcpRepository.findServer(subscription.providerId);
+                      if (provider === undefined)
+                        throw new Error('BUSINESS_EVENT_PROVIDER_NOT_REGISTERED');
+                      return businessEventRelations.resolve({
+                        endpoint: provider.server.endpoint,
+                        headers: secretCipher.decrypt(provider.encryptedCredential),
+                        inboxId: record.inboxId,
+                        event,
+                      });
+                    },
+                  },
+                }),
           clock,
         });
   const businessEventSubscriptions =
@@ -6567,6 +6768,39 @@ export async function startServerRuntime(
           processor: remoteTaskCancellationProcessor,
         });
   let remoteTaskReconcileRunning = false;
+  let businessRefreshAfter: string | undefined;
+  let businessRefreshRunning = false;
+  let businessRefreshCompletion: Promise<void> | undefined;
+  const businessRefreshTimer =
+    taskBusinessSync === undefined
+      ? undefined
+      : setInterval(() => {
+          if (businessRefreshRunning) return;
+          businessRefreshRunning = true;
+          businessRefreshCompletion = taskBusinessSync
+            .reconcile(32, businessRefreshAfter)
+            .then(async (result) => {
+              businessRefreshAfter = result.examined < 32 ? undefined : result.lastBindingId;
+              const recovered = await taskBusinessCommands?.recover();
+              if (recovered !== undefined && recovered.failures.length > 0)
+                process.stderr.write(
+                  `${JSON.stringify({ event: 'task_business.command_recovery_failures', failures: recovered.failures })}\n`,
+                );
+              if (result.failures.length > 0)
+                process.stderr.write(
+                  `${JSON.stringify({ event: 'task_business.refresh_failures', failures: result.failures })}\n`,
+                );
+            })
+            .catch((error: unknown) => {
+              process.stderr.write(
+                `${JSON.stringify({ event: 'task_business.reconciliation_failed', errorCode: runtimeErrorCode(error) })}\n`,
+              );
+            })
+            .finally(() => {
+              businessRefreshRunning = false;
+            });
+        }, 15_000);
+  businessRefreshTimer?.unref();
   const remoteTaskReconcileTimer =
     remoteTaskReconciler === undefined
       ? undefined
@@ -6626,6 +6860,19 @@ export async function startServerRuntime(
         }, options.frozenMcpTasks?.reconcileIntervalMs ?? 1000);
   remoteTaskCancellationReconcileTimer?.unref();
   if (remoteTaskReconciler !== undefined) await remoteTaskReconciler.reconcile();
+  const initialBusinessRefresh = await taskBusinessSync?.reconcile();
+  const initialBusinessCommandRecovery = await taskBusinessCommands?.recover();
+  if (
+    initialBusinessCommandRecovery !== undefined &&
+    initialBusinessCommandRecovery.failures.length > 0
+  )
+    process.stderr.write(
+      `${JSON.stringify({ event: 'task_business.initial_command_recovery_failures', failures: initialBusinessCommandRecovery.failures })}\n`,
+    );
+  if (initialBusinessRefresh !== undefined && initialBusinessRefresh.failures.length > 0)
+    process.stderr.write(
+      `${JSON.stringify({ event: 'task_business.initial_refresh_failures', failures: initialBusinessRefresh.failures })}\n`,
+    );
   if (remoteTaskContinuationReconciler !== undefined)
     await remoteTaskContinuationReconciler.reconcile();
   if (remoteTaskCancellationReconciler !== undefined)
@@ -7413,6 +7660,50 @@ export async function startServerRuntime(
               ),
               ...(remoteTaskPolling === undefined ? {} : { remoteTaskPolling }),
               ...(remoteTaskCancellation === undefined ? {} : { remoteTaskCancellation }),
+              ...(taskBusinessCommands === undefined
+                ? {}
+                : {
+                    taskBusiness: {
+                      list: (taskId: string) => taskBusinessRepository.listByTask(taskId),
+                      commands: taskBusinessCommands,
+                      async sourceArtifact(taskId, ref) {
+                        try {
+                          return (
+                            await new PostgresRuntimeSourceArtifactResolver(
+                              pool,
+                              deviceWorkScope,
+                            ).resolveTaskBusiness(taskId, ref)
+                          ).canonicalBytes;
+                        } catch (error: unknown) {
+                          if (
+                            error instanceof Error &&
+                            'code' in error &&
+                            error.code === 'RUNTIME_SOURCE_ARTIFACT_NOT_FOUND'
+                          )
+                            throw Object.assign(
+                              new Error('The original Task does not own this source artifact.'),
+                              { code: 'TASK_BUSINESS_CONTENT_NOT_FOUND', status: 404 },
+                            );
+                          throw error;
+                        }
+                      },
+                      async content(taskId: string, bindingId: string, digest: string) {
+                        const target = await taskBusinessRepository.loadTarget(bindingId);
+                        if (target?.binding.agentTaskId !== taskId)
+                          throw Object.assign(
+                            new Error('The original Task does not own this business content.'),
+                            { code: 'TASK_BUSINESS_CONTENT_NOT_FOUND', status: 404 },
+                          );
+                        const bytes = await taskBusinessRepository.readContent(bindingId, digest);
+                        if (bytes === undefined)
+                          throw Object.assign(new Error('Business content was not found.'), {
+                            code: 'TASK_BUSINESS_CONTENT_NOT_FOUND',
+                            status: 404,
+                          });
+                        return Buffer.from(bytes);
+                      },
+                    },
+                  }),
             }),
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
@@ -7544,6 +7835,7 @@ export async function startServerRuntime(
     const taskProjectionReader = new ReadOnlyTaskProjectionService({
       readState: (taskId) => tasks.findWithRevision(taskId),
       readInteraction: interactiveGoalMetadata,
+      readArtifacts: (taskId) => taskBusinessRepository.exportTaskArtifacts(taskId),
       hash: (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex'),
     });
     const a2aTaskStore = new A2AProjectionTaskStore(
@@ -7558,6 +7850,7 @@ export async function startServerRuntime(
       tasks: foregroundAwareTasks,
       notifier: taskStateNotifier,
       interaction: interactiveGoalMetadata,
+      businessArtifacts: (taskId) => taskBusinessRepository.exportTaskArtifacts(taskId),
       ...(options.a2aWaitTimeoutMs === undefined
         ? {}
         : { waitTimeoutMs: options.a2aWaitTimeoutMs }),
@@ -7686,6 +7979,12 @@ export async function startServerRuntime(
       gatewayEvidence(taskId: string) {
         return fastGatewayRepository.findByTaskId(taskId);
       },
+      taskBusiness(taskId: string) {
+        return taskBusinessRepository.listByTask(taskId);
+      },
+      taskBusinessContent(bindingId: string, digest: string) {
+        return taskBusinessRepository.readContent(bindingId, digest);
+      },
       enrollArtifactShadow(input: ArtifactShadowEnrollment) {
         // The formal runtime must provide an exact already-selected artifact and
         // formal fact correlation. P06 does not perform retrieval or selection.
@@ -7779,11 +8078,14 @@ export async function startServerRuntime(
         if (remoteTaskCancellationReconcileTimer !== undefined)
           clearInterval(remoteTaskCancellationReconcileTimer);
         if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
+        if (businessRefreshTimer !== undefined) clearInterval(businessRefreshTimer);
         if (a2aTerminalProjectionReconciliationTimer !== undefined)
           clearInterval(a2aTerminalProjectionReconciliationTimer);
         taskExecutor.close();
         frozenTaskNotifications?.close();
         businessEventCoordinator?.close();
+        await taskBusinessSync?.stop();
+        await businessRefreshCompletion;
         await a2a.close();
         await startedManagement.close();
         await remoteTaskWorker?.close();
@@ -7841,11 +8143,14 @@ export async function startServerRuntime(
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
     if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
+    if (businessRefreshTimer !== undefined) clearInterval(businessRefreshTimer);
     if (a2aTerminalProjectionReconciliationTimer !== undefined)
       clearInterval(a2aTerminalProjectionReconciliationTimer);
     taskStateNotifier.close();
     frozenTaskNotifications?.close();
     businessEventCoordinator?.close();
+    await taskBusinessSync?.stop();
+    await businessRefreshCompletion;
     await management?.close();
     await remoteTaskWorker?.close();
     await remoteTaskContinuationWorker?.close();

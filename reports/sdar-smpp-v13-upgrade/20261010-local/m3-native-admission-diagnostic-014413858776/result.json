@@ -1,0 +1,17 @@
+{
+  "command": [
+    "node",
+    "scripts/sdar-smpp-v13/verify-local.mjs",
+    "apps/server/test/ugv-agent-profile-execution.integration.test.ts"
+  ],
+  "cwd": "/tmp/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb-m5Gyyf/source-m3-repair",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "b19173a9b4152f6ba7a0588f5400450a1c2df3322d05e8eb1cd4d1b260729870",
+  "startedAt": "2026-10-11T01:44:13.858776+08:00",
+  "finishedAt": "2026-10-11T01:44:59.014639+08:00",
+  "durationSeconds": 45.155863,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "742c38f75d7193048e727bc0810739e576a7fcb9aecc9e6e3b25039ed1ccf00d",
+  "environment": "local_source_or_loopback_fixture_only"
+}

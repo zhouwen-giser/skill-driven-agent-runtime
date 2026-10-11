@@ -146,7 +146,11 @@ export interface TaskServiceDependencies {
   readonly genericCapabilityAdmissions?: GenericCapabilityAdmissionResolver;
   readonly admissionReceipts?: CapabilityAdmissionReceiptStore;
   readonly remoteTaskInputs?: Readonly<{
-    prepareResponse(inputRequestId: string, inputContent: unknown): Promise<unknown>;
+    prepareResponse(
+      inputRequestId: string,
+      inputContent: unknown,
+      principal?: TaskPlanConfirmationAuthority['principal'],
+    ): Promise<unknown>;
   }>;
   readonly skillInputs?: Pick<SkillInputResolutionRepository, 'find'>;
   readonly clock: Clock;
@@ -741,7 +745,7 @@ export class TaskService {
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     if (
-      !['confirm_plan', 'confirm_weapon_action'].includes(command.action) &&
+      !['confirm_plan', 'confirm_weapon_action', 'provide_input'].includes(command.action) &&
       command.confirmationAuthority !== undefined
     )
       throw new TaskApplicationError(
@@ -1121,8 +1125,10 @@ export class TaskService {
       ...input,
       timestamp: this.#dependencies.clock.now(),
     });
-    await this.#dependencies.tasks.save(task);
     await this.#dependencies.taskCapabilities?.bindInitialPlan(taskId, input.planId);
+    // Publish a confirmable plan only after its exact prepared Capability attempt is bound.
+    // Otherwise an immediate confirmation can advance the attempt while this bind is pending.
+    await this.#dependencies.tasks.save(task);
     return task;
   }
 
@@ -1454,6 +1460,7 @@ export class TaskService {
         ? await this.#prepareRemoteTaskInput(
             pending.inputRequestId,
             command.inputContent ?? command.messageText,
+            command.confirmationAuthority?.principal,
           )
         : (command.inputContent ?? command.messageText);
     const timestamp = this.#dependencies.clock.now();
@@ -1507,13 +1514,21 @@ export class TaskService {
     return task;
   }
 
-  async #prepareRemoteTaskInput(inputRequestId: string, inputContent: unknown): Promise<unknown> {
+  async #prepareRemoteTaskInput(
+    inputRequestId: string,
+    inputContent: unknown,
+    principal?: TaskPlanConfirmationAuthority['principal'],
+  ): Promise<unknown> {
     if (this.#dependencies.remoteTaskInputs === undefined)
       throw new TaskApplicationError(
         'TASK_REMOTE_INPUT_UNAVAILABLE',
         'Remote Task supplementary input is unavailable.',
       );
-    return this.#dependencies.remoteTaskInputs.prepareResponse(inputRequestId, inputContent);
+    return this.#dependencies.remoteTaskInputs.prepareResponse(
+      inputRequestId,
+      inputContent,
+      principal,
+    );
   }
 }
 

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--project",
+    "unit",
+    "packages/domain/test/task-business-evidence.unit.test.ts",
+    "packages/domain/test/task-business.unit.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "5769f8b6231ee38a5529fedf711f4ed8b9cbaede79d0ff308bb277cd5d285acd",
+  "startedAt": "2026-10-11T03:15:18.008161+08:00",
+  "finishedAt": "2026-10-11T03:15:19.096583+08:00",
+  "durationSeconds": 1.088422,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "d598e119dda57dcbc232439334871b95427f3ed1287317612bc2a7ccd3f6d193",
+  "environment": "local_source_or_loopback_fixture_only"
+}

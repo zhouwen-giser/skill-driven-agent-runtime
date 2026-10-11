@@ -83,16 +83,17 @@ export async function verifyGowmBusinessEventCases(
   assert.deepEqual(await empty.listBusinessEventSubscriptions(100), []);
   assert.deepEqual(await empty.claimBusinessEventInbox(100), []);
   assert.equal((await a.listBusinessEventSubscriptions(100)).length, 1);
+  const claimed = await a.claimBusinessEventInbox(100);
   assert.deepEqual(
-    (await a.claimBusinessEventInbox(100)).map((event) => event.inboxId),
+    claimed.map((event) => event.inboxId),
     [firstEvent.inboxId],
   );
   await assert.rejects(a.admitBusinessEvent(secondEvent), /BUSINESS_EVENT_SUBSCRIPTION_NOT_FOUND/u);
   await assert.rejects(
     a.markBusinessEventProcessed(secondEvent.inboxId, now),
-    /Business Event was not in a processable state/u,
+    /BUSINESS_EVENT_SCOPE_DENIED/u,
   );
-  await a.markBusinessEventProcessed(firstEvent.inboxId, now);
+  await a.markBusinessEventProcessed(firstEvent.inboxId, now, claimed[0]?.processingToken);
   assert.equal(
     (await all.findBusinessEventSubscription(first.subscriptionId))?.lastProcessedSequence,
     '1',

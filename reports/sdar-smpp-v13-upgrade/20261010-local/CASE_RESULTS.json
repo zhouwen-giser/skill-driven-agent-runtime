@@ -1,0 +1,2576 @@
+{
+  "schemaVersion": "sdar-upgrade-validation/1",
+  "scope": "local_upgrade_only",
+  "sourceSha": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeSourceHash": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+  "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+  "environmentKind": "owned_loopback_PostgreSQL_Redis_MockMCP_MockModel_real_Server_and_A2A",
+  "commands": [
+    {
+      "name": "format",
+      "command": "pnpm format:check",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/format.log",
+      "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641",
+      "metrics": {}
+    },
+    {
+      "name": "verification-runner-contract",
+      "command": "pnpm test:verification",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/verification-runner-contract.log",
+      "outputSha256": "711d19fbb0f6a31336410499dcaf07df9348e5b7cf773eaead7f04e7f2a9ecf9",
+      "metrics": {}
+    },
+    {
+      "name": "lint",
+      "command": "pnpm lint",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/lint.log",
+      "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1",
+      "metrics": {}
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm typecheck",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/typecheck.log",
+      "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "metrics": {}
+    },
+    {
+      "name": "unit",
+      "command": "pnpm test:unit",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+      "outputSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f",
+      "metrics": {
+        "testFiles": 302,
+        "tests": 2629
+      }
+    },
+    {
+      "name": "contract",
+      "command": "pnpm test:contract",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+      "outputSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102",
+      "metrics": {
+        "testFiles": 63,
+        "tests": 552
+      }
+    },
+    {
+      "name": "evidence-contract",
+      "command": "pnpm verify:evidence-contract",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/evidence-contract.log",
+      "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4",
+      "metrics": {}
+    },
+    {
+      "name": "evidence-coverage",
+      "command": "pnpm verify:evidence-coverage",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/evidence-coverage.log",
+      "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634",
+      "metrics": {}
+    },
+    {
+      "name": "architecture",
+      "command": "pnpm verify:architecture",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/architecture.log",
+      "outputSha256": "0e105218960bb474f72e338fb3484f40ccf6dfdcd8eb6b95d9ad7b96c52da881",
+      "metrics": {}
+    },
+    {
+      "name": "a2a-baseline",
+      "command": "pnpm verify:a2a-baseline",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/a2a-baseline.log",
+      "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f",
+      "metrics": {}
+    },
+    {
+      "name": "management-openapi",
+      "command": "pnpm verify:management-openapi",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/management-openapi.log",
+      "outputSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a",
+      "metrics": {
+        "openapiOperations": 186
+      }
+    },
+    {
+      "name": "node-control-contract",
+      "command": "pnpm verify:node-control-contract",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/node-control-contract.log",
+      "outputSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab",
+      "metrics": {}
+    },
+    {
+      "name": "node-control-implementation-conformance",
+      "command": "pnpm verify:node-control-implementation-conformance",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/node-control-implementation-conformance.log",
+      "outputSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b",
+      "metrics": {}
+    },
+    {
+      "name": "smpp-registry-projection",
+      "command": "pnpm verify:smpp-registry-projection",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/smpp-registry-projection.log",
+      "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab",
+      "metrics": {}
+    },
+    {
+      "name": "acceptance",
+      "command": "pnpm verify:acceptance",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/acceptance.log",
+      "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788",
+      "metrics": {}
+    },
+    {
+      "name": "sources",
+      "command": "pnpm verify:sources",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/sources.log",
+      "outputSha256": "afc76a78fae858c36a152e810dd22eb4343e71c01783d7d75d091bfe4fed646c",
+      "metrics": {}
+    },
+    {
+      "name": "protocol",
+      "command": "pnpm verify:protocol",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/protocol.log",
+      "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27",
+      "metrics": {}
+    },
+    {
+      "name": "infra",
+      "command": "pnpm verify:infra",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/infra.log",
+      "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d",
+      "metrics": {}
+    },
+    {
+      "name": "project-license",
+      "command": "pnpm verify:project-license",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/project-license.log",
+      "outputSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861",
+      "metrics": {}
+    },
+    {
+      "name": "licenses",
+      "command": "pnpm verify:licenses",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/licenses.log",
+      "outputSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c",
+      "metrics": {}
+    },
+    {
+      "name": "build",
+      "command": "pnpm build",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/build.log",
+      "outputSha256": "fb4695b2cee82114bdc949ca5ef53ba11ec54fa5d26313a771b8407bc3ed9904",
+      "metrics": {}
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "command": "pnpm verify:cognitive-replay",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/cognitive-replay-no-physical-provider.log",
+      "outputSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2",
+      "metrics": {}
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "command": "pnpm verify:migrations",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/clean-baseline-reset-seed.log",
+      "outputSha256": "fcb435b13c97fb52719ae2985b31107a802b6eb884c5a74d2016f2cb0ddba041",
+      "metrics": {
+        "migrationCount": 77
+      }
+    },
+    {
+      "name": "postgres-redis-integration",
+      "command": "pnpm test:integration",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+      "outputSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea",
+      "metrics": {
+        "testFiles": 44,
+        "tests": 270
+      }
+    },
+    {
+      "name": "postgres-redis-model-mcp-e2e",
+      "command": "pnpm test:e2e",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+      "outputSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a",
+      "metrics": {
+        "testFiles": 8,
+        "tests": 77
+      }
+    },
+    {
+      "name": "official-a2a-tck",
+      "command": "pnpm test:a2a-tck",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/official-a2a-tck.log",
+      "outputSha256": "ce6fee3ae8dab2a01a377c3f45c33de78203287f8ebdb30f259a26cb8c7e8178",
+      "metrics": {}
+    },
+    {
+      "name": "canonical-evidence-demo",
+      "command": "pnpm demo:evidence-e2e",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/canonical-evidence-demo.log",
+      "outputSha256": "ac36f1a2e6a439b8cbb4dcb53befa4bfa1dbebd2463dfda4838a5a8cf678f74b",
+      "metrics": {}
+    },
+    {
+      "name": "infrastructure-smoke",
+      "command": "pnpm smoke:infra",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/infrastructure-smoke.log",
+      "outputSha256": "361ab45d3dea10252a6efd4161d7fb24f64f4e423760b66fa71e15ab94129f65",
+      "metrics": {}
+    },
+    {
+      "name": "server-console-smoke",
+      "command": "pnpm smoke:server",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/server-console-smoke.log",
+      "outputSha256": "6f686f733049ccadff0572ba8797c1cfdbf901277744256dd944452d19dbbf8f",
+      "metrics": {}
+    },
+    {
+      "name": "node-control-api-worker-smoke",
+      "command": "pnpm smoke:node-control",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/node-control-api-worker-smoke.log",
+      "outputSha256": "97ca6dfa0a164bd04c91b42c9e39c7266a38415c91384d87d16a70e13c76c0e5",
+      "metrics": {}
+    }
+  ],
+  "caseResults": [
+    {
+      "caseId": "AC-001",
+      "workPackage": "W0",
+      "title": "冻结基线与后继分支识别",
+      "requestedLayer": "offline",
+      "implementationPaths": [
+        "contracts/smpp-task-business/v1.3/SOURCE.lock.json",
+        "packages/domain/src/business-contract-diff.ts",
+        "packages/mcp-adapter/src/smpp-public-contract.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "offline_audit",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+          "testName": "AC-001/002 retains the exact upstream blobs at the compatibility commit",
+          "sourceSha256": "66e7c528f5e8b0e0adcef4ad50de05e301a2f88dd5b8cd33284ae11dbd075264",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "BASELINE_AUDIT.md",
+        "CONTRACT_DIFF.json",
+        "TIME_FIELD_MAP.md"
+      ]
+    },
+    {
+      "caseId": "AC-002",
+      "workPackage": "W0",
+      "title": "Schema 精确漂移报告",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "contracts/smpp-task-business/v1.3/SOURCE.lock.json",
+        "packages/domain/src/business-contract-diff.ts",
+        "packages/mcp-adapter/src/smpp-public-contract.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/business-contract-diff.unit.test.ts",
+          "testName": "AC-002 reports exact required/type/enum/extension changes without rewriting inputs",
+          "sourceSha256": "c9c3241df55f64bc6d23bada0364325fb796973c8f8ab4f758555241f0641adf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+          "testName": "AC-002 validates all upstream positive objects without opening their schemas",
+          "sourceSha256": "66e7c528f5e8b0e0adcef4ad50de05e301a2f88dd5b8cd33284ae11dbd075264",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "packages/application/test/mcp-registry.unit.test.ts",
+          "testName": "rejects Runtime frozen Catalog drift before Provider transport or persistence",
+          "sourceSha256": "453e5391573e1677ed9c7e4343896359c46c073aa17245457c810dc588028013",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "BASELINE_AUDIT.md",
+        "CONTRACT_DIFF.json",
+        "TIME_FIELD_MAP.md"
+      ]
+    },
+    {
+      "caseId": "AC-003",
+      "workPackage": "W0",
+      "title": "公开身份和执行模式",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "contracts/smpp-task-business/v1.3/SOURCE.lock.json",
+        "packages/domain/src/business-contract-diff.ts",
+        "packages/mcp-adapter/src/smpp-public-contract.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+          "testName": "AC-003/023 rejects invented identity and mutation wire fields",
+          "sourceSha256": "66e7c528f5e8b0e0adcef4ad50de05e301a2f88dd5b8cd33284ae11dbd075264",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "BASELINE_AUDIT.md",
+        "CONTRACT_DIFF.json",
+        "TIME_FIELD_MAP.md"
+      ]
+    },
+    {
+      "caseId": "AC-004",
+      "workPackage": "W0",
+      "title": "历史任务不被 successor 改写",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "contracts/smpp-task-business/v1.3/SOURCE.lock.json",
+        "packages/domain/src/business-contract-diff.ts",
+        "packages/mcp-adapter/src/smpp-public-contract.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-004 keeps historical remote authority frozen when the registered catalog advances",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "BASELINE_AUDIT.md",
+        "CONTRACT_DIFF.json",
+        "TIME_FIELD_MAP.md"
+      ]
+    },
+    {
+      "caseId": "AC-005",
+      "workPackage": "W0",
+      "title": "基线时钟字段识别",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "contracts/smpp-task-business/v1.3/SOURCE.lock.json",
+        "packages/domain/src/business-contract-diff.ts",
+        "packages/mcp-adapter/src/smpp-public-contract.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+          "testName": "AC-005 preserves published time fields and detects missing per-sample provenance",
+          "sourceSha256": "66e7c528f5e8b0e0adcef4ad50de05e301a2f88dd5b8cd33284ae11dbd075264",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "packages/domain/test/task-business.unit.test.ts",
+          "testName": "AC-005/034 never fills source clocks with snapshot or local receipt time",
+          "sourceSha256": "9dfc581b5ed4b0171be4a3d386da1f4f65406ab9bc61a7df7f2603466186105f",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "BASELINE_AUDIT.md",
+        "CONTRACT_DIFF.json",
+        "TIME_FIELD_MAP.md"
+      ]
+    },
+    {
+      "caseId": "AC-006",
+      "workPackage": "W1",
+      "title": "首次业务执行关联",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "packages/domain/src/task-business.ts",
+        "packages/application/src/task-business-sync.ts",
+        "packages/persistence-postgres/src/task-business-repository.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-006/007/010 binds the first exact Execution once and recovers the same native Task without dispatch",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-007",
+      "workPackage": "W1",
+      "title": "跨 Task/Execution/资源隔离",
+      "requestedLayer": "contract+postgres",
+      "implementationPaths": [
+        "packages/domain/src/task-business.ts",
+        "packages/application/src/task-business-sync.ts",
+        "packages/persistence-postgres/src/task-business-repository.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/application/test/task-business-sync.unit.test.ts",
+          "testName": "AC-007 refuses foreign Artifact execution before requesting its content",
+          "sourceSha256": "e16c9d2877298012e2131a69f2a240bc8ab7c276523b53a19a274517363732cf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "rejects foreign Context identity even if the transport succeeded",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-006/007/010 binds the first exact Execution once and recovers the same native Task without dispatch",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-008",
+      "workPackage": "W1",
+      "title": "引用与内容完整性分离",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business.ts",
+        "packages/application/src/task-business-sync.ts",
+        "packages/persistence-postgres/src/task-business-repository.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business.unit.test.ts",
+          "testName": "AC-008 distinguishes references, required content resolution, and stream history",
+          "sourceSha256": "9dfc581b5ed4b0171be4a3d386da1f4f65406ab9bc61a7df7f2603466186105f",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "requires exact Artifact identity and revision; no content is assumed complete",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-009",
+      "workPackage": "W1",
+      "title": "无能力 Provider 的兼容退化",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business.ts",
+        "packages/application/src/task-business-sync.ts",
+        "packages/persistence-postgres/src/task-business-repository.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/application/test/task-business-sync.unit.test.ts",
+          "testName": "AC-009 leaves unsupported Providers on their original Task lifecycle",
+          "sourceSha256": "e16c9d2877298012e2131a69f2a240bc8ab7c276523b53a19a274517363732cf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "fails closed for a Provider lacking the declared TaskBusiness profile",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-010",
+      "workPackage": "W1",
+      "title": "投影重启不派发",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "packages/domain/src/task-business.ts",
+        "packages/application/src/task-business-sync.ts",
+        "packages/persistence-postgres/src/task-business-repository.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/application/test/task-business-sync.unit.test.ts",
+          "testName": "AC-010 reads and recovers the same binding without any start or Tool dispatch port",
+          "sourceSha256": "e16c9d2877298012e2131a69f2a240bc8ab7c276523b53a19a274517363732cf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-006/007/010 binds the first exact Execution once and recovers the same native Task without dispatch",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-011",
+      "workPackage": "W2",
+      "title": "分页快照一致性",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "assembles context pagination at one revision and fails closed on changed watermark",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "restores a verified JSON snapshot part and rejects tampered SHA-256",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-012",
+      "workPackage": "W2",
+      "title": "同 Context revision 多事件",
+      "requestedLayer": "contract+postgres",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "AC-012 preserves distinct SSE events sharing a Context revision",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "packages/application/test/task-business-sync.unit.test.ts",
+          "testName": "AC-012 keeps distinct inbox checkpoints at the same Context revision",
+          "sourceSha256": "e16c9d2877298012e2131a69f2a240bc8ab7c276523b53a19a274517363732cf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-013/014 atomically projects events without crossing a processing hole or a different Task watermark",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-013",
+      "workPackage": "W2",
+      "title": "双水位事务恢复",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-013/014 atomically projects events without crossing a processing hole or a different Task watermark",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-013/040 reclaims a crashed read lease and rejects the stale worker token",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-014",
+      "workPackage": "W2",
+      "title": "跨任务共享事件流",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-014 routes one shared stream by exact Task identity and formal relatedTasks without changing unrelated tasks",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/sdar-smpp-v13-upgrade/20261010-local/shared-event-proofs/AC-014.json"
+      ]
+    },
+    {
+      "caseId": "AC-015",
+      "workPackage": "W2",
+      "title": "流 reset 与历史缺口",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-015 persists real SSE continuity, resynchronizes current state and rejects an old generation snapshot",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/application/test/task-business-sync.unit.test.ts",
+          "testName": "AC-015 retains a discontinuity when a current snapshot moves to a new stream",
+          "sourceSha256": "e16c9d2877298012e2131a69f2a240bc8ab7c276523b53a19a274517363732cf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/sdar-smpp-v13-upgrade/20261010-local/shared-event-proofs/AC-015.json"
+      ]
+    },
+    {
+      "caseId": "AC-016",
+      "workPackage": "W2",
+      "title": "事件背压与轮询兜底",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-016 coalesces 512 changes with real persistence, survives an SSE failure and continues bounded polling without dispatch",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/application/test/task-business-sync.unit.test.ts",
+          "testName": "AC-016 polling fallback records failure without starving another admitted binding",
+          "sourceSha256": "e16c9d2877298012e2131a69f2a240bc8ab7c276523b53a19a274517363732cf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/application/test/task-business-sync.unit.test.ts",
+          "testName": "AC-016 bounds concurrent reads, cancels shutdown work, and leaves no new sends",
+          "sourceSha256": "e16c9d2877298012e2131a69f2a240bc8ab7c276523b53a19a274517363732cf",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/application/test/task-business-agent-facts.unit.test.ts",
+          "testName": "AC-016/017 retains exact content references while explicitly bounding aggregate model facts",
+          "sourceSha256": "6499115cd0e99199edf8dd84f83284c7c8c08990d4253332eecd53be4c1d060a",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/sdar-smpp-v13-upgrade/20261010-local/shared-event-proofs/AC-016.json"
+      ]
+    },
+    {
+      "caseId": "AC-017",
+      "workPackage": "W2",
+      "title": "Skill 实际消费投影",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/application/test/task-business-agent-facts.unit.test.ts",
+          "testName": "AC-016/017 retains exact content references while explicitly bounding aggregate model facts",
+          "sourceSha256": "6499115cd0e99199edf8dd84f83284c7c8c08990d4253332eecd53be4c1d060a",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-018",
+      "workPackage": "W2",
+      "title": "业务状态不能绕过授权",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/application/src/business-events.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "rejects absent policy and an untrusted actor before any wire, retaining the original Task/Workflow",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/application/test/task-business-outcome.unit.test.ts",
+          "testName": "uses published effects with actual retained references only after native capability and business proof",
+          "sourceSha256": "065d57f78fb6fbc43e1e6e9302e56e9dab23cedcb5cc25ddf1ccb2592be9e91b",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-019",
+      "workPackage": "W3",
+      "title": "缺少真实 mutationAuthority",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "rejects absent policy and an untrusted actor before any wire, retaining the original Task/Workflow",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/application/test/task-business-commands.unit.test.ts",
+          "testName": "requires the published Capability, active exact Skill implementation and current resource override",
+          "sourceSha256": "fa3a430d41b153f640d6ba12c52d2478ede128eb19f85c84efe06f5d3d7398da",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-020",
+      "workPackage": "W3",
+      "title": "合法 RequiredInput 正式闭环",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "confirms original RequiredInput through native answer continuation and treats prompt cancel independently from Task cancel",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/application/test/remote-task-input.unit.test.ts",
+          "testName": "passes trusted input confirmation before saving an answer and routes a governed uncertain send without legacy fallback",
+          "sourceSha256": "86e0bf1ac192168b8582763f633895f78fe0e17f2237c00332e0e0e51bf7caf2",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-021",
+      "workPackage": "W3",
+      "title": "Input 过期与请求替换",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "rejects expired, superseded and different-content RequiredInput with zero extra sends",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "rejects unexpected Input content and expired requests without dispatch",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-022",
+      "workPackage": "W3",
+      "title": "Input cancel 不取消任务",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "confirms original RequiredInput through native answer continuation and treats prompt cancel independently from Task cancel",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-023",
+      "workPackage": "W3",
+      "title": "wire 字段白名单",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+          "testName": "AC-003/023 rejects invented identity and mutation wire fields",
+          "sourceSha256": "66e7c528f5e8b0e0adcef4ad50de05e301a2f88dd5b8cd33284ae11dbd075264",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "refuses ungoverned Input writes, then accepts an exact current target decision",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-024",
+      "workPackage": "W3",
+      "title": "Input 响应丢失恢复",
+      "requestedLayer": "postgres+integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "retains RequiredInput lost-ack uncertainty even when its original request is fulfilled",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/application/test/task-business-commands.unit.test.ts",
+          "testName": "keeps a lost Input acknowledgment uncertain when the public response lacks a client command correlation",
+          "sourceSha256": "fa3a430d41b153f640d6ba12c52d2478ede128eb19f85c84efe06f5d3d7398da",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-025",
+      "workPackage": "W3",
+      "title": "运行中导航调整无需 input_required",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "preflights exact navigation Intervention and treats receipt as acceptance only",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-026",
+      "workPackage": "W3",
+      "title": "Intervention ack 与 applied 分离",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/application/test/task-business-commands.unit.test.ts",
+          "testName": "keeps acknowledgment accepted until its own command is applied with the exact adopted route",
+          "sourceSha256": "fa3a430d41b153f640d6ba12c52d2478ede128eb19f85c84efe06f5d3d7398da",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "separates acceptance from exact own-command adoption and leaves Workflow definition immutable",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-027",
+      "workPackage": "W3",
+      "title": "计划版本冲突",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+          "testName": "preflights exact navigation Intervention and treats receipt as acceptance only",
+          "sourceSha256": "10bd2ca6a34f610445853ea6d4f1456d93b6b880af2a9df964f267eebc9f9b28",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "separates acceptance from exact own-command adoption and leaves Workflow definition immutable",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-028",
+      "workPackage": "W3",
+      "title": "命令去重与内容冲突",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "uses one durable sender across repositories, rejects same-ID different-content and never takes over an expired send",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-029",
+      "workPackage": "W3",
+      "title": "取消抢占发送竞争",
+      "requestedLayer": "postgres+integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "lets a native cancellation win before the final claim and records already claimed work as in flight",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-030",
+      "workPackage": "W3",
+      "title": "发送后崩溃与有限核对",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/mcp-adapter/src/smpp-task-business-client.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "performs finite read-only reconciliation after a lost ack and fences rollback while uncertain",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "AC-039/040 two real processes contend for one consumed confirmation; SIGKILL after the send seam expires its lease and recovery never resends",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-031",
+      "workPackage": "W4",
+      "title": "协议 completed 但业务失败",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business-evidence.unit.test.ts",
+          "testName": "AC-031/037 keeps completed, business failure/partial/unknown and original Provider reason independent",
+          "sourceSha256": "58d64636aa719a6ad93b8962669d6ceecfb429f09dd48b1493ca710146acca17",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "packages/application/test/remote-task-continuation.unit.test.ts",
+          "testName": "retains a deterministic denial when post-failure enhancement throws and propagates that error",
+          "sourceSha256": "c1c6350d8280528a0ee8342109fb4f278764836d7d2af5131cd8530da2678b0e",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-032",
+      "workPackage": "W4",
+      "title": "路线轨迹四类数据分离",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business-evidence.unit.test.ts",
+          "testName": "AC-032/036 uses frozen geometry types, exact adopted route and preserves unavailable sample time and derived coverage",
+          "sourceSha256": "58d64636aa719a6ad93b8962669d6ceecfb429f09dd48b1493ca710146acca17",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-032 retains invalidated late facts as history with no new input or intervention",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-033",
+      "workPackage": "W4",
+      "title": "完整轨迹大对象",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business-evidence.unit.test.ts",
+          "testName": "AC-033 keeps a large original trajectory byte-for-byte through bounded chunks and canonical ArtifactRef and rejects missing/modified chunks",
+          "sourceSha256": "58d64636aa719a6ad93b8962669d6ceecfb429f09dd48b1493ca710146acca17",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "AC-033/038 persists and resolves complete large trajectory bytes through original Task and canonical artifacts, with corruption detected",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-034",
+      "workPackage": "W4",
+      "title": "Provider 接收时间语义",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business.unit.test.ts",
+          "testName": "AC-005/034 never fills source clocks with snapshot or local receipt time",
+          "sourceSha256": "9dfc581b5ed4b0171be4a3d386da1f4f65406ab9bc61a7df7f2603466186105f",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-035",
+      "workPackage": "W4",
+      "title": "缺时间、逆序和重复样本",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business.unit.test.ts",
+          "testName": "AC-035 preserves late source time and exposes reversal and future clocks",
+          "sourceSha256": "9dfc581b5ed4b0171be4a3d386da1f4f65406ab9bc61a7df7f2603466186105f",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/domain/test/task-business-evidence.unit.test.ts",
+          "testName": "AC-035 retains duplicate and reversed coordinates in Provider order without manufacturing sample clocks",
+          "sourceSha256": "58d64636aa719a6ad93b8962669d6ceecfb429f09dd48b1493ca710146acca17",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-036",
+      "workPackage": "W4",
+      "title": "估算视场与真实覆盖",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business-evidence.unit.test.ts",
+          "testName": "AC-036 retains an expired estimated footprint as history and exposes a conflicting CRS without converting coordinates",
+          "sourceSha256": "58d64636aa719a6ad93b8962669d6ceecfb429f09dd48b1493ca710146acca17",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-037",
+      "workPackage": "W4",
+      "title": "未知枚举与证据缺失",
+      "requestedLayer": "contract",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "local_contract_fixture",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/domain/test/task-business-evidence.unit.test.ts",
+          "testName": "AC-031/037 keeps completed, business failure/partial/unknown and original Provider reason independent",
+          "sourceSha256": "58d64636aa719a6ad93b8962669d6ceecfb429f09dd48b1493ca710146acca17",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "packages/application/test/task-business-outcome.unit.test.ts",
+          "testName": "uses published effects with actual retained references only after native capability and business proof",
+          "sourceSha256": "065d57f78fb6fbc43e1e6e9302e56e9dab23cedcb5cc25ddf1ccb2592be9e91b",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-038",
+      "workPackage": "W4",
+      "title": "确认链完整导出",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/application/src/task-business-outcome.ts",
+        "packages/application/src/task-projection.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/runtime-control-persistence-postgres/src/source-artifact-ref-resolver.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "AC-038 exports the real original confirmation and consumed dispatch claim without raw human identity",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "packages/management-api/test/http-endpoint.contract.test.ts",
+          "testName": "exposes original Task business reads and review/confirmation/reconciliation without accepting client authority",
+          "sourceSha256": "b3856f5a358cbc7e7aecb2845f224405fa23bf74081f549b1655a6778a55ca9f",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-039",
+      "workPackage": "W5",
+      "title": "活动任务跨版本升级",
+      "requestedLayer": "postgres+integration",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-039 preserves active legacy authority across 0184 and reads old/new observations with the actual PR34 repository",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "AC-039/041 recovery retires expired prepared intents and retains late terminal business facts without reviving Task or dispatching",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "keeps the frozen baseline and old workflow inputs readable while refusing destructive rollback of retained remote inputs",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/sdar-smpp-v13-upgrade/20261010-local/legacy-0184-compatibility/evidence.json",
+        "MIGRATION_AND_ROLLBACK.md"
+      ]
+    },
+    {
+      "caseId": "AC-040",
+      "workPackage": "W5",
+      "title": "两进程租约与恢复",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "AC-039/040 two real processes contend for one consumed confirmation; SIGKILL after the send seam expires its lease and recovery never resends",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-013/040 reclaims a crashed read lease and rejects the stale worker token",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-041",
+      "workPackage": "W5",
+      "title": "finalized 后迟到事件",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "testName": "AC-041 retains late terminal facts without reactivating Task or exposing new controls",
+          "sourceSha256": "47eea8d12c8f2df0c94967f9a67af9950e7ef611a357e2a7f67485cca2bdfb3b",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "AC-039/041 recovery retires expired prepared intents and retains late terminal business facts without reviving Task or dispatching",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-042",
+      "workPackage": "W5",
+      "title": "受控完整导航路径",
+      "requestedLayer": "isolated-e2e",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-043",
+      "workPackage": "W5",
+      "title": "受控观察答复路径",
+      "requestedLayer": "isolated-e2e",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-044",
+      "workPackage": "W5",
+      "title": "回滚遇到不确定命令",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "keeps the frozen baseline and old workflow inputs readable while refusing destructive rollback of retained remote inputs",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+          "testName": "performs finite read-only reconciliation after a lost ack and fences rollback while uncertain",
+          "sourceSha256": "2ba8637bc78a0ac7d3b358f74089dd40738d2f5a540b6c6fcab038d0d28e82a3",
+          "gateStage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-integration.log",
+          "logSha256": "981b3a123e40b9d9b1f68178dd858d2cf6ce0740d0818d09cf61b1918b91c5ea"
+        },
+        {
+          "file": "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "testName": "selects additive control-authority migrations after MCP Task consumer sync",
+          "sourceSha256": "8d48e6eb8be91e02bca183de8c9fa8726dd31e2586da9b7b02c580a93f5e6db6",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "testName": "does not select migrations already recorded in the complete ledger",
+          "sourceSha256": "8d48e6eb8be91e02bca183de8c9fa8726dd31e2586da9b7b02c580a93f5e6db6",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "testName": "rejects an unknown migration version in the ledger",
+          "sourceSha256": "8d48e6eb8be91e02bca183de8c9fa8726dd31e2586da9b7b02c580a93f5e6db6",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "MIGRATION_AND_ROLLBACK.md"
+      ]
+    },
+    {
+      "caseId": "AC-045",
+      "workPackage": "W5",
+      "title": "授权现场只读验证",
+      "requestedLayer": "site_read",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "NOT_RUN",
+      "verificationKind": "unverified_site",
+      "reason": "User explicitly limited work to local code and isolated verification; no site target/scope authorization.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [],
+      "evidencePaths": [
+        "SITE_AUTHORIZATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-046",
+      "workPackage": "W5",
+      "title": "授权现场业务验证",
+      "requestedLayer": "site_write",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "NOT_RUN",
+      "verificationKind": "unverified_site",
+      "reason": "User explicitly limited work to local code and isolated verification; no site target/scope authorization.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [],
+      "evidencePaths": [
+        "SITE_AUTHORIZATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-047",
+      "workPackage": "W5",
+      "title": "无现场授权也可开发收口",
+      "requestedLayer": "offline",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "offline_audit",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "FINAL_CLOSEOUT.md",
+        "ACCEPTANCE_AUDIT.json",
+        "SITE_AUTHORIZATION.json"
+      ]
+    },
+    {
+      "caseId": "AC-048",
+      "workPackage": "W5",
+      "title": "安全配置与副作用审计",
+      "requestedLayer": "integration",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/ugv-live-side-effect-gate.unit.test.ts",
+          "testName": "defaults open in development and honors an explicit disable",
+          "sourceSha256": "51ff586285d4d58053deb63c68b62497758a3b92ab867388c0048121e0d5915c",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        },
+        {
+          "file": "apps/server/test/ugv-live-side-effect-gate.unit.test.ts",
+          "testName": "rejects malformed task or selected-operation authority",
+          "sourceSha256": "51ff586285d4d58053deb63c68b62497758a3b92ab867388c0048121e0d5915c",
+          "gateStage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/unit.log",
+          "logSha256": "53550b1951b374918164e59c9eb677eafba4db10ee4055884df5113bc679d70f"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json"
+      ]
+    },
+    {
+      "caseId": "AC-049",
+      "workPackage": "W5",
+      "title": "正式门禁与历史失败保留",
+      "requestedLayer": "local_gate",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "offline_audit",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "FAILED_ATTEMPTS.json",
+        "SAME_SOURCE_ALIGNMENT.json",
+        "REPORT_GENERATION_ATTEMPTS.json"
+      ]
+    },
+    {
+      "caseId": "AC-050",
+      "workPackage": "W5",
+      "title": "GOWM 正式存储边界",
+      "requestedLayer": "postgres",
+      "implementationPaths": [
+        "apps/server/src/runtime.ts",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.up.sql",
+        "infra/postgres/migrations/0184_v14_task_business_input_source.down.sql",
+        "packages/application/src/remote-task-continuation.ts"
+      ],
+      "status": "PASS",
+      "verificationKind": "real_storage_processes_and_simulated_services",
+      "reason": "Current frozen full gate and exact source tests passed; scope is local.",
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+      "tests": [
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/smpp-task-business.e2e.test.ts",
+          "testName": "AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch",
+          "sourceSha256": "38e86106e523448609e669ae6ac7f71a3b82659cff2514dcc601fe03eb27890b",
+          "gateStage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "logSha256": "bd28f0b072e135f1464a4896709e1c4b34d2908f8cb80b4670cf1c3040fb202a"
+        },
+        {
+          "file": "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "testName": "selects additive control-authority migrations after MCP Task consumer sync",
+          "sourceSha256": "8d48e6eb8be91e02bca183de8c9fa8726dd31e2586da9b7b02c580a93f5e6db6",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "testName": "does not select migrations already recorded in the complete ledger",
+          "sourceSha256": "8d48e6eb8be91e02bca183de8c9fa8726dd31e2586da9b7b02c580a93f5e6db6",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        },
+        {
+          "file": "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "testName": "rejects an unknown migration version in the ledger",
+          "sourceSha256": "8d48e6eb8be91e02bca183de8c9fa8726dd31e2586da9b7b02c580a93f5e6db6",
+          "gateStage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "log": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/contract.log",
+          "logSha256": "1db379634a3a3d70c9a3cf40469c83153ad37be9358b8bacca462f3d4458f102"
+        }
+      ],
+      "evidencePaths": [
+        "M4_VALIDATION.json",
+        "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+        "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-a8ea1ec0-51a3-4d81-8713-f804b79513e4/result.json",
+        "SAME_SOURCE_ALIGNMENT.json"
+      ]
+    }
+  ],
+  "counts": {
+    "PASS": 48,
+    "NOT_RUN": 2
+  },
+  "levels": {
+    "contract": "PASS",
+    "governedRead": "PASS_ISOLATED",
+    "governedWrite": "PASS_ISOLATED",
+    "isolatedE2e": "PASS",
+    "isolatedOwnerGowm": "PASS",
+    "selectedSiteGowm": "NOT_RUN",
+    "siteRead": "NOT_RUN",
+    "siteBusiness": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  },
+  "realDeviceMutationCount": 0,
+  "prohibitedActionCount": 0,
+  "cleanupStatus": "PASS",
+  "failureLedger": "FAILED_ATTEMPTS.json",
+  "limitations": [
+    "Provider and Model are local protocol fixtures, not live devices or a real LLM.",
+    "Per-sample trajectory clocks and complete upstream history are not published by the compatibility profile and remain explicit gaps.",
+    "Existing whole-project GOWM upstream gaps and project release Definition of Done are not closed by this local upgrade."
+  ]
+}

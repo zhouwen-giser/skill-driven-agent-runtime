@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 1,
+  "milestone": "M1",
+  "status": "PASS",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "101c40afb75143ee390965e031e224b3f49ab8ed1333ab5daa568de1274d3eeb",
+  "baselineSha256": "81e4d15a7401b2c62098abec2b5bd4cce91e81199e59e871643bcdbe0e668923",
+  "environment": {
+    "node": "v22.23.2",
+    "platform": "linux",
+    "architecture": "x64",
+    "infrastructureMode": "self-managed-compose"
+  },
+  "dependencyMode": "reuse",
+  "sourceUnchanged": true,
+  "baselineUnchanged": true,
+  "cleanupExitCode": 0,
+  "command": [
+    "pnpm",
+    "verify:isolated"
+  ],
+  "pythonEnvironment": "bundled Python 3.12.14 with ensurepip 25.0.1; PATH selected",
+  "gateStageCount": 30,
+  "gateStages": [
+    {
+      "name": "format",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 37781,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/format.log"
+    },
+    {
+      "name": "verification-runner-contract",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 10125,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/verification-runner-contract.log"
+    },
+    {
+      "name": "lint",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 131282,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/lint.log"
+    },
+    {
+      "name": "typecheck",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 46267,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/typecheck.log"
+    },
+    {
+      "name": "unit",
+      "status": "passed",
+      "metrics": {
+        "testFiles": 294,
+        "tests": 2564
+      },
+      "durationMs": 124184,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/unit.log"
+    },
+    {
+      "name": "contract",
+      "status": "passed",
+      "metrics": {
+        "testFiles": 63,
+        "tests": 548
+      },
+      "durationMs": 41847,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/contract.log"
+    },
+    {
+      "name": "evidence-contract",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 10436,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/evidence-contract.log"
+    },
+    {
+      "name": "evidence-coverage",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 8081,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/evidence-coverage.log"
+    },
+    {
+      "name": "architecture",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 8313,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/architecture.log"
+    },
+    {
+      "name": "a2a-baseline",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 7908,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/a2a-baseline.log"
+    },
+    {
+      "name": "management-openapi",
+      "status": "passed",
+      "metrics": {
+        "openapiOperations": 178
+      },
+      "durationMs": 4601,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/management-openapi.log"
+    },
+    {
+      "name": "node-control-contract",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 8124,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/node-control-contract.log"
+    },
+    {
+      "name": "node-control-implementation-conformance",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 11570,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/node-control-implementation-conformance.log"
+    },
+    {
+      "name": "smpp-registry-projection",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 9182,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/smpp-registry-projection.log"
+    },
+    {
+      "name": "acceptance",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 23600,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/acceptance.log"
+    },
+    {
+      "name": "sources",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 5307,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/sources.log"
+    },
+    {
+      "name": "protocol",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 7661,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/protocol.log"
+    },
+    {
+      "name": "infra",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 5761,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/infra.log"
+    },
+    {
+      "name": "project-license",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 7495,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/project-license.log"
+    },
+    {
+      "name": "licenses",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 5122,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/licenses.log"
+    },
+    {
+      "name": "build",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 44334,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/build.log"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 8990,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/cognitive-replay-no-physical-provider.log"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "status": "passed",
+      "metrics": {
+        "migrationCount": 76
+      },
+      "durationMs": 72580,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/clean-baseline-reset-seed.log"
+    },
+    {
+      "name": "postgres-redis-integration",
+      "status": "passed",
+      "metrics": {
+        "testFiles": 42,
+        "tests": 243
+      },
+      "durationMs": 337568,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/postgres-redis-integration.log"
+    },
+    {
+      "name": "postgres-redis-model-mcp-e2e",
+      "status": "passed",
+      "metrics": {
+        "testFiles": 7,
+        "tests": 75
+      },
+      "durationMs": 212029,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log"
+    },
+    {
+      "name": "official-a2a-tck",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 104706,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/official-a2a-tck.log"
+    },
+    {
+      "name": "canonical-evidence-demo",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 295337,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/canonical-evidence-demo.log"
+    },
+    {
+      "name": "infrastructure-smoke",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 22330,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/infrastructure-smoke.log"
+    },
+    {
+      "name": "server-console-smoke",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 63873,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/server-console-smoke.log"
+    },
+    {
+      "name": "node-control-api-worker-smoke",
+      "status": "passed",
+      "metrics": {},
+      "durationMs": 81606,
+      "exitCode": 0,
+      "log": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a/snapshot-reports/verification/raw/node-control-api-worker-smoke.log"
+    }
+  ],
+  "previousRuns": [
+    "sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568",
+    "sdar-verify-7b4a52af-0b16-40a9-a7a9-15a5047acb25",
+    "sdar-verify-8708b52b-a175-4f13-a938-bc58b28e8e5c",
+    "sdar-verify-9a029b39-f375-4c9e-b211-2e42c7ff04fb"
+  ],
+  "site": "NOT_RUN",
+  "pushMergeDeploy": "NOT_RUN",
+  "limitations": [
+    "This proves the M1 local increment only; M2-M4 remain incomplete.",
+    "Formal Source successor and historical binding behavior are separate existing/native regression tests, not site evidence."
+  ]
+}

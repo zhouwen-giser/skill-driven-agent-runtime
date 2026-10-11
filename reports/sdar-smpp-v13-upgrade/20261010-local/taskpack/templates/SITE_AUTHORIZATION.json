@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "sdar-upgrade-site-scope/1",
+  "isAuthorizationProof": false,
+  "note": "填写本模板不是授权；必须引用用户实际批准记录。未授权时禁止现场操作。",
+  "status": "NOT_GRANTED",
+  "userApprovalReference": null,
+  "target": {
+    "host": null,
+    "sdarImageDigest": null,
+    "smppImageDigest": null,
+    "providerId": null,
+    "resourceId": null
+  },
+  "allowedScope": [],
+  "existingTaskIds": [],
+  "mayCreateTask": false,
+  "operationBudget": 0,
+  "validFrom": null,
+  "validUntil": null,
+  "stopConditions": [],
+  "cleanupProcedureReference": null,
+  "mustRemainFireDisabled": true,
+  "directDeviceAccessAllowed": false,
+  "independentLockAllowed": false
+}

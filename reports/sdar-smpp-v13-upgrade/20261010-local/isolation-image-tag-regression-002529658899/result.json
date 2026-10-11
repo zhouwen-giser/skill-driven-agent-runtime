@@ -1,0 +1,17 @@
+{
+  "command": [
+    "node",
+    "scripts/sdar-smpp-v13/verify-local.mjs",
+    "apps/server/test/migration-image-identity.integration.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "6ecdb16ec04c2ff65e8f2670164591a879925ba4660b5a800b9f16d4c64fe114",
+  "startedAt": "2026-10-11T00:25:29.658899+08:00",
+  "finishedAt": "2026-10-11T00:25:52.151836+08:00",
+  "durationSeconds": 22.492937,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "47421c94ffb4b800e71e5c303778679e9361fe92b1ab251eebd6e7af5d5d96d9",
+  "environment": "local_source_or_loopback_fixture_only"
+}

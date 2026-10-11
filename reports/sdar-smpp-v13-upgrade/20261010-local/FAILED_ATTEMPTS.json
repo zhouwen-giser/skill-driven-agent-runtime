@@ -1,0 +1,1912 @@
+{
+  "schemaVersion": 1,
+  "count": 129,
+  "failedAttempts": [
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-complete-inputs-full-gate-001134434915/result.json",
+      "resultSha256": "1e4b2931767fb7c1c2097cc4c3353935d3079dd407388a85dfe930fe276fadbb",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "6d215da7de637b4688662bfc6c6c815fc6e0c1a9a48a7899d0428ddfb20c521b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-complete-inputs-full-gate-001134434915/command.log",
+      "logSha256": "0f9e7eb94fb279fdcde34dd44bec37832887219a26d17fdfa86096292ef006e0",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-full-gate-225859087669/result.json",
+      "resultSha256": "bf443daf5e73af035296eeb6df9d29569c1d2c23c5dbe978d51bcdc75f8a6dde",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "afae47376c62c20849f59677e95ad4c513c763519f438b0bace18b4dcd8b4dab",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-full-gate-225859087669/command.log",
+      "logSha256": "7ce1ca3a0c4b06274b55ae01fb286fb001e20f6e45614093c7e9e05e70f441b0",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-full-gate-repair-230701681079/result.json",
+      "resultSha256": "1ff0f07bc575ba55e2f650bd96494028d74fcc648eebd76fdacd70005f7b5532",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "40101f7f911d357e39fe4622e1760ded2624f91005fb09cd18858546e62188ca",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-full-gate-repair-230701681079/command.log",
+      "logSha256": "f260fc108dc6c2702bdc5d2edc5fe67a07bf13e1d10b214fa42ef78219b9848e",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-plan-publication-race-233745463969/result.json",
+      "resultSha256": "6c4778854da6c7816a82b3f96f9e37f526fead6dbc0ef7f124c793831ae542b7",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "packages/application/test/task-service.unit.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "a2b11c46f51d093fface6d8806a963f797b273aa5f01b3ff8967ff9097e95bf7",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-plan-publication-race-233745463969/command.log",
+      "logSha256": "5d84a75b171eae39d24c5121d08fd9c994e4791306dc1f18dacf44121b44c874",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-plan-race-full-gate-233834622429/result.json",
+      "resultSha256": "4adf8098265a8f56ffed19e03dd60d07014db882251af54d93eb6afbcc44d0b8",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "6d215da7de637b4688662bfc6c6c815fc6e0c1a9a48a7899d0428ddfb20c521b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-plan-race-full-gate-233834622429/command.log",
+      "logSha256": "5b316657b8e33b27f4c9d33c33952d3e99fe9d69da2e724afca1ddb44c57d773",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-plan-race-full-gate-234743150084/result.json",
+      "resultSha256": "9f51d2999996770bf9fa2223e45e50bd5d82a89cbe7402281ffada34f72871b6",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "6d215da7de637b4688662bfc6c6c815fc6e0c1a9a48a7899d0428ddfb20c521b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-plan-race-full-gate-234743150084/command.log",
+      "logSha256": "3be9d57536c84b1d784af19609f8f6aafa11dfb764ebe77da96d4c2e1333aafd",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-restored-report-inputs-full-gate-000234827799/result.json",
+      "resultSha256": "1074b36029d7b135f08de6479469053632822cdac8f573062bd349c173e61ced",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "6d215da7de637b4688662bfc6c6c815fc6e0c1a9a48a7899d0428ddfb20c521b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m2-restored-report-inputs-full-gate-000234827799/command.log",
+      "logSha256": "d67b2143ffe04bdc666e47ab05ef1c42971506c14482fa9e477578b9b217053f",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-format-repair-full-gate-005333857433/result.json",
+      "resultSha256": "a03b369c0e82958206613aa2bebca2e7a241db97f4bc6e415c004e23a1e6781d",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "474ec5b529e8793d1a04b55e049dd23638712e0c922944266df02add51eb26c8",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-format-repair-full-gate-005333857433/command.log",
+      "logSha256": "c8a574ea2d84218bc5a85e4c0d72ab6a8af5789a8b782d519c6cf7bbc5c6f9fe",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-lint-repair-full-gate-010117264130/result.json",
+      "resultSha256": "bb7e124f95b7c34b7857d1fb76a256696754d64acc3a70ce94d08fe8f79975fe",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "ca087d39cf67c1dadeb43606fd231c2685e956f40b85c552bfb31bba857b7ec6",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-lint-repair-full-gate-010117264130/command.log",
+      "logSha256": "58c3b598c0dc30e7c07a31ae7a47a08c6fa402c5c859f1c3735aa3f79ffd55a2",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-native-boundary-full-gate-014522463597/result.json",
+      "resultSha256": "ef4649abc839bae0d5b2d999624267e9c1b9c62f0212630b5b3349a4ff8249cf",
+      "command": [
+        "env",
+        "PATH=/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin:/home/sz/.nvm/versions/node/v22.23.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f820b67678b96477bfc0498ca9bd37f92faf34b55d8daa0c48b1d673100981cc",
+      "exitCode": 127,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-native-boundary-full-gate-014522463597/command.log",
+      "logSha256": "ae82477dd72f6d6080afeb7701e52c50cb9a20ea494b1b3318c64bf113daf54b",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-native-boundary-full-gate-014555713044/result.json",
+      "resultSha256": "2548df6596b28bf58d273ce7b79ffad4ff8094b919535f9cc7cee180d3ff3072",
+      "command": [
+        "env",
+        "PATH=/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin:/home/sz/.codex/tmp/arg0/codex-arg0Lb3zto:/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/sz/.nvm/versions/node/v22.23.2/bin:/home/sz/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f820b67678b96477bfc0498ca9bd37f92faf34b55d8daa0c48b1d673100981cc",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-native-boundary-full-gate-014555713044/command.log",
+      "logSha256": "fb5445d480ad0741b65acb731d8d598aec20e062bd1e7b8448f0c3bd7e3bffd7",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-native-input-nav-full-gate-002700219647/result.json",
+      "resultSha256": "0fa347ce6e16cb43a54a6c5e0162117fd3d56acd0642acf288172a377867ce20",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "2a067f999fd7d19acd30b7f32eb01d66350414e4dd74ffd64be547d079e2e806",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-native-input-nav-full-gate-002700219647/command.log",
+      "logSha256": "e933ae85247cff24bec9a3e4fa239ed2014e3694d32b3ce3e2428286867f0b65",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-publication-order-regressions-013826444751/result.json",
+      "resultSha256": "06bb2c718212fc69e35d951903202b48fb1d5c663f169718a90b750a0793f5f8",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "apps/server/test/ugv-agent-profile-execution.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "e252c02957196f1833e8a028c6f7e2cb78283e4b8ef98ceeec420c2559abff02",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-publication-order-regressions-013826444751/command.log",
+      "logSha256": "93dfc5886b3c82e62a632a7e938b05fe639bc1a5eb6a2fea384a0bcc0acc253d",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-published-policy-full-gate-015853809664/result.json",
+      "resultSha256": "c4fd010d97b4be0ac5a4f5c0344d2aeab6875fb599c6175d3358f0322dc9f294",
+      "command": [
+        "env",
+        "PATH=/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin:/home/sz/.codex/tmp/arg0/codex-arg0Lb3zto:/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/sz/.nvm/versions/node/v22.23.2/bin:/home/sz/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "7da196cfe5314718a63c9ed49252af817459b70381c31af9847fd2ef7364ac37",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m3-published-policy-full-gate-015853809664/command.log",
+      "logSha256": "f5e6b519c3f5f40af8509ee43c3115fef72f3cb2c6eeb311c0c6e6829eef754c",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-final-frozen-full-gate-034605595147/result.json",
+      "resultSha256": "9565c458fa16c4ac47b2cf053ca693f046d936fc88255d1fdfcddd4b61dd1167",
+      "command": [
+        "pnpm",
+        "verify:isolated",
+        "--frozen"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "c15e56d02152f3f4fcd8b8b57ac23cf92b2583d77a5920a565604cd278148a6a",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-final-frozen-full-gate-034605595147/command.log",
+      "logSha256": "cafac3d282db5ad35bca92701b759b362670b59010fe5c3133c8fc621b2897dd",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-lint-preflight-032711998123/result.json",
+      "resultSha256": "460a212f7bf257680c0373d28e84517ab7dd244aaeaabb56608ea4bfa2ea771f",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f559a23c12efb1706aee816629b9419707c8b9ef33555b30b1fd3e93c69ce4d0",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-lint-preflight-032711998123/command.log",
+      "logSha256": "13190b0415df81486e12843d99cea03a91d132cb96cc78e301d1ccb08d29496a",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-remaining-lint-034123896388/result.json",
+      "resultSha256": "9e405dbfa58ae7f77d5888ab8fb97b49aedb4407024c6234cdef2cff5a924c82",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "packages/domain/src/task-business-evidence.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "06b72831b091fdd39897126a111ee1b8c3113ef461b5272bf5e7ba1347f02816",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-remaining-lint-034123896388/command.log",
+      "logSha256": "59c6ae9545f5484401efd361e2a0b10ca09e982241f51ec9f9e8a99768196a7d",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-types-preflight-032712006738/result.json",
+      "resultSha256": "09bf301cc7bb51a870728f5e806e5c8ae512ff355a4a37cb4400977e5460ce2f",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f559a23c12efb1706aee816629b9419707c8b9ef33555b30b1fd3e93c69ce4d0",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-types-preflight-032712006738/command.log",
+      "logSha256": "e86cc350bfd728508ef3e831771148e03e9a84b3115893010fdfe426bb4a637f",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-types-repair-033649081547/result.json",
+      "resultSha256": "1736d8f04675ff18fef77186fa02088ecfaf33cb00b727706cbfd84f615f9984",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "15bb3a2472917ef8d8b85bd354337466c0736a75abd03fc810a6b5bcfdd41a35",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-types-repair-033649081547/command.log",
+      "logSha256": "7eb1c07e8cb7ef1fc268e818bfba424daaed37503b282c1b66c1b539825a9cf5",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-types-shared-034123895068/result.json",
+      "resultSha256": "7c721d8981aa8d6d0890ba4abde0765bbc0b8b98f5cec14c9ec0915343b77443",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "06b72831b091fdd39897126a111ee1b8c3113ef461b5272bf5e7ba1347f02816",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/m4-types-shared-034123895068/command.log",
+      "logSha256": "53a0b1ace2879b151f720a3e85e55a45d0dfeb58395b895906812eadda2e7eef",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-23e17d53-fdd0-46ee-a246-934f66492dc9/result.json",
+      "resultSha256": "33cfc6c343bff4490400c174e0972e9dbccc1899f95dca25157a523d0f147241",
+      "command": null,
+      "sourceCommit": null,
+      "runtimeInputSha256": null,
+      "exitCode": null,
+      "status": "FAIL",
+      "log": null,
+      "logSha256": null,
+      "error": "OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1"
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-472ec564-3492-46c7-bce0-85e46c5dfa7a/result.json",
+      "resultSha256": "0c197c268b22492e97fc938904aa72cc6b5deca3933b03d03460b4ab057ede61",
+      "command": null,
+      "sourceCommit": null,
+      "runtimeInputSha256": null,
+      "exitCode": null,
+      "status": "FAIL",
+      "log": null,
+      "logSha256": null,
+      "error": "OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1"
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-874c7d45-0a85-41b8-a0d9-ff3da9438dbc/result.json",
+      "resultSha256": "23f5326704a0b3fa4080323ec4a28d045fb837b36f186510a03b4853314689c1",
+      "command": null,
+      "sourceCommit": null,
+      "runtimeInputSha256": null,
+      "exitCode": null,
+      "status": "FAIL",
+      "log": null,
+      "logSha256": null,
+      "error": "OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1"
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-9e147f22-9a79-413f-8459-69ca8b83ecce/result.json",
+      "resultSha256": "ae4be145d1a645c0c52d4d6a90068aa82b70e1aaf959c02498d5a84757847f6e",
+      "command": null,
+      "sourceCommit": null,
+      "runtimeInputSha256": null,
+      "exitCode": null,
+      "status": "FAIL",
+      "log": null,
+      "logSha256": null,
+      "error": "OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1"
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-abfc89c2-9019-49ab-93b8-d43d9762f913/result.json",
+      "resultSha256": "790ee05f9dc086c2ae27751f167e373d9c56d8a590fca97c4e3fbbd3115a8ab5",
+      "command": null,
+      "sourceCommit": null,
+      "runtimeInputSha256": null,
+      "exitCode": null,
+      "status": "FAIL",
+      "log": null,
+      "logSha256": null,
+      "error": "OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1"
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-contract-204059862026/result.json",
+      "resultSha256": "da5594a50fbd18dae56fa105b7a2e4bd3bc690332b210248b339b54b85f8e030",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts",
+        "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+        "packages/mcp-adapter/test/frozen-v1-http.contract.test.ts",
+        "packages/application/test/mcp-registry.unit.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "214a1b11b2deac2ff1ffbf3f0fc4bf0a38fa944d0a8ec5955c9e7150a34e8f6b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-contract-204059862026/command.log",
+      "logSha256": "fc4cb8d9e18444f60a8cd859b0b24b94f650653ad7a99e1b87b0571c821d1915",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-full-gate-204556201227/result.json",
+      "resultSha256": "d6ccabac0f2a11e92117f9839f6b477ac3aef19d13f8dac2aecfb5df2b5acfb5",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "d28871999d36d54dbf94563f07a493f7e12a28909b0d2b3212a0b6154092c692",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-full-gate-204556201227/command.log",
+      "logSha256": "207a281c97e2dadd285de2427b6489e5f0e51a8e16d64774a480df50bafa3d73",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-full-gate-license-repair-213100790784/result.json",
+      "resultSha256": "ad63b3ec6d45af0d89fc458cff46437d5771a7b2714f996108853629fe55beb9",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "26445627e486d0c4c31a95f2f955dc48ef3688d3e2d16eeaba29a755d060729b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-full-gate-license-repair-213100790784/command.log",
+      "logSha256": "93705caa691c06b09dda759df769a3d02da5c0a58557f90d507b6313c6e3a10b",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-full-gate-repair-205856723172/result.json",
+      "resultSha256": "7b760118f5cd64d2c8e8c79404cd61337449d7d44c69d37ef7b8e269a4de64d5",
+      "command": [
+        "pnpm",
+        "verify:isolated"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "1ba012c0005433d0a636eafd6d13003fac54ecbb4ee0d0be791494a00922db91",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w0-full-gate-repair-205856723172/command.log",
+      "logSha256": "236aef7537ee11f0d86262215f458987d3b3395becbf34fdf4bd8ee82bfbfab4",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-final-typecheck-225247727651/result.json",
+      "resultSha256": "97b421bb8a617f0403d5405b7562a3533a695251471c8573a6bd1ed6c826335b",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "c16fa4765dba253fad07f18352f86ab76e7ffab23c399b9c42c882c0d5add24d",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-final-typecheck-225247727651/command.log",
+      "logSha256": "a58b38d18576b1cbfb954cbd7292a3bfb5d1227fa10dbc849b3e07494dcee0da",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-lint-224122838693/result.json",
+      "resultSha256": "517b927adb0f45f6a990d02d17df58f89e9635cc9646c67bae07055b8be14d0f",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "03dcb112db1856b08048acbc7526d2f46717eeba10611e5fd372a8a072ba07ca",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-lint-224122838693/command.log",
+      "logSha256": "bfb8494b6498cd5ae79190fd80a7d7b448064956190f01043d8f0de1eb61ff94",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-lint-final-225552375141/result.json",
+      "resultSha256": "ce0f9faf2ce5053dd8e817b5855537acf656f47a43e99d9969783246c1678ff7",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "515ec10e8ff60fc0ffc7322efa45fa94d6cba72e13483a781d362edb45bb8e71",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-lint-final-225552375141/command.log",
+      "logSha256": "29bb0a631663d75cc6a43a9e7630c3b4b09c253dbe98c07651bc5aaf710548a6",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-lint-repair-225247743035/result.json",
+      "resultSha256": "4acc9021dabe8f474a608615c41faa6040d4a7a2204bfe8aa2010cf64e8d2372",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "c16fa4765dba253fad07f18352f86ab76e7ffab23c399b9c42c882c0d5add24d",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-lint-repair-225247743035/command.log",
+      "logSha256": "ebbb27747dd2d83d5739ad16e193a5e6a286386f9643dc402593bac6019360b1",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-postgres-220814450266/result.json",
+      "resultSha256": "d8420a517c4f9ad030eda0ee1e24242a9a5e2fec8e5eb07be2fd664984160ac2",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "be9e9c65a16126d99980e8cf4a7f63eb1353d6fa6d19f18a1aafb1535287199c",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-postgres-220814450266/command.log",
+      "logSha256": "36c01d5a476adeac557d92b443f2f49c5c6d26bddf1b1a7fac149207f395c64d",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-qualified-lint-225857955275/result.json",
+      "resultSha256": "53254926e5659393594283cb72eb7c4901de3f815fae191d2a28e62447a511c3",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "packages/application/src/task-business-agent-facts.ts",
+        "packages/application/src/task-business-events.ts",
+        "packages/application/src/task-business-sync.ts",
+        "packages/application/src/business-events.ts",
+        "packages/application/src/result-processing-service.ts",
+        "packages/application/test/task-business-agent-facts.unit.test.ts",
+        "packages/application/test/task-business-sync.unit.test.ts",
+        "packages/application/test/business-events.unit.test.ts",
+        "packages/application/test/result-processing-service.unit.test.ts",
+        "packages/persistence-postgres/src/task-business-repository.ts",
+        "packages/persistence-postgres/src/business-event-checkpoint.ts",
+        "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "packages/mcp-adapter/src/frozen-v1-mcp-client.ts",
+        "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+        "apps/server/src/runtime.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "afae47376c62c20849f59677e95ad4c513c763519f438b0bace18b4dcd8b4dab",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-qualified-lint-225857955275/command.log",
+      "logSha256": "18c682c942996c8d79efb47e5be1f3eef7b0d30d25298a6a86438732aaf787b9",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-unit-223859583959/result.json",
+      "resultSha256": "5c00f8590c6cacdce27c472b6eb898bfdc8634d0aad51f8b5b9ce9abab5ed7f6",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "packages/application/test/task-business-sync.unit.test.ts",
+        "packages/application/test/mcp-registry.unit.test.ts",
+        "packages/domain/test/task-business.unit.test.ts",
+        "packages/application/test/result-processing-service.unit.test.ts",
+        "packages/application/test/business-events.unit.test.ts",
+        "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "e7ee9275f420edc074e67364530f3471b627dbf0c140fd7c483525146aabb799",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w1-w2-unit-223859583959/command.log",
+      "logSha256": "d0fef2a77f466c1dd2979ffa6b90681f7bd9ef428164ad60c9c6c8bbd7668aac",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-command-contract-focus-235215457069/result.json",
+      "resultSha256": "c4bdf98e883fc3a8d76ddf992323ff6a50bddac9a166f815b812ea0989c5a3d9",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "packages/domain/test/task-business-command.unit.test.ts",
+        "packages/application/test/task-business-commands.unit.test.ts",
+        "packages/application/test/remote-task-input.unit.test.ts",
+        "packages/application/test/task-service.unit.test.ts",
+        "--project",
+        "contract",
+        "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "4a2446db79f96bed07d9e834947807f6371d63f1fb7601f63e1402cd9e61034a",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-command-contract-focus-235215457069/command.log",
+      "logSha256": "8beaa4c6877e659ac1e64d58a62f5fbf79cc6a0afd6c541f3f1dc1d8be12aebb",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-complete-wiring-lint-235832349833/result.json",
+      "resultSha256": "b87c2e23810185188df9aa1945812b64955653fd4bab62f0570ca079fecbc3b1",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "packages/application/src/task-business-commands.ts",
+        "packages/application/src/mcp-registry.ts",
+        "packages/application/src/remote-task-input.ts",
+        "packages/application/src/task-service.ts",
+        "packages/domain/src/task-business-command.ts",
+        "packages/domain/test/task-business-command-fixture.ts",
+        "packages/domain/test/task-business-command.unit.test.ts",
+        "packages/application/test/task-business-commands.unit.test.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/persistence-postgres/test/task-business-control-fixture.ts",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "apps/server/src/runtime.ts",
+        "apps/console/src/TaskBusinessPanel.tsx",
+        "apps/console/src/TaskPanel.tsx"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "afe7b0f9fc6951b2366a717bb7d3c4a5d032551b0b39151d62e4652d16c8519c",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-complete-wiring-lint-235832349833/command.log",
+      "logSha256": "8ac10a49a1529a2357ba910df5a82204a63b736d51a77c955aaf282a2a9c6943",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-complete-wiring-typecheck-235831160005/result.json",
+      "resultSha256": "41e7e0d394cbb204dc42d7cc06cbbfaf9cbb316346172434c3b53d2b4233d0fb",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "afe7b0f9fc6951b2366a717bb7d3c4a5d032551b0b39151d62e4652d16c8519c",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-complete-wiring-typecheck-235831160005/command.log",
+      "logSha256": "2c81a0063993a990ab1333d58eafcb22916e5ed469177a99bdaf114ad7d28c85",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-final-implementation-lint-001945353438/result.json",
+      "resultSha256": "7e1c1391916aeafd977a3d54730b2918994cfdeb5ce45328e09fffd40705bda0",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "apps/server/src/runtime.ts",
+        "packages/domain/src/task-business-command.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+        "packages/persistence-postgres/test/task-business-control-fixture.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "packages/management-api/test/http-endpoint.contract.test.ts",
+        "apps/console/src/TaskBusinessPanel.tsx"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "dae010c1d52e9b5fc3311bee0482a8cece759099241f9871eb5d6e07b3fa8759",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-final-implementation-lint-001945353438/command.log",
+      "logSha256": "9a836d7f6987cf4272f7714258f436c813478d1c4ef54c8a14e5108cfbc348b6",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-final-typecheck-000618096001/result.json",
+      "resultSha256": "7d1ea42b03e0d3cd75a5231728eb267c9fb06d2f2a92bc548f52b8ad324c11ab",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "5a4e6b5029bd130d4ee419817a3e94b50da64000c6214bf052ab7bcf391bf69b",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-final-typecheck-000618096001/command.log",
+      "logSha256": "5098a6a7b5613393e64dfa8982eefeaa62eb4e4924eda05855cd9803d70cad1d",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-foundation-typecheck-231500147582/result.json",
+      "resultSha256": "1c16c0f1dcff39af5c09421fffb6b310d173e0cd21d695ebf9f8d078b70c93e1",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "50e121d7e5291c52ceed5014557768da5124f0df041d9d4a751d8c16b24bd1e3",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-foundation-typecheck-231500147582/command.log",
+      "logSha256": "30dbbde7142f6415c4678bf9ab82e92300ad70e03e8cb35a3c06005165a83366",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-input-chain-types-001709484691/result.json",
+      "resultSha256": "5bf7391dcd4355c50caf84eab049f98b39737f776f8e048ba8dd34017542ad99",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f2974ebd16d2262d4d6e25a33d0ecb625f4e9ecf0f26d5dcd3e5d4979b83548d",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-input-chain-types-001709484691/command.log",
+      "logSha256": "2bbc32d35ad555d115f3c2355faf58d091d3ddb6008a54bbf03541fe1de2cf47",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-lint-232142156577/result.json",
+      "resultSha256": "7ba5f873206950a56b32ec1c042249e589b92febf91ae850ad815d47bd860de9",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "packages/application/src/task-business-commands.ts",
+        "packages/domain/src/task-business-command.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+        "packages/persistence-postgres/src/governed-control-management-authority-reader.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "2e8d90eed4feca411944df1338adbc75b351bcd069afdbd60eef0154fccf24b2",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-lint-232142156577/command.log",
+      "logSha256": "e41f68e312c0b30826f77f00afdca1ec2aa7394769e29ce14d13f5d67ed2715a",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-postgres-235831189711/result.json",
+      "resultSha256": "be97836b009fec7a58b3f009d8c05bb5407eb1d29a528641943512f6708d9325",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "afe7b0f9fc6951b2366a717bb7d3c4a5d032551b0b39151d62e4652d16c8519c",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-postgres-235831189711/command.log",
+      "logSha256": "9646d9a66e6eeff48ac81e8c9531ffe13814b4a39b0308d1c61a0fcc378c1c0c",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-postgres-hash-repair-000237466101/result.json",
+      "resultSha256": "9130e99d808d63a2bcddaf10d6ecde52f9349b10bba9c5779cae4ec96d7afbc2",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "4e8a42bb04d91cf520d824b5a261347a7198535884361b6a7a5cdda3ed71c0b9",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-postgres-hash-repair-000237466101/command.log",
+      "logSha256": "0d40d389878f800e010db1c1b6620db8b721b1dc7e7807d7954ac1834d3e2868",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-postgres-repair-000056471347/result.json",
+      "resultSha256": "5f21f4f51f498a95b3a514d3bb94e66e6481fe0658d2e5b64fe5c7f8d3cb3619",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8f79af2771c3e0c273473e8d1eed101e23f059cf4cdfb8325d524aea45b2ccab",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-postgres-repair-000056471347/command.log",
+      "logSha256": "fb7811266d9cae39be095695834091812dcb88457fd20c86bf87fa2194604e2f",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-repair-lint-233503066669/result.json",
+      "resultSha256": "6f733ce84cd41f6600a769e8b3245aa89674b13891c983ff3fa287a04ecf985e",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "packages/application/src/task-business-commands.ts",
+        "packages/domain/src/task-business-command.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+        "packages/persistence-postgres/src/governed-control-management-authority-reader.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "299f048098f264603a3f0afb91a5f766e7648eff9e7cab37cd176fbc187e174d",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-repair-lint-233503066669/command.log",
+      "logSha256": "0038f287c3a83b1e79cc1d42875ded3fd58df66fab6e49c3c9f9f9aa19dc29f5",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-typecheck-232142152839/result.json",
+      "resultSha256": "418b245e0e23adc3f2c778e1e66031006793885379b515c446c7cc8233da8db5",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "2e8d90eed4feca411944df1338adbc75b351bcd069afdbd60eef0154fccf24b2",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-typecheck-232142152839/command.log",
+      "logSha256": "25aed3f09cff5ae3308dd1245bdfa8d3b5a731805e6e279b8b8613fa542401ad",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-typecheck-repair-000127356807/result.json",
+      "resultSha256": "900566b2ab8de758a3d01e51a2d50deec011dbe1b95d71456c06494cee7fc3cc",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "918ad8321209c4b14d0f3a3975a139e62d49b254abb2b968befe2b21ef916b1b",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-journal-typecheck-repair-000127356807/command.log",
+      "logSha256": "7ab1e8917474e0ea4fc45870377851d45d0f5ccd8e4d41e050a4d93771137d83",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-native-input-migration-regressions-001945353316/result.json",
+      "resultSha256": "9e3b1c9f9cd3f72dc5d981f3e26be453c77d262cb223c70a7556e8334e8fd63e",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "dae010c1d52e9b5fc3311bee0482a8cece759099241f9871eb5d6e07b3fa8759",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-native-input-migration-regressions-001945353316/command.log",
+      "logSha256": "8f9f1e354d9004c0b8dc1736ca7bdaeb8dd44cd65e9aee727e18400644125fdb",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-native-journal-regressions-000521989053/result.json",
+      "resultSha256": "f19be275329e9fb83a5425811536b57af74f6aef776f7280b7647aab5ac48104",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "5a4e6b5029bd130d4ee419817a3e94b50da64000c6214bf052ab7bcf391bf69b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-native-journal-regressions-000521989053/command.log",
+      "logSha256": "089aa30df2f0ba02c11df8b66a286f132acdd9bf27a8eeaf4d82c16b6a485cb6",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-native-ledger-unique-fixtures-001232308525/result.json",
+      "resultSha256": "398c909196c25ded72de86f7b806f9b5e15719d12f41ec398d2ac923ce12aa3f",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "a022fab4c1bc5b9a9bf08fd05601f13988ea258619d8ae85595b8b731c0d7cf3",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-native-ledger-unique-fixtures-001232308525/command.log",
+      "logSha256": "7b900fee41c59ffef85d66f5887ec0cca022810ed23de98365d70def96be48c6",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-required-input-native-chain-001709498532/result.json",
+      "resultSha256": "e68f491c6ce754674f4967073382ff0e3021920161fb8dd02c95b2bd0eb9946b",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f2974ebd16d2262d4d6e25a33d0ecb625f4e9ecf0f26d5dcd3e5d4979b83548d",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-required-input-native-chain-001709498532/command.log",
+      "logSha256": "2da858d73a143316a95f73770b42f6dd2f9b685a47a3ea3de42754746cbb5d88",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-ui-input-contract-focus-000615755363/result.json",
+      "resultSha256": "e0327e5fd72f667e4298d449e8f5a417b76342bbc9ef992d70592915d67ab2d1",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "apps/console/src/console.unit.test.tsx",
+        "packages/application/test/remote-task-input.unit.test.ts",
+        "packages/application/test/task-business-commands.unit.test.ts",
+        "--project",
+        "contract",
+        "packages/management-api/test/http-endpoint.contract.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "5a4e6b5029bd130d4ee419817a3e94b50da64000c6214bf052ab7bcf391bf69b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-ui-input-contract-focus-000615755363/command.log",
+      "logSha256": "21769089e3e070b2c31a209bb6557973bfc5ff4f763d13f020bc1e047d8fbd0f",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-wiring-typecheck-234345536306/result.json",
+      "resultSha256": "ced545f7c5ce8d93627e9fb79019f9631f66efa03fe40fbc422e521b49aca4d8",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "9cf08cd9b4c77233811c19302ac06fcbcbdf7b7b03922a01b1584126544fd6e3",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-wiring-typecheck-234345536306/command.log",
+      "logSha256": "e84ac7f1c548dc68ce7eceeee62ac82287b60f0769d61f18e6a77fe4eeffd07d",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-artifact-typecheck-010044718119/result.json",
+      "resultSha256": "9f5e7ce06b04ee9b720f70dfccb1e242e359d7040ec70ed1d0240cdbdcc334af",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "af35299556ea059c36535dbaac5057ac01f7b4896cb8ebe538dc22820810e8c5",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-artifact-typecheck-010044718119/command.log",
+      "logSha256": "4f6e1bec41b5effc80b4a97dd6875de88329a49119de7ca66f8caef07804c36e",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-bounded-evidence-unit-011345077496/result.json",
+      "resultSha256": "871fa168904de1d21ec18a2d47cb54a7b0a864aba4559bfb435f1a1e8e2d1f32",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "packages/domain/test/task-business-evidence.unit.test.ts",
+        "packages/domain/test/task-business.unit.test.ts",
+        "packages/application/test/result-processing-service.unit.test.ts",
+        "packages/application/test/task-projection.unit.test.ts",
+        "packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts",
+        "packages/a2a-adapter/test/task-mapping.unit.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "e1ee44ad8bfa5abc9ccb35e14a73f1627cdb6741e8d97ae8fd0ef7a6192b639b",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-bounded-evidence-unit-011345077496/command.log",
+      "logSha256": "7c9f2580cf297bc956eab31bc6de91660944bf7156c0edd939ee77d1d73ecd74",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-current-typecheck-011346264039/result.json",
+      "resultSha256": "f7d0de66039bc21fea86e23044827fbdd0317169309b9dd69d6889df8e46ffd3",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "e1ee44ad8bfa5abc9ccb35e14a73f1627cdb6741e8d97ae8fd0ef7a6192b639b",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-current-typecheck-011346264039/command.log",
+      "logSha256": "38264b4a9566f48a471e8aebcd69ba965bf49de14e65d36d9dfc61a980150c36",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-domain-evidence-regressions-010525106382/result.json",
+      "resultSha256": "d53927fe0f4d155575607f1c554962b62acf0732b9d5bf27dffde1831ca3d0b8",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "packages/domain/test/task-business-evidence.unit.test.ts",
+        "packages/domain/test/task-business.unit.test.ts",
+        "packages/application/test/task-projection.unit.test.ts",
+        "packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts",
+        "packages/a2a-adapter/test/task-mapping.unit.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "6da7f896d5633b209f55a176812fc9b23ab5264ee7268d0d2522ed2d0c970fd2",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-domain-evidence-regressions-010525106382/command.log",
+      "logSha256": "ec30485e9ab145fcc64a993846088623037d72c9ba6f9a799ae0a82b5072255e",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-first-typecheck-005226403774/result.json",
+      "resultSha256": "f636a36186c91cefe5ca613227c3cc4b3aae164eba8c3321c15eb58b99db59b1",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "1c7f89141de123db864d280231da879209b6b53795d4f49be3bc2451bfbfbd3f",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-first-typecheck-005226403774/command.log",
+      "logSha256": "289a2e3370d7a42db29e5d19d46d08abb427e2db0d6891252025c02dc0f588d9",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-api-type-repair-015329049417/result.json",
+      "resultSha256": "29c5034e7671156ee1a42640e2927043451c8a2ea5046ebe4c501d4d28d5f170",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "3c2c18201b476324e81d20557033acaf7a8adc89da5f6db3e97f0d6e01d82348",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-api-type-repair-015329049417/command.log",
+      "logSha256": "0e4f6216e13c66fe5ccbd8f11b7328ac00d34a5ce88aa0b8a9bcc90406f4bf4c",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-business-success-e2e-015954470518/result.json",
+      "resultSha256": "9b6770a98ce0b08511637b3f40915db8310c6ed9c3a7b137b098460d8c052ff1",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "18d31526ccda18a5a18a037a92d80a01601e9c1471ccbd2e48e49d589e3d4e0e",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-business-success-e2e-015954470518/command.log",
+      "logSha256": "bf34217a0405f2f7cc9c3b3332517b0e0f5a8aa3278895c2029e73ec461104cc",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-evidence-profile-e2e-022535048563/result.json",
+      "resultSha256": "003988a01969f46f0f9ea5caf621979c1f638a34eb9b98d7460230b2f074d1dd",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "1dfb44153589e4bc2b485ac812b28bd9be1ecb86577dd3f463d45dc5eb3dfc27",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-evidence-profile-e2e-022535048563/command.log",
+      "logSha256": "3f238901f134be3eba9a45455a9f95390af5c5b26991236b58e51496ec8ee650",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-frozen-semantics-e2e-022758612792/result.json",
+      "resultSha256": "5ef62e2943facb646d60d94b545b62011b4a5151fc80e5706fab22d2fa50a26c",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "a35cc9f60f6e9dcf7c7e0c399d05cdcc2ccad60b5579d8671d5b217d9d036a67",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-frozen-semantics-e2e-022758612792/command.log",
+      "logSha256": "51ee1a1780c88e6faa5a3bfe5dac9622e0058d7bc24daab99420f51951f8f97c",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-idempotent-a2a-e2e-021037490269/result.json",
+      "resultSha256": "841aba109dc9e8456666b5d0365c0a35a1ef37f06a03a0bd740e3960236d9992",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "bc68c8c1b8843ae01661d7b18fb8effac136d91e1169e48c53e4e2c2f76c43fa",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-idempotent-a2a-e2e-021037490269/command.log",
+      "logSha256": "c9a847b719af06bac12ec658d64df541ac696e659bbe802ff188637ac2522e89",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-immutable-native-rebase-e2e-024508722857/result.json",
+      "resultSha256": "99a7272d1ebf609b448be85904b849945a071a1abd2a6bf7bf8ab4abe79f82b5",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "905fd74405cb5897986a0eca1422664cdd154be45a15c7990377380782f30a30",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-immutable-native-rebase-e2e-024508722857/command.log",
+      "logSha256": "43b3679109004f670055dc128e8fea7c4a63d61b79695850d5dac6cec1a1a197",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-matching-governance-e2e-021441193792/result.json",
+      "resultSha256": "4ebb427b6cb57ee2f04bccb8dceb08e787289f29873bc7ddf1b0b326318222ff",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "4b4af6e7e11fc9669abfb924cc1ecddb21a2a6b03b438b5a16fd3999df96aea0",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-matching-governance-e2e-021441193792/command.log",
+      "logSha256": "c4f25ac63a5f3e2a395e637e84eb308337df0001936f8c117e498352704c6a75",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-model-diagnostic-e2e-021828826910/result.json",
+      "resultSha256": "532efc2f18dc30bdfaf26d68b1fdaaa35ae54e9d9aea3be0ea9e8c28c4d7450e",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "134b99da7c014b28630e50951b8837754c43ec9b251ecd29a125127b33820c9c",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-model-diagnostic-e2e-021828826910/command.log",
+      "logSha256": "3ff9088d3e62014730f47d8bff93fea15d8d127d2e43a1f2b9d77b6df22d2d96",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-native-input-claim-e2e-030218556309/result.json",
+      "resultSha256": "c40e1931afad81c45cedd0733ca4d1c8cf13daa7fec1462b24f53d5940409adb",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "6c93bffc64a16683cac15cf638214fcc0744ddaf6ffc22ad3ccb9c89bfbc9b83",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-native-input-claim-e2e-030218556309/command.log",
+      "logSha256": "4ad48c405034f5e1e5dd4d17ff3958ac08afda22ef305aca2fab05b56e8e2ced",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-native-policy-e2e-020146194017/result.json",
+      "resultSha256": "37826004e7ca95d78e59732d787948782b6a2a497a28ad7fea38a64a861d0caf",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "4c225f628bd3b98ca9399ba756cdb0b600e9df42a3f85b0ee19ecaf5ba8fdde8",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-native-policy-e2e-020146194017/command.log",
+      "logSha256": "4061d2460422c993a9be51fdaf3a36e94f5eb63eb6d5912c8f536742a5b26172",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-native-workflow-diagnostic-e2e-022229025833/result.json",
+      "resultSha256": "746d99517726ef3201d7fe269b76659cd82d974019177fbc0e6cbcf66a0b56ea",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "bef757b4931b3802d2cacfb89c2ae5041a4dc52e7d76ad7369dc3217cd39d7cd",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-native-workflow-diagnostic-e2e-022229025833/command.log",
+      "logSha256": "e0400255b001f6d63ba50e91b9aa83301c408dc657cd71cad3e37eab9bf1e452",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-navigation-recon-e2e-015408151665/result.json",
+      "resultSha256": "757d04906be6fcd4b7e88045f563f3562d4c122f585ccde840098184b58866fb",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "b1588693aa1633afe6abcc28b16a13835ef169cf78aed19753cd5288d2089c8c",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-navigation-recon-e2e-015408151665/command.log",
+      "logSha256": "7d81e8915448d5042fd56e2d6cd181bd3a4efadb8c52be4a426926625fb1238d",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-path-typecheck-015133533479/result.json",
+      "resultSha256": "29523cb2a1b7eacb4a1fb3eefd1cd035124c2b45d84a875c692753de229fa097",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "b18b9543789cbf1ec74b41f7198d4dd8beaf3306071861423199952b104123d1",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-path-typecheck-015133533479/command.log",
+      "logSha256": "e7228a4b8e387beb69307b1f3f9340c755c90a448bb79630c0565dbfc4761f93",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-poll-cas-e2e-024140374756/result.json",
+      "resultSha256": "29102b3fd96cf96e7d94000d7bf67b579e06d2b81dde34286bb9800abf722a15",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "42818bf95fe2b72a55fd026a3ed1e781aefe26bc010658d3cb1fec74039260c9",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-poll-cas-e2e-024140374756/command.log",
+      "logSha256": "778c5dba589ef5418de2e860358cd3abc872611ac76aae84e44bbb6060dc04e4",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-real-a2a-e2e-020801717452/result.json",
+      "resultSha256": "35170b6721394ca890e6cf4ed860dc372e15af57328b995950b0ecb6ad593073",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "e2e3c9f883968d39283e4da453345e254e199808a89240300a1bcbae78920018",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-real-a2a-e2e-020801717452/command.log",
+      "logSha256": "c53b5fe6449bcb4c3701c6a8649b8c58bddad5b5f3dd997d231798236661b5b8",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-required-terminal-e2e-022409800634/result.json",
+      "resultSha256": "699687d9b878092debf32fd4a7a56a0e93f82e19d6ebccd84619651ba5f6ed66",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "d0afc0f01c50c6ababf4ce970bc4f08517cd3e72bd42494dfad3d04d8a8667a9",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-required-terminal-e2e-022409800634/command.log",
+      "logSha256": "8fc94ca69587404dfb15de6608a9217d5118a5a31d9c6856724f33b0f30b15d9",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-result-e2e-015834111457/result.json",
+      "resultSha256": "187312a1285720a5c5afcfb794b269239bfcc09547d86c42135aaf398d30285f",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "7a8fe1c57d1540f8968fa208efa33feb17f0ae41778798627ffcf7eb4348b668",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-result-e2e-015834111457/command.log",
+      "logSha256": "b2ac014f96a22e5266421d809ff66df78cd1d76fa23a2a7425a8d588335a4839",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-same-skill-confirmation-e2e-031808070636/result.json",
+      "resultSha256": "c7ad7d0ea23c65abffb2278832d876bdb575b6f2bdb4565edf7f0281dd7cdf9c",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "bf115ad5101a3dcca41430c26ff161139186991e41b583e4860931b08d186088",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-same-skill-confirmation-e2e-031808070636/command.log",
+      "logSha256": "d21d83740fbfda392a8273ccff6a79970f2520db7585d2273658d083a93589d6",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-semantic-guard-e2e-025154665505/result.json",
+      "resultSha256": "bc29a1f5d8629083a13a060967942f631f83d571d2f858d287cdca96b4fb969b",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f114fa833f9a7a7b1b3bb0bc95fb17d00c2f520a9d5ecd990a1425135305e131",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-semantic-guard-e2e-025154665505/command.log",
+      "logSha256": "6b2437221c7af68a16b60aa9d9e75ce4aa65c6095e7e7dc69376b35c5d7117a9",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-structured-a2a-e2e-020908158720/result.json",
+      "resultSha256": "b1e1af1c3668bad369180bf4c82e1d830d3834ddfe8ec86c98950fe2274f3981",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "ba609af250eac343840fd1b0618897e99cc5ac441843fac939d21215fa86106c",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-formal-structured-a2a-e2e-020908158720/command.log",
+      "logSha256": "ab1ea96f295867b707d70054fd51856cf010c7a0a34605f13ed455dcb1664c37",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-native-large-content-and-recovery-011723454028/result.json",
+      "resultSha256": "edae945830baf1fc84b6a4acfd216ae7974c82b26f7f028b9ada4e9e355c651f",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "bf69da9d332f5afcaa6425c2522aeef9ef8a73c94eb2bdd7259f38dd5fcca4a6",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-native-large-content-and-recovery-011723454028/command.log",
+      "logSha256": "76d5d65546222c47bb69ee4b3d93d476360b2ab5ee9fa50a24930c6a1e93860b",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-native-outcome-policy-unit-021419046818/result.json",
+      "resultSha256": "10bfb938633c2c55de38d62e4f79716234904fb32f018dd37bc778f0ddfa23c1",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "packages/domain/test/skill-runtime-policy.unit.test.ts",
+        "packages/domain/test/task-business-evidence.unit.test.ts",
+        "packages/application/test/task-business-outcome.unit.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "4b4af6e7e11fc9669abfb924cc1ecddb21a2a6b03b438b5a16fd3999df96aea0",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-native-outcome-policy-unit-021419046818/command.log",
+      "logSha256": "27447a303307aed432fe13d81e8984702cb2e75edb50e1034c6d59076d4a81d0",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-native-outcome-policy-unit-repair-021453960802/result.json",
+      "resultSha256": "4910eedd92e7f4944c07b6c202fd75bc63dff384b33877230dc244b5c84409eb",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "packages/domain/test/skill-runtime-policy.unit.test.ts",
+        "packages/domain/test/task-business-evidence.unit.test.ts",
+        "packages/application/test/task-business-outcome.unit.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "3a56dfce3bea2852416abe07687e6e42d39d47721fd7fd57fe10a4ba68d4e743",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-native-outcome-policy-unit-repair-021453960802/command.log",
+      "logSha256": "cd35b1ce8f094f5d1686d434966a9776531f3014353f948ebea39577b878b819",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-owned-gowm-types-025154676030/result.json",
+      "resultSha256": "8aff8cbc1604becdeb2dbdd1382b7b51e585459e9392be6b32acf322bd42005a",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f114fa833f9a7a7b1b3bb0bc95fb17d00c2f520a9d5ecd990a1425135305e131",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-owned-gowm-types-025154676030/command.log",
+      "logSha256": "f09c102471c3b623ff0a1a24a09132e6f1ba928229bf81d54afcc6829b85889a",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-poll-cas-types-023619480941/result.json",
+      "resultSha256": "924f0e97413f12a566e3916fc85815f2895febc4ce05085aed73a0b1eec5766e",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "42818bf95fe2b72a55fd026a3ed1e781aefe26bc010658d3cb1fec74039260c9",
+      "exitCode": 2,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-poll-cas-types-023619480941/command.log",
+      "logSha256": "c1f0cc3c168d07b29763ef64b19edee9b38897613b5ba7ddc016a713fde50990",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-same-skill-native-e2e-031304741822/result.json",
+      "resultSha256": "5d15946daee2c3558d70058838639588fc11a2985850affcea9e5205792cd741",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "75a35d2bc9754cca24d83863d790592e7aa9b971b61d62e0423cb13243cefd87",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-same-skill-native-e2e-031304741822/command.log",
+      "logSha256": "c66fa9c3ef128eb0859871993c85366e3f46589a8fd726337d94fe451dcb26e9",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-stable-publication-same-skill-e2e-031518007453/result.json",
+      "resultSha256": "b81ee7f4d440b246ff6f8e4b0f60c2adad7b0f7372dec6dc56808567f03db4da",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "--e2e",
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "5769f8b6231ee38a5529fedf711f4ed8b9cbaede79d0ff308bb277cd5d285acd",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-stable-publication-same-skill-e2e-031518007453/command.log",
+      "logSha256": "c7483e094c1d0502752250a0c7b8603613de72384e1fe2134d23735c5f0b339c",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-two-process-and-native-evidence-013825481150/result.json",
+      "resultSha256": "eb547692560785d1001f636f3329811e45db0e40011cffcb00e4035ceb6f75d1",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "e1af9b4d80504696c3fd3383e94801db731bb85e0c9b5bd97453efa68443c589",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w4-two-process-and-native-evidence-013825481150/command.log",
+      "logSha256": "89e1598dd9c933542265fd8cab630c72ed1874751571eebecc87f40ff4d601b4",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-gowm-complete-confirmation-e2e-031808064904/result.json",
+      "resultSha256": "561856031b36d24de0174dc1532f5d4b180fb4082987d9cbb9dfda86581b1011",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "bf115ad5101a3dcca41430c26ff161139186991e41b583e4860931b08d186088",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-gowm-complete-confirmation-e2e-031808064904/command.log",
+      "logSha256": "c3a85992f3b497189ad0b85d5992ba6fcfdface66ee2bda557e21c5cef0faca6",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-gowm-lock-order-e2e-031518007870/result.json",
+      "resultSha256": "638d8e1e526906a2585b9879002efb4330544ff016cb07658c28a8c924b6e60d",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "5769f8b6231ee38a5529fedf711f4ed8b9cbaede79d0ff308bb277cd5d285acd",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-gowm-lock-order-e2e-031518007870/command.log",
+      "logSha256": "e422e655829540baeb37cd09e873231b198eaa40c92caa49ef98421126f9469f",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-owned-gowm-bootstrap-025226315516/result.json",
+      "resultSha256": "9349700598425136898a59115d5742f73437c61dcc45195899d004bbc87fd8ea",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f114fa833f9a7a7b1b3bb0bc95fb17d00c2f520a9d5ecd990a1425135305e131",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-owned-gowm-bootstrap-025226315516/command.log",
+      "logSha256": "cbdae1f78e2321c315c165ef790219afc601f463b138bc32650f4f29a75ded1d",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-owned-gowm-business-repair-030815855958/result.json",
+      "resultSha256": "ca3677cc032710a43d35b329bd1ea6692d1c8da7cf1af29fef2e7143b008074e",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "f27eeb5a05e360dfc5080889afab5ce9af8f7a001145ad85d4dcd5555a25273d",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-owned-gowm-business-repair-030815855958/command.log",
+      "logSha256": "a87e1fe0207aa2c93c13eda44e79f43a53bd9968dc7250f15f78eac5092d563b",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-pristine-gowm-formal-030950230554/result.json",
+      "resultSha256": "f756910aafbff60ec6e5f80b5a1288b1c859911024c6aa786191d32146ade66f",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-gowm.mjs"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "8c0c69516b50cad20003418386809eca1f310d919acbf84acaae2bd79fd2cbcc",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-pristine-gowm-formal-030950230554/command.log",
+      "logSha256": "086fbbc5ad97f3a44cced2b0d767bb0f719355693bec34ef8b9049d5b7488c98",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-snapshot-pg-034123896668/result.json",
+      "resultSha256": "efb47e1665d5c4bc1e64fedd9903912409704ec775d701a45d622f4f6d26e77d",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "-t",
+        "AC-014 routes|AC-015 persists|AC-016 coalesces"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "06b72831b091fdd39897126a111ee1b8c3113ef461b5272bf5e7ba1347f02816",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-snapshot-pg-034123896668/command.log",
+      "logSha256": "cec1c2ff6b7d28dc46751a6efb26d62f1860a20678beec70bd19f1eaa2de62f9",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-stream-final-pg-034252648081/result.json",
+      "resultSha256": "d1b382d345f38ce2f7ba7aad91aa81905e7a15aa3ba77b4af9f3f54160b67715",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "-t",
+        "AC-014 routes|AC-015 persists|AC-016 coalesces"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "28bd4f06e677e67372b5fc185597f0de79c0938e516329b7aac3236bd42322db",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-stream-final-pg-034252648081/command.log",
+      "logSha256": "e17932ff4f703c7a91ecedeb9b4ac9cc344f6ea6eb03f1a07f0afabf96ea40b1",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-stream-pg-033649081601/result.json",
+      "resultSha256": "a2cad88e77c03c686a67988a78ce737dc039755aa46699190130e31c9170bc82",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "-t",
+        "AC-014 routes|AC-015 persists|AC-016 coalesces|AC-039 preserves|AC-041 retains"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "15bb3a2472917ef8d8b85bd354337466c0736a75abd03fc810a6b5bcfdd41a35",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-stream-pg-033649081601/command.log",
+      "logSha256": "87c6446dcb67dfa04c8561d4f8074613d1f025df748c0c88959dddb1e6d8a5e7",
+      "error": null
+    },
+    {
+      "result": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-stream-repair-pg-033942314052/result.json",
+      "resultSha256": "214654f2c85dea58d84813dfadb5ba5494454aa485eead127407f9a616598668",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "-t",
+        "AC-014 routes|AC-015 persists|AC-016 coalesces|AC-039 preserves|AC-041 retains"
+      ],
+      "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "runtimeInputSha256": "2bdbcb75e1ef4f59b0d6c76a089843a42b3e596b919ca284128b7c1822bb35d5",
+      "exitCode": 1,
+      "status": null,
+      "log": "reports/sdar-smpp-v13-upgrade/20261010-local/w5-shared-stream-repair-pg-033942314052/command.log",
+      "logSha256": "bab350fecf4745c1e8c2f1612653b301ccf0786797a739b11453b38a34f6c804",
+      "error": null
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-23a3a1b9-2d73-47ff-8af9-2c15ddcc91fb/run.json",
+      "resultSha256": "1477f8a8d33eb9018069592e2917572260dbe978801eaa7296d515b5c6038bbd",
+      "runtimeInputSha256": "4e193fac6f678416fac784aed440bf94711bddf7c406e763ec9510a86d0e4039",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-28b2b0dd-1a20-4875-be9f-134191cde2f0/run.json",
+      "resultSha256": "273c4178e6101e560343221afe6b276b6c625768d8aa7623ceb86065cd019fe9",
+      "runtimeInputSha256": "2a76470b28fdaa841e0c3a1098178879212f780aeac85240656caea2b0d5c068",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb/run.json",
+      "resultSha256": "fa767f021928b59d504053f38c795b576b3fb8531ad8a795a320a22e7b58e68a",
+      "runtimeInputSha256": "d2a6951165cf97f134c1cda7523423792fe5deeff53eb39837bec0ded5c6a023",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-3a0bea67-9bc0-48f7-8ad6-c22bb09ad99d/run.json",
+      "resultSha256": "4a14b5743ead8b82da6ef8e9ef019cac578da1dcb9bea1c85d75c727d9af9f34",
+      "runtimeInputSha256": "33a5b251ca16d34934190cd96347a3713217402e5b69082361f30c069fdf2650",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-3e373b71-92f4-48b8-b218-b78c63bf1caa/run.json",
+      "resultSha256": "4eb872f9663d0efee469d5ab67c38cf939c9902fbbe7a3950a704bd3d92c03a7",
+      "runtimeInputSha256": "c18b366237829067a16acb1dd9763bead37b04aae062d234f78c72e59a2e1750",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-47146855-054f-4610-a9ae-c8684ce2c899/run.json",
+      "resultSha256": "b052af65389eb29967253d72c6415e25daefb649cadea4210fe5fd2461bd9693",
+      "runtimeInputSha256": "8b4c57de11b7179dc388177250372cd0f90f662a8ca929978a4c159be5028314",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-4af4f50f-9059-4693-a5c0-4c83ffab1379/run.json",
+      "resultSha256": "3149fcba5191c07e53fbeffcf2ec34463dbd3912d36ad3958af895cf8ba261be",
+      "runtimeInputSha256": "cc5bf72213020dc4ecaf56960e1c50d7b3579057b03b965ea38a630bc9fd088a",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-5508ab7c-80d7-4fe2-ab81-26245541c215/run.json",
+      "resultSha256": "3e789e24ddc02e4fe1d9c7cf877410b2552c99a54206c0508ee23d41079e0c3d",
+      "runtimeInputSha256": "035922a4623e751a2aad04b5d5d6f7c4a277de9ec283843707f2abb65775b7b4",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-60048430-57a7-4b09-8419-7ff34a9e2776/run.json",
+      "resultSha256": "2a351e4e51799a8b33c7c375a97fc1a9991be1bf166005ea18f5546b720b68c6",
+      "runtimeInputSha256": "8ebaf536bb27d85445fda50e61db073342cb022d8b43c8618d55ac2a1f9fac03",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-6c45def7-7808-45b2-b82f-98ca62ae2bbe/run.json",
+      "resultSha256": "cb71bdef5befb95533ad79bc62dd9f9535767f60b047ae00cb41ffe021a9580b",
+      "runtimeInputSha256": "b8255f54abdef53174da16129f511fa231f6c81f63caaed457c3178008189e35",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-770e63c9-3bf0-46bc-a6c1-9b7a68ec3b89/run.json",
+      "resultSha256": "4545ac2f0a0916c3ef6b2839ed50fafc26d8a1e4759f3e66f1d8aa54a636cb2e",
+      "runtimeInputSha256": "a5657726813e3144d83cfc33718ce8240cfde4351de91fb608aac8ff420eae48",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-77108544-da28-4474-90f8-6c23631eb402/run.json",
+      "resultSha256": "f0c3a682f2f43063c4dd4d93fd5111ea8824c9db16c90785274303553aaee9d6",
+      "runtimeInputSha256": "bab3ecf734d38e650d57d14016b8e7058e831c57e94451e28aa24145629bc47f",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-7b4a52af-0b16-40a9-a7a9-15a5047acb25/run.json",
+      "resultSha256": "085fbe84df8480b41d3d880a1ea96a247ddaafe0642d62915807392bb4fa0bbc",
+      "runtimeInputSha256": "f84fb69f3e279146229021d166491d06f12cfe254875127dfc1b52a9df9b2621",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-8708b52b-a175-4f13-a938-bc58b28e8e5c/run.json",
+      "resultSha256": "3e3f396b27df01dfb961a71ed2a9427ec274fb1aa9851c13b39612e4c096b23e",
+      "runtimeInputSha256": "101c40afb75143ee390965e031e224b3f49ab8ed1333ab5daa568de1274d3eeb",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-88f86afd-9116-49f6-bb92-a74f1e8e108a/run.json",
+      "resultSha256": "aa30ed621c2e6cce38153d88dc5a1e3f022f7bcdfef0be2c14a1fa171f185ef3",
+      "runtimeInputSha256": "a9e059c1ab34c941338daf741fd3c2aa434ed6eb5b91d80c3cb4486e08654835",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-9a029b39-f375-4c9e-b211-2e42c7ff04fb/run.json",
+      "resultSha256": "2619252bd3c6fb5746c81d7c329998d04090cb4a54e9b1d177c1ec4d1b3c435e",
+      "runtimeInputSha256": "101c40afb75143ee390965e031e224b3f49ab8ed1333ab5daa568de1274d3eeb",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-a64ed4e8-9f20-46b4-89e9-826b620839a9/run.json",
+      "resultSha256": "1bb729d9c09907cb9e818f69f7f2b40c96bc13f53d06a4c52020b20e1a2a86cd",
+      "runtimeInputSha256": "acd306c9054e041f951d2fa2f7b6a72deb4b8ceb35fc48c0dc5a7987f2759020",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-b06b4dde-58a9-464e-a2f5-c6c032e230e8/run.json",
+      "resultSha256": "85d9b9219804f5b0329143ae679aaf958afade3e0a5ba3fa1cce08f24c782926",
+      "runtimeInputSha256": "e181b5aaac70a18ee51aa524dc585c29bccb6c3c9920696f51eb19936b3a6979",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-c0ec09c7-cb3c-46ec-b99a-a3024bed8eee/run.json",
+      "resultSha256": "e542873a84a414558fb04827ad2af252b3cfe5bce0be75a2ed305a54f0d0dbb3",
+      "runtimeInputSha256": "1628073fec135dcf29ddccf11bd60747413efba8b273bc5aaf3290eeab4c81f0",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": null
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-c3980ef2-a1ed-4d2b-a69c-460ad7fe2df3/run.json",
+      "resultSha256": "3e0748e248f7519c72a0fb7b09252e4376c84ecb28ca769b28381158048d97f5",
+      "runtimeInputSha256": "872387b3a01be387be1ee66494de53f9dfd75f970c2fc62a0ed040faec0ab7a5",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-c9a29db1-802e-47a2-887b-b6ad845998bc/run.json",
+      "resultSha256": "06850e9c673dc1c8408cc4ebea19b3f63a82a6c0185c59431d62876c5079d52a",
+      "runtimeInputSha256": "33a0ebcca46cea32066d813e8b39b7d2ce32ffc6e618442020f3d1fa08e3c466",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-ca1b702d-37f6-4896-82a5-821cceb34b93/run.json",
+      "resultSha256": "1bb6efbee0be92f5747f7bd1f1f71af7090b78e6794c2430d8ba4067bab39df4",
+      "runtimeInputSha256": "c42e7a0f57910d6bc53ba7307637079185079acf38556d69e5abf7dc4e5c9bc9",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-d392a8ff-52bf-4da7-a8d3-4c3fab93b045/run.json",
+      "resultSha256": "90c0b14ef022b365f621e878e5da2a8d08c2128be91f41f303419513dbbab55e",
+      "runtimeInputSha256": "f0f76a97a5369c79a1560054bbe4f3a5cd985ab455c167b44db4c7a3c8243f68",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568/run.json",
+      "resultSha256": "7fbdf4209b84d3ed58b0ab0d5d97a46c5d8baa8884f30361d2684885a2c7ea0e",
+      "runtimeInputSha256": "4b990df60eecb44648b5d842fae7f8cc11dd95b9ddb94e670d5dbbd3f5b3e1f8",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-dbec0be0-f529-4997-aabc-5f253054b45d/run.json",
+      "resultSha256": "7a4c3e48681171d2d3e71855780b208e88572ea5f9c0582b63030a0733a6c3d8",
+      "runtimeInputSha256": "34d407d4210bc74d3cbf31daad4905367e5490ffb67d4b90a160e31e0bbf75a2",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af/run.json",
+      "resultSha256": "b12e9db339f323e8e7bdfbc843b89add2a80c0eea0906a0c322baa869d98cd1c",
+      "runtimeInputSha256": "69d95ca8f43520f3eb91c913a45e6442d197a4d38134ab994c7d0b50a681dfa1",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-e5741fdb-0b7e-4452-8145-6627ffc38e5b/run.json",
+      "resultSha256": "f56080b2b66cee515b9dac1b333940e6a065505ae1b76950795e2f1667037a8a",
+      "runtimeInputSha256": "731752d22b26868506be2731b87678bb01f981a380713a2624cddb5189069d4d",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-f6b678f2-5767-4329-a173-6f72f1b1a999/run.json",
+      "resultSha256": "0aac6336f3f839b8b60a524b47d84fc145a100ae0cd0b30f7c2dd4e0f172cde0",
+      "runtimeInputSha256": "4f37592e25854df6b14a89ad3e8e32cf6688f4c709a9893cca1bfc1c8b49bcdf",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-f9eb868f-12ec-4d6f-b420-57042517807a/run.json",
+      "resultSha256": "275af996d2b1c62f5d65f97fa7dfde94c86ce8df0aa07dd2599207a49b4d8a36",
+      "runtimeInputSha256": "1628073fec135dcf29ddccf11bd60747413efba8b273bc5aaf3290eeab4c81f0",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203/run.json",
+      "resultSha256": "e4d1bad1747ab42f70473afe0ddf71588e8f38308f2e1f15b5b19d8ab105542f",
+      "runtimeInputSha256": "33a5b251ca16d34934190cd96347a3713217402e5b69082361f30c069fdf2650",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    },
+    {
+      "result": "reports/runtime-semantic-closure/sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510/run.json",
+      "resultSha256": "ab434238f87174dee46a47116c863bb4fa2be299a72f3c0b21a845db795eecc9",
+      "runtimeInputSha256": "8d69816b62b7981d2d4235d54a44773d204e0b752b5cffea05eead035386bae4",
+      "exitCode": 1,
+      "runError": null,
+      "cleanupExitCode": 0
+    }
+  ],
+  "policy": "All original failed reports/logs remain. Focused -t runs select tests; the final full gate does not skip those cases."
+}

@@ -162,10 +162,13 @@ export class FrozenV1McpClient {
         `Frozen MCP endpoint returned HTTP ${String(response.status)}.`,
       );
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    const boundedText = isBusinessMethod ? await readBoundedBusinessResponse(response) : undefined;
     const raw = contentType.includes('text/event-stream')
-      ? parseFirstSseMessage(await response.text())
+      ? parseFirstSseMessage(boundedText ?? (await response.text()))
       : contentType.includes('application/json')
-        ? await response.json()
+        ? boundedText === undefined
+          ? await response.json()
+          : (JSON.parse(boundedText) as unknown)
         : invalidResponse('Frozen MCP response Content-Type is unsupported.');
     const parsed = JsonRpcEnvelopeSchema.safeParse(raw);
     if (!parsed.success || parsed.data.id !== id)
@@ -290,6 +293,42 @@ export class FrozenV1McpClient {
         : { validUntil: new Date(Date.parse(input.discoveredAt) + discovery.ttlMs).toISOString() }),
       toolRevision: input.toolRevision,
     });
+  }
+}
+
+async function readBoundedBusinessResponse(response: Response): Promise<string> {
+  const limit = 12 * 1_048_576;
+  if (response.body === null || Number(response.headers.get('content-length') ?? '0') > limit)
+    throw new FrozenMcpProtocolError(
+      'FROZEN_MCP_RESPONSE_INVALID',
+      'TaskBusiness response exceeds its bounded transport budget.',
+    );
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      // The platform stream type is untyped; validate its bytes at this external boundary.
+      const part: Readonly<{ done: boolean; value?: unknown }> = await reader.read();
+      if (part.done) break;
+      if (!(part.value instanceof Uint8Array))
+        throw new FrozenMcpProtocolError(
+          'FROZEN_MCP_RESPONSE_INVALID',
+          'TaskBusiness transport must return bytes.',
+        );
+      size += part.value.byteLength;
+      if (size > limit) {
+        await reader.cancel();
+        throw new FrozenMcpProtocolError(
+          'FROZEN_MCP_RESPONSE_INVALID',
+          'TaskBusiness response exceeds its bounded transport budget.',
+        );
+      }
+      chunks.push(part.value);
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  } finally {
+    reader.releaseLock();
   }
 }
 

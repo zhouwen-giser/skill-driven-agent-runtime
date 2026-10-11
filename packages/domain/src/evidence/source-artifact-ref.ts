@@ -15,6 +15,7 @@ export const RUNTIME_SOURCE_ARTIFACT_TABLES = [
   'replay_dataset_manifest',
   'artifact_replay_case',
   'pattern_candidate',
+  'remote_task_observation',
 ] as const;
 
 export type RuntimeSourceArtifactTable = (typeof RUNTIME_SOURCE_ARTIFACT_TABLES)[number];
@@ -126,7 +127,12 @@ export function parseRuntimeSourceArtifactUri(uri: string): RuntimeSourceArtifac
   }
   const sourceRecordId = decodeRecordId(encodedRecordId);
   const sourceVersion = parseVersion(versionText);
-  if ((table === 'artifact_replay_case' || table === 'pattern_candidate') && sourceVersion !== 1) {
+  if (
+    (table === 'artifact_replay_case' ||
+      table === 'pattern_candidate' ||
+      table === 'remote_task_observation') &&
+    sourceVersion !== 1
+  ) {
     throw uriError(`${table} uses immutable source version 1.`);
   }
   const fieldPath = parseFieldPath(table, segments.slice(3));
@@ -237,7 +243,9 @@ function createAddress(
   const sourceRecordId = validateRecordId(input.sourceRecordId);
   const sourceVersion = validateVersion(input.sourceVersion);
   if (
-    (input.sourceTable === 'artifact_replay_case' || input.sourceTable === 'pattern_candidate') &&
+    (input.sourceTable === 'artifact_replay_case' ||
+      input.sourceTable === 'pattern_candidate' ||
+      input.sourceTable === 'remote_task_observation') &&
     sourceVersion !== 1
   ) {
     throw new SourceArtifactRefError(

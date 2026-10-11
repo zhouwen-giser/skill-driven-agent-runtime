@@ -1,0 +1,8 @@
+$ tsc -p tsconfig.json --noEmit
+packages/application/src/task-business-commands.ts(180,35): error TS18048: 'ref' is possibly 'undefined'.
+packages/application/src/task-business-commands.ts(237,38): error TS18048: 'ref' is possibly 'undefined'.
+packages/application/src/task-business-commands.ts(476,3): error TS2375: Type '{ expectedExecutionId?: string; serverId: string; remoteTaskId: string; operationName: string; resourceId: string; credentialRevision: string; protocolContract: McpProtocolContractSnapshot; executionContext: RuntimeExecutionContext; authoritySnapshot: RemoteTaskAuthoritySnapshot | undefined; signal: AbortSignal; }' is not assignable to type 'FrozenTaskBusinessBindingInput' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'authoritySnapshot' are incompatible.
+    Type 'RemoteTaskAuthoritySnapshot | undefined' is not assignable to type 'RemoteTaskAuthoritySnapshot'.
+      Type 'undefined' is not assignable to type 'RemoteTaskAuthoritySnapshot'.
+[ELIFECYCLE] Command failed with exit code 2.

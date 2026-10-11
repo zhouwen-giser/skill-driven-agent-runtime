@@ -466,14 +466,25 @@ describe('PostgresUserGoalRuntimeRepository', () => {
       lastDurablyAdmittedSequence: event.sequence,
       lastProcessedSequence: '0',
     });
-    await expect(repository.claimBusinessEventInbox(1)).resolves.toEqual([
+    const claimed = await repository.claimBusinessEventInbox(1);
+    expect(claimed).toEqual([
       expect.objectContaining({ inboxId: event.inboxId, status: 'processing' }),
     ]);
-    await repository.markBusinessEventFailed(event.inboxId, 'TEMPORARY_FAILURE', true);
-    await expect(repository.claimBusinessEventInbox(1)).resolves.toEqual([
+    await repository.markBusinessEventFailed(
+      event.inboxId,
+      'TEMPORARY_FAILURE',
+      true,
+      claimed[0]?.processingToken,
+    );
+    const reclaimed = await repository.claimBusinessEventInbox(1);
+    expect(reclaimed).toEqual([
       expect.objectContaining({ inboxId: event.inboxId, status: 'processing' }),
     ]);
-    await repository.markBusinessEventProcessed(event.inboxId, timestamp(7));
+    await repository.markBusinessEventProcessed(
+      event.inboxId,
+      timestamp(7),
+      reclaimed[0]?.processingToken,
+    );
     await expect(
       repository.findBusinessEventSubscription('subscription.v122'),
     ).resolves.toMatchObject({ lastProcessedSequence: event.sequence });

@@ -1,0 +1,32 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "packages/application/src/task-business-commands.ts",
+    "packages/application/src/mcp-registry.ts",
+    "packages/application/src/remote-task-input.ts",
+    "packages/application/src/task-service.ts",
+    "packages/domain/src/task-business-command.ts",
+    "packages/domain/test/task-business-command-fixture.ts",
+    "packages/domain/test/task-business-command.unit.test.ts",
+    "packages/application/test/task-business-commands.unit.test.ts",
+    "packages/persistence-postgres/src/task-business-command-repository.ts",
+    "packages/persistence-postgres/test/task-business-control-fixture.ts",
+    "packages/persistence-postgres/test/task-business-command.integration.test.ts",
+    "packages/management-api/src/http-endpoint.ts",
+    "apps/server/src/runtime.ts",
+    "apps/console/src/TaskBusinessPanel.tsx",
+    "apps/console/src/TaskPanel.tsx"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "afe7b0f9fc6951b2366a717bb7d3c4a5d032551b0b39151d62e4652d16c8519c",
+  "startedAt": "2026-10-10T23:58:32.349833+08:00",
+  "finishedAt": "2026-10-10T23:58:53.096681+08:00",
+  "durationSeconds": 20.746848,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "8ac10a49a1529a2357ba910df5a82204a63b736d51a77c955aaf282a2a9c6943",
+  "environment": "local_source_or_loopback_fixture_only"
+}

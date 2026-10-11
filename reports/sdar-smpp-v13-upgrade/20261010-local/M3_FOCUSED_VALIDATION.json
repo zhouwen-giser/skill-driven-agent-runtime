@@ -1,0 +1,109 @@
+{
+  "milestone": "M3",
+  "fullGate": "IN_PROGRESS",
+  "focused": [
+    {
+      "resultFile": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-input-chain-unit-contract-001709499219/result.json",
+      "status": "PASS",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "unit",
+        "packages/domain/test/task-business-command.unit.test.ts",
+        "packages/application/test/task-business-commands.unit.test.ts",
+        "packages/application/test/remote-task-input.unit.test.ts",
+        "apps/console/src/console.unit.test.tsx",
+        "--project",
+        "contract",
+        "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+        "packages/management-api/test/http-endpoint.contract.test.ts"
+      ],
+      "inputSha256": "f2974ebd16d2262d4d6e25a33d0ecb625f4e9ecf0f26d5dcd3e5d4979b83548d",
+      "testCounts": [
+        "Test Files  6 passed (6)",
+        "Tests  132 passed (132)"
+      ]
+    },
+    {
+      "resultFile": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-native-input-final-migration-002208972906/result.json",
+      "status": "PASS",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "inputSha256": "27eda9a5e8b4f5c5dcd66aef293d2ddaf90f1f2c2f1eff741d07eeb9eb062fe4",
+      "testCounts": [
+        "Test Files  1 passed (1)",
+        "Tests  9 passed (9)"
+      ]
+    },
+    {
+      "resultFile": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-types-and-lint-001945353131/result.json",
+      "status": "PASS",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsc",
+        "-p",
+        "tsconfig.json",
+        "--noEmit"
+      ],
+      "inputSha256": "dae010c1d52e9b5fc3311bee0482a8cece759099241f9871eb5d6e07b3fa8759",
+      "testCounts": []
+    },
+    {
+      "resultFile": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-pre-gate-focused-lint-002617699943/result.json",
+      "status": "PASS",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "apps/server/src/runtime.ts",
+        "apps/server/test/migration-image-identity.integration.test.ts",
+        "packages/application/src/task-business-commands.ts",
+        "packages/persistence-postgres/src/task-business-command-repository.ts",
+        "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+      ],
+      "inputSha256": "6ecdb16ec04c2ff65e8f2670164591a879925ba4660b5a800b9f16d4c64fe114",
+      "testCounts": []
+    },
+    {
+      "resultFile": "reports/sdar-smpp-v13-upgrade/20261010-local/isolation-image-tag-regression-002529658899/result.json",
+      "status": "PASS",
+      "command": [
+        "node",
+        "scripts/sdar-smpp-v13/verify-local.mjs",
+        "apps/server/test/migration-image-identity.integration.test.ts"
+      ],
+      "inputSha256": "6ecdb16ec04c2ff65e8f2670164591a879925ba4660b5a800b9f16d4c64fe114",
+      "testCounts": [
+        "Test Files  1 passed (1)",
+        "Tests  1 passed (1)"
+      ]
+    },
+    {
+      "resultFile": "reports/sdar-smpp-v13-upgrade/20261010-local/w3-pre-gate-format-lint-contract-002617699951/result.json",
+      "status": "PASS",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--project",
+        "contract",
+        "apps/server/test/runtime-migration-selection.contract.test.ts"
+      ],
+      "inputSha256": "6ecdb16ec04c2ff65e8f2670164591a879925ba4660b5a800b9f16d4c64fe114",
+      "testCounts": [
+        "Test Files  1 passed (1)",
+        "Tests  3 passed (3)"
+      ]
+    }
+  ],
+  "site": "NOT_RUN",
+  "sourceChangedBetweenFocusedRuns": true
+}

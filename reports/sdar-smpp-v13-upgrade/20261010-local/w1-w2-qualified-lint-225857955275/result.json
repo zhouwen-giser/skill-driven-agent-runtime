@@ -1,0 +1,33 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "packages/application/src/task-business-agent-facts.ts",
+    "packages/application/src/task-business-events.ts",
+    "packages/application/src/task-business-sync.ts",
+    "packages/application/src/business-events.ts",
+    "packages/application/src/result-processing-service.ts",
+    "packages/application/test/task-business-agent-facts.unit.test.ts",
+    "packages/application/test/task-business-sync.unit.test.ts",
+    "packages/application/test/business-events.unit.test.ts",
+    "packages/application/test/result-processing-service.unit.test.ts",
+    "packages/persistence-postgres/src/task-business-repository.ts",
+    "packages/persistence-postgres/src/business-event-checkpoint.ts",
+    "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+    "packages/persistence-postgres/test/repositories.integration.test.ts",
+    "packages/mcp-adapter/src/frozen-v1-mcp-client.ts",
+    "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts",
+    "apps/server/src/runtime.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "afae47376c62c20849f59677e95ad4c513c763519f438b0bace18b4dcd8b4dab",
+  "startedAt": "2026-10-10T22:58:57.955275+08:00",
+  "finishedAt": "2026-10-10T22:59:14.916678+08:00",
+  "durationSeconds": 16.961403,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "18c682c942996c8d79efb47e5be1f3eef7b0d30d25298a6a86438732aaf787b9",
+  "environment": "local_source_or_loopback_fixture_only"
+}

@@ -1,5 +1,13 @@
 # Project Status
 
+2026-10-11：用户已授权 SMPP v1.3 升级提交、推送和合并，发布操作进行中。PR34 与后续升级 PR 分开处理，遵守正常分支规则；实际身份和 CI 记录在 `reports/sdar-smpp-v13-upgrade/20261010-local/publication-20261011/`。此前完整本地门禁证据不变；现场和部署仍 NOT_RUN。
+
+2026-10-11 04:48 Asia/Shanghai：EP-SDAR-SMPP-V13-BUSINESS-CLOSURE 本地范围 `LOCAL_COMPLETE`。W0–W5 四批完成，M1–M4 各有 30 项完整门禁。最终 `pnpm verify:isolated --frozen` 在 `sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506` 全部通过；输入 `8e908f0f…` / 基线 `f5e3e050…` 不变，清理 0。48 个本地 AC PASS，现场 AC-045/046 NOT_RUN；正式 Registry/Skill/Task 导航、侦察、重启、同 Skill 失败反例、完整轨迹/确认源，以及 GOWM owner 安装后的受限角色隔离验证均有实际证据。见 [最终报告](reports/sdar-smpp-v13-upgrade/20261010-local/FINAL_CLOSEOUT.md)、[逐项结果](reports/sdar-smpp-v13-upgrade/20261010-local/CASE_RESULTS.json) 和 M1–M4_VALIDATION。代码未提交；现场、推送、PR 修改、合并和部署 NOT_RUN。原项目级 GOWM 上游缺口与发布 DoD 保持开放。
+
+2026-10-11 早前阶段记录：SMPP v1.3 升级 M1/M2/M3 完整隔离门禁分别通过全部 30 项。M3 输入 5d63724f… / sdar-verify-ecbbb50e-29bc-472a-86fd-7bfc4fcb2610，输入与基线未变化，清理 0。M4 正式导航及侦察闭环已通过最小 E2E，完整轨迹和确认链可核验；同 Skill 反例、GOWM 受限角色与第四批冻结全门禁仍在验证。历史失败保留；现场、推送、合并和部署 NOT_RUN。
+
+2026-10-10：EP-SDAR-SMPP-V13-BUSINESS-CLOSURE 进行中。任务包完整性和七项 selftest 通过；W0 已核定 clean main 与 Open/Draft PR34，并以原 head 创建本地升级分支。原适配回归 102 tests PASS。ADR-156 固定合同边界，完整 M1 gate 待执行。现场/推送/合并/部署均未执行。
+
 2026-09-09：EP-UGV-RESOURCE-IDENTITY 已完成。已更新 sz-gowm，公开 Card、SMPP 与 Runtime 统一使用 GOWM 绑定的 vehicle:ugv；2780 文件/容器与联合包一致，Card revision 2、12 Skills/能力保留。全仓 gate、独立性能复核、干净解包构建和现场只读验收通过，见 ADR-155 / reports/resource-identity-20260909。未执行真实移动 benchmark，巡逻依赖阻塞不变。
 
 2026-09-09：默认治理初始化的受支持项修复已验证（EP-DEFAULT-CAPABILITIES / ADR-154）。正式 PMS 已补部署，sz-gowm 已公开 12 个 Skills 及对应能力；embodied.area_patrol 等待后续 GOWM 的 embodied.inspect_area，完整清单仍阻塞。最终检查与干净解包构建通过；联合包和现场源码身份见 reports/default-capabilities-20260909。
@@ -1603,11 +1611,9 @@ handoff/持久化验证或真实启动；外部 ClickHouse 专用用户及精确
 
 2026-09-08 Goal 效果/判定来源已进入正式终态事务，设备效果指纹分离；11 项单测、共享 Goal 真库和正常双设备链 167a1865 通过。恢复进度向量来源及最终验收仍开放，Goal 未完成。
 
-
 2026-09-08 恢复进度来源隔离（模块回归）：ProgressVector / RecoveryDecision 以可选 executionTaskId 保存来源；共享正常恢复从实际 Task context 传递，写入前在同一事务核对 Plan/Goal、Task 及设备服务范围。读取前次进度按当前设备/服务过滤；存在不早于当前可验证进度、且无来源的旧记录时，以 RECOVERY_PROGRESS_SOURCE_UNPROVEN 明确失败，不改历史或从 START 重放。
 
 验证：相关 Application 两文件 7 项通过；既有隔离 PG Plan 的定向运行 d0a4a7ee-446e-47e9-a08a-4942690c4675 通过双设备进度隔离、幂等、越界写拒绝、缺来源写拒绝和旧状态明确拒绝。最初重跑整个 Goal fixture 因已有 revision=1 唯一键失败，随后直接复用已有 Plan，只执行恢复断言；未重建数据库、未调用模型/MCP、未重跑全量门禁。新 PG driver 的 Goal fixture 已包含这些断言，但本轮没有重跑整个 driver。整体 Goal 仍 INCOMPLETE，剩余后台范围、组合链路及最终单仓交付开放。
-
 
 2026-09-08 Goal 结果写入与终态范围收敛：共享判定、完成效果在原事务写入前核对 executionTaskId、Plan/Goal 与设备服务范围；working/terminal 三层判定及效果必须与承载 Task 同源。效果失效要求前驱属于同设备/服务，避免伪造来源撤销另一设备效果。正常 Server 将 DeviceWorkScope 传入终态仓储，commit 在任何业务写入前拒绝越界 Task；find/findByControl/warning 也按实际 Task 限定。无 Scope 的 standalone 路径保持兼容。
 
@@ -1639,50 +1645,57 @@ handoff/持久化验证或真实启动；外部 ClickHouse 专用用户及精确
 
 2026-09-08：四类直接 Task checkpoint 读写范围与共享定义兼容已验证。Evidence infrastructure 投影源仍未装配设备范围，整体任务继续开放。
 
-
 2026-09-08 执行计划再次收敛：当前 GOWM 任务改为“在途修改收尾与有限缺陷清单 → 关键行为补缺 → 一次开发收口/Draft PR”。正常链已有证据，不再逐补丁重跑；Evidence infrastructure 改动仍待验证。全量外围盘点与组合证明保留开放，上游辅助 link 缺口仍 INCOMPLETE；本次仅更新计划，无新增测试结论。详见现有 EP-GOWM-SHARED-STORAGE-INTEGRATION.md 顶部。
-
 
 2026-09-08：Evidence infrastructure 已完成本批来源过滤、Task 归属 successor 与 v2 装配修改；3 项相关单测、复用既有双设备 checkpoint 的只读 PG 回归通过。共享/全局来源全面分类与最终门禁仍开放。
 
-
 2026-09-08：真实 Skill 子执行发现并修复自动确认遗漏 Task ID；双设备 Planner/LangGraph/PG 链 d07acdc5 及 28 项单测通过。每设备一次规划、唯一子实例、父成本 1，重入不重复执行。正式 Usage/Server/Remote 子链和最终交付仍开放。
-
 
 2026-09-08：Business Event 正常 Server 双设备重复事件链 147d9fdf 通过，分别一个 inbox/assessment、两个游标均为 1、cleanupErrors=[]。Polygon/LineString 与修订回滚已有明确回归，本轮不再重复；Remote 关联影响及最终交付仍开放。
 
-
 2026-09-08：Remote binding 管理取消正常双设备链 0b57b0fe 通过：重复键一次投递、Provider cancelled、binding reentered、successor 待确认且无重复工具；本地模型零失败、清理成功。父 Task 取消和后台 retention/启动告警仍开放。
-
 
 2026-09-08：修复 Evidence 每日 retention 调度 key 未包含设备范围导致的恢复身份碰撞；1 项单测及隔离 PG 独立记录/幂等/跨范围拒绝通过，无数据清理。正常周期告警消失待最终 Server 回归确认。
 
-
 2026-09-08：临时 Skill 创建/读取/显式经验写入已接入设备范围；真库双设备创建读取通过，但原生 Task 终态触发器经验 INSERT 缺 device_id，导致整个终态回滚。已记录新的上游合同缺口，整体 INCOMPLETE。
-
 
 2026-09-08：补齐规定的后台范围清单（15 组，明确 partial/open）及 test:gowm-storage:runtime/--help；help 实测无环境退出 0。后台 quality/Artifact/共享服务协调仍有开放项，配置绑定适配器尚未正常装配，最终回归和交付未完成。
 
-
 2026-09-08：正常 Evidence quality source 已加入 SQL 返回范围及混合 export batch 排除；双设备真实诊断正反例、十类查询通过。共享聚合专门场景/服务协调及整体交付仍开放。
-
 
 2026-09-08 R1 Artifact：上次会话句柄均已失效，隔离库无执行记录，未据此推断通过。重新执行暴露夹具 ENOENT（错误 packages/schemas 路径）；改为相对 import.meta.url 的现有 golden fixture 后，verifyGowmArtifactExecutionScope 在既有 ce11 双设备 Task 上通过 start 原生 device_id、越界 start/complete/feedback 拒绝及所属完成/反馈写入。仅证明仓储和事务入口，不证明 Artifact 全生命周期。
 
-
 2026-09-08 R2 父 Task 取消：复用现有 runtime driver 新增 --parent-cancel，经官方 A2A 客户端每设备重复取消两次。报告 execution-gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b.json 为 PASS：两个 Task 和对应 Workflow instance 均 canceled 且 device_id 正确，工具总调用 2，本地模型夹具失败 0，cleanupErrors=[]。此证据不宣称 Provider 已终止、物理进程重启或迟到回调全部完成；启动仍有已有模型路由 MODEL_INVOCATION_FAILED 告警。进程丢失现有 gowm-recovery.postgres-cases.ts 已证明持久恢复范围、重复调用无新增状态，真实进程重启组合仍开放。
-
 
 2026-09-08 集中开发检查：全仓 pnpm lint 退出 0；pnpm verify:architecture 首次拒绝两处测试内部 compiler 引用，改用模块既有公开导出（无规则放宽）后退出 0；pnpm verify:protocol、pnpm build、pnpm gowm-storage:check 均退出 0（离线 87 文件）。pnpm verify:migrations 退出 1：脚本默认 docker pull 遭 spawnSync docker EPERM，清理尝试也失败，未创建已确认的迁移容器；本轮不追加默认 Docker 环境，不计为通过。完整 pnpm test 已以 SDAR_VERIFY_ISOLATED=true 启动，尚待结果；不要重复启动。
 
-
 2026-09-08 集中回归结束：SDAR_VERIFY_ISOLATED=true pnpm test 退出 0，351 文件/3064 项全通过，124.36 秒；本批 136 个修改代码文件 prettier --check 通过。完整日志保存 development-checks/，不重复启动已通过集合。迁移检查仍失败；验收索引保留全部 45 项及开放状态，最终交付尚未完成。
 
-
 2026-09-08 开发交付整理：最终 PG driver 26 组通过（616862f8）；正常 Remote 代表链 d6f0a68a 通过，两次工具、2.0 continuation 完成、canonical 延迟补齐无重发，cleanupErrors=[]。FINAL_REPORT.md/json、postgres-results、runtime-smoke-results、optional-smpp-interop 和 45 项 acceptance-results 已保存，整体 INCOMPLETE。两个本任务隔离容器及匿名 PG 卷已清理并回查为空；用户实例未动。准备单仓提交与 Draft PR；原 Goal 的未完成范围保持开放。
-
 
 2026-09-08：实现提交 83286afe 已推送到任务分支。Draft PR 被自动审批两次拒绝，理由为公开仓库正文包含内部架构/验证细节，要求用户明确授权；正文已准备在 /tmp/gowm-pr-body.md。状态更新仅本地，等待授权后完成交付记录；整体 Goal 仍 INCOMPLETE。
 
 ## 2026-09-09 联合源码包
+
 EP-UNITED-SOURCE-PACKAGE：实现与完整 gate 通过，联合源码包生成及校验完成；交付身份见 reports/united-package-20260909/package-final.json，仅生成交付物，不更新现场。
+
+## 2026-10-10 SMPP v1.3 upgrade
+
+EP-SDAR-SMPP-V13-BUSINESS-CLOSURE remains IN_PROGRESS. W0 audit/intake and original PR34 preservation complete;
+M1 full gate pending after preserved lint/license/environment/performance failures and repairs. Separate official A2A TCK PASS.
+W1/W2 native binding/projection/inbox extension implemented; isolated PG/Redis 96 PASS and focused unit/contract 110 PASS.
+Latest bounded model facts, refresh diagnostics and shutdown/SSE regressions awaiting checks. M2–M4 not complete.
+W3 governed controls, W4 formal outcome/Artifact exports and W5 isolated E2E/recovery/rollback remain necessary.
+No site operation, push, merge or deployment performed; selected GOWM/site AC-045/046 remain NOT_RUN.
+
+M1 completed 2026-10-10 23:00: unchanged frozen input 101c40af…, all 30 gate stages PASS and cleanup 0
+(`sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a`, M1_VALIDATION.json). Historical failed attempts retained.
+M2 first full gate failed format; repaired for a fresh run. M2–M4 and formal isolated business E2Es remain open.
+
+SMPP v1.3 local upgrade (2026-10-11): W3 native journal/input/nav/control routes implemented; focused nine-case PostgreSQL regressions PASS. M2 full gate retry in progress after immutable verifier image repair; M3 full gate pending. M4 and all site checks remain unverified. ADR-158/159; baseline SQL unchanged.
+
+SDAR/SMPP v1.3 upgrade update (2026-10-11): M2 COMPLETE, all 30 isolated stages PASS
+(`reports/sdar-smpp-v13-upgrade/20261010-local/M2_VALIDATION.json`, unchanged input 14013bbf3b01…).
+M3/M4 IN_PROGRESS: formal initial-plan publication order and transaction pool deadlock regression
+repairs, native Skill policy round-trip and Task-scoped full evidence export are under validation.
+Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.

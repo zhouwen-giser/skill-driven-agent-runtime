@@ -1,0 +1,16 @@
+{
+  "command": [
+    "pnpm",
+    "test:a2a-tck"
+  ],
+  "cwd": "/tmp/sdar-verify-8708b52b-a175-4f13-a938-bc58b28e8e5c-3hoR0y/source",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "9547bd7214631db31f4f8c1273ca72899f78547b3d958594246f7af0fe2914df",
+  "startedAt": "2026-10-10T22:32:07.740410+08:00",
+  "finishedAt": "2026-10-10T22:34:22.845158+08:00",
+  "durationSeconds": 135.104748,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "433f3b055534dbf15cfa3f5287460c4ae9ce9bb008444a7263aa61680c78c87f",
+  "environment": "local_source_or_loopback_fixture_only"
+}

@@ -8,6 +8,7 @@ import {
 import { z } from 'zod';
 
 import type { TaskService, TaskStateNotifier } from '../../application/src/index.js';
+import type { TaskProjectionArtifact } from '../../application/src/task-projection.js';
 import type { AgentTask } from '../../domain/src/index.js';
 import { governedControlPrincipalForA2AUser } from './authenticated-confirm-user.js';
 import { buildStatusUpdate } from './compatibility.js';
@@ -25,6 +26,7 @@ export interface TaskServiceAgentExecutorOptions {
   readonly safetyPollIntervalMs?: number;
   readonly waitTimeoutMs?: number;
   readonly interaction?: (taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>;
+  readonly businessArtifacts?: (taskId: string) => Promise<readonly TaskProjectionArtifact[]>;
 }
 
 export const MIN_A2A_SAFETY_POLL_INTERVAL_MS = 100;
@@ -37,6 +39,7 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
   readonly #interaction:
     ((taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>) | undefined;
   #closed = false;
+  readonly #businessArtifacts: TaskServiceAgentExecutorOptions['businessArtifacts'];
   readonly #observationOwnedByHandler: boolean;
 
   constructor(options: TaskServiceAgentExecutorOptions) {
@@ -46,6 +49,7 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     this.#safetyPollIntervalMs = options.safetyPollIntervalMs ?? 1_000;
     this.#waitTimeoutMs = options.waitTimeoutMs ?? 30_000;
     this.#interaction = options.interaction;
+    this.#businessArtifacts = options.businessArtifacts;
     if (
       !Number.isFinite(this.#safetyPollIntervalMs) ||
       this.#safetyPollIntervalMs < MIN_A2A_SAFETY_POLL_INTERVAL_MS ||
@@ -67,7 +71,9 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     if (request.task !== undefined) {
       const followUp = toTaskFollowUp(request.userMessage);
       const confirmationPrincipal =
-        followUp.action === 'confirm_plan' || followUp.action === 'confirm_weapon_action'
+        followUp.action === 'confirm_plan' ||
+        followUp.action === 'confirm_weapon_action' ||
+        followUp.action === 'provide_input'
           ? governedControlPrincipalForA2AUser(request.context.user)
           : undefined;
       const updated = await this.#tasks.followUp({
@@ -181,7 +187,11 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
   }
 
   async #project(task: AgentTask): Promise<Task> {
-    return toA2ATask(task, await this.#interaction?.(task.taskId));
+    return toA2ATask(
+      task,
+      await this.#interaction?.(task.taskId),
+      await this.#businessArtifacts?.(task.taskId),
+    );
   }
 
   #isClosed(): boolean {

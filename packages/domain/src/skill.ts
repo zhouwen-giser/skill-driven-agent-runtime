@@ -2,6 +2,14 @@ import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import { createSkillUsageSpecification, type SkillUsageSpecification } from './skill-usage.js';
 import type { SkillOutcomeSpecification } from './user-goal-runtime.js';
+import {
+  taskBusinessMutationPolicySchema,
+  type TaskBusinessMutationPolicy,
+} from './task-business-command.js';
+import {
+  taskBusinessEvidencePolicySchema,
+  type TaskBusinessEvidencePolicy,
+} from './task-business-evidence.js';
 
 export type SkillStatus =
   'draft' | 'validating' | 'enabled' | 'disabled' | 'deprecated' | 'validation_failed';
@@ -16,6 +24,8 @@ export interface SkillToolPolicy {
 }
 export interface SkillRuntimePolicy {
   readonly autoConfirmPlan: boolean;
+  readonly taskBusinessMutationPolicy?: TaskBusinessMutationPolicy;
+  readonly taskBusinessEvidencePolicy?: TaskBusinessEvidencePolicy;
   readonly maxReplans?: number;
   readonly maxDurationSeconds?: number;
   readonly maxLlmCalls?: number;
@@ -101,7 +111,12 @@ export function createSkillVersion(input: SkillVersion): SkillVersion {
         input.toolPolicy.forbidden.map((reference) => Object.freeze({ ...reference })),
       ),
     }),
-    runtimePolicy: Object.freeze({ ...input.runtimePolicy }),
+    // Validated domain policy is detached recursively; caller edits cannot change a published version.
+    runtimePolicy: snapshotSkillJson(
+      Object.fromEntries(
+        Object.entries(input.runtimePolicy).filter(([, value]) => value !== undefined),
+      ),
+    ) as SkillRuntimePolicy,
     ...(input.usageSpecification === undefined
       ? {}
       : { usageSpecification: createSkillUsageSpecification(input.usageSpecification) }),
@@ -184,6 +199,22 @@ function snapshotSkillJson(value: unknown, active = new WeakSet(), depth = 0): u
 }
 
 function assertRuntimePolicy(policy: SkillRuntimePolicy): void {
+  if (
+    policy.taskBusinessMutationPolicy !== undefined &&
+    !taskBusinessMutationPolicySchema.safeParse(policy.taskBusinessMutationPolicy).success
+  )
+    throw new DomainError(
+      'SKILL_RUNTIME_POLICY_INVALID',
+      'Task business mutation policy must use the published immutable non-weapon contract.',
+    );
+  if (
+    policy.taskBusinessEvidencePolicy !== undefined &&
+    !taskBusinessEvidencePolicySchema.safeParse(policy.taskBusinessEvidencePolicy).success
+  )
+    throw new DomainError(
+      'SKILL_RUNTIME_POLICY_INVALID',
+      'Task business evidence policy must use restricted literal JSON pointer predicates.',
+    );
   for (const value of [policy.maxReplans, policy.maxLlmCalls, policy.maxMcpCalls])
     if (value !== undefined && (!Number.isInteger(value) || value < 0))
       throw new DomainError(

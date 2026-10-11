@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 2,
+  "scope": "full",
+  "dependencyMode": "reuse",
+  "baselineSha256": "2ac5d3af8b6609a2e55a184d1ee87e741093b42278a86644906591f9d2f7f679",
+  "status": "failed",
+  "commit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "dirty": true,
+  "inputSha256": "d2a6951165cf97f134c1cda7523423792fe5deeff53eb39837bec0ded5c6a023",
+  "environment": {
+    "node": "v22.23.2",
+    "platform": "linux",
+    "architecture": "x64",
+    "infrastructureMode": "self-managed-compose"
+  },
+  "startedAt": "2026-10-10T16:27:02.804Z",
+  "finishedAt": "2026-10-10T16:27:43.034Z",
+  "durationMs": 40230,
+  "steps": [
+    {
+      "name": "format",
+      "command": "pnpm format:check",
+      "status": "failed",
+      "startedAt": "2026-10-10T16:27:02.807Z",
+      "finishedAt": "2026-10-10T16:27:43.032Z",
+      "timeoutMs": 300000,
+      "logPath": "reports/verification/raw/format.log",
+      "outputSha256": "182150b8608d2b845ae3878bcea1d880d7f207ad3cee3ea9651e1ccb45ed9388",
+      "metrics": {},
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 40224,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 41,
+        "peakRssBytes": 627093504,
+        "peakProcesses": 4
+      },
+      "cleanupErrors": []
+    }
+  ],
+  "pendingSteps": [
+    "verification-runner-contract",
+    "lint",
+    "typecheck",
+    "unit",
+    "contract",
+    "evidence-contract",
+    "evidence-coverage",
+    "architecture",
+    "a2a-baseline",
+    "management-openapi",
+    "node-control-contract",
+    "node-control-implementation-conformance",
+    "smpp-registry-projection",
+    "acceptance",
+    "sources",
+    "protocol",
+    "infra",
+    "project-license",
+    "licenses",
+    "build",
+    "cognitive-replay-no-physical-provider",
+    "clean-baseline-reset-seed",
+    "postgres-redis-integration",
+    "postgres-redis-model-mcp-e2e",
+    "official-a2a-tck",
+    "canonical-evidence-demo",
+    "infrastructure-smoke",
+    "server-console-smoke",
+    "node-control-api-worker-smoke"
+  ]
+}

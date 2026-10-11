@@ -1,0 +1,87 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |unit| packages/application/test/task-business-commands.unit.test.ts (3 tests | 2 failed) 37ms
+     × keeps acknowledgment accepted until its own command is applied with the exact adopted route 27ms
+     × keeps a lost Input acknowledgment uncertain when the public response lacks a client command correlation 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/task-business-commands.unit.test.ts > governed business evidence correlation > keeps acknowledgment accepted until its own command is applied with the exact adopted route
+AssertionError: expected { state: 'confirmed', …(1) } to match object { state: 'confirmed', …(1) }
+(16 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "evidence": {
+-     "adoptedRouteRef": {
++     "contextDigest": "sha256:fe5c9ee419e120e080a3f12872fac2e1f8a32c05865451b2336b290197045fe3",
++     "contextRevision": 4,
++     "effectiveNavigation": {
++       "commandId": "business-command-1",
++       "planRevision": 5,
++       "routeRef": {
+          "id": "route-line",
+          "kind": "artifact",
+          "revision": 1,
++       },
++     },
++     "identity": {
++       "executionId": "execution-catalog-1",
++       "operationName": "vehicle_area_recon",
++       "providerId": "provider-catalog-1",
++       "resourceId": "vehicle:ugv1",
++       "taskId": "task-catalog-1",
++     },
++     "ownCommandApplied": true,
++     "snapshotWatermark": {
++       "afterSequence": "12",
++       "streamId": "public-stream-1",
+      },
+    },
+    "state": "confirmed",
+  }
+
+ ❯ packages/application/test/task-business-commands.unit.test.ts:46:55
+     44|       ),
+     45|     };
+     46|     expect(observeTaskBusinessCommand(command, view)).toMatchObject({
+       |                                                       ^
+     47|       state: 'confirmed',
+     48|       evidence: { adoptedRouteRef: routeRef },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |unit| packages/application/test/task-business-commands.unit.test.ts > governed business evidence correlation > keeps a lost Input acknowledgment uncertain when the public response lacks a client command correlation
+AssertionError: expected { state: 'confirmed', …(1) } to match object { state: 'confirmed', …(1) }
+(14 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "evidence": {
+-     "correlationQuality": "request_response_match",
+      "providerResponseCommandId": "provider-owned-command",
+    },
+    "state": "confirmed",
+  }
+
+ ❯ packages/application/test/task-business-commands.unit.test.ts:100:55
+     98|       ),
+     99|     };
+    100|     expect(observeTaskBusinessCommand(command, view)).toMatchObject({
+       |                                                       ^
+    101|       state: 'confirmed',
+    102|       evidence: {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  2 failed | 61 passed (63)
+   Start at  23:52:16
+   Duration  5.15s (transform 8.91s, setup 0ms, import 12.29s, tests 1.35s, environment 1ms)
+

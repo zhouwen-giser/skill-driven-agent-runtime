@@ -373,9 +373,12 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     });
   }
 
-  async findById(bindingId: string): Promise<RemoteTaskBinding | undefined> {
+  async findById(
+    bindingId: string,
+    query: Pick<Pool, 'query'> = this.#pool,
+  ): Promise<RemoteTaskBinding | undefined> {
     const filter = remoteTaskScopeSql(this.#deviceScope, 2);
-    const result = await this.#pool.query<RemoteTaskBindingRow>(
+    const result = await query.query<RemoteTaskBindingRow>(
       `SELECT * FROM remote_task_binding WHERE binding_id=$1 AND ${filter.predicate}`,
       [bindingId, ...filter.values],
     );

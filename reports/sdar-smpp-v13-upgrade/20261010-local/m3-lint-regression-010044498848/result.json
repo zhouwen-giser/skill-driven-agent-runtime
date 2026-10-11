@@ -1,0 +1,18 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "packages/persistence-postgres/test/governed-control-management-authority-reader.unit.test.ts"
+  ],
+  "cwd": "/tmp/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb-m5Gyyf/source-m3-repair",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "ca087d39cf67c1dadeb43606fd231c2685e956f40b85c552bfb31bba857b7ec6",
+  "startedAt": "2026-10-11T01:00:44.498848+08:00",
+  "finishedAt": "2026-10-11T01:00:54.430371+08:00",
+  "durationSeconds": 9.931523,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "975cf0bb4527fce649a85b95bd700bd30d7abf389f4fae6866c8b3257e07542c",
+  "environment": "local_source_or_loopback_fixture_only"
+}

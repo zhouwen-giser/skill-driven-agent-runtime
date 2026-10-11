@@ -351,6 +351,8 @@ export interface BusinessEventInboxRecord {
   readonly envelope: unknown;
   readonly status: BusinessEventInboxStatus;
   readonly admittedAt: string;
+  /** Internal bounded processing lease; never part of a Provider envelope/cursor. */
+  readonly processingToken?: string;
 }
 
 export type BusinessEventEnvelope =

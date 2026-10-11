@@ -10,6 +10,7 @@ import { URL } from 'node:url';
 import pg from 'pg';
 
 import { buildInfrastructureImages } from './lib/infrastructure.mjs';
+import { inspectMigrationDockerImage } from './lib/migration-image-identity.mjs';
 import {
   migrationVerificationResources,
   recordVerificationCleanupFailure,
@@ -781,6 +782,9 @@ async function startIsolatedMigrationInfrastructure() {
     buildInfrastructureImages(root);
     ensureDockerImage(v123FrozenComposeImage, true);
     ensureDockerImage(v13AlpineImage, false);
+    // Freeze IDs before creating either container. Concurrent builds may replace a local tag.
+    const sourceImage = inspectDockerImage(v123FrozenComposeImage);
+    const targetImage = inspectDockerImage(v13AlpineImage);
     for (const volume of [resources.sourceVolume, resources.targetVolume]) {
       runDocker([
         'volume',
@@ -795,13 +799,13 @@ async function startIsolatedMigrationInfrastructure() {
     runPostgresContainer({
       container: resources.sourceContainer,
       volume: resources.sourceVolume,
-      image: v123FrozenComposeImage,
+      image: sourceImage.imageId,
       runId,
     });
     runPostgresContainer({
       container: resources.targetContainer,
       volume: resources.targetVolume,
-      image: v13AlpineImage,
+      image: targetImage.imageId,
       runId,
     });
     await Promise.all([
@@ -810,8 +814,6 @@ async function startIsolatedMigrationInfrastructure() {
     ]);
     const sourcePort = publishedPostgresPort(resources.sourceContainer);
     const targetPort = publishedPostgresPort(resources.targetContainer);
-    const sourceImage = inspectDockerImage(v123FrozenComposeImage);
-    const targetImage = inspectDockerImage(v13AlpineImage);
     const registryManifests = writeP13Evidence
       ? {
           frozenV123ComposePin: inspectRemoteOciIndex(v123FrozenComposeImage),
@@ -976,18 +978,7 @@ function ensureDockerImage(image, pullIfMissing) {
 }
 
 function inspectDockerImage(image) {
-  const records = JSON.parse(String(runDocker(['image', 'inspect', image])));
-  const record = records[0];
-  if (record === undefined || typeof record.Id !== 'string')
-    throw new Error(`V13_DOCKER_IMAGE_INSPECT_INVALID:${image}`);
-  const environment = Array.isArray(record.Config?.Env) ? record.Config.Env : [];
-  return {
-    imageId: record.Id,
-    repoDigests: Array.isArray(record.RepoDigests) ? record.RepoDigests : [],
-    postgresVersionEnvironment:
-      environment.find((value) => value.startsWith('PG_VERSION='))?.slice('PG_VERSION='.length) ??
-      null,
-  };
+  return inspectMigrationDockerImage(runDocker, image);
 }
 
 function inspectRemoteOciIndex(image) {

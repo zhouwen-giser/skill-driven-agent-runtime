@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  03:22:32
+   Duration  2.78s (transform 2.00s, setup 0ms, import 2.56s, tests 36ms, environment 0ms)
+

@@ -1,0 +1,2 @@
+$ node protocol/scripts/verify-protocol-package.mjs
+Frozen protocol package verified: 11 MCP files, 23 Business Events source files, 9 valid fixtures, 12 invalid fixtures.

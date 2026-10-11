@@ -1,0 +1,164 @@
+{"scope":"isolated_loopback","project":"sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13","postgresPort":37997,"redisPort":43913,"site":"NOT_RUN"}
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 762B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.3s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.6s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.1s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:ce108cfbf67696a1a928553f55d3cda9fe046648f3f512e40a9ef747a72b7780
+#13 exporting manifest sha256:ce108cfbf67696a1a928553f55d3cda9fe046648f3f512e40a9ef747a72b7780 0.2s done
+#13 exporting config sha256:120ae4cea46b7f8874f150353e83bdd2a44963bbf6aa5619e4f887843f62a170
+#13 exporting config sha256:120ae4cea46b7f8874f150353e83bdd2a44963bbf6aa5619e4f887843f62a170 0.4s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.1s done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.1s done
+#13 DONE 0.9s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-local Creating 
+ Network sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-local Created 
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-postgres-data Creating 
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-postgres-data Created 
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-redis-data Creating 
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-redis-data Created 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Creating 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Creating 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Created 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Created 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Starting 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Starting 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Started 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Started 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Waiting 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Waiting 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Healthy 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Healthy 
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-10T19:18:53.634Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":2,"reconciled":1,"alreadyConverged":0,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"formal_native_diagnostics","operation":"vehicle_navigate","diagnostics":{"task":[{"task_id":"2b330479-9a8b-4046-a241-0ae310c1ad16","phase":"completed","phase_message":"Task completed.","error_code":null},{"task_id":"441e6124-a469-4a58-9895-eb795b320c7a","phase":"executing","phase_message":"Plan confirmed.","error_code":null}],"binding":[{"binding_id":"remote-task-binding-mcp-invocation-dcd19b13-db40-455a-aa27-5cc815a584da","protocol_status":"completed","local_state":"reentered","version":"29","last_safe_error_code":null},{"binding_id":"remote-task-binding-mcp-invocation-e5c8e126-0963-45ee-8320-c600f55376ea","protocol_status":"completed","local_state":"terminal_event_pending","version":"553","last_safe_error_code":null}],"controls":[{"event_type":"task.completed","status":"processed"},{"event_type":"task.completed","status":"pending"}],"continuationSnapshots":[{"workflow_instance_id":"instance-control-task-2b330479-9a8b-4046-a241-0ae310c1ad16-0-2d470862-825d-4c00-8d5f-f4871934a235","lifecycle":"terminal","state_version":"1"},{"workflow_instance_id":"instance-control-task-441e6124-a469-4a58-9895-eb795b320c7a-0-36298fdc-eb8c-4308-a119-7b0e81c8711c","lifecycle":"terminal","state_version":"1"}],"continuationWaits":[{"snapshot_id":"workflow-continuation-snapshot-ea36dfbe-356f-4d14-9705-453cc0fe8444","binding_id":"remote-task-binding-mcp-invocation-dcd19b13-db40-455a-aa27-5cc815a584da"},{"snapshot_id":"workflow-continuation-snapshot-9f434ce9-ddf2-4e1e-8037-ef0e9533bc38","binding_id":"remote-task-binding-mcp-invocation-e5c8e126-0963-45ee-8320-c600f55376ea"}],"instances":[{"instance_id":"instance-control-task-441e6124-a469-4a58-9895-eb795b320c7a-0-36298fdc-eb8c-4308-a119-7b0e81c8711c","status":"succeeded","errors_json":{}},{"instance_id":"instance-control-task-2b330479-9a8b-4046-a241-0ae310c1ad16-0-2d470862-825d-4c00-8d5f-f4871934a235","status":"succeeded","errors_json":{}}],"inputs":[],"observations":[{"record_type":null,"count":27},{"record_type":"task_business.projection","count":15},{"record_type":"task_business.content","count":10},{"record_type":"task_business.object","count":12},{"record_type":"task_business.command","count":12}],"commands":[{"intent_id":"business-navigation-d0ed3b9139fed7e289d06344cc483b7f5a34e9282c263b92e3b7c0bc33c364ad","state":"confirmed","error_code":null},{"intent_id":"business-navigation-e320d9ca03fc39d42ffa920c3e3643300a2759a7a79f1935ae298c12da20b835","state":"confirmed","error_code":null}],"calls":["server/discover","tools/list","io.sdar/taskExecution/checkAvailability","io.sdar/taskExecution/checkAvailability","tools/call","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","io.sdar/taskBusiness/interventions/apply","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","io.sdar/taskExecution/checkAvailability","io.sdar/taskExecution/checkAvailability","tools/call","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","io.sdar/taskBusiness/interventions/apply","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","server/discover","io.sdar/taskBusiness/artifacts/get","io.sdar/taskBusiness/context/get","server/discover","server/discover","io.sdar/taskBusiness/artifacts/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get"]}}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-10T19:20:00.034Z"}
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 83908[2mms[22m[39m
+[31m     [31m×[31m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 66579[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch [33m 17326[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mAssertionError[22m: expected 'executing' to be 'failed' // Object.is equality[39m
+
+Expected: [32m"failed"[39m
+Received: [31m"executing"[39m
+
+[36m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m855:15[22m[39m
+    [90m853|[39m                 await jsonRequest(runtime!.management.baseUrl + `/api/…
+    [90m854|[39m               )[[32m'phase'[39m][33m,[39m
+    [90m855|[39m             )[33m.[39m[34mtoBe[39m([32m'failed'[39m)[33m;[39m
+    [90m   |[39m               [31m^[39m
+    [90m856|[39m           }[33m,[39m [34m40_000[39m)[33m;[39m
+    [90m857|[39m           [35mconst[39m finalNegative [33m=[39m [35mawait[39m [34meventually[39m([35masync[39m () [33m=>[39m {
+[90m [2m❯[22m eventually apps/server/test/smpp-task-business.e2e.test.ts:[2m1061:14[22m[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m850:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 03:18:30
+[2m   Duration [22m 90.22s[2m (transform 4.22s, setup 0ms, import 6.14s, tests 83.91s, environment 0ms)[22m
+
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Stopping 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Stopping 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Stopped 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Removing 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-postgres-1 Removed 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Stopped 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Removing 
+ Container sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13-redis-1 Removed 
+ Network sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-local Removing 
+ Network sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-local Removed 
+file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77
+  if (result.status !== 0) throw new Error(`E2E_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+                                 ^
+
+Error: E2E_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project e2e apps/server/test/smpp-task-business.e2e.test.ts
+    at run (file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77:34)
+    at file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:27:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-redis-data Removing 
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-postgres-data Removing 
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-redis-data Removed 
+ Volume sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13_sdar-postgres-data Removed 
+{"project":"sdar-verify-smpp-v13-6821c6cc-2927-4b4d-b8ef-8ecfc9261b13","cleanupExitCode":0,"signal":null}

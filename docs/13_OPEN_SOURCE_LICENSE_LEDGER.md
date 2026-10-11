@@ -118,3 +118,8 @@ TypeScript 小模块，必须另建 Source Intake、保留 Apache-2.0 归属并�
 - 提供 `THIRD_PARTY_NOTICES.md`；
 - 所有 vendored 文件具有 source URL、commit 和 license header；
 - 不存在未知许可证、未锁定 Git 引用和开发临时源码复制。
+
+SMPP UGV v1.3 public TaskBusiness schemas/catalog are unmodified Apache-2.0 contract references
+pinned at `0a4a7c36865d4c9920a4e65857c0903e9ef12533`, with LICENSE and exact blob/hash
+manifest in `contracts/smpp-task-business/v1.3`. No NOTICE exists at that commit. See OSS_INTAKE.md
+and ADR-156; no Provider runtime dependency or source adaptation is introduced.

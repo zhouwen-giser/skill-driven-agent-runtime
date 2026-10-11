@@ -1,0 +1,68 @@
+{
+  "caseId": "AC-014",
+  "environment": "owned_loopback_sse_and_postgres",
+  "evidence": {
+    "routing": [
+      {
+        "bindingId": "continuation-invalidation-binding-smpp-v13-binding-mapped",
+        "remoteTaskId": "provider-smpp-v13-binding-1"
+      },
+      {
+        "bindingId": "continuation-invalidation-binding-smpp-v13-poll-cas-mapped",
+        "remoteTaskId": "provider-smpp-v13-poll-cas-1"
+      }
+    ],
+    "unrelatedBindingUnchanged": "continuation-invalidation-binding-smpp-v13-content-mapped",
+    "subscription": {
+      "subscriptionId": "shared-routing",
+      "providerId": "continuation-invalidation-server-smpp-v13-binding",
+      "streamId": "018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0001",
+      "generation": 1,
+      "status": "current",
+      "lastDurablyAdmittedSequence": "3",
+      "lastProcessedSequence": "3",
+      "createdAt": "2026-10-10T12:00:00.000Z",
+      "updatedAt": "2026-10-10T20:11:13.636Z"
+    },
+    "relatedTasksRequests": [
+      {
+        "method": "io.sdar/businessEvents/relatedTasks/list",
+        "headers": {
+          "host": "127.0.0.1:34987",
+          "connection": "keep-alive",
+          "accept": "application/json, text/event-stream",
+          "content-type": "application/json",
+          "mcp-protocol-version": "2026-07-28",
+          "mcp-method": "io.sdar/businessEvents/relatedTasks/list",
+          "mcp-name": "CFCYuVDnF2qfTgP3dyza0ctk1CiUVAAPgbvrzXknzhc",
+          "accept-language": "*",
+          "sec-fetch-mode": "cors",
+          "user-agent": "node",
+          "accept-encoding": "gzip, deflate",
+          "content-length": "453"
+        },
+        "params": {
+          "streamId": "018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0001",
+          "eventId": "CFCYuVDnF2qfTgP3dyza0ctk1CiUVAAPgbvrzXknzhc",
+          "limit": 256,
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientInfo": {
+              "name": "sdar",
+              "version": "1.2.2"
+            },
+            "io.modelcontextprotocol/clientCapabilities": {
+              "extensions": {
+                "io.sdar/businessEvents": {
+                  "profileVersion": "1.0"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "invocationCount": 6
+  },
+  "site": "NOT_RUN"
+}

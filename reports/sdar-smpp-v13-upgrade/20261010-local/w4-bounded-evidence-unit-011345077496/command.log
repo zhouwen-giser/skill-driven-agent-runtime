@@ -1,0 +1,55 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |unit| packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts (4 tests | 3 failed) 53ms
+     × AC-033/038 exports bounded canonical business records with full original content references and visible missing chain links 40ms
+     × projects MCP Task consumer recovery and Capability record types with exact lifecycle semantics 4ms
+     × keeps provider completion as receipt and requires Goal verification 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts > McpCapabilityEvidenceProjector > AC-033/038 exports bounded canonical business records with full original content references and visible missing chain links
+ReferenceError: business is not defined
+ ❯ McpCapabilityEvidenceProjector.projectTask packages/runtime-control-application/src/mcp-capability-evidence-projector.ts:585:11
+    583|         sourceId: id,
+    584|         revision:
+    585|           business === undefined
+       |           ^
+    586|             ? row
+    587|             : {
+ ❯ packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts:83:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  |unit| packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts > McpCapabilityEvidenceProjector > projects MCP Task consumer recovery and Capability record types with exact lifecycle semantics
+ReferenceError: business is not defined
+ ❯ McpCapabilityEvidenceProjector.projectTask packages/runtime-control-application/src/mcp-capability-evidence-projector.ts:585:11
+    583|         sourceId: id,
+    584|         revision:
+    585|           business === undefined
+       |           ^
+    586|             ? row
+    587|             : {
+ ❯ packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts:163:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |unit| packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts > McpCapabilityEvidenceProjector > keeps provider completion as receipt and requires Goal verification
+ReferenceError: business is not defined
+ ❯ McpCapabilityEvidenceProjector.projectTask packages/runtime-control-application/src/mcp-capability-evidence-projector.ts:585:11
+    583|         sourceId: id,
+    584|         revision:
+    585|           business === undefined
+       |           ^
+    586|             ? row
+    587|             : {
+ ❯ packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts:275:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  3 failed | 29 passed (32)
+   Start at  01:13:46
+   Duration  3.30s (transform 5.83s, setup 0ms, import 8.47s, tests 460ms, environment 1ms)
+

@@ -1,0 +1,1289 @@
+
+
+
+
+Agent 通用模板 Server
+需求规格说明书
+A2A 标准服务 · MCP 工具注册 · Skill 驱动动态工作流
+
+
+
+项目
+内容
+文档版本
+V1.0
+文档状态
+需求基线
+适用阶段
+系统设计、开发、测试与验收
+技术基线
+Node.js / TypeScript + LangGraph.js
+协议基线
+A2A 1.0.0（官方 TypeScript SDK）
+编制日期
+2026-07-11
+
+
+本文件将 129 项需求澄清结论固化为首版完整需求基线。
+
+文档控制
+版本
+日期
+状态
+说明
+V1.0
+2026-07-11
+需求基线
+根据逐项需求澄清结果首次形成完整规格说明书。
+
+需求解释规则：本说明书中的“必须”“应”“不得”均为首版强制要求；“可”“支持”表示必须具备相应能力，但具体配置可关闭。若表述与早期讨论存在冲突，以本说明书中“最终需求基线”和后续明确变更单为准。
+目录
+1. 引言
+2. 产品范围与边界
+3. 总体架构
+4. 核心业务流程
+5. 功能需求
+6. 数据与领域模型
+7. 接口需求
+8. 状态模型
+9. Skill 规格
+10. Workflow DSL 规格
+11. 非功能需求
+12. 技术与部署约束
+13. 验收要求
+14. 明确接受的风险与约束
+15. 实施顺序建议
+附录 A：典型用例
+附录 B：Skill 示例
+附录 C：Workflow DSL 示例
+附录 D：首版不在范围内的能力
+
+1. 引言
+1.1 编制目的
+本说明书用于定义一个可复用的通用 Agent Server 模板。该 Server 对外以 A2A 1.0.0 协议提供标准 Agent 服务，对内管理远程 MCP 工具与 Skill，并由 LLM 依据用户目标选择和组合 Skill、生成结构化动态 Workflow、编译为 LangGraph.js 执行，最终通过目标达成评估形成闭环。
+本说明书是产品设计、领域建模、接口设计、开发拆分、测试用例编制和首版验收的统一依据。
+1.2 建设目标
+提供一个不包含具体行业知识的纯通用 Agent Runtime，所有业务能力均通过 Skill 与 MCP Tool 注入。
+使任意兼容 A2A 1.0.0 的客户端能够提交任务、确认计划、补充输入、暂停、恢复、取消和获取结果。
+以自然语言 Skill 为主要能力表达，由 LLM 在注册时补全输入/输出 JSON Schema，并约束可用 MCP 工具范围。
+由 LLM 生成结构化 Workflow DSL，经严格校验后编译为 LangGraph.js 执行，而不是动态运行模型生成的 TypeScript 代码。
+通过“执行—结果处理—目标评估—外层重规划”持续推进用户目标，直至达成、等待输入、取消、失败或预算耗尽。
+以执行经验、长期记忆、多评估器和隐式用户反馈驱动 Skill、Workflow Template 与 Prompt 的持续演化。
+1.3 设计原则
+原则
+说明
+协议标准优先
+A2A 层严格使用标准任务状态和官方 SDK，不修改协议状态枚举；内部细粒度阶段通过状态消息表达。
+能力即 Skill
+Agent 本身不内置行业业务逻辑，能力通过可版本化 Skill、MCP Tool 和模型配置注入。
+LLM 决策优先
+意图、目标、Skill 选择、Workflow 规划、工具异常决策和目标评估均由 LLM 完成；检索与结构化数据只提供上下文和约束。
+规划与执行分离
+默认先生成并确认计划，再编译执行；Skill 可配置自动确认，但 Goal 变更后的新计划必须重新确认。
+单轮图稳定、外层闭环
+单次 Workflow 执行期间图结构不变，运行结束或失败后由外层控制器重新规划。
+可观察与可演化
+完整保存任务、模型、MCP、Workflow、评估和版本记录，支持回放、分析和自动演化。
+首版可信内网
+首版不实现认证和权限模型，依赖可信内网部署，但密钥必须加密存储。
+
+1.4 术语与缩略语
+术语
+定义
+A2A
+Agent2Agent 协议。首版锁定 1.0.1，Agent Server 仅作为 Provider，不主动调用其他 A2A Agent。
+MCP
+Model Context Protocol。首版仅支持远程 MCP Server 的 Tools，使用统一传输适配层，首个适配器为 Streamable HTTP。
+Skill
+描述 Agent 能解决什么目标、允许/需要/禁止哪些工具、建议流程、输出要求及运行策略的版本化能力包。
+Workflow DSL
+LLM 生成的结构化 JSON 工作流定义，经 Schema 和图结构校验后编译为 LangGraph.js。
+Goal
+在一个 context_id 中持续推进的活动目标，可被后续消息补充、修改、取消或形成后续阶段。
+Workflow Template
+由高频、稳定、成功的动态 Workflow 沉淀出的可复用模板，后续仍可按上下文调整。
+长期记忆
+由任务轨迹提炼出的事实、成功经验、失败经验、优化经验等可检索信息，使用 pgvector 支持语义检索。
+任务质量报告
+由目标、Workflow、Skill、结果和工具调用等多个评估器交叉评价后形成的结构化报告。
+
+2. 产品范围与边界
+2.1 产品定位
+系统定位为单 Agent、单机、单进程部署的通用 Agent Server 模板。它不是多 Agent 编排平台，也不是行业应用本身；其价值在于提供标准化 A2A 接入、MCP Tool 管理、Skill 生命周期、动态 Workflow 生成执行、目标闭环、长期记忆和能力演化的统一运行时。
+2.2 首版范围
+A2A 1.0.0 Provider 服务、Agent Card、非流式请求、标准流式事件和任务轮询。
+多用户共享能力库；user_id 可选，缺省为 anonymous；context_id 缺省时自动创建。
+会话级单活动 Goal、多轮 Goal Patch、Goal 关系判断、计划确认与重新审议。
+远程 MCP Server 运行时注册、工具发现、固定凭据管理、工具元数据增强和手动刷新。
+Skill 创建、注册、Schema 生成、发布、版本、回滚、禁用、图谱、组合、评估与自动演化。
+Workflow DSL 生成、校验、自动修复、可视化编辑、LangGraph.js 编译和执行。
+同步/异步混合任务、Redis 持久化排队、暂停、恢复、取消、等待输入、等待确认。
+智能结果处理、结构化结果、目标达成评估、外层重规划和替代 Skill 计划。
+PostgreSQL + pgvector 数据层、Redis 运行态与 BullMQ 队列。
+完整运营管理控制台，包括执行回放、评估分析、记忆管理、版本对比和优化建议。
+2.3 主要使用者
+参与者
+职责
+A2A 客户端
+提交或延续任务、确认或修改计划、补充输入、暂停/恢复/取消任务、获取状态和结果。
+Agent Server
+理解目标、选择 Skill、生成计划、执行工具、评估目标、管理任务状态和沉淀经验。
+系统管理员
+通过管理控制台注册 MCP、维护 Skill/Prompt、确认计划、查看轨迹、修正草案和管理记忆。
+远程 MCP Server
+提供可发现和可调用的工具。首版不提供 Resources 与 Prompts。
+LLM Provider
+为不同阶段提供固定配置的模型服务。
+
+2.4 首版边界假设
+部署在可信内网，A2A 接口、管理 API 和控制台均不认证。
+系统同时处理约 1～10 个任务，且同一 context_id 内严格串行。
+Agent Server、A2A/API、队列 Worker 和 LangGraph 执行均在一个 Node.js 进程内运行。
+执行中任务在进程崩溃或 Redis 数据丢失后不恢复、不自动重试；排队但未执行的任务可由 BullMQ 保留。
+MCP 工具若存在副作用，应由工具本身尽量保证幂等；首版运行时不提供幂等键、去重或逐次副作用确认。
+3. 总体架构
+3.1 逻辑架构
+
+图 1  Agent 通用模板 Server 总体逻辑架构
+
+3.2 核心模块职责
+模块
+职责
+A2A 服务层
+基于官方 TypeScript SDK 暴露 Agent Card、任务提交、消息延续、状态查询、取消和标准流式响应；映射内部任务状态。
+管理 API / 控制台
+管理 MCP、Tool、Skill、Prompt、任务、Workflow、记忆、评估和系统配置；承担计划确认与人工修正入口。
+Task / Context / Goal 管理器
+建立会话、维护单活动 Goal、控制同 context 串行队列、处理 Goal Patch 和任务生命周期。
+Agent 决策核心
+调用阶段模型完成意图理解、目标分析、Skill 选择、能力缺口判断、异常决策和目标评估。
+Skill Registry / Skill Graph
+维护 Skill 版本、状态、Schema、工具边界、组合关系、运行策略、评估指标与历史版本。
+Workflow Planner
+根据 Goal、Skill、记忆、MCP Tool 元数据生成 Workflow DSL 和计划说明。
+DSL Validator / Compiler
+校验 JSON Schema、节点引用、边、循环、工具参数和结构约束；自动修复后编译为 LangGraph.js。
+LangGraph Runtime
+执行 LLM、MCP、条件、并行、循环、子工作流、Skill 调用、确认和异常处理节点。
+MCP Registry / Adapter
+注册远程 Server、发现 Tool、管理凭据、增强元数据、调用 Streamable HTTP 工具。
+智能结果处理层
+标准化工具结果、归一错误、Schema 校验、提取事实、裁剪上下文、生成文本与结构化输出。
+评估与重规划器
+执行多评估器质量评价和目标达成判断；在未达成时生成下一轮 Workflow 计划。
+记忆与演化服务
+分阶段检索记忆，提炼轨迹，归纳 Skill、Workflow Template 和候选 Prompt。
+PostgreSQL + pgvector
+持久化核心业务数据、归档轨迹、模型调用记录、版本与长期向量记忆。
+Redis + BullMQ
+保存任务排队、运行态、短期上下文、事件与缓存。
+
+4. 核心业务流程
+4.1 A2A 任务主流程
+
+图 2  A2A 任务、计划确认与目标闭环流程
+任务主流程必须遵循以下顺序：
+解析 A2A 消息中的可选 user_id 与 context_id；user_id 缺省为 anonymous，context_id 缺省时自动创建。
+加载会话历史、全局长期记忆和当前活动 Goal，判断新消息是新目标、目标补充、Goal Patch、计划确认、补充输入还是控制命令。
+由 LLM 识别意图与目标，并选择一个或多个 Skill；若存在 MCP Tool 但缺少 Skill，生成仅限当前任务的临时 Skill；若缺少必要工具，进入能力缺口等待。
+基于 Skill、工具定义和阶段记忆生成 Workflow DSL，经校验和自动修正后编译为 LangGraph.js。
+默认进入计划确认；Skill 可配置自动确认。A2A 客户端可自然语言修改，管理端可编辑 DSL/DAG。
+执行 Workflow，工具失败时由 LLM 动态决定重试、调整参数、替代工具、调用其他 Skill 或终止。
+智能结果处理层生成符合 Skill output_schema 的结构化数据及自然语言结果。
+多评估器判断目标是否达成；未达成且仍可继续时进入外层重规划，并产生新计划。
+任务结束后归档完整轨迹，提炼长期记忆，更新指标，并触发 Skill/Workflow/Prompt 演化判断。
+4.2 Goal 变更与重新审议
+强制规则：任何 Goal Patch 一旦生效，当前 Workflow、已完成步骤和中间结果全部作废；原计划确认失效，新计划必须重新确认，即使新 Skill 配置了自动确认。
+
+Agent 先生成结构化 Goal Patch，识别新增、修改、删除的目标、约束和成功标准。
+旧 Workflow 状态及结果标记为 invalidated，不参与新计划的数据复用。
+已经产生的外部副作用不会自动消失；按原 Skill 的 compensation_policy 生成补偿步骤，未定义补偿时保留副作用并告警。
+重新执行 Skill 选择、Workflow 生成、计划确认和目标闭环。
+4.3 Skill 自动沉淀与演化
+
+图 3  Skill 自动沉淀、验证、发布与人工修正流程
+自动演化只在满足最低相似成功次数后触发。LLM 需进一步判断通用性、稳定性、重复度及与已有 Skill 的关系；能力边界一致时创建现有 Skill 新版本，边界显著不同则创建新 Skill。自动发布前必须完成静态校验、历史回放和 LLM 补充测试，且全部用例通过。
+5. 功能需求
+优先级：本章所有需求均属于首版验收范围，优先级统一为 P0。
+
+5.1 A2A 协议服务
+需求编号
+需求描述
+验收要点
+优先级
+FR-A2A-001
+系统必须作为 A2A Agent Provider，对任意兼容客户端提供服务；首版不得主动调用其他 A2A Agent。
+Agent Card 可发现；第三方兼容客户端可提交并继续任务。
+P0
+FR-A2A-002
+协议版本锁定 A2A 1.0.0，优先使用官方 TypeScript SDK 实现协议对象、Agent Card、消息和任务生命周期。
+协议契约测试通过；核心业务不修改官方状态枚举。
+P0
+FR-A2A-003
+A2A 层必须只使用标准任务状态；意图识别、计划生成、等待确认等内部阶段通过任务状态消息文本表达。
+客户端只接收标准状态；消息中可读到当前阶段与等待原因。
+P0
+FR-A2A-004
+必须支持任务提交、状态查询、取消、最终结果获取、计划确认、补充输入、多轮上下文、暂停和恢复。
+每种操作均有端到端测试。
+P0
+FR-A2A-005
+必须同时支持非流式响应与标准流式事件；流式连接中断不得终止任务。
+断流后任务继续；可重连或轮询获取状态。
+P0
+FR-A2A-006
+Agent Card 必须动态映射当前启用 Skill；Skill 新增、更新、禁用后自动刷新能力声明。
+Agent Card 与启用 Skill 列表一致。
+P0
+FR-A2A-007
+user_id 应从 A2A metadata 读取且可选；缺省时使用固定 anonymous。
+不传 user_id 可执行；记录归属 anonymous。
+P0
+FR-A2A-008
+context_id 可选；缺省时自动创建并在响应中返回。
+首次请求获得新 context_id；后续携带后可延续会话。
+P0
+FR-A2A-009
+同一 context_id 下的活动任务必须严格串行，后续任务进入 Redis 队列。
+并发提交不会并行修改同一会话。
+P0
+FR-A2A-010
+最终结果必须同时包含自然语言结果与符合 Skill output_schema 的结构化数据。
+文本与结构化结果均存在且 Schema 校验通过。
+P0
+FR-A2A-011
+A2A 接口首版不实施认证，只允许部署于可信内网。
+无凭据可调用；部署文档明确网络边界。
+P0
+FR-A2A-012
+A2A 中用户请求创建或修改 Skill 时，只生成 Skill 草案，不得直接发布。
+草案可在管理端查看；Agent Card 不提前暴露。
+P0
+
+5.2 会话、用户与 Goal 管理
+需求编号
+需求描述
+验收要点
+优先级
+FR-GOAL-001
+一个 context_id 必须维护一个持续推进的活动 Goal，多个 A2A Task 可共同推进该 Goal。
+后续消息可继续、补充、修改、确认或取消当前 Goal。
+P0
+FR-GOAL-002
+当前 Goal 结束后，LLM 必须判断新请求与旧 Goal 的相关性；相关则创建后续阶段，不相关则创建新 Goal。
+Goal 关系和历史可查询。
+P0
+FR-GOAL-003
+Goal 更新必须先生成结构化 Goal Patch，并重新审议 Skill、计划和已有结果。
+保存 Patch 类型、字段变化和模型决策摘要。
+P0
+FR-GOAL-004
+Goal Patch 生效后，当前 Workflow、已完成步骤和中间结果必须全部作废，不允许复用。
+相关对象标记 invalidated，后续计划不引用旧结果。
+P0
+FR-GOAL-005
+Goal 变更后的新计划必须重新确认，不受 Skill 自动确认配置影响。
+未经新确认不得执行。
+P0
+FR-GOAL-006
+缺少输入时 Agent 必须先结合会话历史、全局长期记忆和已有数据自主推断；无法可靠推断时进入 input-required。
+可解释记录推断来源；无法推断时返回明确问题。
+P0
+FR-GOAL-007
+等待计划确认或补充输入使用系统统一超时；超时后任务自动取消并保留记录。
+超时配置可管理；任务状态与审计记录正确。
+P0
+FR-GOAL-008
+用户主动取消 Goal 或任务时，必须停止后续规划和执行，并按取消策略处理当前节点。
+取消后无新节点启动。
+P0
+
+5.3 Skill 注册、管理与组合
+需求编号
+需求描述
+验收要点
+优先级
+FR-SKL-001
+Skill 必须采用轻量 Schema + 自然语言描述，描述其能力、适用目标、流程提示、输出方式和运行策略。
+管理端可创建和编辑；版本内容完整。
+P0
+FR-SKL-002
+Skill 注册时必须由 LLM 自动生成 input_schema 与 output_schema；生成结果必须为合法 JSON Schema。
+Schema 校验通过后才能注册。
+P0
+FR-SKL-003
+若 LLM 无法生成合法或足够明确的 Schema，注册必须失败并要求补充描述。
+不存在宽松兜底 Schema 或未校验发布。
+P0
+FR-SKL-004
+Skill 必须支持 required_tools、optional_tools、forbidden_tools 三类 MCP Tool 权限边界。
+规划器不得违反禁止工具；必要工具缺失可被识别。
+P0
+FR-SKL-005
+Skill 必须支持 auto_confirm_plan、预算、取消策略、补偿策略和暂停重规划阈值等运行配置。
+相关配置影响任务运行。
+P0
+FR-SKL-006
+Skill 必须版本化，每次修改生成新版本；自动演化的新版本验证通过后立即成为当前生效版本，旧版本可回滚。
+版本链、来源、差异、回滚均可查看。
+P0
+FR-SKL-007
+Skill 必须支持 enabled/disabled；禁用后不得被新任务选择，并从 Agent Card 移除。
+禁用即时生效。
+P0
+FR-SKL-008
+所有用户创建或自动沉淀的正式 Skill 默认进入全局共享库。
+不同 user_id 可检索和使用同一 Skill。
+P0
+FR-SKL-009
+系统必须维护 Skill 图谱，包括父子、依赖、输入输出匹配、替代、组合和能力覆盖关系。
+管理端可查看图谱；规划器可使用关系信息。
+P0
+FR-SKL-010
+Workflow 调用其他 Skill 时必须保留 skill_call 节点，并在运行时生成独立子工作流。
+子 Skill 具有独立状态、版本和评估记录。
+P0
+FR-SKL-011
+skill_call 执行时必须使用子 Skill 当前生效版本，并记录实际版本。
+执行记录可追溯具体版本。
+P0
+FR-SKL-012
+多个 Skill 均能满足目标时，LLM 必须综合语义匹配、成功率、耗时、成本、失败记录和稳定性选择。
+选择理由和指标快照可查看。
+P0
+FR-SKL-013
+首选 Skill 失败且存在替代 Skill 时，系统必须生成替代计划并重新请求确认。
+不得自动无确认切换并执行。
+P0
+FR-SKL-014
+MCP Tool 已具备但没有正式 Skill 时，Agent 可生成仅限当前任务的临时 Skill。
+临时 Skill 可执行但不进入正式库。
+P0
+FR-SKL-015
+临时 Skill 在任务结束后失效，只保存为执行经验；达到重复成功阈值后再归纳为正式 Skill。
+正式库中不出现单次成功直接发布的临时 Skill。
+P0
+
+5.4 Skill 自动沉淀、验证与演化
+需求编号
+需求描述
+验收要点
+优先级
+FR-EVO-001
+单次成功任务必须先保存为经验，不得直接生成正式 Skill。
+经验记录包含目标、工具组合、Workflow、结果和评估。
+P0
+FR-EVO-002
+相似成功经验达到可配置最小次数后，LLM 才可判断是否归纳 Skill。
+阈值可配置且有触发日志。
+P0
+FR-EVO-003
+LLM 必须判断经验的一致性、稳定性、通用性和与现有 Skill 的重复程度。
+归纳报告可查看。
+P0
+FR-EVO-004
+能力边界相同但执行方式改进时创建原 Skill 新版本；能力边界显著不同则创建新 Skill。
+合并或新建理由可追踪。
+P0
+FR-EVO-005
+自动发布前必须执行静态验证、历史成功/失败任务回放和 LLM 补充的正常、边界、异常测试。
+验证报告列出全部用例和结果。
+P0
+FR-EVO-006
+所有模拟用例必须全部通过才能自动发布；任何失败均保留为草案。
+验证失败不会改变当前生效版本。
+P0
+FR-EVO-007
+管理员可人工修正失败草案后重新验证；人工修正内容必须作为后续演化经验。
+修正记录、修改人、差异、验证结果可追溯。
+P0
+FR-EVO-008
+系统自动归纳或演化产生的 Skill 验证通过后可自动发布；用户通过 A2A 请求的 Skill 草案必须由管理端发布。
+按来源应用不同发布策略。
+P0
+FR-EVO-009
+Skill 连续低评分或失败率升高时只能产生质量告警，不得自动禁用或自动修复。
+告警可见，Skill 仍保持启用。
+P0
+FR-EVO-010
+高频成功动态 Workflow 应可自动沉淀为 Workflow Template，供后续相似任务优先复用并调整。
+模板来源、版本和使用效果可追踪。
+P0
+
+5.5 MCP Server 与 Tool 管理
+需求编号
+需求描述
+验收要点
+优先级
+FR-MCP-001
+首版只支持远程 MCP Server，不支持本地 stdio。
+注册界面只提供远程传输配置。
+P0
+FR-MCP-002
+必须定义统一 MCP Transport Adapter，首版实现 Streamable HTTP，允许后续扩展其他远程传输。
+业务层不直接依赖具体传输。
+P0
+FR-MCP-003
+首版只发现、注册和调用 MCP Tools，不支持 Resources 与 Prompts。
+能力清单中不存在 Resources/Prompts。
+P0
+FR-MCP-004
+MCP Server 必须支持运行时注册、删除和手动刷新；注册即视为可信，不实施权限审批。
+无需重启即可生效。
+P0
+FR-MCP-005
+注册时发现一次 Tool 清单和 Schema；后续变化仅由管理员手动刷新。
+无定时自动刷新任务。
+P0
+FR-MCP-006
+每个 MCP Server 使用注册级固定凭据，所有任务共享。
+调用时使用注册凭据。
+P0
+FR-MCP-007
+MCP 凭据必须加密后存入 PostgreSQL，由统一主密钥解密。
+数据库中不存在明文密钥。
+P0
+FR-MCP-008
+Tool 注册时由 LLM 自动增强用途、场景、约束、返回说明、常见错误和标签，管理员可编辑。
+增强元数据可见且参与规划。
+P0
+FR-MCP-009
+实际调用必须始终以 MCP 原始 input schema 为权威，增强元数据不得改变调用契约。
+调用前按原始 Schema 校验。
+P0
+FR-MCP-010
+Skill 只引用 MCP Server 和 Tool 名称，执行时使用当前注册定义，不锁定工具快照。
+刷新后执行使用新定义。
+P0
+FR-MCP-011
+工具删除或 Schema 变化影响 Skill 时，只产生依赖告警，Skill 仍保持启用。
+管理端显示告警；不会自动禁用。
+P0
+FR-MCP-012
+MCP 调用失败时由 LLM 动态决定重试、改参、替代工具、调用其他 Skill 或终止。
+异常决策记录可回放。
+P0
+FR-MCP-013
+首版不提供副作用工具的幂等键、重复调用保护或逐次确认。
+系统不得声称运行时自动去重。
+P0
+
+5.6 LLM、模型与 Prompt 管理
+需求编号
+需求描述
+验收要点
+优先级
+FR-LLM-001
+必须定义统一 ModelProvider 接口，支持多个 OpenAI 兼容服务、本地模型和其他厂商模型。
+新增 Provider 不影响核心决策接口。
+P0
+FR-LLM-002
+模型路由按任务阶段固定配置，不按成本、复杂度或可用性动态选择。
+意图、Skill、规划、执行决策、评估等阶段可分别配置模型。
+P0
+FR-LLM-003
+阶段模型不可用、超时或失败时，当前任务直接失败，不切换备用模型。
+无隐式 fallback；错误信息明确。
+P0
+FR-LLM-004
+意图、目标、Skill 选择、Workflow 生成、异常决策和目标评估的最终裁决必须由 LLM 完成。
+规则/检索只提供候选和约束，不直接裁决。
+P0
+FR-LLM-005
+Skill、历史经验和长期记忆应使用元数据与 pgvector 检索形成上下文，但不得替代 LLM 最终选择。
+可查看检索结果与最终决策。
+P0
+FR-LLM-006
+各阶段 Prompt 必须数据库配置化、版本化、可启停、可回滚并记录效果。
+Prompt 版本与模型调用可关联。
+P0
+FR-LLM-007
+系统可根据失败案例和评估自动生成候选 Prompt 版本，但必须由管理员发布后才能生效。
+自动候选不直接切换生产版本。
+P0
+FR-LLM-008
+后台必须保存模型请求、上下文、模型原始响应、模型版本、Token 用量和耗时；A2A 不返回模型内部隐式推理过程。
+管理端可审查结构化决策和调用记录。
+P0
+
+5.7 Workflow 规划、DSL 校验与编译
+需求编号
+需求描述
+验收要点
+优先级
+FR-WF-001
+LLM 必须输出符合 JSON Schema 的结构化 Workflow DSL，不得生成并动态执行 TypeScript 代码。
+所有执行图均可序列化、验证和审计。
+P0
+FR-WF-002
+DSL 必须支持 LLM、MCP Tool、结果输出、条件分支、并行、循环、子工作流、人工确认、异常处理和 skill_call 节点。
+每类节点均有编译和执行测试。
+P0
+FR-WF-003
+DSL 校验必须覆盖 JSON Schema、节点唯一性、边引用、入口出口、循环边界、工具存在性和工具参数 Schema。
+无效图不能进入执行。
+P0
+FR-WF-004
+DSL 校验失败时，必须将错误反馈给原规划模型，在配置次数内自动修正；超过次数任务失败。
+修正次数和失败草案被保存。
+P0
+FR-WF-005
+自动修正通过后的 DSL 可直接作为已确认计划执行，不再次要求确认。
+纯自动修正不会产生第二次确认。
+P0
+FR-WF-006
+首版固定使用 LangGraph.js 作为 Workflow Engine，并由编译器将 DSL 转换为 StateGraph。
+执行图不依赖其他 Agent Runtime。
+P0
+FR-WF-007
+单次 Workflow 执行期间图结构保持不变；运行中不得直接增删后续节点。
+结构变化只能通过外层新 Workflow 实现。
+P0
+FR-WF-008
+Workflow 完成、失败或触发特定条件后，外层控制器可基于最新状态生成下一版 Workflow。
+重规划轮次可追踪。
+P0
+FR-WF-009
+每个 Skill 可配置最大重规划轮次、执行时长、LLM/MCP 调用次数和费用预算，缺省使用系统值。
+任一预算达到后按终止策略结束。
+P0
+FR-WF-010
+普通 A2A 客户端可用自然语言修改计划；管理端可直接编辑 DSL 或可视化 DAG，校验后执行。
+两种修改入口均可用。
+P0
+
+5.8 计划确认与执行控制
+需求编号
+需求描述
+验收要点
+优先级
+FR-EXE-001
+默认采用规划—执行分离：计划生成并校验后进入确认；Skill 可配置自动确认。
+未自动确认的任务不会提前调用 MCP。
+P0
+FR-EXE-002
+计划确认同时支持 A2A 后续消息和管理 API；可确认、拒绝或提出修改。
+两类入口状态一致。
+P0
+FR-EXE-003
+任务执行支持同步/异步混合：短任务可等待返回，复杂任务返回任务标识并继续执行。
+两类调用均可获得一致状态与最终结果。
+P0
+FR-EXE-004
+任务暂停时先尝试中断当前 LLM/MCP 节点；无法中断则等待节点结束后暂停。
+暂停期间不启动后续节点。
+P0
+FR-EXE-005
+恢复时若暂停时长未超过 Skill 阈值则从暂停位置继续；超过阈值则重新规划并重新确认。
+Skill 阈值覆盖全局默认值。
+P0
+FR-EXE-006
+用户取消任务时优先使用 Skill cancel_policy；未定义时尝试中断当前调用，无法中断则等待结束并停止后续节点。
+取消后状态终结且不自动补偿。
+P0
+FR-EXE-007
+Goal 变更引发的副作用补偿必须按 Skill compensation_policy 生成并纳入新的待确认计划。
+无策略时仅告警，不自动撤销。
+P0
+FR-EXE-008
+执行中进程崩溃、Worker 异常或 Redis 运行态丢失时，任务必须标记失败，不恢复、不自动重试。
+不会重复调用 MCP。
+P0
+FR-EXE-009
+BullMQ 队列层不得自动重试失败任务；客户端需重新提交。
+attempts 配置为 1 或等效机制。
+P0
+FR-EXE-010
+排队但尚未执行的任务必须持久化在 Redis，服务重启后可继续调度。
+重启后待执行任务仍存在。
+P0
+
+5.9 智能结果处理与目标闭环
+需求编号
+需求描述
+验收要点
+优先级
+FR-RST-001
+MCP 返回必须经过统一标准化、错误归一化、Schema 校验、摘要和上下文裁剪。
+下游节点接收统一结果封装。
+P0
+FR-RST-002
+结果处理层必须提取关键事实、判断结果价值，并形成可写入长期记忆的候选内容。
+结果可关联事实和记忆记录。
+P0
+FR-RST-003
+最终输出必须由 LLM 按 Skill 输出说明生成自然语言，同时产出符合 output_schema 的结构化数据。
+两种输出语义一致。
+P0
+FR-RST-004
+一次 Workflow 结束不得自动等同于 Goal 完成，必须进入目标达成评估。
+每轮执行均有 Outcome Evaluation。
+P0
+FR-RST-005
+目标未达成时必须判断补充信息、调整计划、替代 Skill、调用其他 Skill或终止。
+每种决策均有明确状态与理由。
+P0
+FR-RST-006
+存在必要 MCP 能力缺口时，任务进入等待状态并返回所需工具能力说明。
+客户端可读到缺失能力和建议工具契约。
+P0
+
+5.10 长期记忆与经验管理
+需求编号
+需求描述
+验收要点
+优先级
+FR-MEM-001
+长期记忆默认全局共享，所有用户的事实、成功经验、失败经验和执行经验可被后续任务检索。
+跨 user_id 检索可命中共享记忆。
+P0
+FR-MEM-002
+PostgreSQL 保存完整原始任务和执行轨迹；长期记忆仅保存经 LLM 提炼、去重和结构化的内容，并引用原任务。
+记忆可回溯原始证据。
+P0
+FR-MEM-003
+长期记忆检索必须按阶段区分：意图、Skill 选择、Workflow 生成、异常处理和目标评估。
+每个阶段使用对应记忆类型与查询模板。
+P0
+FR-MEM-004
+记忆必须支持 active、superseded、invalid 等状态以及替代关系，历史记录不得物理覆盖。
+冲突和过期记忆可版本化管理。
+P0
+FR-MEM-005
+Skill 人工修正、Prompt 修正、失败原因和评估结论必须可作为演化经验写入记忆。
+后续生成可检索这些经验。
+P0
+FR-MEM-006
+首版不自动清理历史数据，但必须预留归档、删除和保留策略配置。
+管理 API 和模型中存在保留策略字段。
+P0
+
+5.11 评估、反馈与优化
+需求编号
+需求描述
+验收要点
+优先级
+FR-EVAL-001
+任务完成后必须由目标评估器、Workflow 评估器、Skill 评估器、结果质量评估器和工具调用评估器交叉评价。
+形成结构化任务质量报告。
+P0
+FR-EVAL-002
+用户反馈首版采用隐式行为判断，包括接受结果、继续修改、重复提交、要求重做或切换 Skill。
+隐式反馈标注低置信度并关联任务。
+P0
+FR-EVAL-003
+评估结果必须参与 Skill 演化、Workflow Template 沉淀和候选 Prompt 优化。
+演化记录引用评估报告。
+P0
+FR-EVAL-004
+管理端必须展示成功率、耗时、调用成本、失败类型、版本稳定性和质量趋势。
+可按 Skill/版本/模型/工具筛选。
+P0
+FR-EVAL-005
+低质量 Skill 只告警，不自动禁用；管理员可自行禁用、回滚或修正。
+告警和操作入口存在。
+P0
+
+5.12 管理 API 与运营控制台
+需求编号
+需求描述
+验收要点
+优先级
+FR-ADM-001
+首版管理 API 与控制台不认证，仅限可信内网。
+无需登录可访问；部署说明包含风险警告。
+P0
+FR-ADM-002
+必须支持 MCP Server 注册、删除、手动刷新、健康检查、工具查看、凭据更新和元数据编辑。
+完整 CRUD 与操作日志可用。
+P0
+FR-ADM-003
+必须支持 Skill 草案、Schema 生成、编辑、模拟验证、发布、版本对比、回滚、启停、图谱和告警。
+全部生命周期可操作。
+P0
+FR-ADM-004
+必须支持 Workflow DAG 展示、可视化编辑、DSL 编辑、校验、计划确认、节点状态和执行回放。
+任务可从计划到轨迹完整回放。
+P0
+FR-ADM-005
+必须支持 Prompt 版本、候选优化、发布、回滚和效果对比。
+Prompt 变更可追踪。
+P0
+FR-ADM-006
+必须支持任务、会话、Goal、模型调用、MCP 调用、执行事件、结果、评估和错误日志查询。
+支持关联导航和筛选。
+P0
+FR-ADM-007
+必须支持长期记忆查看、检索、状态变更、替代关系和来源追溯。
+可管理 active/superseded/invalid。
+P0
+FR-ADM-008
+必须提供 Skill 效果分析、版本趋势、MCP 使用分析、模型效果评估、能力成长和自动优化建议。
+运营仪表板可展示关键指标。
+P0
+
+6. 数据与领域模型
+6.1 核心实体
+实体
+职责/关键数据
+UserIdentity
+可选 user_id；缺省为 anonymous。首版不验证真实性。
+ConversationContext
+由 context_id 标识，维护消息历史、活动 Goal 和串行任务队列。
+Goal
+目标、约束、成功标准、状态、父/后续阶段关系和 Goal Patch 历史。
+A2ATask
+协议任务标识、标准状态、内部阶段、等待原因、同步/异步模式和结果引用。
+Skill
+稳定标识、名称、状态、当前版本和全局统计。
+SkillVersion
+自然语言描述、input/output Schema、工具边界、运行策略、来源、版本和验证状态。
+SkillRelation
+依赖、父子、替代、组合、输入输出匹配等图谱关系。
+McpServer
+远程地址、传输适配器、加密凭据、状态和注册时间。
+McpTool
+原始名称、描述、input Schema、增强元数据、所属 Server 和刷新信息。
+WorkflowPlan
+计划说明、DSL、版本、确认状态、来源 Skill、预算和校验结果。
+WorkflowInstance
+编译图引用、运行状态、节点状态、Checkpoint 引用和重规划轮次。
+WorkflowNodeExecution
+节点输入、输出、状态、开始结束时间、错误和重试/异常决策。
+McpInvocation
+工具、参数、结果、错误、耗时和是否可能产生副作用。
+ModelInvocation
+阶段、Provider、模型、Prompt 版本、请求/响应、Token 和耗时。
+ExecutionArtifact
+结构化结果、自然语言结果、事实提取和输出 Schema 校验信息。
+MemoryRecord
+类型、内容、向量、状态、来源任务、替代关系、可信度和适用阶段。
+ExperienceRecord
+成功/失败经验、目标模式、工具组合、Workflow 特征和评估。
+EvaluationReport
+多评估器评分、结论、证据、改进建议和隐式反馈。
+PromptTemplateVersion
+阶段 Prompt 内容、版本、状态、来源、评估和发布信息。
+ValidationSuite
+Skill 测试用例、Mock 工具结果、期望输出和验证记录。
+
+6.2 存储分工
+组件
+数据职责
+PostgreSQL
+会话、Goal、任务、Skill/版本、MCP 注册、Workflow、执行轨迹、模型/MCP 调用、评估、Prompt、验证、配置和归档状态。
+pgvector
+Skill 向量、记忆向量、经验向量、Workflow Template 向量及语义相似度检索。
+Redis
+BullMQ 任务队列、活动任务运行态、LangGraph Checkpoint、短期上下文、缓存、事件和会话串行锁。
+主密钥
+由部署环境提供，用于解密 PostgreSQL 中的 MCP 和模型凭据；主密钥本身不得存入数据库。
+
+7. 接口需求
+7.1 A2A 接口约束
+使用 A2A 1.0.0 官方 TypeScript SDK 提供的标准接口与对象。
+Agent Card 能力列表由启用 Skill 动态生成。
+user_id 作为可选 metadata；context_id 未提供时由服务创建。
+内部阶段不扩展协议状态，只通过标准状态消息说明。
+计划确认、补充输入和计划修改通过后续 A2A 消息完成。
+最终返回文本 Part 与结构化数据 Part；首版不要求文件 Artifact 或多模态内容。
+流式连接断开不影响任务，客户端可重连或使用非流式状态查询。
+7.2 管理 API 分组
+API 分组
+主要能力
+/management/mcp-servers
+MCP Server CRUD、测试连接、发现/刷新 Tools、凭据更新、健康状态。
+/management/mcp-tools
+工具查询、增强元数据编辑、依赖告警。
+/management/skills
+Skill 草案、Schema 生成、验证、发布、版本、回滚、启停、关系图谱。
+/management/workflows
+计划、DSL、DAG、校验、确认、执行实例和回放。
+/management/tasks
+任务、状态、暂停、恢复、取消、等待处理和关联日志。
+/management/prompts
+阶段 Prompt、版本、候选、发布、回滚和评估。
+/management/memories
+长期记忆检索、状态、替代关系和来源追踪。
+/management/evaluations
+任务质量报告、趋势、告警和优化建议。
+/management/config
+阶段模型、预算、等待超时、并发数、演化阈值、暂停阈值等。
+
+7.3 MCP 调用接口
+MCP 调用由统一 Adapter 发起，首版实现 Streamable HTTP。
+认证凭据取自 McpServer 注册记录，所有用户共享。
+调用参数按 MCP 原始 input schema 校验。
+调用结果封装为统一 ToolResultEnvelope，包含 data、error、metadata、timing 和 raw_ref。
+取消信号仅在传输和远端 Tool 支持时生效。
+8. 状态模型
+8.1 内部任务阶段与 A2A 映射
+内部阶段
+含义
+A2A 标准状态
+对外表达
+queued
+任务排队，等待同 context 前序任务完成
+submitted/working（按 SDK 可用状态映射）
+已进入 BullMQ
+context_loading
+加载会话、Goal、记忆
+working
+状态消息描述阶段
+goal_deliberation
+意图与目标识别、Goal Patch
+working
+状态消息描述阶段
+skill_resolution
+Skill 选择、组合或能力缺口判断
+working
+状态消息描述阶段
+planning
+生成、校验、修正 Workflow DSL
+working
+状态消息描述阶段
+awaiting_plan_confirmation
+等待确认或修改计划
+input-required
+消息中注明“等待计划确认”
+awaiting_user_input
+等待补充必要信息
+input-required
+消息中列出问题
+paused
+任务暂停
+input-required/working（按 SDK 原生能力）
+消息中注明暂停与恢复方式
+executing
+执行 LangGraph Workflow
+working
+可流式发送进度
+evaluating
+结果处理与多评估器判断
+working
+状态消息描述阶段
+capability_gap
+缺少必要 MCP 工具
+input-required
+返回能力缺口说明
+completed
+Goal 已达成
+completed
+包含文本与结构化结果
+cancelled
+用户取消或等待超时
+canceled
+保留历史记录
+failed
+模型、DSL、执行、预算或系统故障
+failed
+返回错误摘要与可追踪标识
+
+8.2 Skill 状态
+状态
+说明
+draft
+草案，不能被正式任务选择。
+validating
+正在执行静态校验与模拟验证。
+validation_failed
+至少一个用例失败，等待人工修正。
+published
+已发布版本；若为 current_version 则可被选择。
+disabled
+Skill 整体禁用，不参与 Agent Card 和新任务。
+superseded
+历史版本，被新版本替代但可回滚。
+
+8.3 Workflow 实例状态
+状态
+说明
+planned
+DSL 已生成。
+validated
+DSL 校验通过。
+awaiting_confirmation
+等待计划确认。
+ready
+计划已确认，可执行。
+running
+正在执行。
+pausing
+尝试中断当前节点。
+paused
+暂停于节点边界或已中断节点。
+completed
+本轮 Workflow 正常完成。
+failed
+本轮执行失败。
+cancelled
+本轮取消。
+invalidated
+因 Goal Patch 被整体作废。
+
+9. Skill 规格
+9.1 Skill 版本结构
+字段
+说明
+约束
+id / version
+稳定 Skill 标识和版本号。
+必填
+name / summary
+名称和短描述，用于 Agent Card 和检索。
+必填
+description
+自然语言能力说明、目标范围、流程提示、约束和输出要求。
+必填
+input_schema
+注册时由 LLM 生成的 JSON Schema。
+必填
+output_schema
+注册时由 LLM 生成的 JSON Schema。
+必填
+required_tools
+必须具备的 MCP Server/Tool 引用。
+可为空
+optional_tools
+可按上下文使用的 MCP Tool。
+可为空
+forbidden_tools
+明确禁止调用的 MCP Tool。
+可为空
+workflow_hints
+可嵌入自然语言步骤、条件和策略提示。
+可选
+auto_confirm_plan
+是否允许初始计划自动确认。
+必填，默认 false
+budgets
+重规划轮次、执行时长、LLM/MCP 次数、费用预算。
+可选，继承系统默认
+cancel_policy
+取消时等待、尝试中断或清理流程。
+可选
+compensation_policy
+Goal 变更或副作用需要回滚时的补偿描述。
+可选
+resume_replan_threshold
+暂停超过该时长时恢复需重新规划。
+可选
+relations
+依赖、组合、替代、父子和输入输出关系。
+可选
+source
+admin、a2a_draft、auto_induced、auto_evolved、human_corrected。
+必填
+status / enabled
+版本和 Skill 可用状态。
+必填
+
+9.2 Skill 选择与工具边界
+规划前，系统可通过标签、图谱、元数据和向量召回候选 Skill；最终选择由 LLM 完成。
+required_tools 缺失时，Skill 不具备完整执行条件；系统应返回能力缺口或选择替代 Skill。
+optional_tools 允许 Agent 根据上下文取舍。
+forbidden_tools 是硬约束，DSL 校验器必须拒绝包含禁止工具的计划。
+Skill 描述可以定义推荐步骤，但 Agent 以目标驱动方式自主生成 Workflow。
+10. Workflow DSL 规格
+10.1 顶层结构
+字段
+说明
+workflow_id / version
+计划唯一标识及修订版本。
+goal_ref
+关联活动 Goal 与 Goal 版本。
+skill_refs
+主 Skill 和组合 Skill 引用。
+input_schema / output_schema
+本 Workflow 输入输出契约。
+state_schema
+LangGraph State 字段定义。
+nodes
+节点集合。
+edges
+普通、条件和异常边。
+entry_node / terminal_nodes
+入口节点和允许终止节点。
+budgets
+本轮预算与继承来源。
+confirmation
+计划确认状态、确认来源和时间。
+metadata
+规划模型、Prompt 版本、记忆引用、修正次数和解释摘要。
+
+10.2 节点类型
+节点类型
+语义
+llm
+执行指定阶段模型调用，输入由 state 映射，输出写入 state。
+mcp_tool
+调用当前注册的远程 MCP Tool；参数必须通过原始 input schema。
+skill_call
+在运行时读取子 Skill 当前生效版本，生成并执行独立子工作流。
+condition
+由表达式或 LLM 结构化判断选择后续边。
+parallel
+并行启动多个无依赖分支，按汇聚策略合并结果。
+loop
+受最大迭代次数和预算约束的循环。
+subworkflow
+调用已保存 Workflow Template 或内嵌子图。
+human_confirmation
+暂停并等待 A2A/管理端确认或修改。
+exception_handler
+接收错误信息并调用 LLM 决定处理动作。
+result
+生成结构化输出、自然语言输出或中间结果封装。
+
+10.3 校验规则
+JSON 必须满足 Workflow DSL Schema，所有必填字段存在且类型正确。
+节点 ID 全局唯一，entry_node 必须存在，所有边的 source/target 必须存在。
+至少存在一个可达终止节点；不得存在无出口且未声明终止的死节点。
+循环必须声明最大迭代次数或可证明受预算约束。
+并行分支必须声明汇聚节点和冲突合并策略。
+mcp_tool 节点引用的 Server/Tool 必须存在，参数映射必须与当前 Tool Schema 兼容。
+skill_call 节点引用的 Skill 必须启用，且规划时记录的能力边界不得违反当前版本。
+不得包含主 Skill forbidden_tools。
+所有输出必须可映射到 Workflow/Skill output_schema。
+11. 非功能需求
+编号
+需求
+验收方式
+NFR-PERF-001
+单实例支持约 1～10 个并发活动任务；同 context_id 严格串行。
+并发测试中系统稳定，无会话状态交叉。
+NFR-PERF-002
+队列、模型调用、MCP 调用和 Workflow 节点必须记录耗时，支持定位长耗时阶段。
+管理端可展示分阶段耗时。
+NFR-REL-001
+待执行任务使用 Redis/BullMQ 持久化；执行中状态只在 Redis 保证运行期可用。
+重启后待执行任务存在，执行中任务失败。
+NFR-REL-002
+任务故障、队列 Worker 异常和模型失败不得自动重试整个任务。
+不会因系统策略重复产生副作用。
+NFR-SEC-001
+首版无接口认证与权限控制，必须明确标注仅可信内网部署。
+部署检查包含网络隔离项。
+NFR-SEC-002
+MCP 和模型密钥必须加密存储，主密钥独立于数据库。
+安全检查无明文凭据。
+NFR-OBS-001
+任务、节点、模型、MCP、状态变化、计划确认、Goal Patch 和评估必须具有关联追踪标识。
+可从任务导航到全链路记录。
+NFR-OBS-002
+A2A 只返回必要过程摘要，不返回模型内部隐式推理；管理端可查看结构化决策、Prompt 与原始响应。
+对外输出不含隐藏推理。
+NFR-MNT-001
+A2A、MCP Transport、ModelProvider、存储和 Workflow Compiler 必须模块化，便于后续扩展。
+接口边界可单元测试。
+NFR-COMP-001
+首版仅保证 A2A 1.0.0，不承担多版本协议兼容。
+协议测试以 1.0.1 为唯一基线。
+NFR-DATA-001
+首版历史数据默认持续保存，不自动清理。
+无自动删除任务；保留策略字段已预留。
+NFR-UX-001
+管理控制台必须支持从任务、Goal、Skill、Workflow、Tool、模型、记忆和评估之间双向导航。
+主要对象一键关联跳转。
+
+12. 技术与部署约束
+类别
+约束
+运行语言
+Node.js / TypeScript。
+Agent / Workflow Runtime
+LangGraph.js，固定绑定，不提供多 Runtime 适配。
+A2A
+A2A 1.0.0，官方 TypeScript SDK，Provider 模式。
+MCP
+远程 MCP Server；统一 Transport Adapter；首版 Streamable HTTP；仅 Tools。
+数据库
+PostgreSQL + pgvector。
+运行态与队列
+Redis + BullMQ；LangGraph Checkpoint 运行期保存在 Redis，完成后归档 PostgreSQL。
+进程形态
+单进程承载 A2A、管理 API、Agent 决策、队列 Worker、LangGraph 执行和事件分发。
+部署形态
+单机服务，首版不考虑水平扩展、任务分片和分布式执行。
+认证
+A2A、管理 API 和控制台均无认证。
+密钥
+加密写入 PostgreSQL，部署环境提供主密钥。
+
+13. 验收要求
+13.1 完成定义
+首版完成标准：本次需求澄清中确定的全部能力均属于首版验收范围，不以“最小闭环”代替完整需求。
+
+13.2 端到端验收场景
+场景
+验收内容
+AC-01 基础任务闭环
+A2A 客户端提交目标；Agent 选择 Skill、生成计划、确认、调用 MCP、评估目标并返回文本与结构化结果。
+AC-02 自动确认
+启用 auto_confirm_plan 的 Skill 生成合法计划后可直接执行；Goal 变更后仍必须重新确认。
+AC-03 计划修改
+A2A 客户端自然语言修改计划；管理端编辑 DAG/DSL；重新校验后执行。
+AC-04 多轮 Goal
+同一 context_id 中补充目标、修改约束、完成旧 Goal 后创建相关后续阶段或新 Goal。
+AC-05 Goal Patch 失效
+部分执行后修改 Goal；旧 Workflow 和结果全部 invalidated，副作用按补偿策略处理，新计划重新确认。
+AC-06 Skill 组合
+主 Workflow 通过 skill_call 调用子 Skill，使用执行时当前版本，并分别记录状态与评估。
+AC-07 能力缺口
+无必要 MCP Tool 时进入 input-required/等待能力状态并返回清晰缺口；有 Tool 无 Skill 时生成临时 Skill。
+AC-08 外层重规划
+首轮 Workflow 未达成 Goal，系统生成下一版计划并继续闭环；达到预算后终止。
+AC-09 工具异常
+MCP 调用失败，LLM 根据错误选择改参、重试、替代工具或终止，并保存决策记录。
+AC-10 暂停恢复取消
+验证尝试中断、节点边界暂停、短暂停恢复、长暂停重新规划、取消默认策略和等待超时取消。
+AC-11 队列与故障
+同 context 串行；待执行任务重启后保留；执行中任务崩溃后失败且不重试。
+AC-12 Skill 注册
+自然语言描述经 LLM 生成 input/output Schema；不合法时注册失败。
+AC-13 Skill 自动演化
+相似成功经验达到阈值，归纳候选 Skill，完成回放和补充测试，全部通过后自动发布。
+AC-14 人工修正
+验证失败草案由管理员修正后重试，修正记录进入演化经验。
+AC-15 Prompt 演化
+系统生成候选 Prompt 版本，未发布前不生效；管理员发布后新调用关联新版本。
+AC-16 记忆与检索
+完整轨迹归档，提炼记忆可按阶段检索；记忆支持 superseded/invalid。
+AC-17 管理控制台
+完成 MCP、Skill、Prompt、任务、Workflow、记忆、评估、回放和运营分析全流程。
+AC-18 A2A 流式
+标准事件流可展示状态更新；连接断开后任务继续，轮询可获得最终结果。
+
+13.3 测试覆盖要求
+所有 FR 和 NFR 必须至少对应一个自动化或可重复执行的验收用例。
+Workflow DSL 每种节点类型必须具备正常、边界和异常测试。
+A2A 协议对象和状态映射必须执行契约测试。
+Skill 自动发布必须验证“全部用例通过”的门禁。
+必须覆盖进程崩溃、Redis 重启、模型故障、MCP 超时、流式断连和等待超时。
+必须验证无认证环境、anonymous 共享历史和全局记忆带来的行为符合需求。
+14. 明确接受的风险与约束
+风险
+影响
+当前缓解措施
+R-01 无认证与权限
+任意内网调用方可访问 A2A、管理 API、Skill、记忆和密钥管理操作。
+严格网络隔离；后续版本增加认证中间件。
+R-02 anonymous 共享历史
+未传 user_id 的不同客户端共享 anonymous 历史，可能相互污染上下文。
+建议正式使用时显式传 user_id。
+R-03 长期记忆全局共享
+用户事实和任务经验可被其他用户检索，存在数据隔离和隐私风险。
+首版按已确认需求实现；后续增加记忆作用域。
+R-04 无副作用幂等保护
+重试、重规划或客户端重提可能重复创建、发送或修改。
+优先接入幂等 MCP Tool；Skill 明确风险和补偿。
+R-05 执行中任务不恢复
+进程或 Redis 故障导致任务失败和进度丢失。
+客户端重提；后续引入关键 Checkpoint 持久化。
+R-06 无模型降级
+任一阶段模型不可用会直接导致任务失败。
+监控模型可用性；后续增加备用模型。
+R-07 Tool 定义不锁版本
+手动刷新后 Skill 可能在未更新情况下使用新 Schema。
+依赖告警；管理员及时维护。
+R-08 依赖破坏只告警
+工具删除或 Schema 变化后 Skill 仍启用，实际任务可能失败。
+控制台突出告警；人工处理。
+R-09 低质量 Skill 不自动下线
+已知低质量 Skill 仍可被选择。
+LLM 参考历史指标；管理员禁用。
+R-10 首版范围过大
+完整运营控制台、演化、回放和协议能力同时纳入首版，开发量和集成风险高。
+按实施顺序分阶段集成，但最终验收不缩减。
+R-11 单进程资源竞争
+API、模型编排、队列和执行共享进程，阻塞或内存压力影响全部能力。
+限制 1～10 并发，避免 CPU 密集同步任务。
+R-12 完整调用记录
+保存 Prompt、上下文和模型响应会增加数据量和敏感信息暴露面。
+可信内网、数据库访问控制和后续保留策略。
+
+15. 实施顺序建议
+以下顺序仅用于降低集成风险，不改变首版完整验收范围。
+实施阶段
+主要交付
+阶段 1：协议与领域骨架
+A2A SDK 接入、Agent Card、Task/Context/Goal 模型、PostgreSQL/Redis 基础、管理 API 框架。
+阶段 2：MCP 与 Skill 基础
+远程 MCP 注册、工具发现、凭据加密、Tool 元数据增强、Skill Schema 生成与版本管理。
+阶段 3：规划与执行闭环
+Workflow DSL、校验修正、LangGraph 编译、计划确认、MCP 执行、智能结果处理和目标评估。
+阶段 4：任务生命周期
+异步队列、同会话串行、流式事件、补充输入、暂停、恢复、取消、等待超时和故障规则。
+阶段 5：记忆与评估
+完整轨迹、pgvector 记忆、阶段检索、多评估器、隐式反馈和运营指标。
+阶段 6：能力演化
+临时 Skill、经验聚类、自动归纳、模拟验证、自动发布、Workflow Template 和候选 Prompt。
+阶段 7：完整控制台与验收
+DAG 编辑、执行回放、版本对比、记忆管理、分析仪表板和完整端到端验收。
+
+附录 A：典型用例
+用例
+参与者
+触发
+结果
+UC-01 执行业务任务
+A2A 客户端
+提交目标
+Agent 识别 Goal，选择 Skill，生成并确认计划，调用 MCP，输出结果并评估。
+UC-02 继续会话目标
+A2A 客户端
+携带 context_id 提交补充消息
+更新活动 Goal 或继续原任务。
+UC-03 修改 Goal
+A2A 客户端
+提出目标或约束变化
+生成 Goal Patch，作废旧 Workflow/结果，处理副作用，重新规划并确认。
+UC-04 创建 Skill 草案
+A2A 客户端
+自然语言要求创建 Skill
+LLM 生成描述与 Schema，保存草案，等待管理端发布。
+UC-05 注册 MCP Server
+管理员
+录入远程地址与凭据
+连接、发现 Tools、增强元数据并保存。
+UC-06 人工发布 Skill
+管理员
+编辑并验证草案
+全部用例通过后发布，刷新 Agent Card。
+UC-07 自动归纳 Skill
+系统
+相似成功经验达到阈值
+LLM 归纳、验证并自动发布。
+UC-08 暂停与恢复
+A2A 客户端/管理员
+暂停后恢复
+短暂停续跑，长暂停重新规划并确认。
+UC-09 能力缺口
+Agent Server
+缺少必要 Tool
+暂停任务并返回工具需求。
+UC-10 执行回放
+管理员
+打开历史任务
+查看 Goal、计划、节点、模型、MCP、结果和评估全链路。
+
+附录 B：Skill 示例
+{  "id": "skill.customer-report",  "version": 3,  "name": "生成客户经营分析报告",  "summary": "查询客户经营数据并生成结构化分析和自然语言报告",  "description": "根据用户给出的客户标识和时间范围，查询经营数据，分析关键指标、异常和趋势，最后按管理报告形式输出。允许根据数据完整性调整查询顺序；若数据缺失，应先尝试从历史会话和记忆中补全。",  "input_schema": {    "type": "object",    "required": ["customer_id", "period"],    "properties": {      "customer_id": {"type": "string"},      "period": {"type": "string"},      "focus": {"type": "array", "items": {"type": "string"}}    }  },  "output_schema": {    "type": "object",    "required": ["summary", "metrics", "risks"],    "properties": {      "summary": {"type": "string"},      "metrics": {"type": "array", "items": {"type": "object"}},      "risks": {"type": "array", "items": {"type": "string"}}    }  },  "required_tools": ["crm-mcp.customer.get", "bi-mcp.metrics.query"],  "optional_tools": ["report-mcp.chart.render"],  "forbidden_tools": ["crm-mcp.customer.delete"],  "auto_confirm_plan": false,  "budgets": {    "max_replans": 3,    "max_mcp_calls": 20,    "max_llm_calls": 12,    "max_duration_seconds": 600  },  "cancel_policy": "尝试中断当前查询；无法中断时等待完成，不再启动后续步骤。",  "compensation_policy": "本 Skill 只读，无需补偿。",  "resume_replan_threshold_seconds": 900,  "enabled": true}
+
+附录 C：Workflow DSL 示例
+{  "workflow_id": "wf-20260711-001",  "version": 2,  "goal_ref": {"goal_id": "goal-001", "goal_version": 1},  "skill_refs": [{"skill_id": "skill.customer-report", "version_policy": "current_at_execution"}],  "entry_node": "load_customer",  "terminal_nodes": ["final_result", "failed"],  "nodes": [    {      "id": "load_customer",      "type": "mcp_tool",      "tool": {"server": "crm-mcp", "name": "customer.get"},      "input_map": {"customer_id": "$.input.customer_id"},      "output_path": "$.state.customer"    },    {      "id": "query_metrics",      "type": "mcp_tool",      "tool": {"server": "bi-mcp", "name": "metrics.query"},      "input_map": {        "customer_id": "$.input.customer_id",        "period": "$.input.period"      },      "output_path": "$.state.metrics"    },    {      "id": "analyze",      "type": "llm",      "stage": "execution_decision",      "input_map": {"customer": "$.state.customer", "metrics": "$.state.metrics"},      "output_path": "$.state.analysis"    },    {      "id": "final_result",      "type": "result",      "input_map": {"analysis": "$.state.analysis"},      "output_schema_ref": "skill.output_schema"    },    {      "id": "failed",      "type": "result",      "status": "failed"    }  ],  "edges": [    {"source": "load_customer", "target": "query_metrics"},    {"source": "query_metrics", "target": "analyze"},    {"source": "analyze", "target": "final_result"}  ],  "exception_edges": [    {"source": "load_customer", "target": "failed"},    {"source": "query_metrics", "target": "failed"}  ]}
+
+附录 D：首版不在范围内的能力
+Agent Server 作为 A2A Client 主动调用其他 Agent，或多 Agent 协同编排。
+A2A 多版本适配、协议自动协商或修改/Fork 官方 SDK。
+A2A 文件 Artifact、多模态内容和独立异步通知通道。
+MCP 本地 stdio、MCP Resources、MCP Prompts 和自动定时刷新。
+多租户 Skill/记忆/MCP 隔离、用户私有 Skill 和细粒度权限。
+A2A、管理 API 和控制台认证；OAuth、JWT、API Key 和角色权限。
+副作用工具幂等键、调用去重、事务补偿引擎和逐次操作确认。
+执行中任务的精确恢复、PostgreSQL 关键 Checkpoint 双写和队列自动重试。
+阶段模型的备用模型、动态成本/复杂度路由和故障自动切换。
+水平扩展、多实例 Worker、任务分片、分布式锁和跨节点执行。
+历史数据自动清理、自动归档和强制保留周期。
+工具依赖破坏时自动禁用 Skill，或低质量 Skill 自动下线。
+—— 文档结束 ——

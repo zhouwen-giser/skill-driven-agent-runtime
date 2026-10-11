@@ -125,7 +125,7 @@ describe('Business Event runtime services', () => {
     const worker = new BusinessEventIngressWorker({
       repository,
       processor: {
-        process: () =>
+        process: (): Promise<void> =>
           Promise.reject(
             Object.assign(new Error('temporary'), { code: 'TEMPORARY_EVENT_FAILURE' }),
           ),

@@ -1,0 +1,5 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/test/repositories.integration.test.ts(2686,34): error TS18046: 'o.payload' is of type 'unknown'.
+packages/persistence-postgres/test/repositories.integration.test.ts(2689,34): error TS18046: 'o.payload' is of type 'unknown'.
+packages/persistence-postgres/test/repositories.integration.test.ts(2776,9): error TS2353: Object literal may only specify known properties, and 'taskId' does not exist in type 'CompletedRemoteTaskSnapshot'.
+[ELIFECYCLE] Command failed with exit code 2.

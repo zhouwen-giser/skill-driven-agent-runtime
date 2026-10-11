@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--project",
+    "unit",
+    "packages/application/test/remote-task-input.unit.test.ts",
+    "packages/application/test/task-business-commands.unit.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "f27eeb5a05e360dfc5080889afab5ce9af8f7a001145ad85d4dcd5555a25273d",
+  "startedAt": "2026-10-11T03:08:15.855964+08:00",
+  "finishedAt": "2026-10-11T03:08:19.172458+08:00",
+  "durationSeconds": 3.316494,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "33015dbc8539c246480efef65e9df4f90d923c84b63313e7f4bc3a363699e5ae",
+  "environment": "local_source_or_loopback_fixture_only"
+}

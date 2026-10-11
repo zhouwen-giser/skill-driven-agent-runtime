@@ -29,6 +29,32 @@ function skillAttempt() {
 }
 
 describe('PlanPreparationProcessor LLM decisions', () => {
+  it('does not publish the prepared Task plan until its native Capability attempt binding completes', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    let entered: () => void = () => undefined;
+    let release: () => void = () => undefined;
+    const reached = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    tasks.beforeCapabilityBinding = () => {
+      entered();
+      return held;
+    };
+    const processing = processorWith(tasks).process(initialJob);
+    await reached;
+    try {
+      expect(tasks.value.planId).toBeUndefined();
+    } finally {
+      release();
+      await processing;
+    }
+    expect(tasks.value).toMatchObject({ phase: 'awaiting_plan_confirmation' });
+    expect(tasks.capabilityPlanBindings).toHaveLength(1);
+  });
   it('accepts a persisted formal initial admission before any model-backed path', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
@@ -711,9 +737,9 @@ function processorWith(
       },
     },
     taskCapabilities: {
-      bindInitialPlan: (taskId, planId) => {
+      bindInitialPlan: async (taskId, planId) => {
+        await tasks.beforeCapabilityBinding?.();
         tasks.capabilityPlanBindings.push({ taskId, planId });
-        return Promise.resolve();
       },
       markLatestAttempt: (taskId, status, transitionTimestamp) => {
         tasks.capabilityAttemptTransitions.push({
@@ -805,6 +831,7 @@ function task(): AgentTask {
 }
 
 class MemoryTasks {
+  beforeCapabilityBinding?: () => Promise<void>;
   value: AgentTask | undefined;
   readonly messages: string[] = [];
   goalFormulations = 0;

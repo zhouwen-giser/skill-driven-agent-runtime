@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
+import catalog from '../../../contracts/smpp-task-business/v1.3/positive-catalog.json' with { type: 'json' };
 
-import { FrozenV1McpClient, SmppTaskBusinessClient } from '../src/index.js';
+import {
+  FrozenV1McpClient,
+  SmppTaskBusinessClient,
+  FrozenBusinessEventsClient,
+} from '../src/index.js';
 
 const endpoint = 'http://localhost:19100/mcp';
 const taskId = '11111111-1111-4111-8111-111111111111';
@@ -47,6 +52,7 @@ const subjectBinding = {
   actionRef,
 };
 const requestValue = {
+  ...catalog.requiredInput,
   schemaVersion: 'sdar.required-input/1.0-rc2',
   requestId: 'decision-9',
   requestKey: 'target-decision:lock-9',
@@ -182,6 +188,80 @@ function page(
 }
 
 describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
+  it('AC-012 preserves distinct SSE events sharing a Context revision', async () => {
+    const { client, calls } = fake((call) =>
+      call.method === 'server/discover' ? discovery() : page(),
+    );
+    const stream = new FrozenBusinessEventsClient(() =>
+      Promise.resolve(
+        new Response(
+          [
+            {
+              jsonrpc: '2.0',
+              method: 'notifications/io.sdar/businessEvents/acknowledged',
+              params: {
+                profileVersion: '1.0',
+                streamId: cursor.streamId,
+                generationStatus: 'current',
+                acceptedAfterSequence: '12',
+                earliestAvailableSequence: '1',
+                currentSequence: '14',
+                sourceContinuity: {
+                  continuityClass: 'all_durable',
+                  status: 'continuous',
+                  continuousSinceSequence: '1',
+                  degradedSourceIds: [],
+                },
+                _meta: { 'io.modelcontextprotocol/subscriptionId': 'subscription-1' },
+              },
+            },
+            ...['13', '14'].map((sequence, index) => ({
+              jsonrpc: '2.0',
+              method: 'notifications/io.sdar/businessEvents',
+              params: {
+                streamId: cursor.streamId,
+                eventId: String(index + 1).repeat(43),
+                sequence,
+                sourceId: 'vehicle.business',
+                eventType: 'vehicle.business.changed',
+                occurredAt: now,
+                description: 'Distinct object change with unchanged Context revision.',
+                scope: 'task',
+                taskId,
+                _meta: { 'io.modelcontextprotocol/subscriptionId': 'subscription-1' },
+              },
+            })),
+          ]
+            .map((notification) => `data: ${JSON.stringify(notification)}\n\n`)
+            .join(''),
+          { headers: { 'content-type': 'text/event-stream' } },
+        ),
+      ),
+    );
+    const business = new SmppTaskBusinessClient({
+      endpoint,
+      headers: {},
+      client,
+      expectedProviderId: providerId,
+      expectedResourceId: resourceId,
+      now: () => now,
+      businessEvents: stream,
+    });
+    const initial = await business.getContext({ taskId });
+    const revisions: number[] = [];
+    for await (const next of business.watchContext(taskId, initial))
+      revisions.push(next.context.contextRevision);
+    expect(revisions).toEqual([5, 5]);
+    expect(calls.filter((call) => call.method === methods.contextGet)).toHaveLength(3);
+    expect(
+      calls.every(
+        (call) =>
+          call.method !== 'tools/call' &&
+          call.method !== 'tasks/update' &&
+          call.method !== methods.interventionApply,
+      ),
+    ).toBe(true);
+  });
   it('preserves caller extensions and sends required business headers and capability', async () => {
     const { client, calls } = fake((call) =>
       call.method === 'server/discover' ? discovery() : page(),
@@ -313,7 +393,7 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
         : {
             resultType: 'complete',
             profileVersion: '1.0-rc2',
-            artifact: { artifactId: 'route-1', revision: 2, identity },
+            artifact: { ...catalog.artifacts[0], artifactId: 'route-1', revision: 2, identity },
           },
     );
     const artifact = await consumer(client).getArtifact({
@@ -338,7 +418,7 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
           inputRequests: {
             [requestValue.requestKey]: {
               method: 'elicitation/create',
-              params: { mode: 'form' },
+              params: { mode: 'form', requestedSchema: requestValue.inputSchema },
             },
           },
         };
@@ -424,6 +504,7 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
     const intervention = {
       kind: 'intervention',
       value: {
+        ...catalog.intervention,
         interventionId: 'adjust-1',
         interventionType: 'navigation.adjust_plan',
         identity: navIdentity,

@@ -16,6 +16,98 @@ import {
 } from '../src/index.js';
 
 describe('McpCapabilityEvidenceProjector', () => {
+  it('AC-033/038 exports bounded canonical business records with full original content references and visible missing chain links', async () => {
+    const base = snapshot();
+    const old = base.observations[0];
+    if (old === undefined) throw new Error('OBSERVATION_FIXTURE_REQUIRED');
+    const uri = 'artifact://runtime/v1/remote_task_observation/large-object/1/content';
+    const writer = new MemoryWriter();
+    const projector = new McpCapabilityEvidenceProjector({
+      source: {
+        pendingTaskIds: () => Promise.resolve([]),
+        load: () =>
+          Promise.resolve({
+            ...base,
+            observations: [
+              {
+                ...old,
+                observation_id: 'large-projection',
+                payload_json: {
+                  recordType: 'task_business.projection',
+                  projection: {
+                    identity: { taskId: 'remote' },
+                    quality: { gaps: ['trajectory_source_time_gap'] },
+                    objects: [{ digest: 'abc', artifactRef: { uri } }],
+                  },
+                },
+              },
+              {
+                ...old,
+                observation_id: 'large-chunk',
+                payload_json: {
+                  recordType: 'task_business.content',
+                  digest: 'abc',
+                  offset: 0,
+                  totalBytes: 49152,
+                  bytes: 'Y'.repeat(65536),
+                },
+              },
+              {
+                ...old,
+                observation_id: 'command',
+                payload_json: {
+                  recordType: 'task_business.command',
+                  command: {
+                    intent: {
+                      intentId: 'i-1',
+                      contentHash: `sha256:${'a'.repeat(64)}`,
+                      request: {
+                        operation: 'navigation_adjust_plan',
+                        waypoints: Array.from({ length: 1024 }, () => ({
+                          longitude: 106,
+                          latitude: 29,
+                        })),
+                      },
+                    },
+                    state: 'uncertain',
+                  },
+                },
+              },
+            ],
+          }),
+      },
+      writer,
+      environment: 'test',
+      clock: { now: () => '2026-08-04T08:00:00Z' },
+    });
+    await projector.projectTask('task-evidence');
+    const business = writer.records.filter((row) => row.recordType === 'mcp_task.observation');
+    expect(business).toHaveLength(3);
+    for (const envelope of business) {
+      expect(Buffer.byteLength(JSON.stringify(envelope.payload))).toBeLessThan(65536);
+      expect(
+        new AjvJsonSchemaValidator({ strict: false }).validate(
+          getEvidenceRecordSchema('mcp_task.observation'),
+          envelope,
+        ),
+      ).toEqual({ valid: true, errors: [] });
+    }
+    expect(business[1]?.artifactRefs).toEqual([uri]);
+    expect(JSON.stringify(business[1]?.payload)).not.toContain('YYYY');
+    expect(business[2]?.payload).toMatchObject({
+      payload: {
+        gaps: expect.arrayContaining([
+          'trusted_confirmation_fact_absent',
+          'send_claim_absent',
+          'transport_ack_absent',
+          'business_application_evidence_absent',
+        ]),
+      },
+    });
+    expect(business[2]?.artifactRefs).toEqual([
+      'artifact://runtime/v1/remote_task_observation/command/1/content',
+    ]);
+  });
   it('enriches Runtime bindings through the Control authority and exact governance evidence ref', async () => {
     const base = snapshot();
     const revisionRef = `evidence_${'9'.repeat(64)}`;

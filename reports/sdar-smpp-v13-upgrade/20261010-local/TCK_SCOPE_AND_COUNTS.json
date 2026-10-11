@@ -1,0 +1,72 @@
+{
+  "scope": "existing official HTTP_JSON/MUST protocol harness",
+  "pytest": {
+    "passed": 74,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 161,
+    "deselected": 30
+  },
+  "junit": {
+    "path": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/junitreport.xml",
+    "sha256": "fe508079b2e45bb4453ded526d703d445d8ff71a07045d421e6e73282df5afd3"
+  },
+  "compatibilityJson": {
+    "path": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/compatibility.json",
+    "sha256": "e12fd05f6f08c3b64680996e0d34f42a7ce76c66d805cdeb8a1eba72e49c998f"
+  },
+  "perRequirement": [
+    {
+      "level": "MAY",
+      "status": "NOT TESTED",
+      "count": 4
+    },
+    {
+      "level": "MUST",
+      "status": "NOT TESTED",
+      "count": 23
+    },
+    {
+      "level": "MUST",
+      "status": "PASS",
+      "count": 62
+    },
+    {
+      "level": "MUST",
+      "status": "SKIPPED",
+      "count": 29
+    },
+    {
+      "level": "SHOULD",
+      "status": "NOT TESTED",
+      "count": 11
+    }
+  ],
+  "perTransport": {
+    "agent_card": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "grpc": {
+      "total": 65,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 65
+    },
+    "jsonrpc": {
+      "total": 81,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 80
+    },
+    "http_json": {
+      "total": 88,
+      "passed": 74,
+      "failed": 0,
+      "skipped": 14
+    }
+  },
+  "displayNote": "The upstream terminal level table counts NOT TESTED requirements in its Failed column (MUST 23, SHOULD 11, MAY 4). The original JSON marks them NOT TESTED with empty test_ids/errors; pytest/JUnit report zero executed failures. They are not claimed PASS."
+}

@@ -1,0 +1,410 @@
+$ node scripts/test-integration.mjs
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 807B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:2b67bc2cc6c7d7434f12180240bb0e8b00d5da4ff3db8e997fe872c5cdd8d494 done
+#13 exporting config sha256:694bb36261def5c50722e5589458506afd4b90319ead2b9afd2bfa3c7952b7ff done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.0s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-local Creating 
+ Network sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-local Created 
+ Volume sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-postgres-data Creating 
+ Volume sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-postgres-data Created 
+ Volume sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-redis-data Creating 
+ Volume sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-redis-data Created 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Creating 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Creating 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Created 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Created 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Starting 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Starting 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Started 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Started 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Waiting 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Waiting 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Healthy 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Healthy 
+
+ RUN  v4.1.10 /tmp/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-zaOtqf/source
+
+{"event":"p03.process_mining.persistence","traceCount":10000,"queryElapsedMs":663.628,"persistenceElapsedMs":1961.556}
+{"event":"planning.knowledge_retrieval.p95","samples":20,"p95Ms":4.714,"targetMs":500}
+ ❯ |integration| packages/persistence-postgres/test/repositories.integration.test.ts (96 tests | 1 failed) 87808ms
+     ✓ persists cognitive management idempotency, result audit, and conflicting-key rejection  714ms
+     ✓ persists deterministic Capability execution actions for restart-safe replay  571ms
+     ✓ persists all Runtime Task command actions for restart-safe replay and conflict rejection  574ms
+     ✓ atomically takes over expired leases and fences every stale owner across dispatch  575ms
+     ✓ holds the action row fence until a projection finishes before allowing lease takeover  684ms
+     ✓ persists low-confidence feedback and finds the previous terminal Task  578ms
+     ✓ collects conversation evidence and replays an explainable input inference  576ms
+     ✓ persists source-linked global memory and ranks active pgvector matches  563ms
+     ✓ persists Memory retention fields without enabling or executing cleanup  555ms
+     ✓ persists every Workflow planning attempt and immutable validated plan  640ms
+     ✓ round-trips structured Task capability-gap evidence  589ms
+     ✓ atomically supersedes a plan when persisting its immutable revision  593ms
+     ✓ persists Workflow instance transitions and ordered node events  563ms
+     ✓ persists an independently traceable Skill-call child Workflow and actual Skill version  620ms
+     ✓ atomically fails interrupted Tasks and Workflow instances without reconstructing execution  558ms
+     ✓ persists Goal authority and replayable outer-control rounds  686ms
+     ✓ atomically persists related and unrelated Goal history decisions  544ms
+     ✓ atomically cancels a Goal and all nonterminal Task, plan, and instance state  738ms
+     ✓ atomically versions a Goal and invalidates its old plans and instances  1183ms
+     ✓ AC-004 keeps historical remote authority frozen when the registered catalog advances  1888ms
+     × AC-006/007/010 binds the first exact Execution once and recovers the same native Task without dispatch 694ms
+     ✓ a native poll lease cannot turn current business facts into historical authority  629ms
+     ✓ AC-039 preserves active legacy authority across 0184 and reads old/new observations with the actual PR34 repository  3374ms
+     ✓ projection waits for the original Task before taking its Binding and permits key-share ownership reads  788ms
+     ✓ AC-041 retains late terminal facts without reactivating Task or exposing new controls  640ms
+     ✓ AC-032 retains invalidated late facts as history with no new input or intervention  641ms
+     ✓ native RequiredInput claim preserves awaiting_input and never enters a terminal claim  604ms
+     ✓ AC-008/033 retains complete large content once, rejects same-revision changes, and detects stored corruption  9124ms
+     ✓ AC-013/014 atomically projects events without crossing a processing hole or a different Task watermark  665ms
+     ✓ AC-014 routes one shared stream by exact Task identity and formal relatedTasks without changing unrelated tasks  779ms
+     ✓ AC-015 persists real SSE continuity, resynchronizes current state and rejects an old generation snapshot  755ms
+     ✓ AC-016 coalesces 512 changes with real persistence, survives an SSE failure and continues bounded polling without dispatch  707ms
+     ✓ AC-013/040 reclaims a crashed read lease and rejects the stale worker token  654ms
+     ✓ invalidates active continuations and every old-Goal remote binding on patch and cancellation  647ms
+     ✓ keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects  550ms
+     ✓ persists encrypted Model Providers, fixed stage routes, and displayable invocation audits  577ms
+     ✓ atomically bootstraps structured and embedding Providers with operation routes only once  579ms
+     ✓ stores rebuildable Skill vectors and scores only matching provider dimensions with pgvector  569ms
+     ✓ expires Temporary Skills atomically into experience without inserting a formal Skill  569ms
+     ✓ persists Skill metrics, selection snapshots, and confirmation-bound replacement plans  555ms
+     ✓ persists immutable top-level Skill input decisions and context result evidence  562ms
+     ✓ persists and deletes typed Skill graph relations with metadata  622ms
+     ✓ stores encrypted MCP credentials and atomically replaces discovered Tool definitions  598ms
+     ✓ persists Frozen MCP discovery snapshots and Tool profiles without Legacy translation  567ms
+     ✓ atomically stores immutable Skill versions and publishes only the enabled current version  668ms
+     ✓ atomically persists native Skill Usage and checksum-bound package import audit  757ms
+     ✓ persists TaskService context/task/event and reads domain values back  559ms
+     ✓ serializes initial Task admission across concurrent requests and replays after restart  607ms
+     ✓ replays a committed initial admission after queue failure and recovers its one durable job  672ms
+     ✓ answers a persisted waiting request after service restart and creates a new attempt  1338ms
+     ✓ persists normalized result, facts, value assessment, and memory candidates  1233ms
+     ✓ atomically cancels both confirmation and input waits using the managed timeout  587ms
+     ✓ updates task state without creating a duplicate system-of-record row  629ms
+     ✓ persists and filters rebuildable external task projections  559ms
+     ✓ persists Skill requests only as drafts  549ms
+     ✓ keeps the v1.2.2 clean baseline idempotent without replaying historical migrations  591ms
+     ✓ atomically commits and idempotently replays an achieved runtime outcome  632ms
+     ✓ rolls back every terminal projection when a bound achieved Task omits its Capability proof  566ms
+     ✓ stores and idempotently replays the exact Capability attempt proof while conflicting replays fail  605ms
+     ✓ idempotently reconciles active Capability attempts owned by canceled Tasks  577ms
+     ✓ idempotently reconciles active Capability attempts owned by failed Tasks  682ms
+     ✓ round-trips MCP Capability-attempt lineage and rejects a cross-Task attempt identity  646ms
+     ✓ rejects terminal proof when an appended attempt becomes latest first  617ms
+     ✓ atomically dispatches a terminal Fact into one leased job and immutable Goal Episode  708ms
+     ✓ normalizes an Episode once with PostgreSQL fencing, immutable Trace and deletion propagation  867ms
+     ✓ runs the formal Episode through Server BullMQ composition into a durable Workflow Pattern  1873ms
+     ✓ dead-letters an expired terminal-attempt compiler lease after a worker crash  739ms
+     ✓ mines a scoped cohort deterministically and persists one evidence-only Workflow Pattern  1362ms
+     ✓ persists and round-trips a real 10k cohort within frozen JSON projections  8276ms
+     ✓ persists a source/model-linked Observation and atomically schedules reflection  688ms
+     ✓ reclaims expired PostgreSQL leases and supports explicit dead-letter replay  658ms
+     ✓ dead-letters a terminal job instead of fabricating Experience when Judgment is missing  799ms
+     ✓ atomically closes and idempotently replays Capability attempts for unachievable and canceled terminal projections  608ms
+     ✓ requests remote cancellation from a canceled terminal outcome only for frozen task_cancel bindings  584ms
+     ✓ requests remote cancellation from Goal cancellation only for frozen task_cancel bindings  658ms
+     ✓ rejects a terminal retry when the persisted Capability-attempt lineage has drifted  575ms
+     ✓ rolls back the Capability-attempt closure when terminal outcome insertion fails  598ms
+     ✓ rolls back every authoritative write when fault before_processed_result is injected  604ms
+     ✓ rolls back every authoritative write when fault after_task is injected  584ms
+     ✓ rolls back every authoritative write when fault after_goal is injected  641ms
+     ✓ rolls back every authoritative write when fault after_control is injected  597ms
+     ✓ rolls back every authoritative write when fault runtime_event is injected  591ms
+     ✓ prevents stale workers and conflicting retries from reviving committed terminal state  633ms
+     ✓ rejects a terminal Round that does not belong to the locked Control plan  615ms
+     ✓ persists append-only Skill execution status and thin evidence links  1041ms
+     ✓ atomically activates one idempotent hash-matched Capability Summary under concurrency  1022ms
+     ✓ records exact Skill catalog changes and marks only the consumed outbox batch  666ms
+     ✓ activates one Public Capability Card only when its active Summary binding matches  587ms
+     ✓ persists Task Understanding revisions with CAS, source lineage, dimensions and outbox  552ms
+     ✓ serializes interactive Goal actions with CAS, idempotency and audited outbox evidence  580ms
+     ✓ persists interactive planning across restart with CAS, idempotency, events and Goal-version locking  820ms
+     ✓ persists idempotent scoped correction facts, immutable episode revisions and isolated Memory projections  573ms
+     ✓ persists Candidate-only Task Type revisions with Episode exemplars and Outbox lineage  747ms
+     ✓ persists Capability Patterns, exact current Skill mappings, Gap Candidates and catalog invalidation  704ms
+     ✓ CAS-promotes real multi-Goal evidence, projects Active Memory and rebuilds deletion  1044ms
+     ✓ hybrid-retrieves only scoped Active authority, expands one hop and deduplicates a Session  721ms
+ ✓ |integration| packages/runtime-control-persistence-postgres/test/runtime-core-evidence.integration.test.ts (6 tests) 34771ms
+     ✓ projects real authoritative facts through a draft manifest with stable IDs, hashes, references and sequences  502ms
+     ✓ projects a reconstructable parent-child Skill tree with exact cross-family references and idempotent replay  322ms
+     ✓ maps legal Experience, Replay and Artifact authorities without replacing the real P03-P04 vertical  1040ms
+     ✓ loads, projects and resolves a real PostgreSQL 10k Pattern without hidden 4096/8192 truncation  31907ms
+stdout | packages/persistence-postgres/test/candidate-generation.integration.test.ts > P04R real P03→P04→P02 candidate product chain > continues Formal facts through P03, P04 and P02 into durable P05 replay validation
+{"event":"p05.replay_validation.postgres_throughput","claimed":100,"workerCount":4,"maxBatchPerWorker":25,"elapsedMs":36.744,"runsPerSecond":2721.543,"queueLagMs":0,"backpressureClaimCount":0}
+
+stdout | packages/persistence-postgres/test/candidate-generation.integration.test.ts > P04R real P03→P04→P02 candidate product chain > continues Formal facts through P03, P04 and P02 into durable P05 replay validation
+{"event":"p05.replay_validation.actual_workers","workerCount":4,"completedRuns":12,"redisAuthority":false}
+
+ ✓ |integration| packages/persistence-postgres/test/candidate-generation.integration.test.ts (3 tests) 5861ms
+     ✓ normalizes Formal facts, mines WorkflowPattern V1.2 and atomically saves a valid P02 Candidate  879ms
+     ✓ continues Formal facts through P03, P04 and P02 into durable P05 replay validation  4457ms
+     ✓ reclaims expired wake loss, rejects stale fencing and dead-letters terminal attempts  486ms
+ ✓ |integration| packages/persistence-postgres/test/governed-control-authority.integration.test.ts (3 tests) 16977ms
+ ✓ |integration| packages/node-control-persistence-postgres/test/foundation.integration.test.ts (16 tests) 1780ms
+{"event":"remote_task_reconcile.failed","error":"REMOTE_TASK_PROVIDER_EXECUTION_LINK_CONFLICT"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"provider_binding_reconciliation.failed","serverId":"ugv-runtime-p2-b03","errorCode":"MCP_PROVIDER_BINDING_CONFLICT"}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage result_processing.","occurredAt":"2026-10-10T20:01:10.830Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage evaluation.","occurredAt":"2026-10-10T20:01:10.837Z"}
+{"event":"provider_binding_reconciliation.failed","serverId":"ugv-runtime-p2-b03","errorCode":"MCP_PROVIDER_BINDING_CONFLICT"}
+{"event":"remote_task_reconcile.failed","error":"REMOTE_TASK_PROVIDER_EXECUTION_LINK_CONFLICT"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage result_processing.","occurredAt":"2026-10-10T20:01:16.981Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_STAGE_NOT_CONFIGURED","message":"No enabled model is configured for stage evaluation.","occurredAt":"2026-10-10T20:01:16.987Z"}
+ ✓ |integration| apps/server/test/ugv-agent-profile-execution.integration.test.ts (2 tests) 17043ms
+     ✓ admits SACS text on the trusted intranet, dispatches once only after confirmation, and resumes from PostgreSQL after restart  6543ms
+     ✓ automatically confirms a durable non-weapon plan through the same confirmation service, with one dispatch  6100ms
+ ✓ |integration| apps/server/test/ugv-move-workflow-continuation.integration.test.ts (1 test) 330ms
+     ✓ confirms once, reconstructs from the frontier, and proves final position without replay  328ms
+ ✓ |integration| apps/server/test/remote-task-composition.integration.test.ts (3 tests) 6216ms
+     ✓ persists an ordinary child through remote wait, parent confirmation and same-checkpoint resume  638ms
+     ✓ keeps two bindings independent and invokes their parallel join once after both complete  581ms
+     ✓ recovers after the parent continuation commits but its remote-control callback crashes  576ms
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"CAPABILITY_READINESS_RECALCULATION_FAILED"}
+ ✓ |integration| apps/node-control-acceptance/test/mcp-provider-binding.integration.test.ts (3 tests) 973ms
+     ✓ versions semantic Catalog changes and separately observes health and registration governance  531ms
+ ✓ |integration| packages/persistence-postgres/test/artifact-authority.integration.test.ts (8 tests) 1617ms
+     ✓ rebuilds the real startup projection without claiming shared Outbox publication  475ms
+ ✓ |integration| packages/persistence-postgres/test/task-business-command.integration.test.ts (13 tests) 17224ms
+     ✓ AC-039/040 two real processes contend for one consumed confirmation; SIGKILL after the send seam expires its lease and recovery never resends  1532ms
+     ✓ AC-033/038 persists and resolves complete large trajectory bytes through original Task and canonical artifacts, with corruption detected  8577ms
+     ✓ AC-039/041 recovery retires expired prepared intents and retains late terminal business facts without reviving Task or dispatching  362ms
+     ✓ rejects expired, superseded and different-content RequiredInput with zero extra sends  1236ms
+     ✓ uses one durable sender across repositories, rejects same-ID different-content and never takes over an expired send  661ms
+     ✓ performs finite read-only reconciliation after a lost ack and fences rollback while uncertain  372ms
+ ✓ |integration| apps/node-control-acceptance/test/node-capability.integration.test.ts (2 tests) 1780ms
+     ✓ round-trips provider policy presence and fails closed for explicit JSON null  434ms
+     ✓ publishes a stable immutable definition only through an exact executable implementation  510ms
+ ✓ |integration| packages/persistence-postgres/test/workflow-continuation.integration.test.ts (3 tests) 3874ms
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"CAPABILITY_READINESS_RECALCULATION_FAILED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+ ✓ |integration| packages/runtime-control-persistence-postgres/test/configuration-apply.integration.test.ts (2 tests) 786ms
+     ✓ keeps Control and Runtime authorities separate across publish, apply and recovery  330ms
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"CAPABILITY_READINESS_RECALCULATION_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+ ✓ |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts (2 tests) 759ms
+     ✓ atomically federates isolated sources and preserves LKG and a running Runtime Task  432ms
+ ✓ |integration| packages/persistence-postgres/test/user-goal-runtime.integration.test.ts (9 tests) 3721ms
+stdout | packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts > P07 P06 Active -> P02 Repository -> retrieval audit integration > measures the PostgreSQL-authoritative active retrieval path without bypassing audit writes
+{"evidence":"P07_PERFORMANCE","samples":25,"p50Ms":6.359526000000187,"p95Ms":11.209518000000116,"authority":"postgresql_active_pointer_and_artifact_match_log"}
+
+ ✓ |integration| packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts (4 tests) 805ms
+ ✓ |integration| packages/runtime-control-persistence-postgres/test/task-revision-authority.integration.test.ts (10 tests) 3165ms
+     ✓ leaves a stale explicit precondition untouched and same-key replay mutates once  427ms
+     ✓ returns the claim connection before command writers run with a max=1 pool  311ms
+     ✓ blocks same-Task background writes while allowing different Task commands concurrently  339ms
+     ✓ rejects using a live command lease for a different Task  317ms
+     ✓ turns claim COMMIT response loss into pending and recovers a legacy rev>0 claim as unapplied  334ms
+ ✓ |integration| apps/node-control-acceptance/test/skill-governance-p10.integration.test.ts (2 tests) 2292ms
+ ✓ |integration| packages/persistence-postgres/test/artifact-shadow-p06.integration.test.ts (1 test) 250ms
+ ✓ |integration| packages/runtime-control-persistence-postgres/test/evidence-projection-pipeline.integration.test.ts (1 test) 277ms
+{"event":"capability_catalog_refresh.deferred","errorCode":"P0001","summary":"UAP_P2_INJECTED_CAPABILITY_SUMMARY_WRITE_FAILURE"}
+stderr | apps/server/test/ugv-agent-profile-runtime.integration.test.ts > UGV Agent Profile real Runtime and PostgreSQL composition > serves only exact enabled move_to@1, stays Provider-independent, and fails closed across a stale rebuild
+Error fetching agent card: Error: A2A_CAPABILITY_CARD_SNAPSHOT_NOT_AVAILABLE
+    at /tmp/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-zaOtqf/source/packages/a2a-adapter/src/http-endpoint.ts:96:21
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at loadCard (/tmp/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-zaOtqf/source/packages/a2a-adapter/src/http-endpoint.ts:93:11)
+    at file:///tmp/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-zaOtqf/source/node_modules/.pnpm/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/@a2a-js/sdk/dist/server/express/index.js:252:25
+
+ ✓ |integration| apps/server/test/ugv-agent-profile-runtime.integration.test.ts (1 test) 3679ms
+     ✓ serves only exact enabled move_to@1, stays Provider-independent, and fails closed across a stale rebuild  403ms
+ ✓ |integration| packages/persistence-postgres/test/runtime-recovery-admission-intent.integration.test.ts (1 test) 2268ms
+ ✓ |integration| packages/persistence-postgres/test/artifact-management-p12.integration.test.ts (7 tests) 726ms
+ ✓ |integration| packages/persistence-postgres/test/runtime-admission.integration.test.ts (3 tests) 4840ms
+ ✓ |integration| packages/persistence-postgres/test/fast-gateway-p10.integration.test.ts (5 tests) 464ms
+ ✓ |integration| packages/runtime-redis/test/bullmq-context-queue.integration.test.ts (6 tests) 225ms
+ ✓ |integration| apps/node-control-acceptance/test/organization-profile-p12.integration.test.ts (1 test) 2255ms
+     ✓ publishes a durable Profile revision and recovers authoritative state after an SSE hint  484ms
+ ✓ |integration| packages/persistence-postgres/test/skill-governance-p10.integration.test.ts (3 tests) 127ms
+ ✓ |integration| packages/persistence-postgres/test/case-model-runtime-p11.integration.test.ts (3 tests) 168ms
+stdout | packages/runtime-redis/test/artifact-replay-validation-workers.integration.test.ts > P05 BullMQ replay-validation wake recovery > claims PostgreSQL work and executes the application service instead of owning results
+{"event":"p05.replay_validation.redis_queue_lag","queueLagMs":18.425,"wakePayloadFields":["validationRunId"],"redisAuthority":false}
+
+ ✓ |integration| packages/runtime-redis/test/artifact-replay-validation-workers.integration.test.ts (4 tests) 229ms
+ ✓ |integration| packages/persistence-postgres/test/temporary-skill-terminal.integration.test.ts (8 tests) 2657ms
+{"event":"p03.compilation_worker.wake","processedRuns":1,"queueLagMs":29.683,"runsPerSecond":33.689}
+{"event":"p03.compilation_worker.throughput","processedRuns":100,"claimBatches":10,"elapsedMs":7.697,"runsPerSecond":12992.141}
+ ✓ |integration| packages/runtime-redis/test/experience-compilation-workers.integration.test.ts (3 tests) 109ms
+ ✓ |integration| packages/runtime-redis/test/bullmq-remote-task-poll-queue.integration.test.ts (3 tests) 104ms
+ ✓ |integration| packages/persistence-postgres/test/decision-rule-runtime-p09.integration.test.ts (1 test) 178ms
+ ✓ |integration| packages/persistence-postgres/test/remote-task-consumer-sync.integration.test.ts (1 test) 73ms
+ ✓ |integration| packages/runtime-redis/test/bullmq-remote-task-cancellation-queue.integration.test.ts (2 tests) 119ms
+ ✓ |integration| packages/runtime-redis/test/bullmq-remote-task-continuation-queue.integration.test.ts (2 tests) 89ms
+ ✓ |integration| packages/runtime-redis/test/candidate-generation-workers.integration.test.ts (2 tests) 58ms
+P12_PERFORMANCE {"environment":"local Docker PostgreSQL; acceptance baseline, not a production SLO","artifactListMs":{"1000":4.332,"10000":1.126,"100000":1.166},"concurrentOperators":32,"concurrentOperatorsMs":58.214,"a2aProjectionIterations":10000,"a2aTenThousandMs":77.934}
+ ✓ |integration| packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts (1 test) 925ms
+     ✓ measures indexed 1k/10k/100k projections, concurrent operators and A2A overhead  880ms
+ ✓ |integration| apps/server/test/migration-image-identity.integration.test.ts (1 test) 3977ms
+     ✓ creates the captured PostgreSQL image after another build replaces the requested tag  3975ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| packages/persistence-postgres/test/repositories.integration.test.ts > PostgreSQL protocol-domain repositories > AC-006/007/010 binds the first exact Execution once and recovers the same native Task without dispatch
+AssertionError: expected { …(18) } to deeply equal { …(18) }
+
+- Expected
++ Received
+
+@@ -115,40 +115,72 @@
+        "waitingPolicy": "pause_execution",
+      },
+    ],
+    "objects": [
+      {
++       "artifactRef": {
++         "artifactId": "task-business-d03ff183-cdf3-4151-a09a-fb0c948aded2",
++         "byteSize": 2159,
++         "mediaType": "application/json",
++         "sha256": "sha256:e8517a39287a7f0514be95ac45d2dfb840d6d0b0012667dbfc1f5643fca3e37e",
++         "uri": "artifact://runtime/v1/remote_task_observation/task-business-d03ff183-cdf3-4151-a09a-fb0c948aded2/1/content",
++         "version": 1,
++       },
+        "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/5d94afef3eb980218ccaf2baa2533e883b874124a342a7aefd484f106c4448b3",
+        "digest": "5d94afef3eb980218ccaf2baa2533e883b874124a342a7aefd484f106c4448b3",
+        "ref": {
+          "id": "route-line",
+          "kind": "artifact",
+          "revision": 1,
+        },
+        "resolution": "resolved",
+      },
+      {
++       "artifactRef": {
++         "artifactId": "task-business-0c7aa697-13e2-4a5e-b11d-912f9f93515e",
++         "byteSize": 1649,
++         "mediaType": "application/json",
++         "sha256": "sha256:fd65a780f370e45f0e380f2be69ed3672e308b155f1f071addef486744b3e225",
++         "uri": "artifact://runtime/v1/remote_task_observation/task-business-0c7aa697-13e2-4a5e-b11d-912f9f93515e/1/content",
++         "version": 1,
++       },
+        "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/009ad0349c9a930cf98c4f600e1764cec3df7178b0e11c898888a3f0e213e57e",
+        "digest": "009ad0349c9a930cf98c4f600e1764cec3df7178b0e11c898888a3f0e213e57e",
+        "ref": {
+          "id": "lock-1",
+          "kind": "action",
+          "revision": 1,
+        },
+        "resolution": "resolved",
+      },
+      {
++       "artifactRef": {
++         "artifactId": "task-business-ee071b8f-032f-44d4-9ca9-1a2b13774a0e",
++         "byteSize": 2526,
++         "mediaType": "application/json",
++         "sha256": "sha256:61044ab849cc403edffbf82ac817d9ae6b0b244e76d5cdc41777884339232585",
++         "uri": "artifact://runtime/v1/remote_task_observation/task-business-ee071b8f-032f-44d4-9ca9-1a2b13774a0e/1/content",
++         "version": 1,
++       },
+        "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/89823f5ec3c92d79a007e7231f957dec98f1f5c79fa78735b68c2345c167dc4f",
+        "digest": "89823f5ec3c92d79a007e7231f957dec98f1f5c79fa78735b68c2345c167dc4f",
+        "ref": {
+          "id": "input-1",
+          "kind": "input_request",
+          "revision": 1,
+        },
+        "resolution": "resolved",
+      },
+      {
++       "artifactRef": {
++         "artifactId": "task-business-bd1ad9fa-5c46-4008-80bc-533f377f9e9f",
++         "byteSize": 1917,
++         "mediaType": "application/json",
++         "sha256": "sha256:0776174755163c31eca24a9cc1b997b0c6c0c2a2bb9b45691ba565bb08bacbfb",
++         "uri": "artifact://runtime/v1/remote_task_observation/task-business-bd1ad9fa-5c46-4008-80bc-533f377f9e9f/1/content",
++         "version": 1,
++       },
+        "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/b2a1959676054a8205eff59697174e548dfe291e646e2404b16d6c49c484319c",
+        "digest": "b2a1959676054a8205eff59697174e548dfe291e646e2404b16d6c49c484319c",
+        "ref": {
+          "id": "intervention-1",
+          "kind": "intervention",
+
+ ❯ packages/persistence-postgres/test/repositories.integration.test.ts:2578:53
+    2576|       initial.projection.identity.executionId,
+    2577|     );
+    2578|     expect(await restarted.find(initial.bindingId)).toEqual(initial.pr…
+       |                                                     ^
+    2579|     await expect(
+    2580|       restarted.commit({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 40 passed (41)
+      Tests  1 failed | 247 passed (248)
+   Start at  03:58:18
+   Duration  309.76s (transform 8.65s, setup 0ms, import 71.30s, tests 231.58s, environment 5ms)
+
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Stopping 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Stopping 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Stopped 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Removing 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Stopped 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Removing 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-postgres-1 Removed 
+ Container sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-redis-1 Removed 
+ Network sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-local Removing 
+ Network sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af_sdar-local Removed 
+file:///tmp/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-zaOtqf/source/scripts/test-integration.mjs:77
+    throw new Error(`INTEGRATION_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+          ^
+
+Error: INTEGRATION_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project integration --exclude packages/runtime-control-persistence-postgres/test/evidence-persistence.integration.test.ts --exclude packages/runtime-control-persistence-postgres/test/evidence-export.integration.test.ts --exclude apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts
+    at run (file:///tmp/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-zaOtqf/source/scripts/test-integration.mjs:77:11)
+    at file:///tmp/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af-zaOtqf/source/scripts/test-integration.mjs:38:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+[ELIFECYCLE] Command failed with exit code 1.

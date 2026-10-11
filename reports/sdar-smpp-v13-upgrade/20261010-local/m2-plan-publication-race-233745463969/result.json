@@ -1,0 +1,21 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/application/test/task-service.unit.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "a2b11c46f51d093fface6d8806a963f797b273aa5f01b3ff8967ff9097e95bf7",
+  "startedAt": "2026-10-10T23:37:45.463969+08:00",
+  "finishedAt": "2026-10-10T23:37:49.718450+08:00",
+  "durationSeconds": 4.254481,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "5d84a75b171eae39d24c5121d08fd9c994e4791306dc1f18dacf44121b44c874",
+  "environment": "local_source_or_loopback_fixture_only"
+}

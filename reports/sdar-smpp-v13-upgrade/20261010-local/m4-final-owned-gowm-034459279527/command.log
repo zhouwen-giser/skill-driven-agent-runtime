@@ -1,0 +1,40 @@
+{"step":"owner-export","startedAt":"2026-10-10T19:45:00.029Z"}
+{"step":"owner-extract","startedAt":"2026-10-10T19:45:00.216Z"}
+{"step":"postgres-start","startedAt":"2026-10-10T19:45:04.329Z"}
+fc5290fe49122b42a09a65f6b148049c5e385b7a8d20c8a97e95a00c9776748e
+{"step":"redis-start","startedAt":"2026-10-10T19:45:04.683Z"}
+7cf86414eb713f0b1a8fd6b56e3056d454c84f15749033d2e711f2fc1d62c8c8
+{"step":"owner-core-bootstrap","startedAt":"2026-10-10T19:45:17.128Z"}
+isolated core bootstrap PASS
+{"step":"owner-domain-install","startedAt":"2026-10-10T19:45:21.548Z"}
+INSTALL PASS
+{"step":"formal-navigation-recon-shared-storage","startedAt":"2026-10-10T19:45:24.140Z"}
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-10T19:45:46.258Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":5,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"provider_binding_reconciliation.failed","serverId":"smpp-79f0cabb-d46d-4f31-bb03-ab619fde189f","errorCode":"TASK_EXECUTION_FAILED"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"provider_binding_reconciliation.failed","serverId":"smpp-79f0cabb-d46d-4f31-bb03-ab619fde189f","errorCode":"TASK_EXECUTION_FAILED"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-10T19:46:15.109Z"}
+ [32m✓[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 44417[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch [33m 29575[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch [33m 14840[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 03:45:24
+[2m   Duration [22m 50.69s[2m (transform 4.23s, setup 0ms, import 6.10s, tests 44.42s, environment 0ms)[22m
+
+{"step":"native-storage-boundaries","startedAt":"2026-10-10T19:46:15.527Z"}
+{"status":"PASS","run":"sdar-pg-cabec379-7181-42e6-a98f-6836aedfac9a","scenarios":26,"scope":"repository-subset-only"}
+{"report":"reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-f3f89dba-b4d5-4be0-abf6-e95d714a92b8/result.json","status":"PASS","cleanup":[{"id":"7cf86414eb713f0b1a8fd6b56e3056d454c84f15749033d2e711f2fc1d62c8c8","ownershipChecked":true,"exitCode":0},{"id":"fc5290fe49122b42a09a65f6b148049c5e385b7a8d20c8a97e95a00c9776748e","ownershipChecked":true,"exitCode":0}],"site":"NOT_RUN"}

@@ -254,3 +254,11 @@ sources:
     pin: 'npm:@types/react-dom@19.2.3#sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=='
     allowed: 'strict TypeScript checking for apps/console DOM rendering'
     forbidden: 'runtime use'
+
+  - name: SMPP UGV v1.3 TaskBusiness public contract
+    repository: https://github.com/zhouwen-giser/sdar-mcp-provider-platform
+    license: 'Apache-2.0; exact commit has no NOTICE'
+    use: contract_reference
+    pin: 'commit:0a4a7c36865d4c9920a4e65857c0903e9ef12533'
+    allowed: 'unmodified public JSON Schemas and positive catalog with exact LICENSE under contracts/smpp-task-business/v1.3'
+    forbidden: 'Provider runtime copying, sibling imports, upstream schema changes, device or weapon actions'

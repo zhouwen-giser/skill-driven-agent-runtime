@@ -1045,8 +1045,8 @@ export class PlanPreparationProcessor {
         : { skillInputResolutionId: selected.resolution.resolutionId }),
       timestamp: this.#dependencies.clock.now(),
     });
-    await this.#dependencies.tasks.save(task);
     await this.#dependencies.taskCapabilities?.bindInitialPlan(task.taskId, prepared.planId);
+    await this.#dependencies.tasks.save(task);
     if (!prepared.autoConfirmed) {
       await this.#transition(task, 'awaiting_plan_confirmation', 'Plan confirmation required.');
       await this.#dependencies.taskPlanning.confirmDevelopmentPlan?.(task.taskId, prepared.planId);

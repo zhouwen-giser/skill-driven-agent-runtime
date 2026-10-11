@@ -17,12 +17,17 @@ export interface GowmModelFixtureConfiguration {
   readonly toolName: string;
   readonly deviceIds: readonly string[];
   readonly spatialTarget?: Readonly<{ x: number; y: number; frame: string }>;
+  readonly controlledToolArguments?: Readonly<Record<string, unknown>>;
+  readonly physicalControl?: boolean;
+  readonly requiredEffectRef?: string;
+  readonly expectedBusinessIdentity?: Readonly<Record<string, unknown>>;
 }
 
 /** Model protocol fixture only. Every unsupported stage fails; no live transport fallback. */
 export async function startGowmModelProvider(configuration: GowmModelFixtureConfiguration) {
   const calls: string[] = [];
   const failures: string[] = [];
+  const businessDecisions: Readonly<{ input: unknown; output: unknown }>[] = [];
   const server = createServer((request, response) => {
     void (async () => {
       try {
@@ -48,6 +53,14 @@ export async function startGowmModelProvider(configuration: GowmModelFixtureConf
           );
           const input = record(JSON.parse(text(instruction?.['content'])) as unknown);
           const decision = gowmModelDecision(configuration, input);
+          if (
+            input['operation'] === 'process_workflow_result' &&
+            configuration.expectedBusinessIdentity !== undefined
+          )
+            businessDecisions.push({
+              input: structuredClone(input),
+              output: structuredClone(decision.value),
+            });
           calls.push(decision.stage);
           result = {
             choices: [{ message: { content: JSON.stringify(decision.value) } }],
@@ -72,6 +85,7 @@ export async function startGowmModelProvider(configuration: GowmModelFixtureConf
     baseUrl: `http://127.0.0.1:${String(address.port)}/v1`,
     calls,
     failures,
+    businessDecisions,
     async close() {
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) => {
@@ -104,7 +118,11 @@ export function gowmModelDecision(
       value: {
         title: request,
         description: request,
-        constraints: ['Read only'],
+        constraints: [
+          config.physicalControl
+            ? 'Use the original resource after explicit human confirmation'
+            : 'Read only',
+        ],
         successCriteria: ['Return observed state'],
         requiresInput: false,
       },
@@ -139,7 +157,11 @@ export function gowmModelDecision(
             required: true,
           },
         ],
-        knownConstraints: ['Read only; one tool call after confirmation.'],
+        knownConstraints: [
+          config.physicalControl
+            ? 'One controlled operation after explicit human confirmation'
+            : 'Read only; one tool call after confirmation.',
+        ],
         knownDimensions: [
           { kind: 'target', value: device },
           { kind: 'criteria', value: 'Return observed state' },
@@ -157,7 +179,11 @@ export function gowmModelDecision(
       value: {
         title: request,
         description: request,
-        constraints: ['Read only'],
+        constraints: [
+          config.physicalControl
+            ? 'Use the original resource after explicit human confirmation'
+            : 'Read only',
+        ],
         successCriteria: ['Return observed state'],
       },
     };
@@ -175,11 +201,15 @@ export function gowmModelDecision(
             coveredCriterionIds: records(contract['criteria']).map((criterion) =>
               text(criterion['criterionId']),
             ),
-            requiredEffectRefs: ['effect.gowm.state_read'],
+            requiredEffectRefs: [config.requiredEffectRef ?? 'effect.gowm.state_read'],
             evidenceRequirements: [],
             artifactRequirements: [],
             assumptions: [],
-            constraints: ['Read only'],
+            constraints: [
+              config.physicalControl
+                ? 'Use the original resource after explicit human confirmation'
+                : 'Read only',
+            ],
           },
         ],
         dependencies: [],
@@ -230,9 +260,11 @@ export function gowmModelDecision(
             name: 'Read synthetic device',
             type: 'mcp_tool',
             tool: { serverId: config.serverId, toolName: config.toolName },
+            ...(config.physicalControl ? { taskExecution: { protocolMode: 'frozen_v1' } } : {}),
             arguments: {
               resourceId: { op: 'ref', path: ['input', 'resourceId'] },
               ...(config.spatialTarget === undefined ? {} : { target: config.spatialTarget }),
+              ...config.controlledToolArguments,
             },
           },
           {
@@ -251,6 +283,26 @@ export function gowmModelDecision(
     assert.deepEqual(normalized['errors'], []);
     const value = record(normalized['data']);
     assert.ok(Object.keys(value).length > 0, 'Never fabricate a missing tool result');
+    if (config.expectedBusinessIdentity !== undefined) {
+      const facts = objectBusinessFacts(input['untrustedTaskBusiness']);
+      assert.ok(
+        facts.some((fact) =>
+          Object.entries(config.expectedBusinessIdentity ?? {}).every(
+            ([key, value]) => record(fact['identity'])[key] === value,
+          ),
+        ),
+        'Original Skill result processing must actually receive the exact Task business identity',
+      );
+      assert.ok(facts.some((fact) => record(fact['quality'])['currentStateComplete'] === true));
+      const providerMission = record(value['businessSemantics'])['missionTaskState'];
+      assert.ok(
+        facts.some(
+          (fact) =>
+            record(fact['businessOutcome'])['businessStatus'] ===
+            (providerMission === 'succeeded' ? 'success' : 'unknown'),
+        ),
+      );
+    }
     return {
       stage: 'result_processing',
       value: {
@@ -265,7 +317,11 @@ export function gowmModelDecision(
   if (operation === 'evaluate_task_component') {
     const evidence = record(input['evidence']);
     const failed = config.expectedWorkflowStatus === 'failed';
-    assert.equal(record(evidence['instance'])['status'], failed ? 'failed' : 'succeeded');
+    assert.equal(
+      record(evidence['instance'])['status'],
+      failed ? 'failed' : 'succeeded',
+      `Unexpected native Workflow status: ${JSON.stringify(record(evidence['instance'])['errors'])}`,
+    );
     if (failed) assert.ok(Object.keys(record(record(evidence['instance'])['errors'])).length > 0);
     return {
       stage: 'evaluation',
@@ -318,7 +374,11 @@ export function gowmModelDecision(
         },
       };
     }
-    assert.equal(workflow['status'], 'succeeded');
+    assert.equal(
+      workflow['status'],
+      'succeeded',
+      `Unexpected native Workflow status: ${JSON.stringify(workflow['errors'])}`,
+    );
     assert.deepEqual(workflow['errors'], {});
     assert.ok(Object.keys(record(workflow['result'])).length > 0);
     return {
@@ -329,4 +389,10 @@ export function gowmModelDecision(
   throw new Error(
     `GOWM_MODEL_STAGE_NOT_IMPLEMENTED:${typeof operation === 'string' ? operation : Object.keys(input).join(',')}`,
   );
+}
+
+function objectBusinessFacts(value: unknown): readonly Readonly<Record<string, unknown>>[] {
+  if (Array.isArray(value)) return records(value);
+  const envelope = record(value);
+  return records(envelope['items']);
 }

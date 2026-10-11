@@ -1,0 +1,21 @@
+{
+  "name": "licenses",
+  "command": "pnpm verify:licenses",
+  "status": "failed",
+  "startedAt": "2026-10-10T13:07:25.445Z",
+  "finishedAt": "2026-10-10T13:07:30.002Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/licenses.log",
+  "outputSha256": "50e7cdc3a52335a9b90a2abb77604183598f18601c8254993f6c82edf1d42d2b",
+  "metrics": {},
+  "exitCode": 1,
+  "signal": null,
+  "durationMs": 4557,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 5,
+    "peakRssBytes": 290967552,
+    "peakProcesses": 2
+  },
+  "cleanupErrors": []
+}

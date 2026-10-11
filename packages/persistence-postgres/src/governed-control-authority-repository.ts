@@ -1,5 +1,6 @@
 import { decodeGowmWorkflowDefinition } from './gowm-workflow-definition.js';
 import type { Pool } from 'pg';
+import type { TaskBusinessControlScope } from '../../domain/src/task-business-command.js';
 
 import {
   GovernedControlConfirmationIssueConflictError,
@@ -382,38 +383,7 @@ export class PostgresGovernedControlAuthorityRepository
   async consumeConfirmation(
     input: GovernedControlConfirmationConsumption,
   ): Promise<GovernedControlConfirmation | undefined> {
-    const result = await this.#pool.query<ConfirmationRow>(
-      `UPDATE governed_control_confirmation
-          SET consumed_invocation_id=$9,consumed_dispatch_hash=$10,consumed_at=$11
-        WHERE confirmation_id=$1
-          AND task_id=$2
-          AND capability_binding_id=$3
-          AND capability_attempt_id=$4
-          AND provider_binding_id=$5
-          AND server_id=$6
-          AND tool_name=$7
-          AND arguments_hash=$8
-          AND revoked_at IS NULL
-          AND consumed_at IS NULL
-          AND confirmed_at <= $11
-          AND expires_at > $11
-        RETURNING *`,
-      [
-        input.confirmationId,
-        input.taskId,
-        input.capabilityBindingId,
-        input.capabilityAttemptId,
-        input.providerBindingId,
-        input.serverId,
-        input.toolName,
-        input.argumentsHash,
-        input.invocationId,
-        input.dispatchHash,
-        input.consumedAt,
-      ],
-    );
-    const row = result.rows[0];
-    return row === undefined ? undefined : mapConfirmation(row);
+    return consumeGovernedControlConfirmationInTransaction(this.#pool, input);
   }
 
   async findConsumedByInvocation(
@@ -1464,4 +1434,49 @@ function stringArray(value: unknown): readonly string[] {
 
 function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+/** Same native confirmation consumption, optionally inside the business intent claim transaction. */
+export async function consumeGovernedControlConfirmationInTransaction(
+  client: Pick<Pool, 'query'>,
+  input: GovernedControlConfirmationConsumption,
+  expected?: TaskBusinessControlScope,
+): Promise<GovernedControlConfirmation | undefined> {
+  const exactScope =
+    expected === undefined
+      ? ''
+      : `AND authority_kind='physical_control'
+    AND capability_id=$12 AND capability_version=$13 AND plan_id=$14 AND plan_hash=$15
+    AND skill_id=$16 AND skill_version=$17 AND confirmed_at<=clock_timestamp() AND expires_at>clock_timestamp()`;
+  const result = await client.query<ConfirmationRow>(
+    `UPDATE governed_control_confirmation SET consumed_invocation_id=$9,consumed_dispatch_hash=$10,consumed_at=$11
+     WHERE confirmation_id=$1 AND task_id=$2 AND capability_binding_id=$3 AND capability_attempt_id=$4
+       AND provider_binding_id=$5 AND server_id=$6 AND tool_name=$7 AND arguments_hash=$8
+       AND revoked_at IS NULL AND consumed_at IS NULL AND confirmed_at<=$11 AND expires_at>$11 ${exactScope}
+     RETURNING *`,
+    [
+      input.confirmationId,
+      input.taskId,
+      input.capabilityBindingId,
+      input.capabilityAttemptId,
+      input.providerBindingId,
+      input.serverId,
+      input.toolName,
+      input.argumentsHash,
+      input.invocationId,
+      input.dispatchHash,
+      input.consumedAt,
+      ...(expected === undefined
+        ? []
+        : [
+            expected.capabilityId,
+            expected.capabilityVersion,
+            expected.planId,
+            expected.planHash,
+            expected.skillId,
+            expected.skillVersion,
+          ]),
+    ],
+  );
+  return result.rows[0] === undefined ? undefined : mapConfirmation(result.rows[0]);
 }

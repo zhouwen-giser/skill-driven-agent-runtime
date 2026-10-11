@@ -1,0 +1,23 @@
+{
+  "name": "management-openapi",
+  "command": "pnpm verify:management-openapi",
+  "status": "passed",
+  "startedAt": "2026-10-10T14:08:05.040Z",
+  "finishedAt": "2026-10-10T14:08:09.151Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/management-openapi.log",
+  "outputSha256": "081468aa2d36387d3c0ae9606310fce4c36ef9109dd3abc85cc0b7635324c6f1",
+  "metrics": {
+    "openapiOperations": 178
+  },
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 4110,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 4,
+    "peakRssBytes": 167907328,
+    "peakProcesses": 1
+  },
+  "cleanupErrors": []
+}

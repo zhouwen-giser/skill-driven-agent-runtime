@@ -1,0 +1,18 @@
+{
+  "command": [
+    "node",
+    "scripts/sdar-smpp-v13/verify-local.mjs",
+    "--e2e",
+    "apps/server/test/smpp-task-business.e2e.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "b1588693aa1633afe6abcc28b16a13835ef169cf78aed19753cd5288d2089c8c",
+  "startedAt": "2026-10-11T01:54:08.151665+08:00",
+  "finishedAt": "2026-10-11T01:54:42.173453+08:00",
+  "durationSeconds": 34.021788,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "7d81e8915448d5042fd56e2d6cd181bd3a4efadb8c52be4a426926625fb1238d",
+  "environment": "local_source_or_loopback_fixture_only"
+}

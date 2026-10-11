@@ -7,6 +7,8 @@ export * from './skill-governance-repository.js';
 export * from './skill-package-authority-reader.js';
 export * from './compiler/index.js';
 export * from './remote-task-repository.js';
+export * from './task-business-repository.js';
+export * from './task-business-command-repository.js';
 export * from './remote-task-admission-intent-store.js';
 export * from './remote-task-consumer-sync-repository.js';
 export * from './remote-task-cancellation-repository.js';

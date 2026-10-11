@@ -1,0 +1,24 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/domain/test/task-business.unit.test.ts",
+    "packages/application/test/result-processing-service.unit.test.ts",
+    "packages/application/test/business-events.unit.test.ts",
+    "packages/application/test/remote-task-polling.unit.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "10385e07c86dbf883f0d5af20f5c32176326ddb7f2766f95fcf8af5d93597940",
+  "startedAt": "2026-10-10T22:04:00.605474+08:00",
+  "finishedAt": "2026-10-10T22:04:05.831490+08:00",
+  "durationSeconds": 5.226016,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "1e559c3a207ce9ee16a0186cab4a40e1604193fcab3126525c43d4d4dca8deda",
+  "environment": "local_source_or_loopback_fixture_only"
+}

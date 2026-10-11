@@ -1,0 +1,25 @@
+[
+  {
+    "command": [
+      "python3",
+      ".codex/sdar-smpp-v13/scripts/check_taskpack.py"
+    ],
+    "exitCode": 0,
+    "scope": "taskpack_static_only",
+    "output": "{\n  \"ok\": true,\n  \"scope\": \"taskpack_static_only\",\n  \"caseCount\": 50,\n  \"requirementCount\": 19,\n  \"markdownFiles\": 33,\n  \"errors\": []\n}\n"
+  },
+  {
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      ".codex/sdar-smpp-v13/selftests",
+      "-v"
+    ],
+    "exitCode": 0,
+    "scope": "taskpack_static_only",
+    "output": "test_audit_is_read_only_and_missing_pins_visible (test_package_tools.PackageToolsTests) ... ok\ntest_broken_link_rejected (test_package_tools.PackageToolsTests) ... ok\ntest_duplicate_case_rejected (test_package_tools.PackageToolsTests) ... ok\ntest_invalid_json_rejected (test_package_tools.PackageToolsTests) ... ok\ntest_manifest_tamper_rejected (test_package_tools.PackageToolsTests) ... ok\ntest_non_repository_rejected (test_package_tools.PackageToolsTests) ... ok\ntest_structure_and_coverage (test_package_tools.PackageToolsTests) ... ok\n\n----------------------------------------------------------------------\nRan 7 tests in 0.112s\n\nOK\n"
+  }
+]

@@ -272,7 +272,11 @@ if (!url || !consumerUrl || !peerUrl || process.env['GOWM_BUSINESS_SMOKE_ENABLE'
     });
     for (const scenario of await verifyGowmEvidenceRetention(pool, scope, run))
       results.push({ scenario, status: 'PASS' });
-    const directory = 'reports/sdar-gowm-shared-storage-integration-v0.1';
+    const directory =
+      process.env['SDAR_GOWM_TEST_REPORT_DIRECTORY'] ??
+      'reports/sdar-gowm-shared-storage-integration-v0.1';
+    if (!directory.startsWith('reports/') || directory.split('/').includes('..'))
+      throw new Error('GOWM_TEST_REPORT_DIRECTORY_INVALID');
     await mkdir(directory, { recursive: true });
     await writeFile(
       `${directory}/postgres-task-workflow-results.json`,

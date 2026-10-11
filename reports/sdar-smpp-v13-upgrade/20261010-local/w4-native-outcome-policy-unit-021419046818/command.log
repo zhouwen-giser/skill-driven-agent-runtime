@@ -1,0 +1,28 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |unit| packages/application/test/task-business-outcome.unit.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/task-business-outcome.unit.test.ts [ packages/application/test/task-business-outcome.unit.test.ts ]
+SourceArtifactRefError: Runtime source version must be between 1 and 2147483647.
+ ❯ validateVersion packages/domain/src/evidence/source-artifact-ref.ts:341:11
+    339| ): number {
+    340|   if (!Number.isSafeInteger(value) || value < 1 || value > RUNTIME_SOU…
+    341|     throw new SourceArtifactRefError(
+       |           ^
+    342|       code,
+    343|       `Runtime source version must be between 1 and ${String(RUNTIME_S…
+ ❯ createAddress packages/domain/src/evidence/source-artifact-ref.ts:244:25
+ ❯ buildRuntimeSourceArtifact packages/domain/src/evidence/source-artifact-ref.ts:78:19
+ ❯ packages/application/test/task-business-outcome.unit.test.ts:52:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  5 passed (5)
+   Start at  02:14:20
+   Duration  611ms (transform 376ms, setup 0ms, import 538ms, tests 163ms, environment 0ms)
+

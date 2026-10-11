@@ -12,6 +12,7 @@ import {
   RemoteTaskAdmissionService,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
+  reconcileInitialRemoteTaskSnapshot,
 } from '../src/index.js';
 import type {
   RemoteTaskMutationResult,
@@ -24,6 +25,74 @@ import type {
 
 const timestamp = '2026-07-16T08:00:00.000Z';
 const laterTimestamp = '2026-07-16T08:00:01.000Z';
+
+describe('Retained admission snapshot versus concurrent native poll', () => {
+  const admitted = createRemoteTaskBinding(admission());
+  const input = {
+    admitted,
+    snapshot: workingSnapshot(),
+    observationId: 'initial-reconciliation',
+    observedAt: laterTimestamp,
+  };
+  function repository(current: RemoteTaskBinding) {
+    return {
+      findById: vi.fn<RemoteTaskRepository['findById']>().mockResolvedValue(current),
+      recordExternalSnapshot: vi
+        .fn<RemoteTaskRepository['recordExternalSnapshot']>()
+        .mockResolvedValueOnce({ applied: false, reason: 'stale' })
+        .mockResolvedValue({ applied: true, binding: current }),
+    };
+  }
+  it('retries a bounded database CAS after a poll claim while preserving the original frozen admission identity', async () => {
+    const r = repository({ ...admitted, version: 2 });
+    await reconcileInitialRemoteTaskSnapshot({ ...input, repository: r });
+    expect(r.recordExternalSnapshot.mock.calls.map(([value]) => value.expectedVersion)).toEqual([
+      1, 2,
+    ]);
+    expect(r.recordExternalSnapshot.mock.calls.map(([value]) => value.snapshot)).toEqual([
+      input.snapshot,
+      input.snapshot,
+    ]);
+  });
+  it('retains a newer accepted poll or terminal observation without overwriting it or recreating a workflow', async () => {
+    const r = repository({
+      ...admitted,
+      version: 3,
+      runtimeRevision: '3',
+      terminalAt: laterTimestamp,
+      localState: 'terminal_event_pending',
+    });
+    r.recordExternalSnapshot.mockReset().mockResolvedValue({ applied: false, reason: 'closed' });
+    await reconcileInitialRemoteTaskSnapshot({ ...input, repository: r });
+    expect(r.recordExternalSnapshot).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    { workflowPlanId: 'replacement-plan' },
+    { goalVersion: 2 },
+    { invalidatedAt: laterTimestamp },
+    { remoteTaskId: 'another-remote-task' },
+    {
+      authoritySnapshot: {
+        ...testAuthoritySnapshot('server-1', 'credential-sha256-1'),
+        capturedAt: laterTimestamp,
+      },
+    },
+  ])('refuses a changed or invalidated frozen identity %#', async (patch) => {
+    const r = repository({ ...admitted, version: 2, runtimeRevision: '2', ...patch });
+    await expect(reconcileInitialRemoteTaskSnapshot({ ...input, repository: r })).rejects.toThrow(
+      /REMOTE_TASK_INITIAL_RECONCILIATION_(?:IDENTITY_CONFLICT|CLOSED)/u,
+    );
+    expect(r.recordExternalSnapshot).toHaveBeenCalledTimes(1);
+  });
+  it('stops after three failed CAS attempts and retains the original receipt', async () => {
+    const r = repository({ ...admitted, version: 2 });
+    r.recordExternalSnapshot.mockReset().mockResolvedValue({ applied: false, reason: 'stale' });
+    await expect(
+      reconcileInitialRemoteTaskSnapshot({ ...input, repository: r }),
+    ).rejects.toMatchObject({ code: 'REMOTE_TASK_INITIAL_RECONCILIATION_STALE' });
+    expect(r.recordExternalSnapshot).toHaveBeenCalledTimes(3);
+  });
+});
 
 describe('RemoteTaskAdmissionService', () => {
   it('persists a binding before scheduling its versioned poll job and converges duplicates', async () => {

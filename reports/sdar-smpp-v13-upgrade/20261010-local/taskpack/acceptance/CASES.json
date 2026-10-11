@@ -1,0 +1,766 @@
+{
+  "schemaVersion": "sdar-taskpack-acceptance/1",
+  "caseCount": 50,
+  "cases": [
+    {
+      "id": "AC-001",
+      "workItem": "W0",
+      "title": "冻结基线与后继分支识别",
+      "layer": "offline",
+      "given": "已取得 SDAR main、PR34 与工作树身份。",
+      "when": "运行本地基线审计，并比较分支祖先及所需符号。",
+      "then": "记录 SHA、干净/脏状态、沿用/已包含/需重基三种结论；不静默切换分支。",
+      "forbidden": "reset --hard、覆盖用户未提交修改、重复 cherry-pick。",
+      "evidenceRequired": [
+        "baseline-audit",
+        "source-map"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-002",
+      "workItem": "W0",
+      "title": "Schema 精确漂移报告",
+      "layer": "contract",
+      "given": "固定旧 catalog 与只读获得的新 catalog 夹具。",
+      "when": "分别改变必填项、类型、枚举和扩展版本。",
+      "then": "报告 JSON Pointer、旧值、新值及影响；受影响能力拒绝新派发。",
+      "forbidden": "关闭 strict 校验、仅输出 hash 差异、把健康状态改为 ready。",
+      "evidenceRequired": [
+        "schema-diff",
+        "zero-dispatch-counter"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-003",
+      "workItem": "W0",
+      "title": "公开身份和执行模式",
+      "layer": "contract",
+      "given": "vehicle:ugv、isr.vehicle.ugv.ugv、ugv:ugv 和 live 基线。",
+      "when": "提交只读请求并注入内部 ugv1、错误 Provider、错误 mode、live 携带 scene 等反例。",
+      "then": "合法请求采用冻结身份；非法身份/模式在边界拒绝；live 不带 simulation-id。",
+      "forbidden": "为绕过错误而替换资源 ID、把软件仿真推定为 protocol simulation。",
+      "evidenceRequired": [
+        "wire-capture",
+        "error-code"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-004",
+      "workItem": "W0",
+      "title": "历史任务不被 successor 改写",
+      "layer": "postgres",
+      "given": "旧任务冻结 revision A，新 catalog revision B。",
+      "when": "执行隔离环境正式 successor，然后读取两类任务。",
+      "then": "新任务用 B；旧任务继续引用 A 或显式报告权限/可用性阻塞。",
+      "forbidden": "重写历史 snapshot、自动把旧任务迁到 B。",
+      "evidenceRequired": [
+        "authority-before-after",
+        "row-diff"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-005",
+      "workItem": "W0",
+      "title": "基线时钟字段识别",
+      "layer": "contract",
+      "given": "固定 Provider 公共响应，含接收时间和设备原始时间，或明确缺少其中字段。",
+      "when": "完成字段路径和来源 basis 清单。",
+      "then": "只有具备可信 Provider 接收来源的字段进入 sourceTime；缺失被记录为 gap。",
+      "forbidden": "凭字段名 timestamp 就认定设备采样时间或用 SDAR now 填充。",
+      "evidenceRequired": [
+        "time-field-map",
+        "source-provenance"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-006",
+      "workItem": "W1",
+      "title": "首次业务执行关联",
+      "layer": "postgres",
+      "given": "受管 RemoteTaskBinding 已存在且有原始授权快照。",
+      "when": "读取该精确任务的正式 Context，并持久化初次 Execution 关联。",
+      "then": "核对 Provider/resource/task/operation；首次绑定使用受管任务查询与 CAS，不用设备最新任务推断。",
+      "forbidden": "接受任意 taskId、自动认领未知任务。",
+      "evidenceRequired": [
+        "binding-row",
+        "context-identity"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-007",
+      "workItem": "W1",
+      "title": "跨 Task/Execution/资源隔离",
+      "layer": "contract+postgres",
+      "given": "两个本地任务及两个远端 execution。",
+      "when": "混入另一个 execution 的 Context、Artifact 和输入对象。",
+      "then": "全部拒绝污染；保留来源诊断；旧完整视图只可标历史。",
+      "forbidden": "按 resourceId 相同就合并。",
+      "evidenceRequired": [
+        "negative-matrix",
+        "unchanged-projection"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-008",
+      "workItem": "W1",
+      "title": "引用与内容完整性分离",
+      "layer": "contract",
+      "given": "元数据可读但内容缺块、摘要不符或高版本内容未读。",
+      "when": "读取 Context/Artifact。",
+      "then": "引用可记录；该内容为 unresolved/unavailable；未满足必需对象不能供结果成功判定。",
+      "forbidden": "有 metadata 就标完整、用旧版本冒充新版本。",
+      "evidenceRequired": [
+        "content-digest",
+        "projection-quality"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-009",
+      "workItem": "W1",
+      "title": "无能力 Provider 的兼容退化",
+      "layer": "contract",
+      "given": "工具未发布 TaskBusiness extension。",
+      "when": "执行原只读或远端任务流程。",
+      "then": "旧流程保持可用；业务扩展标 unsupported；需要该能力的 Skill 明确不可满足。",
+      "forbidden": "硬调不存在的方法、将 unsupported 默认为 complete。",
+      "evidenceRequired": [
+        "legacy-regression",
+        "capability-result"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-010",
+      "workItem": "W1",
+      "title": "投影重启不派发",
+      "layer": "postgres",
+      "given": "投影已持久化，任务仍在运行。",
+      "when": "进程重启后恢复关联与只读同步。",
+      "then": "远端 Task ID、Execution 和派发计数不变；内存重建来自持久事实。",
+      "forbidden": "重新 tools/call 或重新执行整个 LangGraph。",
+      "evidenceRequired": [
+        "restart-log",
+        "dispatch-count"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-011",
+      "workItem": "W2",
+      "title": "分页快照一致性",
+      "layer": "contract",
+      "given": "Context 多页且含 descriptor 分块。",
+      "when": "注入换 revision、换 resumeFrom、重复 cursor、缺页、错误 hash。",
+      "then": "完整一致时一次发布；反例失败且不覆盖已提交完整快照。",
+      "forbidden": "部分对象暴露为完整当前状态。",
+      "evidenceRequired": [
+        "page-trace",
+        "projection-before-after"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-012",
+      "workItem": "W2",
+      "title": "同 Context revision 多事件",
+      "layer": "contract+postgres",
+      "given": "两个不同 eventId/object revision 共享 Context revision。",
+      "when": "顺序或乱序投递并追加重复事件。",
+      "then": "两个不同变化都有处理/证据记录；重复不重复副作用；快照通知允许去重。",
+      "forbidden": "仅因 contextRevision 相同就丢弃后一个业务事件。",
+      "evidenceRequired": [
+        "inbox-rows",
+        "object-revisions"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-013",
+      "workItem": "W2",
+      "title": "双水位事务恢复",
+      "layer": "postgres",
+      "given": "已有 admitted 与 processed 水位。",
+      "when": "分别在 inbox 提交前后、投影事务提交前后崩溃。",
+      "then": "resume 水位只覆盖已持久 inbox；processed 标记与投影原子提交；重放不重复应用。",
+      "forbidden": "收到网络帧就先推进 processed、丢弃未投影 inbox。",
+      "evidenceRequired": [
+        "transaction-fault-matrix",
+        "watermarks"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-014",
+      "workItem": "W2",
+      "title": "跨任务共享事件流",
+      "layer": "contract",
+      "given": "同授权流包含多个 task 及 resource 级事件。",
+      "when": "处理 task 事件与正式 relatedTasks 关联结果。",
+      "then": "只更新已授权且身份匹配的绑定；资源事件只按正式关联投影。",
+      "forbidden": "将整个流视为当前任务、按设备最新 task 猜测。",
+      "evidenceRequired": [
+        "routing-trace",
+        "unrelated-task-unchanged"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-015",
+      "workItem": "W2",
+      "title": "流 reset 与历史缺口",
+      "layer": "postgres",
+      "given": "持久游标已过保留期或流 generation 改变。",
+      "when": "按标准 continuity/error 恢复。",
+      "then": "重建完整当前快照，记录历史缺口；旧 generation 不覆盖新视图。",
+      "forbidden": "自行构造游标、宣称历史完整。",
+      "evidenceRequired": [
+        "continuity-record",
+        "snapshot-resync"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-016",
+      "workItem": "W2",
+      "title": "事件背压与轮询兜底",
+      "layer": "integration",
+      "given": "大量重复变化与一次短暂 SSE 故障。",
+      "when": "合并快照刷新并恢复原事件服务。",
+      "then": "并发/内存有界；Task 状态查询仍工作；业务不完整时不作成功决策。",
+      "forbidden": "每条遥测唤醒模型、另建每任务永久 SSE。",
+      "evidenceRequired": [
+        "refresh-count",
+        "queue-depth",
+        "no-llm-on-telemetry"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-017",
+      "workItem": "W2",
+      "title": "Skill 实际消费投影",
+      "layer": "integration",
+      "given": "同一正式 Skill，先后两份不同业务视图。",
+      "when": "通过正常计划/执行入口运行可控模型夹具。",
+      "then": "捕获的 Skill/判断器输入含精确引用与质量；输出随业务事实改变。",
+      "forbidden": "仅日志打印 Context、测试直接调用孤立 parser 冒充端到端。",
+      "evidenceRequired": [
+        "skill-input-capture",
+        "result-difference"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-018",
+      "workItem": "W2",
+      "title": "业务状态不能绕过授权",
+      "layer": "contract",
+      "given": "事件文本或对象 properties 夹带新命令、URL 或伪授权。",
+      "when": "进入投影与模型上下文。",
+      "then": "只按 schema 接收数据；候选仍经 capability/control 边界。",
+      "forbidden": "执行 LLM 生成代码或把 Provider 文本作为系统指令。",
+      "evidenceRequired": [
+        "untrusted-data-test",
+        "zero-dispatch-counter"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-019",
+      "workItem": "W3",
+      "title": "缺少真实 mutationAuthority",
+      "layer": "integration",
+      "given": "服务已接入写入构造器但无真实治理 receipt。",
+      "when": "尝试回答或导航调整。",
+      "then": "在网络发送前拒绝；写接口计数为零。",
+      "forbidden": "authorize 永真、development 模式自动放行所有控制。",
+      "evidenceRequired": [
+        "authority-denial",
+        "wire-counter"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-020",
+      "workItem": "W3",
+      "title": "合法 RequiredInput 正式闭环",
+      "layer": "integration",
+      "given": "同一 Task/Execution 的有效请求，匹配 subject/schema，确认允许。",
+      "when": "经既有输入服务提交非发射观察答复。",
+      "then": "持久命令意图先于发送；ack 仅记 received；新对象证据确认后恢复原等待。",
+      "forbidden": "新建 Task、直接绕过 RemoteTaskInputService、ack 直接等于成功。",
+      "evidenceRequired": [
+        "input-link",
+        "command-journal",
+        "business-confirmation"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-021",
+      "workItem": "W3",
+      "title": "Input 过期与请求替换",
+      "layer": "contract",
+      "given": "答案准备后请求过期、subject 改变或请求被 supersede。",
+      "when": "到发送边界重新核对，并模拟服务端竞争拒绝。",
+      "then": "旧回答拒绝/失效；重新读取当前请求；不自动移植原授权。",
+      "forbidden": "盲增 revision、复制答案到新请求。",
+      "evidenceRequired": [
+        "race-result",
+        "zero-or-original-send-count"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-022",
+      "workItem": "W3",
+      "title": "Input cancel 不取消任务",
+      "layer": "integration",
+      "given": "活动任务存在待答复提示。",
+      "when": "提交 input action=cancel；另独立测试 Task cancel。",
+      "then": "两条链作用域不同；Task cancel 才进入正式任务取消链并等待终态。",
+      "forbidden": "关闭提示即报告车辆已停止。",
+      "evidenceRequired": [
+        "wire-methods",
+        "task-and-input-states"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-023",
+      "workItem": "W3",
+      "title": "wire 字段白名单",
+      "layer": "contract",
+      "given": "本地记录包含 actor、确认、expectedRequestRevision 等治理信息。",
+      "when": "序列化 tasks/update。",
+      "then": "仅发送 frozen 合同允许的字段；输入内容只在 accept 出现。",
+      "forbidden": "发送 respondedBy/actorId/expectedRequestRevision 或新加 commandId。",
+      "evidenceRequired": [
+        "exact-json-body",
+        "schema-pass"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-024",
+      "workItem": "W3",
+      "title": "Input 响应丢失恢复",
+      "layer": "postgres+integration",
+      "given": "远端已受理答复但 SDAR 未得到/未保存回执。",
+      "when": "重启并核对原请求对象及任务状态。",
+      "then": "复用原本地意图，仅只读核对；不确定仍标 uncertain。",
+      "forbidden": "为 Input 杜撰公开幂等接口、自动发送第二个不同答案。",
+      "evidenceRequired": [
+        "crash-point",
+        "single-wire-update",
+        "uncertain-record"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-025",
+      "workItem": "W3",
+      "title": "运行中导航调整无需 input_required",
+      "layer": "integration",
+      "given": "正常 running 导航任务有 available Intervention。",
+      "when": "通过正式控制路径提交调整。",
+      "then": "原 Task ID 不变；校验两个 revision、inputSchema、有效期。",
+      "forbidden": "创建新 vehicle_navigate、强制转换任务为 input_required。",
+      "evidenceRequired": [
+        "same-task-id",
+        "intervention-command"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-026",
+      "workItem": "W3",
+      "title": "Intervention ack 与 applied 分离",
+      "layer": "integration",
+      "given": "收到 durablyAccepted=true/businessApplied=false。",
+      "when": "先只给 ack，再提供匹配命令的 applied 对象及已采用路线。",
+      "then": "ack 阶段不改采用路线；证据匹配后才更新有效路线。",
+      "forbidden": "仅 Context revision 增加就断定自己的命令成功。",
+      "evidenceRequired": [
+        "adoption-timeline",
+        "command-object-link"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-027",
+      "workItem": "W3",
+      "title": "计划版本冲突",
+      "layer": "contract",
+      "given": "命令准备后 effectivePlanRevision 或 Intervention revision 改变。",
+      "when": "提交或服务端拒绝。",
+      "then": "记录冲突、重新读取，重新决策与确认后才可能发新命令。",
+      "forbidden": "同一 commandId 换 payload、盲调 revision 重试。",
+      "evidenceRequired": [
+        "conflict-receipt",
+        "unchanged-journal-payload"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-028",
+      "workItem": "W3",
+      "title": "命令去重与内容冲突",
+      "layer": "postgres",
+      "given": "同 commandId 对应一个不可变规范化内容摘要。",
+      "when": "重复相同请求，再提交不同内容；并发两个发送者。",
+      "then": "相同内容归并；不同内容拒绝；发送者只有一个持久 claim。",
+      "forbidden": "生成新 ID 隐藏不确定结果、宣称网络端到端 exactly-once。",
+      "evidenceRequired": [
+        "unique-key-results",
+        "claim-lease",
+        "send-count"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-029",
+      "workItem": "W3",
+      "title": "取消抢占发送竞争",
+      "layer": "postgres+integration",
+      "given": "调整意图已准备，同任务取消在最终发送锁前到达。",
+      "when": "在锁、确认消费、网络调用前后注入竞争。",
+      "then": "若取消先取得发送边界，后续变更不发；若已发则进入在途核对并保留事实。",
+      "forbidden": "声称能够撤回已到设备的包、取消后继续消费新动作候选。",
+      "evidenceRequired": [
+        "ordered-boundary-log",
+        "send-count",
+        "inflight-state"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-030",
+      "workItem": "W3",
+      "title": "发送后崩溃与有限核对",
+      "layer": "postgres",
+      "given": "命令可能已发送，ack 尚未持久化。",
+      "when": "重启、多次核对、到达核对期限。",
+      "then": "优先精确读取；到期保留 uncertain 和冲突阻塞；正式支持同 ID 重试时仍用同一字节与身份。",
+      "forbidden": "把核对超时改成业务失败并重新派发、无界重试。",
+      "evidenceRequired": [
+        "reconciliation-attempts",
+        "payload-hash",
+        "no-new-command"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-031",
+      "workItem": "W4",
+      "title": "协议 completed 但业务失败",
+      "layer": "integration",
+      "given": "远端 Task completed，结果携带业务失败/部分结果。",
+      "when": "运行 Skill 完成判断。",
+      "then": "保留协议终态，业务结论为失败/部分/未知之一，符合原 Skill 合同。",
+      "forbidden": "Task completed 一律判业务成功。",
+      "evidenceRequired": [
+        "protocol-vs-business-result"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-032",
+      "workItem": "W4",
+      "title": "路线轨迹四类数据分离",
+      "layer": "contract",
+      "given": "请求点、规划线、采用路线与实际观测轨迹不同。",
+      "when": "解析、投影、对外导出。",
+      "then": "四者分别保留类型、版本与来源；实际轨迹保留样本、时间和缺口。",
+      "forbidden": "起终点直线冒充规划路线、跨未知 gap 连线冒充观测。",
+      "evidenceRequired": [
+        "geometry-role-map",
+        "trajectory-samples"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-033",
+      "workItem": "W4",
+      "title": "完整轨迹大对象",
+      "layer": "contract",
+      "given": "轨迹跨多个内容块，样本总数/摘要已知。",
+      "when": "读取并核验完整内容；模型仅拿摘要和引用。",
+      "then": "无静默截断；超出限制明确 incomplete；原精确内容可追溯。",
+      "forbidden": "为减少上下文而把完整证据压成最后一个点。",
+      "evidenceRequired": [
+        "sample-count",
+        "sha256",
+        "content-ref"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-034",
+      "workItem": "W4",
+      "title": "Provider 接收时间语义",
+      "layer": "contract",
+      "given": "设备时间、Provider 接收时间、SDAR 接收时间均不同。",
+      "when": "投影、轨迹排序与 evidence 输出。",
+      "then": "sourceTime 等于公开合同可信的 Provider 接收时间；deviceReportedAt/sdarReceivedAt 保留。",
+      "forbidden": "用设备时间或 SDAR now 替换 sourceTime、抹掉 timeBasis。",
+      "evidenceRequired": [
+        "time-triplet",
+        "time-basis"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-035",
+      "workItem": "W4",
+      "title": "缺时间、逆序和重复样本",
+      "layer": "contract",
+      "given": "部分样本无 Provider 接收时间，有迟到、相同时刻与重复样本。",
+      "when": "建立轨迹和排序视图。",
+      "then": "原数据保留；缺时间明确 gap；稳定排序依据单独记录；没有人造采样时间。",
+      "forbidden": "补零、线性插值时间、倒序覆盖新状态。",
+      "evidenceRequired": [
+        "raw-preservation",
+        "ordering-policy"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-036",
+      "workItem": "W4",
+      "title": "估算视场与真实覆盖",
+      "layer": "contract",
+      "given": "带 estimated 标志的扇形及过期时间，另有实际覆盖证据。",
+      "when": "投影和到期刷新。",
+      "then": "二者分别解释；估算过期不再当当前覆盖，保留历史。",
+      "forbidden": "估算扇形宣称设备真实完成覆盖。",
+      "evidenceRequired": [
+        "quality-flags",
+        "expiry-case"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-037",
+      "workItem": "W4",
+      "title": "未知枚举与证据缺失",
+      "layer": "contract",
+      "given": "businessSemantics 标准 unknown、native 新原码或缺关键对象。",
+      "when": "解析并进行业务判定。",
+      "then": "标准未知保持 unknown；原码保留；无关键证据不能判成功。",
+      "forbidden": "unknown 变 normal 或 fault、为结果完整填假值。",
+      "evidenceRequired": [
+        "semantic-view",
+        "judge-output"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-038",
+      "workItem": "W4",
+      "title": "确认链完整导出",
+      "layer": "integration",
+      "given": "命令意图、治理授权、发送、ack、业务对象和终态证据存在。",
+      "when": "通过既有 evidence/任务结果接口导出。",
+      "then": "节点有原 ID、hash、因果链接与证据级别；缺链可见，不记录私密思维或凭据。",
+      "forbidden": "按时间相近猜匹配、用同一个 success 混写多个层次。",
+      "evidenceRequired": [
+        "evidence-chain",
+        "redaction-test"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-039",
+      "workItem": "W5",
+      "title": "活动任务跨版本升级",
+      "layer": "postgres+integration",
+      "given": "历史无投影任务和新投影任务共存。",
+      "when": "执行增量迁移、恢复只读、再运行旧版兼容检查。",
+      "then": "不重写旧 authority、不制造假业务视图；新字段缺省行为明确。",
+      "forbidden": "drop 业务表、重置 DB、把旧任务自动改用新 Provider。",
+      "evidenceRequired": [
+        "migration-before-after",
+        "legacy-read"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-040",
+      "workItem": "W5",
+      "title": "两进程租约与恢复",
+      "layer": "postgres",
+      "given": "两个工作者竞争同一任务投影/命令处理。",
+      "when": "租约过期、旧工作者迟到写回、CAS 冲突。",
+      "then": "fencing/CAS 拒绝陈旧写；一个有效发送所有者；按现有恢复语义核对。",
+      "forbidden": "进程内 mutex 冒充跨进程一致性。",
+      "evidenceRequired": [
+        "claim-tokens",
+        "stale-write-denial"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-041",
+      "workItem": "W5",
+      "title": "finalized 后迟到事件",
+      "layer": "integration",
+      "given": "Task 已终态、Context 已 finalized 或正在终态收敛。",
+      "when": "投递迟到对象与 input/action 事件。",
+      "then": "可补证据，不重新激活任务或生成新的控制。",
+      "forbidden": "业务事件复活终态 Task。",
+      "evidenceRequired": [
+        "terminal-before-after",
+        "zero-new-dispatch"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-042",
+      "workItem": "W5",
+      "title": "受控完整导航路径",
+      "layer": "isolated-e2e",
+      "given": "正式 Registry/Skill/Task 入口、隔离 SMPP 线协议夹具、可控模型。",
+      "when": "执行导航→Context→运行中调整→adopted→终态证据。",
+      "then": "同一远端 Task、原执行权威、完整确认链；不直调测试内部服务绕过流程。",
+      "forbidden": "把 parser 单测称全链路、访问现场设备。",
+      "evidenceRequired": [
+        "a2a-or-task-entry",
+        "full-call-trace",
+        "asserted-task-count"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-043",
+      "workItem": "W5",
+      "title": "受控观察答复路径",
+      "layer": "isolated-e2e",
+      "given": "既有观察任务和非发射 RequiredInput，Provider 内部动作作为外部事实。",
+      "when": "消费请求→正式输入服务→授权答复→业务确认。",
+      "then": "不重复设备内部动作；只回答当前请求；同任务继续/结束有证据。",
+      "forbidden": "接管自动锁定、独立下发锁定/发射。",
+      "evidenceRequired": [
+        "formal-input-entry",
+        "no-prohibited-methods"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-044",
+      "workItem": "W5",
+      "title": "回滚遇到不确定命令",
+      "layer": "integration",
+      "given": "新版本有 pending/uncertain 业务命令，旧版本不支持。",
+      "when": "执行回滚预检。",
+      "then": "拒绝让旧版本接管写入；提供只读排障/先核对方案；数据不删除。",
+      "forbidden": "旧版本自动继续派发、删除命令行冒充安全回滚。",
+      "evidenceRequired": [
+        "rollback-precheck",
+        "retained-journal"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-045",
+      "workItem": "W5",
+      "title": "授权现场只读验证",
+      "layer": "site_read",
+      "given": "用户另行授权明确目标，已冻结脱敏现场清单。",
+      "when": "运行已审阅的只读合同和已有任务读取。",
+      "then": "记录真实镜像/合同/模式、读取证据和设备变更调用为零；不可达标 BLOCKED。",
+      "forbidden": "对新建任务或写接口进行探测。",
+      "evidenceRequired": [
+        "site-read-authorization",
+        "readonly-captures"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-046",
+      "workItem": "W5",
+      "title": "授权现场业务验证",
+      "layer": "site_write",
+      "given": "用户另行授权具体非武器任务/设备/时间窗/停止条件，前置门禁通过。",
+      "when": "运行有限导航调整或非发射观察答复验收。",
+      "then": "真实确认链、结束/停止事实和唯一派发计数齐全；只覆盖授权范围。",
+      "forbidden": "自动启动任务、发射、独立锁定、超授权操作。",
+      "evidenceRequired": [
+        "site-write-authorization",
+        "actual-evidence",
+        "cleanup-state"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-047",
+      "workItem": "W5",
+      "title": "无现场授权也可开发收口",
+      "layer": "offline",
+      "given": "本地实现及隔离测试可完成，但未授权现场操作。",
+      "when": "生成交付报告。",
+      "then": "分别记录 local 开发结果和 site NOT_RUN；不中断其他可完成工作。",
+      "forbidden": "反复索要确认、伪造现场 PASS、把未授权写当执行失败。",
+      "evidenceRequired": [
+        "final-closeout",
+        "layered-status"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-048",
+      "workItem": "W5",
+      "title": "安全配置与副作用审计",
+      "layer": "integration",
+      "given": "development/live 默认，明确禁用发射及直连设备。",
+      "when": "遍历允许执行路径、错误和恢复路径。",
+      "then": "禁用项始终不发；继承用户显式 NO；无 simulator/site 配置变更。",
+      "forbidden": "将本任务包授权扩大到服务器重启、调整模型或开启禁用功能。",
+      "evidenceRequired": [
+        "denied-tool-counters",
+        "config-diff"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-049",
+      "workItem": "W5",
+      "title": "正式门禁与历史失败保留",
+      "layer": "local_gate",
+      "given": "当前修复后的同一源码 SHA，独立 PG/Redis。",
+      "when": "执行仓库要求的完整里程碑门禁。",
+      "then": "命令/exit code/源码 hash/依赖身份可复现；原失败保留，不放宽断言。",
+      "forbidden": "删除失败报告、降低阈值、只跑专项测试即称全面通过。",
+      "evidenceRequired": [
+        "gate-results",
+        "source-hash",
+        "failed-run-archive"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "AC-050",
+      "workItem": "W5",
+      "title": "GOWM 正式存储边界",
+      "layer": "postgres",
+      "given": "启用已选 GOWM 接入合同，原角色/设备作用域已配置。",
+      "when": "验证新增读模型/命令持久化与恢复。",
+      "then": "仅通过已准入 SDAR 持久接口写自有数据；只读 SMPP 业务源；权限不足明确阻塞。",
+      "forbidden": "直接修改 ugv_smpp 私有表、绕过 owner 迁移、另建业务数据库。",
+      "evidenceRequired": [
+        "role-permissions",
+        "writer-inventory",
+        "gowm-gate"
+      ],
+      "status": "NOT_RUN"
+    }
+  ]
+}

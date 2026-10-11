@@ -658,7 +658,6 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   or operational authority is implemented or authorized in v1.4.1.
 - Final merge, tag, release and deploy remain protected human/governance actions.
 
-
 - 2026-09-07 Runtime semantic closure：原始 SRS 要求并行分支显式汇聚与冲突合并策略；ADR-150 修订为新版 parallel 必须声明 joinNodeId / reject_conflicts。用户确认嵌套循环按调用重新计数（外层3×内层2=6），旧快照/hash 不静默重解释。上述新语义尚待 M1 实现验证。
 
 ## 2026-09-08 GOWM 辅助 Provider execution link 范围缺口（开放）
@@ -666,7 +665,6 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 合同 commit `a1a86186ea866911124de72374e17fe19897fa9e` 的 `ugv_sdar.remote_task_provider_execution_link` 仍有全局 `(runtime_server_id,remote_task_id)` 唯一键，无 device/service 列。其父 Remote Binding 已支持两设备同 opaque handle，真库证明第二条辅助 link 不能同时保存。消费者现已按父 Task/Binding 过滤全部直接读写，拒绝冲突而不串写，但这不等于完整双设备辅助关联可用。
 
 证据：`reports/sdar-gowm-shared-storage-integration-v0.1/auxiliary-link-contract-gap.json`。后续需确认是否有最终合同认可的原生表示/索引可承载完整身份；在解决前该项为 INCOMPLETE，不能 SOURCE_READY。不允许 SDAR 改 GOWM DDL、伪造服务或 handle，也不创建影子映射。其他实施和正常 Server 验证可继续，不以局部合同缺口宣布整个工作无法推进。
-
 
 2026-09-08：GOWM 实际 finalize_task_temporary_skills() 未向 temporary_skill_experience 写 device_id，与 validate_optional_task_provenance 冲突，设备 Task 终态被回滚。双设备真库已复现；参见 docs/gowm-shared-storage/UPSTREAM_STORAGE_GAP.md，未执行 DDL 或规避约束。
 
@@ -676,3 +674,24 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   has a different polygon input and no required anomalies output. The user confirmed no matching
   Provider exists and GOWM will supply it later. Keep this dependency blocked and do not claim
   complete manifest publication (ADR-154 / EP-DEFAULT-CAPABILITIES).
+
+## SMPP v1.3 upgrade W0 (2026-10-10)
+
+- V13-G01: public Provider-recorded clocks do not provide every trajectory sample's reception/device time; preserve segment content and explicit incomplete time/history quality (ADR-156).
+- V13-G02: site role/schema qualification and site read/write remain NOT_RUN without selected-target authorization. An owned loopback GOWM installation from the pinned owner commit is verified separately with restricted consumer roles, original storage boundaries and real formal Task chains; see the local CASE_RESULTS/M4_VALIDATION evidence. This does not close pre-existing upstream-wide GOWM gaps.
+- V13-G03: existing event processed cursor uses GREATEST and may skip failures; projection atomicity and single-sender Input are implementation work, not upstream excuses.
+- V13-G03 update: processed cursor now stops before the first unprocessed inbox hole; original inbox leases reject stale workers,
+  and projection plus checkpoint is one native transaction. Real PG shared-stream routing, SSE continuity, bounded polling, command transactions and two-process send-claim tests map to local CASE_RESULTS. Each command remains single-sender; uncertain HTTP outcomes never trigger automatic resend. No cross-device exactly-once claim is made.
+- V13-G04: initial current snapshots do not establish complete event history. Projection keeps historyContinuous=false;
+  retained geometry content and per-sample source-clock completeness remain separate facts.
+
+- 2026-10-11 / ADR-159: clean-slate source constraint excluded native remote_task. Restore via additive 0184; preserve original baseline. Down migration blocks while retained remote inputs exist.
+- ADR-158: absent optional Provider deadline has a ten-minute local review limit, never represented as an invented Provider expiry. Lost RequiredInput ack retains causal gap because frozen wire has no client commandId.
+
+- 2026-10-11 / ADR-157/159/160: real formal chains exposed initial receipt/poll CAS races,
+  Task/Binding lock inversion, an original input_required continuation claim exclusion, missing
+  governed acknowledgment protocol revision and repeated deterministic result denial. Their
+  regression tests preserve original frozen authority and native Task/continuation ownership;
+  no thresholds, freshness windows, output schemas or mandatory evidence were weakened.
+- Local TaskBusiness closure is distinct from project release readiness. The working tree is
+  intentionally uncommitted and no remote push, merge or deployment was authorized.

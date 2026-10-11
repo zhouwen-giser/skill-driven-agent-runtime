@@ -1,0 +1,177 @@
+$ node scripts/smoke-node-control.mjs
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 845B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 1.3s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 1.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:ec2386f762a1af35205aece6af9234fcfc59ac7d00ebf3f956423b860140ee06 0.1s done
+#13 exporting config sha256:dd101c2b2629186d19efabfb76496b8832e0d503e893317edfb0cf8c73c73be7
+#13 exporting config sha256:dd101c2b2629186d19efabfb76496b8832e0d503e893317edfb0cf8c73c73be7 0.1s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.3s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-node-control Creating 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-node-control Created 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-control-postgres-data Creating 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-control-postgres-data Created 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Creating 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Created 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Starting 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Started 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Waiting 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Healthy 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Stopping 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Stopped 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Removing 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke-control-postgres-1 Removed 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-control-postgres-data Removing 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-node-control Removing 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-control-postgres-data Removed 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-control-smoke_sdar-node-control Removed 
+Control infrastructure stopped before independent Runtime smoke.
+vite v8.1.4 building client environment for production...
+[2Ktransforming...✓ 33 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.47 kB │ gzip:  0.30 kB
+dist/assets/index-BroyGNYG.css   14.19 kB │ gzip:  3.88 kB
+dist/assets/index-Ck64ofjw.js   316.31 kB │ gzip: 89.34 kB │ map: 1,216.64 kB
+
+✓ built in 268ms
+#1 [internal] load local bake definitions
+#1 reading from stdin 821B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:e911c04fcaf79c357a091cc1d25a2c970e351153a51c9502e1677dfcb2a89366 0.1s done
+#13 exporting config sha256:a7d5a0e8e8dcc789c36bf8721527503167a940a170c7277587ac29aac287ffa2
+#13 exporting config sha256:a7d5a0e8e8dcc789c36bf8721527503167a940a170c7277587ac29aac287ffa2 0.1s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.2s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+{"event":"server.ready","a2aUrl":"http://127.0.0.1:40203","managementUrl":"http://127.0.0.1:41229","admissionObservationProfile":"development"}
+Server build smoke passed: Agent Card, Console bundle, trusted-intranet management API, and configured Artifact bearer identity are reachable.
+Node Control smoke passed: independent PostgreSQL, role RBAC, credential rotation/revocation, dump/restore reconciliation, API restart reconstruction, shutdown, and Runtime-after-Control-stop.
+$ node scripts/smoke-server.mjs
+$ tsc -p tsconfig.build.json && pnpm --dir apps/console build
+$ tsc -b && vite build
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-local Creating 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-local Created 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-postgres-data Creating 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-postgres-data Created 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-redis-data Creating 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-redis-data Created 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Creating 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Creating 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Created 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Created 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Starting 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Starting 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Started 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Started 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Waiting 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Waiting 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Healthy 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Healthy 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Stopping 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Stopping 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Stopped 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Removing 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Stopped 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Removing 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-redis-1 Removed 
+ Container sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke-postgres-1 Removed 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-local Removing 
+ Network sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-local Removed 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-redis-data Removing 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-postgres-data Removing 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-redis-data Removed 
+ Volume sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-runtime-smoke_sdar-postgres-data Removed 

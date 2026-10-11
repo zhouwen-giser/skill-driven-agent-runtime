@@ -1,0 +1,138 @@
+{"scope":"isolated_loopback","project":"sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e","postgresPort":36603,"redisPort":37089,"site":"NOT_RUN"}
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 762B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.4s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 1.2s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:847f3ede14b7d649c95cf94e374b99312de567df91c271e024afff73586db337 0.1s done
+#13 exporting config sha256:40251ffffb9718f094fb5b70b7bf5a5aa07a885b2074ed9021d5dcf0ba6568bf
+#13 exporting config sha256:40251ffffb9718f094fb5b70b7bf5a5aa07a885b2074ed9021d5dcf0ba6568bf 0.1s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.2s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-local Creating 
+ Network sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-local Created 
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-redis-data Creating 
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-redis-data Created 
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-postgres-data Creating 
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-postgres-data Created 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Creating 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Creating 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Created 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Created 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Starting 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Starting 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Started 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Started 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Waiting 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Waiting 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Healthy 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Healthy 
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+ [31m❯[39m [30m[45m integration [49m[39m packages/persistence-postgres/test/task-business-command.integration.test.ts [2m([22m[2m13 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 44819[2mms[22m[39m
+[31m     [31m×[31m AC-039/040 two real processes contend for one consumed confirmation; SIGKILL after the send seam expires its lease and recovery never resends[39m[33m 30029[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-033/038 persists and resolves complete large trajectory bytes through original Task and canonical artifacts, with corruption detected [33m 8929[2mms[22m[39m
+     [32m✓[39m AC-038 exports the real original confirmation and consumed dispatch claim without raw human identity[32m 192[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-039/041 recovery retires expired prepared intents and retains late terminal business facts without reviving Task or dispatching [33m 364[2mms[22m[39m
+     [32m✓[39m keeps the frozen baseline and old workflow inputs readable while refusing destructive rollback of retained remote inputs[32m 248[2mms[22m[39m
+     [32m✓[39m confirms original RequiredInput through native answer continuation and treats prompt cancel independently from Task cancel[32m 239[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects expired, superseded and different-content RequiredInput with zero extra sends [33m 553[2mms[22m[39m
+     [32m✓[39m retains RequiredInput lost-ack uncertainty even when its original request is fulfilled[32m 228[2mms[22m[39m
+     [32m✓[39m rejects absent policy and an untrusted actor before any wire, retaining the original Task/Workflow[32m 118[2mms[22m[39m
+     [33m[2m✓[22m[39m uses one durable sender across repositories, rejects same-ID different-content and never takes over an expired send [33m 313[2mms[22m[39m
+     [32m✓[39m separates acceptance from exact own-command adoption and leaves Workflow definition immutable[32m 214[2mms[22m[39m
+     [32m✓[39m lets a native cancellation win before the final claim and records already claimed work as in flight[32m 271[2mms[22m[39m
+     [33m[2m✓[22m[39m performs finite read-only reconciliation after a lost ack and fences rollback while uncertain [33m 343[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m packages/persistence-postgres/test/task-business-command.integration.test.ts[2m > [22mTask business native PostgreSQL command ledger[2m > [22mAC-039/040 two real processes contend for one consumed confirmation; SIGKILL after the send seam expires its lease and recovery never resends
+[31m[1mError[22m: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+[36m [2m❯[22m packages/persistence-postgres/test/task-business-command.integration.test.ts:[2m284:3[22m[39m
+    [90m282|[39m
+    [90m283|[39m [34mdescribe[39m([32m'Task business native PostgreSQL command ledger'[39m[33m,[39m () [33m=>[39m {
+    [90m284|[39m   it('AC-039/040 two real processes contend for one consumed confirmat…
+    [90m   |[39m   [31m^[39m
+    [90m285|[39m     [35mconst[39m f [33m=[39m [35mawait[39m [34mfixture[39m([32m'two-process-crash'[39m)[33m;[39m
+    [90m286|[39m     [35mconst[39m confirmed [33m=[39m [35mawait[39m f[33m.[39m[34mconfirm[39m()[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m12 passed[39m[22m[90m (13)[39m
+[2m   Start at [22m 01:38:46
+[2m   Duration [22m 50.80s[2m (transform 3.93s, setup 0ms, import 5.81s, tests 44.82s, environment 0ms)[22m
+
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Stopping 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Stopping 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Stopped 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Removing 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Stopped 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Removing 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-redis-1 Removed 
+ Container sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e-postgres-1 Removed 
+ Network sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-local Removing 
+ Network sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-local Removed 
+file:///home/sz/code/skill-driven-agent-runtime/scripts/test-integration.mjs:77
+    throw new Error(`INTEGRATION_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+          ^
+
+Error: INTEGRATION_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project integration packages/persistence-postgres/test/task-business-command.integration.test.ts
+    at run (file:///home/sz/code/skill-driven-agent-runtime/scripts/test-integration.mjs:77:11)
+    at file:///home/sz/code/skill-driven-agent-runtime/scripts/test-integration.mjs:31:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-postgres-data Removing 
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-redis-data Removing 
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-postgres-data Removed 
+ Volume sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e_sdar-redis-data Removed 
+{"project":"sdar-verify-smpp-v13-36e09198-b5f0-446d-9cfb-5d9c9eb26e4e","cleanupExitCode":0,"signal":null}

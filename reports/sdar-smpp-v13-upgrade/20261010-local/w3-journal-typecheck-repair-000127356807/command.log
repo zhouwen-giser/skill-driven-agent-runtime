@@ -1,0 +1,6 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/test/task-business-command.integration.test.ts(296,11): error TS2741: Property 'state' is missing in type '{ enqueue: () => Promise<void>; }' but required in type 'RemoteTaskCancellationQueue'.
+packages/persistence-postgres/test/task-business-command.integration.test.ts(312,34): error TS2322: Type '() => Promise<undefined>' is not assignable to type 'undefined'.
+packages/persistence-postgres/test/task-business-command.integration.test.ts(313,12): error TS2322: Type '() => Promise<undefined>' is not assignable to type 'undefined'.
+packages/persistence-postgres/test/task-business-command.integration.test.ts(331,5): error TS2322: Type 'true' is not assignable to type 'undefined'.
+[ELIFECYCLE] Command failed with exit code 2.

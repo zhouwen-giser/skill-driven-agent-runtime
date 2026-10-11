@@ -1,0 +1,9 @@
+$ tsc -p tsconfig.json --noEmit
+packages/domain/src/task-business.ts(252,3): error TS2375: Type '{ schemaVersion: "sdar.task-business-projection/v1"; bindingId: string; taskId: string; identity: { taskId: string; executionId: string; providerId: string; resourceId: string; operationName: string; correlationId?: string | undefined; simulationId?: string | undefined; }; ... 20 more ...; skillSuccessCondition?: { ...' is not assignable to type 'TaskBusinessProjection' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'objects' are incompatible.
+    Type '{ ref: { kind: "action" | "artifact" | "input_request" | "intervention"; id: string; revision: number; }; resolution: "resolved" | "unresolved"; digest?: string | undefined; contentRef?: string | undefined; artifactRef?: { ...; } | undefined; }[]' is not assignable to type 'readonly TaskBusinessObjectResolution[]'.
+      Type '{ ref: { kind: "action" | "artifact" | "input_request" | "intervention"; id: string; revision: number; }; resolution: "resolved" | "unresolved"; digest?: string | undefined; contentRef?: string | undefined; artifactRef?: { ...; } | undefined; }' is not assignable to type 'TaskBusinessObjectResolution' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+        Types of property 'artifactRef' are incompatible.
+          Type '{ artifactId: string; version: number; uri: string; sha256: `sha256:${string}`; mediaType: string; byteSize: number; } | undefined' is not assignable to type 'ArtifactRef'.
+            Type 'undefined' is not assignable to type 'ArtifactRef'.
+[ELIFECYCLE] Command failed with exit code 2.

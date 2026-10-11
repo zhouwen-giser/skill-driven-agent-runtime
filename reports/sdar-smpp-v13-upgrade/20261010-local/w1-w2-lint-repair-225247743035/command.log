@@ -1,0 +1,13 @@
+$ eslint .
+
+/home/sz/code/skill-driven-agent-runtime/packages/mcp-adapter/src/frozen-v1-mcp-client.ts
+  313:16  error  Unsafe member access .done on a type that cannot be resolved                                       @typescript-eslint/no-unsafe-member-access
+  314:18  error  Unsafe member access .value on a type that cannot be resolved                                      @typescript-eslint/no-unsafe-member-access
+  319:15  error  Invalid operand for a '+' operation. Operands must each be a number or string. Got `any`           @typescript-eslint/restrict-plus-operands
+  319:20  error  Unsafe member access .value on a type that cannot be resolved                                      @typescript-eslint/no-unsafe-member-access
+  327:19  error  Unsafe argument of type error typed assigned to a parameter of type `Uint8Array<ArrayBufferLike>`  @typescript-eslint/no-unsafe-argument
+  327:24  error  Unsafe member access .value on a type that cannot be resolved                                      @typescript-eslint/no-unsafe-member-access
+
+✖ 6 problems (6 errors, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

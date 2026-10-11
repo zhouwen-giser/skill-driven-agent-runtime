@@ -4,6 +4,7 @@ import { Artifact, Message, Task, TaskState, type Part } from '@a2a-js/sdk';
 import { z } from 'zod';
 
 import type { SubmitTaskCommand, TaskFollowUpAction } from '../../application/src/index.js';
+import type { TaskProjectionArtifact } from '../../application/src/task-projection.js';
 import {
   INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY,
   normalizeInitialTaskAdmissionIdempotencyKey,
@@ -275,7 +276,11 @@ function messageMetadata(message: Message): Readonly<Record<string, unknown>> {
   return metadataResult.data;
 }
 
-export function toA2ATask(task: AgentTask, interaction?: Readonly<Record<string, unknown>>): Task {
+export function toA2ATask(
+  task: AgentTask,
+  interaction?: Readonly<Record<string, unknown>>,
+  businessArtifacts: readonly TaskProjectionArtifact[] = [],
+): Task {
   if (
     task.phase === 'capability_gap' &&
     (task.errorCode !== 'CAPABILITY_GAP' || task.capabilityGap === undefined)
@@ -292,6 +297,14 @@ export function toA2ATask(task: AgentTask, interaction?: Readonly<Record<string,
     parts: [{ text: task.phaseMessage, mediaType: 'text/plain' }],
   });
   const artifacts = task.output === undefined ? [] : [toResultArtifact(task.taskId, task.output)];
+  for (const artifact of businessArtifacts)
+    artifacts.push(
+      Artifact.fromJSON({
+        artifactId: artifact.artifactId,
+        name: artifact.name,
+        parts: [{ data: artifact.data, mediaType: 'application/json' }],
+      }),
+    );
   return Task.fromJSON({
     id: task.taskId,
     contextId: task.contextId,

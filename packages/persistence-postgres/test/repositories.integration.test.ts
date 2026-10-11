@@ -1,8 +1,29 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import { execFileSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { taskBusinessFixture } from '../../domain/test/task-business-fixture.js';
+import {
+  projectTaskBusiness,
+  taskBusinessObjectRef,
+  taskBusinessRefKey,
+  taskBusinessContentDigest,
+  type TaskBusinessContent,
+} from '../../domain/src/task-business.js';
+import { TaskBusinessEventProcessor } from '../../application/src/task-business-events.js';
+import type { TaskBusinessReader } from '../../application/src/task-business-sync.js';
+import {
+  FrozenBusinessEventsRuntimeAdapter,
+  startFrozenBusinessEventsMockProvider,
+} from '../../mcp-adapter/src/index.js';
+import { buildTaskBusinessSourceArtifact } from '../../domain/src/task-business-evidence.js';
+import { PostgresTaskBusinessRepository } from '../src/task-business-repository.js';
 
 import { applyRuntimeMigrations, startServerRuntime } from '../../../apps/server/src/runtime.js';
 import {
@@ -45,6 +66,9 @@ import {
   TaskService,
   RuntimeTaskCapabilityService,
   TaskAttemptDispatchService,
+  TaskBusinessSyncService,
+  BusinessEventSubscriptionService,
+  BusinessEventRelationResolver,
   type ContextTaskQueue,
   type TaskCapabilityAcceptanceStore,
 } from '../../application/src/index.js';
@@ -301,6 +325,7 @@ beforeAll(async () => {
   await applyRuntimeMigrations(pool);
 });
 beforeEach(async () => {
+  await pool.query('TRUNCATE business_event_subscription CASCADE');
   await pool.query(
     'TRUNCATE compilation_run,pattern_candidate_support,experience_trace_source,pattern_candidate,experience_trace CASCADE',
   );
@@ -2519,6 +2544,958 @@ describe('PostgreSQL protocol-domain repositories', () => {
       }),
     ]);
   });
+  it('AC-004 keeps historical remote authority frozen when the registered catalog advances', async () => {
+    const fixture = await createGoalContinuationInvalidationFixture('smpp-v13-history');
+    const repository = new PostgresRemoteTaskRepository(pool);
+    const before = await repository.findById(fixture.bindingIds[0]);
+    expect(before?.authoritySnapshot?.runtime.toolRevision).toBe(1);
+    if (before === undefined) throw new Error('HISTORICAL_REMOTE_BINDING_MISSING');
+    await pool.query(
+      `UPDATE mcp_server SET tool_revision=2,endpoint='https://successor.invalid/mcp',updated_at=$2 WHERE server_id=$1`,
+      [before.serverId, '2026-10-10T12:00:00.000Z'],
+    );
+    expect(await repository.findById(fixture.bindingIds[0])).toEqual(before);
+    expect(
+      (
+        await pool.query<{ tool_revision: number }>(
+          'SELECT tool_revision FROM mcp_server WHERE server_id=$1',
+          [before.serverId],
+        )
+      ).rows[0]?.tool_revision,
+    ).toBe(2);
+  });
+
+  it('AC-006/007/010 binds the first exact Execution once and recovers the same native Task without dispatch', async () => {
+    const fixture = await taskBusinessPersistenceFixture('smpp-v13-binding');
+    const initial = fixture.commit;
+    const contenders = await Promise.all([
+      fixture.repository.commit(initial),
+      fixture.repository.commit(initial),
+    ]);
+    expect(contenders.sort()).toEqual(['applied', 'stale']);
+    const restarted = new PostgresTaskBusinessRepository(pool);
+    expect((await restarted.loadTarget(initial.bindingId))?.executionId).toBe(
+      initial.projection.identity.executionId,
+    );
+    const objectRows = await pool.query<{ observation_id: string; ref_key: string }>(
+      "SELECT observation_id,payload_json->>'refKey' AS ref_key FROM remote_task_observation WHERE binding_id=$1 AND payload_json->>'recordType'='task_business.object'",
+      [initial.bindingId],
+    );
+    expect(objectRows.rows).toHaveLength(initial.projection.objects.length);
+    const expectedObjects = initial.projection.objects.map((object) => {
+      const source = objectRows.rows.find((row) => row.ref_key === taskBusinessRefKey(object.ref));
+      const content = initial.contents.find(
+        (item) => taskBusinessRefKey(item.ref) === taskBusinessRefKey(object.ref),
+      );
+      if (source === undefined || content === undefined)
+        throw new Error('PERSISTED_SOURCE_OBJECT_REQUIRED');
+      return {
+        ...object,
+        artifactRef: buildTaskBusinessSourceArtifact(source.observation_id, content).artifactRef,
+      };
+    });
+    expect(await restarted.find(initial.bindingId)).toEqual({
+      ...initial.projection,
+      objects: expectedObjects,
+    });
+    for (const content of initial.contents) {
+      const retained = await restarted.readContent(initial.bindingId, content.digest);
+      expect(retained).toBeDefined();
+      expect(Buffer.from(retained ?? []).equals(Buffer.from(content.bytes))).toBe(true);
+      expect(taskBusinessContentDigest(retained ?? new Uint8Array())).toBe(content.digest);
+    }
+    await expect(
+      restarted.commit({
+        ...initial,
+        expectedProjectionRevision: 1,
+        projection: {
+          ...initial.projection,
+          identity: { ...initial.projection.identity, executionId: 'foreign-execution' },
+          projectionRevision: 2,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_BUSINESS_EXECUTION_CONFLICT' });
+    expect((await restarted.find(initial.bindingId))?.projectionRevision).toBe(1);
+    expect(
+      (await pool.query<{ count: number }>('SELECT count(*)::integer AS count FROM mcp_invocation'))
+        .rows[0]?.count,
+    ).toBe(2);
+    expect(
+      (await new PostgresRemoteTaskRepository(pool).findById(initial.bindingId))?.version,
+    ).toBe(initial.expectedBindingVersion);
+  });
+
+  it('a native poll lease cannot turn current business facts into historical authority', async () => {
+    const f = await taskBusinessPersistenceFixture('smpp-v13-poll-cas');
+    const claimed = await new PostgresRemoteTaskRepository(pool).claimPoll({
+      bindingId: f.binding.bindingId,
+      expectedVersion: f.binding.version,
+      claimToken: 'business-poll-cas',
+      claimedAt: '2026-10-10T12:00:00.000Z',
+      expiresAt: '2026-10-10T12:01:00.000Z',
+    });
+    expect(claimed.claimed).toBe(true);
+    if (!claimed.claimed) throw new Error('BUSINESS_POLL_CLAIM_MISSING');
+    expect(await f.repository.commit(f.commit)).toBe('applied');
+    expect(await f.repository.find(f.binding.bindingId)).toMatchObject({
+      status: 'current',
+      projectionRevision: 1,
+    });
+    expect(
+      (await pool.query('SELECT count(*)::integer AS count FROM mcp_invocation')).rows,
+    ).toEqual([{ count: 2 }]);
+  });
+
+  it('AC-039 preserves active legacy authority across 0184 and reads old/new observations with the actual PR34 repository', async () => {
+    const oldTask = await taskBusinessPersistenceFixture('smpp-v13-binding');
+    const newTask = await taskBusinessPersistenceFixture('smpp-v13-poll-cas');
+    const before = await new PostgresRemoteTaskRepository(pool).findById(oldTask.binding.bindingId);
+    const count = (await pool.query('SELECT count(*)::integer AS count FROM mcp_invocation')).rows;
+    expect(await oldTask.repository.find(oldTask.binding.bindingId)).toBeUndefined();
+    await pool.query(
+      await readFile(
+        'infra/postgres/migrations/0184_v14_task_business_input_source.down.sql',
+        'utf8',
+      ),
+    );
+    const sourceConstraintBefore = (
+      await pool.query<{ definition: string }>(
+        "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='task_input_request_source_check'",
+      )
+    ).rows;
+    expect(String(sourceConstraintBefore[0]?.definition)).not.toContain('remote_task');
+    await pool.query(
+      await readFile(
+        'infra/postgres/migrations/0184_v14_task_business_input_source.up.sql',
+        'utf8',
+      ),
+    );
+    expect(await newTask.repository.commit(newTask.commit)).toBe('applied');
+    expect(await oldTask.repository.find(oldTask.binding.bindingId)).toBeUndefined();
+    expect(await newTask.repository.find(newTask.binding.bindingId)).toMatchObject({
+      status: 'current',
+    });
+    expect(
+      await new PostgresRemoteTaskRepository(pool).findById(oldTask.binding.bindingId),
+    ).toEqual(before);
+    expect(
+      (await pool.query('SELECT count(*)::integer AS count FROM mcp_invocation')).rows,
+    ).toEqual(count);
+    const pinned = '52f54a11a40380f7c73bd9da277d640e49bdfbf7';
+    const directory = await mkdtemp(join(tmpdir(), 'sdar-smpp-legacy-reader-'));
+    try {
+      const archive = join(directory, 'legacy.tar');
+      execFileSync('git', [
+        'archive',
+        '--format=tar',
+        `--output=${archive}`,
+        pinned,
+        'packages',
+        'package.json',
+        'contracts',
+      ]);
+      execFileSync('tar', ['-xf', archive, '-C', directory]);
+      await symlink(resolve('node_modules'), join(directory, 'node_modules'), 'dir');
+      // A pinned own-repository module is an external test boundary. Validate
+      // its constructor/method surface before the structural port conversion.
+      const legacyModule: unknown = await import(
+        pathToFileURL(
+          join(directory, 'packages/persistence-postgres/src/remote-task-repository.ts'),
+        ).href
+      );
+      if (
+        typeof legacyModule !== 'object' ||
+        legacyModule === null ||
+        !('PostgresRemoteTaskRepository' in legacyModule) ||
+        typeof legacyModule.PostgresRemoteTaskRepository !== 'function'
+      )
+        throw new Error('PINNED_LEGACY_REPOSITORY_EXPORT_INVALID');
+      const LegacyRepository =
+        legacyModule.PostgresRemoteTaskRepository as typeof PostgresRemoteTaskRepository;
+      expect(typeof LegacyRepository.prototype.findById).toBe('function');
+      expect(typeof LegacyRepository.prototype.listObservations).toBe('function');
+      const legacy = new LegacyRepository(pool);
+      expect(await legacy.findById(oldTask.binding.bindingId)).toEqual(before);
+      expect((await legacy.findById(newTask.binding.bindingId))?.authoritySnapshot).toEqual(
+        newTask.binding.authoritySnapshot,
+      );
+      const oldRows = await legacy.listObservations(oldTask.binding.bindingId);
+      const newRows = await legacy.listObservations(newTask.binding.bindingId);
+      expect(
+        oldRows.some(
+          (o) =>
+            typeof o.payload === 'object' &&
+            o.payload !== null &&
+            'recordType' in o.payload &&
+            o.payload.recordType === 'task_business.projection',
+        ),
+      ).toBe(false);
+      expect(
+        newRows.some(
+          (o) =>
+            typeof o.payload === 'object' &&
+            o.payload !== null &&
+            'recordType' in o.payload &&
+            o.payload.recordType === 'task_business.projection',
+        ),
+      ).toBe(true);
+      const report = 'reports/sdar-smpp-v13-upgrade/20261010-local/legacy-0184-compatibility';
+      await mkdir(report, { recursive: true });
+      await writeFile(
+        `${report}/evidence.json`,
+        JSON.stringify(
+          {
+            case: 'AC-039',
+            pinnedReaderCommit: pinned,
+            sourceConstraintBefore,
+            sourceConstraintAfter: (
+              await pool.query(
+                "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='task_input_request_source_check'",
+              )
+            ).rows,
+            legacyAuthorityBefore: before?.authoritySnapshot,
+            legacyAuthorityAfter: (await legacy.findById(oldTask.binding.bindingId))
+              ?.authoritySnapshot,
+            taskIds: [oldTask.binding.agentTaskId, newTask.binding.agentTaskId],
+            invocationCount: count,
+            oldProjectionAbsent: true,
+            newObservationRecordsReadableByLegacy: newRows.length,
+            site: 'NOT_RUN',
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('projection waits for the original Task before taking its Binding and permits key-share ownership reads', async () => {
+    const f = await taskBusinessPersistenceFixture('smpp-v13-binding');
+    const owner = await pool.connect();
+    let committed: Promise<'applied' | 'stale'> | undefined;
+    try {
+      await owner.query('BEGIN');
+      const pid = (await owner.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]
+        ?.pid;
+      if (pid === undefined) throw new Error('POSTGRES_OWNER_PID_REQUIRED');
+      await owner.query('SELECT task_id FROM agent_task WHERE task_id=$1 FOR NO KEY UPDATE', [
+        f.binding.agentTaskId,
+      ]);
+      committed = f.repository.commit(f.commit);
+      const deadline = Date.now() + 5000;
+      let blocked = false;
+      while (Date.now() < deadline) {
+        blocked =
+          (
+            await pool.query<{ blocked: boolean }>(
+              'SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) AS blocked',
+              [pid],
+            )
+          ).rows[0]?.blocked === true;
+        if (blocked) break;
+        await new Promise((done) => setTimeout(done, 10));
+      }
+      expect(blocked).toBe(true);
+      // The waiting projection must not hold Binding while a Task owner waits
+      // for that same Binding, otherwise it recreates the GOWM deadlock.
+      await owner.query(
+        'SELECT binding_id FROM remote_task_binding WHERE binding_id=$1 FOR UPDATE NOWAIT',
+        [f.binding.bindingId],
+      );
+      await owner.query('SELECT task_id FROM agent_task WHERE task_id=$1 FOR KEY SHARE NOWAIT', [
+        f.binding.agentTaskId,
+      ]);
+      await owner.query('COMMIT');
+      expect(await committed).toBe('applied');
+    } finally {
+      await owner.query('ROLLBACK');
+      owner.release();
+      await committed;
+    }
+  });
+
+  it('AC-041 retains late terminal facts without reactivating Task or exposing new controls', async () => {
+    const f = await taskBusinessPersistenceFixture('smpp-v13-binding');
+    const remote = new PostgresRemoteTaskRepository(pool);
+    const terminal = await remote.recordExternalSnapshot({
+      bindingId: f.binding.bindingId,
+      expectedVersion: f.binding.version,
+      snapshot: {
+        status: 'completed',
+        remoteTaskId: f.binding.remoteTaskId,
+        createdAt: f.binding.createdAt,
+        lastUpdatedAt: '2026-10-10T12:00:01.000Z',
+        ttlMs: null,
+        runtimeRevision: '2',
+        protocolRevision: f.binding.protocolRevision,
+        tasksSchemaRevision: f.binding.tasksSchemaRevision,
+        result: { isError: false, content: [], structuredContent: { status: 'completed' } },
+      },
+      observationId: 'business-terminal-native',
+      controlEventId: 'business-terminal-control',
+      resultHash: 'a'.repeat(64),
+      source: 'notification',
+      observedAt: '2026-10-10T12:00:01.000Z',
+    });
+    expect(terminal.applied).toBe(true);
+    const binding = await remote.findById(f.binding.bindingId);
+    if (binding === undefined) throw new Error('TERMINAL_BINDING_REQUIRED');
+    await pool.query("UPDATE agent_task SET phase='completed' WHERE task_id=$1", [
+      binding.agentTaskId,
+    ]);
+    expect(
+      await f.repository.commit({
+        ...f.commit,
+        observedBinding: binding,
+        expectedBindingVersion: binding.version,
+      }),
+    ).toBe('applied');
+    const late = await f.repository.find(binding.bindingId);
+    expect(late).toMatchObject({
+      status: 'current',
+      allowedInterventions: [],
+      interactionRequests: [],
+    });
+    expect(
+      (await pool.query('SELECT phase FROM agent_task WHERE task_id=$1', [binding.agentTaskId]))
+        .rows,
+    ).toEqual([{ phase: 'completed' }]);
+    expect((await remote.findById(binding.bindingId))?.terminalAt).toBe(binding.terminalAt);
+    expect(
+      (await pool.query('SELECT count(*)::integer AS count FROM mcp_invocation')).rows,
+    ).toEqual([{ count: 2 }]);
+    const retained = f.commit.contents[0];
+    if (retained === undefined) throw new Error('RETAINED_CONTENT_REQUIRED');
+    expect(await f.repository.readContent(binding.bindingId, retained.digest)).toBeDefined();
+  });
+
+  it('AC-032 retains invalidated late facts as history with no new input or intervention', async () => {
+    const f = await taskBusinessPersistenceFixture('smpp-v13-invalidated');
+    await new PostgresGoalCancellationRepository(pool).cancel({
+      cancellationId: 'business-late-cancel',
+      goalId: f.binding.goalId,
+      goalVersion: f.binding.goalVersion,
+      reason: 'Cancel the original Goal while its read is in flight.',
+      warnings: [],
+      createdAt: '2026-10-10T12:00:01.000Z',
+    });
+    expect(await f.repository.commit(f.commit)).toBe('applied');
+    expect(await f.repository.find(f.binding.bindingId)).toMatchObject({
+      status: 'history',
+      allowedInterventions: [],
+      interactionRequests: [],
+    });
+    const first = f.commit.contents[0];
+    if (first === undefined) throw new Error('BUSINESS_CONTENT_MISSING');
+    expect(await f.repository.readContent(f.binding.bindingId, first.digest)).toBeDefined();
+  });
+
+  it('native RequiredInput claim preserves awaiting_input and never enters a terminal claim', async () => {
+    const f = await taskBusinessPersistenceFixture('smpp-v13-input-claim');
+    const remote = new PostgresRemoteTaskRepository(pool);
+    const changed = await remote.recordExternalSnapshot({
+      bindingId: f.binding.bindingId,
+      expectedVersion: f.binding.version,
+      snapshot: {
+        remoteTaskId: f.binding.remoteTaskId,
+        status: 'input_required',
+        createdAt: f.binding.createdAt,
+        lastUpdatedAt: '2026-10-10T12:00:00.000Z',
+        ttlMs: null,
+        runtimeRevision: '2',
+        protocolRevision: f.binding.protocolRevision,
+        tasksSchemaRevision: f.binding.tasksSchemaRevision,
+        inputRequests: {
+          'input-key-1': {
+            method: 'elicitation/create',
+            params: { mode: 'form', requestedSchema: { type: 'object' } },
+          },
+        },
+      },
+      observationId: 'business-input-observation',
+      controlEventId: 'business-input-control',
+      resultHash: 'a'.repeat(64),
+      source: 'reconciliation',
+      observedAt: '2026-10-10T12:00:00.000Z',
+    });
+    expect(changed.applied).toBe(true);
+    const before = await remote.findById(f.binding.bindingId);
+    const continuations = new PostgresWorkflowContinuationRepository(pool);
+    expect(
+      await continuations.claimControl({
+        eventId: 'business-input-control',
+        claimToken: 'input-native-worker',
+        claimedAt: '2026-10-10T12:00:01.000Z',
+        expiresAt: '2026-10-10T12:00:31.000Z',
+      }),
+    ).toMatchObject({ type: 'task.input_required', status: 'claimed' });
+    expect(await remote.findById(f.binding.bindingId)).toEqual(before);
+    expect(before).toMatchObject({
+      protocolStatus: 'input_required',
+      localState: 'awaiting_input',
+    });
+    expect(
+      await continuations.claimControl({
+        eventId: 'business-input-control',
+        claimToken: 'second-worker',
+        claimedAt: '2026-10-10T12:00:02.000Z',
+        expiresAt: '2026-10-10T12:00:32.000Z',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('AC-008/033 retains complete large content once, rejects same-revision changes, and detects stored corruption', async () => {
+    const fixture = await taskBusinessPersistenceFixture('smpp-v13-content');
+    const raw = Buffer.from(
+      JSON.stringify({
+        type: 'LineString',
+        coordinates: Array.from({ length: 70_000 }, (_, index) => [
+          100 + index / 1_000_000,
+          30 + index / 1_000_000,
+        ]),
+      }),
+    );
+    expect(raw.byteLength).toBeGreaterThan(1_048_576);
+    const content: TaskBusinessContent = {
+      ref: { kind: 'artifact', id: 'trajectory-segment', revision: 1 },
+      identity: fixture.commit.projection.identity,
+      metadata: { artifactType: 'navigation.trajectory', semantics: 'observed' },
+      digest: taskBusinessContentDigest(raw),
+      bytes: raw,
+    };
+    const commit = { ...fixture.commit, contents: [...fixture.commit.contents, content] };
+    await fixture.repository.commit(commit);
+    expect(
+      Buffer.from((await fixture.repository.readContent(commit.bindingId, content.digest)) ?? []),
+    ).toEqual(raw);
+    const count = await pool.query<{ count: number }>(
+      'SELECT count(*)::integer AS count FROM remote_task_observation WHERE binding_id=$1',
+      [commit.bindingId],
+    );
+    await expect(
+      fixture.repository.commit({
+        ...commit,
+        expectedProjectionRevision: 1,
+        projection: { ...commit.projection, projectionRevision: 2 },
+        contents: [
+          {
+            ...content,
+            bytes: Buffer.from('changed'),
+            digest: taskBusinessContentDigest(Buffer.from('changed')),
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_BUSINESS_OBJECT_CONFLICT' });
+    expect(
+      (
+        await pool.query<{ count: number }>(
+          'SELECT count(*)::integer AS count FROM remote_task_observation WHERE binding_id=$1',
+          [commit.bindingId],
+        )
+      ).rows,
+    ).toEqual(count.rows);
+    await pool.query(
+      `UPDATE remote_task_observation SET payload_json=jsonb_set(payload_json,'{bytes}','"dGFtcGVyZWQ="')
+      WHERE binding_id=$1 AND payload_json->>'recordType'='task_business.content' AND payload_json->>'digest'=$2 AND payload_json->>'offset'='0'`,
+      [commit.bindingId, content.digest],
+    );
+    await expect(
+      fixture.repository.readContent(commit.bindingId, content.digest),
+    ).rejects.toMatchObject({ code: 'TASK_BUSINESS_CONTENT_INVALID' });
+  });
+
+  it('AC-013/014 atomically projects events without crossing a processing hole or a different Task watermark', async () => {
+    const fixture = await taskBusinessPersistenceFixture('smpp-v13-atomic');
+    const events = new PostgresUserGoalRuntimeRepository(pool);
+    const subscription = {
+      subscriptionId: 'smpp-events',
+      providerId: fixture.binding.serverId,
+      streamId: 'public-stream-1',
+      generation: 1,
+      status: 'current' as const,
+      lastDurablyAdmittedSequence: '0',
+      lastProcessedSequence: '0',
+      createdAt: '2026-10-10T12:00:00.000Z',
+      updatedAt: '2026-10-10T12:00:00.000Z',
+    };
+    await events.saveBusinessEventSubscription(subscription);
+    for (let sequence = 1; sequence <= 3; sequence += 1)
+      await events.admitBusinessEvent({
+        inboxId: `inbox-${String(sequence)}`,
+        subscriptionId: subscription.subscriptionId,
+        eventId: `event-${String(sequence)}`,
+        sequence: String(sequence),
+        envelopeHash: `sha256:${String(sequence).repeat(64)}`,
+        envelope: { streamId: subscription.streamId, taskId: fixture.binding.remoteTaskId },
+        status: 'admitted',
+        admittedAt: subscription.createdAt,
+      });
+    const claimed = await events.claimBusinessEventInbox(3);
+    const first = claimed.find((record) => record.sequence === '1');
+    const second = claimed.find((record) => record.sequence === '2');
+    if (first === undefined || second === undefined) throw new Error('CLAIMED_EVENTS_MISSING');
+    await fixture.repository.commit({
+      ...fixture.commit,
+      event: second,
+      projection: {
+        ...fixture.commit.projection,
+        snapshotWatermark: { streamId: subscription.streamId, afterSequence: '999' },
+        appliedEvent: {
+          inboxId: second.inboxId,
+          eventId: second.eventId,
+          streamId: subscription.streamId,
+          sequence: second.sequence,
+        },
+      },
+    });
+    expect(await events.findBusinessEventSubscription(subscription.subscriptionId)).toMatchObject({
+      lastDurablyAdmittedSequence: '3',
+      lastProcessedSequence: '0',
+    });
+    await expect(
+      fixture.repository.commit({
+        ...fixture.commit,
+        expectedProjectionRevision: 1,
+        event: first,
+        contents: [
+          {
+            ...fixture.commit.contents[0],
+            bytes: Buffer.from('conflict'),
+            digest: taskBusinessContentDigest(Buffer.from('conflict')),
+          } as TaskBusinessContent,
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_BUSINESS_OBJECT_CONFLICT' });
+    expect(
+      (await events.findBusinessEventInboxByIdentity(subscription.subscriptionId, first.eventId))
+        ?.status,
+    ).toBe('processing');
+    expect((await fixture.repository.find(fixture.commit.bindingId))?.projectionRevision).toBe(1);
+    await events.markBusinessEventProcessed(
+      first.inboxId,
+      subscription.updatedAt,
+      first.processingToken,
+    );
+    expect(await events.findBusinessEventSubscription(subscription.subscriptionId)).toMatchObject({
+      lastDurablyAdmittedSequence: '3',
+      lastProcessedSequence: '2',
+    });
+  });
+
+  it('AC-014 routes one shared stream by exact Task identity and formal relatedTasks without changing unrelated tasks', async () => {
+    const a = await taskBusinessPersistenceFixture('smpp-v13-binding');
+    const b = await taskBusinessPersistenceFixture('smpp-v13-poll-cas', {
+      serverId: a.binding.serverId,
+      protocolSnapshotId: a.protocolSnapshotId,
+    });
+    const unrelated = await taskBusinessPersistenceFixture('smpp-v13-content', {
+      serverId: a.binding.serverId,
+      protocolSnapshotId: a.protocolSnapshotId,
+    });
+    const repository = new PostgresTaskBusinessRepository(pool);
+    const events = new PostgresUserGoalRuntimeRepository(pool);
+    const clock = { now: () => '2026-10-10T12:00:00.000Z' };
+    const streamId = '018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0001';
+    const subscription = {
+      subscriptionId: 'shared-routing',
+      providerId: a.binding.serverId,
+      streamId,
+      generation: 1,
+      status: 'current' as const,
+      lastDurablyAdmittedSequence: '0',
+      lastProcessedSequence: '0',
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    };
+    await events.saveBusinessEventSubscription(subscription);
+    const reader = businessProjectionReader(
+      [a.view, b.view, unrelated.view].map((view) => ({
+        ...view,
+        resumeFrom: { streamId, afterSequence: '999' },
+      })),
+    );
+    const sync = new TaskBusinessSyncService({ repository, reader, clock });
+    const relationProvider = await startFrozenBusinessEventsMockProvider({
+      relationTaskIds: [b.binding.remoteTaskId, 'foreign-remote-task'],
+    });
+    try {
+      let relationSequence = 0;
+      const resolver = new BusinessEventRelationResolver({
+        runtime: new FrozenBusinessEventsRuntimeAdapter(),
+        repository: events,
+        clock,
+        nextProjectionId: () => `formal-routing-${String(++relationSequence)}`,
+        hash: (value) =>
+          `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`,
+      });
+      const processor = new TaskBusinessEventProcessor({
+        repository,
+        sync,
+        events,
+        bindings: new PostgresRemoteTaskRepository(pool),
+        impact: { process: () => Promise.resolve() },
+        relations: {
+          resolve: (record, event) =>
+            resolver.resolve({
+              endpoint: relationProvider.endpoint.href,
+              headers: {},
+              inboxId: record.inboxId,
+              event,
+            }),
+        },
+      });
+      for (const [index, remoteTaskId] of [
+        a.binding.remoteTaskId,
+        b.binding.remoteTaskId,
+        undefined,
+      ].entries()) {
+        const sequence = String(index + 1);
+        const eventId = createHash('sha256').update(`shared-${sequence}`).digest('base64url');
+        await events.admitBusinessEvent({
+          inboxId: `routing-${sequence}`,
+          subscriptionId: subscription.subscriptionId,
+          eventId,
+          sequence,
+          envelopeHash: `sha256:${createHash('sha256').update(sequence).digest('hex')}`,
+          envelope: {
+            streamId,
+            eventId,
+            sequence,
+            sourceId: 'adapter.vehicle',
+            occurredAt: clock.now(),
+            eventType: 'vehicle.connectivity.lost',
+            description: 'Isolated routing fixture',
+            ...(remoteTaskId === undefined
+              ? {
+                  scope: 'resource',
+                  resourceRef: 'vehicle:ugv1',
+                  relatedTaskIds: [],
+                  relatedTaskCount: 2,
+                  relationTruncated: true,
+                }
+              : { scope: 'task', taskId: remoteTaskId }),
+          },
+          status: 'admitted',
+          admittedAt: clock.now(),
+        });
+      }
+      const claimed = await events.claimBusinessEventInbox(3);
+      const first = claimed.find((record) => record.sequence === '1');
+      const second = claimed.find((record) => record.sequence === '2');
+      const resource = claimed.find((record) => record.sequence === '3');
+      if (first === undefined || second === undefined || resource === undefined)
+        throw new Error('SHARED_EVENTS_REQUIRED');
+      await processor.process(second);
+      expect(await repository.find(a.binding.bindingId)).toBeUndefined();
+      expect(await repository.find(b.binding.bindingId)).toMatchObject({
+        appliedEvent: { sequence: '2' },
+        snapshotWatermark: { afterSequence: '999' },
+      });
+      expect(
+        (await events.findBusinessEventSubscription(subscription.subscriptionId))
+          ?.lastProcessedSequence,
+      ).toBe('0');
+      await processor.process(first);
+      await processor.process(resource);
+      expect(
+        (await events.findBusinessEventSubscription(subscription.subscriptionId))
+          ?.lastProcessedSequence,
+      ).toBe('3');
+      expect(await repository.find(a.binding.bindingId)).toMatchObject({
+        appliedEvent: { sequence: '1' },
+        identity: a.view.context.identity,
+      });
+      expect(await repository.find(b.binding.bindingId)).toMatchObject({
+        appliedEvent: { sequence: '3' },
+        identity: b.view.context.identity,
+      });
+      expect(await repository.find(unrelated.binding.bindingId)).toBeUndefined();
+      expect(
+        await new PostgresRemoteTaskRepository(pool).findById(unrelated.binding.bindingId),
+      ).toEqual(unrelated.binding);
+      expect(
+        relationProvider.requests.filter(
+          (request) => request.method === 'io.sdar/businessEvents/relatedTasks/list',
+        ),
+      ).toHaveLength(1);
+      expect(
+        (await pool.query('SELECT count(*)::integer AS count FROM mcp_invocation')).rows,
+      ).toEqual([{ count: 6 }]);
+      await writeBusinessCaseEvidence('AC-014', {
+        routing: [a.binding, b.binding].map((binding) => ({
+          bindingId: binding.bindingId,
+          remoteTaskId: binding.remoteTaskId,
+        })),
+        unrelatedBindingUnchanged: unrelated.binding.bindingId,
+        subscription: await events.findBusinessEventSubscription(subscription.subscriptionId),
+        relatedTasksRequests: relationProvider.requests,
+        invocationCount: 6,
+      });
+    } finally {
+      await sync.stop();
+      await relationProvider.close();
+    }
+  });
+
+  it('AC-015 persists real SSE continuity, resynchronizes current state and rejects an old generation snapshot', async () => {
+    const f = await taskBusinessPersistenceFixture('smpp-v13-binding');
+    const events = new PostgresUserGoalRuntimeRepository(pool);
+    const clock = { now: () => '2026-10-10T12:00:00.000Z' };
+    const streamOne = '018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0001';
+    const streamTwo = '018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0002';
+    const provider = await startFrozenBusinessEventsMockProvider({ scenario: 'continuity' });
+    let sequence = 0;
+    const subscriptions = new BusinessEventSubscriptionService({
+      runtime: new FrozenBusinessEventsRuntimeAdapter(),
+      repository: events,
+      clock,
+      nextSubscriptionId: () => `continuity-sub-${String(++sequence)}`,
+      nextInboxId: () => `continuity-inbox-${String(++sequence)}`,
+      nextContinuityId: () => `continuity-record-${String(++sequence)}`,
+      hash: (value) => `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`,
+    });
+    let view = { ...f.view, resumeFrom: { streamId: streamOne, afterSequence: '1' } };
+    const reader = businessProjectionReader([view]);
+    const sync = new TaskBusinessSyncService({
+      repository: f.repository,
+      reader: {
+        ...reader,
+        readRemoteTaskBusinessContext: () => Promise.resolve(view),
+      },
+      clock,
+    });
+    try {
+      expect(await sync.refresh(f.binding.bindingId)).toBe('applied');
+      const run = await subscriptions.run({
+        providerId: f.binding.serverId,
+        endpoint: provider.endpoint.href,
+        headers: {},
+      });
+      expect(run).toMatchObject({ continuityControls: 1, status: 'retired' });
+      const continuity = (
+        await pool.query<{
+          previous_stream_id: string;
+          new_stream_id: string;
+          reason_code: string;
+        }>('SELECT previous_stream_id,new_stream_id,reason_code FROM business_event_continuity')
+      ).rows;
+      expect(continuity).toEqual([
+        {
+          previous_stream_id: streamOne,
+          new_stream_id: streamTwo,
+          reason_code: 'SOURCE_CURSOR_EXPIRED',
+        },
+      ]);
+      view = {
+        ...f.view,
+        context: { ...f.view.context, contextRevision: f.view.context.contextRevision + 1 },
+        resumeFrom: { streamId: streamTwo, afterSequence: '0' },
+      };
+      expect(await sync.refresh(f.binding.bindingId)).toBe('applied');
+      const current = await f.repository.find(f.binding.bindingId);
+      expect(current).toMatchObject({
+        snapshotWatermark: view.resumeFrom,
+        quality: { historyContinuous: false, currentStateComplete: true },
+      });
+      view = { ...f.view, resumeFrom: { streamId: streamOne, afterSequence: '9999' } };
+      await expect(sync.refresh(f.binding.bindingId)).rejects.toMatchObject({
+        code: 'TASK_BUSINESS_CONTEXT_REGRESSED',
+      });
+      const retained = await f.repository.find(f.binding.bindingId);
+      expect(retained?.identity).toEqual(current?.identity);
+      expect(retained?.snapshotWatermark).toEqual(current?.snapshotWatermark);
+      expect(retained?.contextRevision).toBe(current?.contextRevision);
+      expect(retained?.quality.historyContinuous).toBe(false);
+      await writeBusinessCaseEvidence('AC-015', {
+        continuity,
+        current,
+        retainedAfterOldGeneration: retained,
+        source: provider.requests,
+      });
+    } finally {
+      await sync.stop();
+      await provider.close();
+    }
+  });
+
+  it('AC-016 coalesces 512 changes with real persistence, survives an SSE failure and continues bounded polling without dispatch', async () => {
+    const f = await taskBusinessPersistenceFixture('smpp-v13-binding');
+    const events = new PostgresUserGoalRuntimeRepository(pool);
+    const clock = { now: () => '2026-10-10T12:00:00.000Z' };
+    let subscriptionSequence = 0;
+    const subscriptions = new BusinessEventSubscriptionService({
+      runtime: new FrozenBusinessEventsRuntimeAdapter(),
+      repository: events,
+      clock,
+      nextSubscriptionId: () => `burst-sub-${String(++subscriptionSequence)}`,
+      nextInboxId: () => `burst-inbox-${String(++subscriptionSequence)}`,
+      nextContinuityId: () => `burst-continuity-${String(++subscriptionSequence)}`,
+      hash: (value) => `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`,
+    });
+    const broken = await startFrozenBusinessEventsMockProvider({ scenario: 'invalid_ack' });
+    const healthy = await startFrozenBusinessEventsMockProvider({ scenario: 'empty' });
+    let release: ((view: unknown) => void) | undefined;
+    let reads = 0;
+    const reader = businessProjectionReader([f.view]);
+    const sync = new TaskBusinessSyncService({
+      repository: f.repository,
+      reader: {
+        ...reader,
+        readRemoteTaskBusinessContext: (input) => {
+          reads += 1;
+          return new Promise((resolve, reject) => {
+            release = resolve;
+            input.signal?.addEventListener(
+              'abort',
+              () => {
+                reject(new Error('CONTROLLED_READ_ABORTED'));
+              },
+              { once: true },
+            );
+          });
+        },
+      },
+      clock,
+      maxConcurrent: 1,
+    });
+    try {
+      await expect(
+        subscriptions.run({
+          providerId: f.binding.serverId,
+          endpoint: broken.endpoint.href,
+          headers: {},
+        }),
+      ).rejects.toThrow();
+      const refreshes = Array.from({ length: 512 }, () => sync.refresh(f.binding.bindingId));
+      const deadline = Date.now() + 5000;
+      while (release === undefined && Date.now() < deadline)
+        await new Promise((done) => setTimeout(done, 10));
+      if (release === undefined) throw new Error('BURST_READ_NOT_STARTED');
+      expect(reads).toBe(1);
+      expect(await f.repository.find(f.binding.bindingId)).toBeUndefined();
+      expect(
+        await new PostgresAgentTaskRepository(pool).findById(f.binding.agentTaskId),
+      ).toMatchObject({ phase: 'awaiting_plan_confirmation' });
+      release(f.view);
+      expect((await Promise.all(refreshes)).filter((result) => result === 'applied')).toHaveLength(
+        1,
+      );
+      expect(reads).toBe(1);
+      expect(
+        await subscriptions.run({
+          providerId: f.binding.serverId,
+          endpoint: healthy.endpoint.href,
+          headers: {},
+        }),
+      ).toMatchObject({ status: 'current' });
+      const polling = new TaskBusinessSyncService({
+        repository: f.repository,
+        reader,
+        clock,
+        maxConcurrent: 1,
+      });
+      try {
+        expect(await polling.reconcile(8)).toMatchObject({ examined: 2, applied: 1, failures: [] });
+      } finally {
+        await polling.stop();
+      }
+      expect(
+        (await pool.query('SELECT count(*)::integer AS count FROM mcp_invocation')).rows,
+      ).toEqual([{ count: 2 }]);
+      expect(await f.repository.find(f.binding.bindingId)).toMatchObject({
+        quality: { currentStateComplete: true, historyContinuous: false },
+        businessOutcome: { policySatisfied: false },
+      });
+      await writeBusinessCaseEvidence('AC-016', {
+        changes: 512,
+        coalescedContextReads: reads,
+        concurrentReadLimit: 1,
+        retainedTaskQuery: true,
+        dispatchInvocationCount: 2,
+        modelPortPresent: false,
+        sseRequests: [...broken.requests, ...healthy.requests],
+        projection: await f.repository.find(f.binding.bindingId),
+      });
+    } finally {
+      await sync.stop();
+      await broken.close();
+      await healthy.close();
+    }
+  });
+
+  it('AC-013/040 reclaims a crashed read lease and rejects the stale worker token', async () => {
+    const fixture = await taskBusinessPersistenceFixture('smpp-v13-crash');
+    const events = new PostgresUserGoalRuntimeRepository(pool);
+    const timestamp = '2026-10-10T12:00:00.000Z';
+    await events.saveBusinessEventSubscription({
+      subscriptionId: 'smpp-crash',
+      providerId: fixture.binding.serverId,
+      streamId: 'crash-stream',
+      generation: 1,
+      status: 'current',
+      lastDurablyAdmittedSequence: '0',
+      lastProcessedSequence: '0',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    await events.admitBusinessEvent({
+      inboxId: 'crash-inbox',
+      subscriptionId: 'smpp-crash',
+      eventId: 'crash-event',
+      sequence: '1',
+      envelopeHash: `sha256:${'d'.repeat(64)}`,
+      envelope: {},
+      status: 'admitted',
+      admittedAt: timestamp,
+    });
+    const [old] = await events.claimBusinessEventInbox(1);
+    if (old === undefined) throw new Error('OLD_CLAIM_MISSING');
+    expect(await new PostgresUserGoalRuntimeRepository(pool).claimBusinessEventInbox(1)).toEqual(
+      [],
+    );
+    await pool.query(
+      "UPDATE business_event_inbox SET error_code='PROCESSING_LEASE:0:crashed' WHERE inbox_id=$1",
+      [old.inboxId],
+    );
+    const [next] = await new PostgresUserGoalRuntimeRepository(pool).claimBusinessEventInbox(1);
+    if (next === undefined) throw new Error('RECOVERY_CLAIM_MISSING');
+    expect(next.processingToken).not.toBe(old.processingToken);
+    await expect(
+      events.markBusinessEventProcessed(old.inboxId, timestamp, old.processingToken),
+    ).rejects.toMatchObject({ code: 'BUSINESS_EVENT_PROCESSING_CAS_FAILED' });
+    await events.markBusinessEventProcessed(next.inboxId, timestamp, next.processingToken);
+    expect(await events.claimBusinessEventInbox(1)).toEqual([]);
+    await events.admitBusinessEvent({
+      inboxId: 'bounded-inbox',
+      subscriptionId: 'smpp-crash',
+      eventId: 'bounded-event',
+      sequence: '2',
+      envelopeHash: `sha256:${'e'.repeat(64)}`,
+      envelope: {},
+      status: 'admitted',
+      admittedAt: timestamp,
+    });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const [retry] = await events.claimBusinessEventInbox(1);
+      if (retry === undefined) throw new Error('BOUNDED_RETRY_CLAIM_MISSING');
+      await events.markBusinessEventFailed(
+        retry.inboxId,
+        'TRANSIENT_READ_FAILED',
+        true,
+        retry.processingToken,
+      );
+    }
+    expect(await events.claimBusinessEventInbox(1)).toEqual([]);
+    expect(
+      (await events.findBusinessEventInboxByIdentity('smpp-crash', 'bounded-event'))?.status,
+    ).toBe('terminal_failed');
+    expect((await events.findBusinessEventSubscription('smpp-crash'))?.lastProcessedSequence).toBe(
+      '1',
+    );
+  });
+
   it('invalidates active continuations and every old-Goal remote binding on patch and cancellation', async () => {
     const cancellation = await createGoalContinuationInvalidationFixture('cancel');
     await new PostgresGoalCancellationRepository(pool).cancel({
@@ -9495,8 +10472,105 @@ interface GoalContinuationInvalidationFixture {
   readonly bindingIds: readonly [string, string];
 }
 
+async function taskBusinessPersistenceFixture(
+  prefix:
+    | 'smpp-v13-binding'
+    | 'smpp-v13-content'
+    | 'smpp-v13-atomic'
+    | 'smpp-v13-crash'
+    | 'smpp-v13-poll-cas'
+    | 'smpp-v13-invalidated'
+    | 'smpp-v13-input-claim',
+  options: Readonly<{ serverId?: string; protocolSnapshotId?: string }> = {},
+) {
+  const fixture = await createGoalContinuationInvalidationFixture(prefix, options);
+  const repository = new PostgresTaskBusinessRepository(pool);
+  const binding = await new PostgresRemoteTaskRepository(pool).findById(fixture.bindingIds[0]);
+  if (binding === undefined) throw new Error('BUSINESS_BINDING_MISSING');
+  const protocolSnapshotId = binding.protocolContract.serverDiscoverySnapshotId;
+  if (protocolSnapshotId === undefined) throw new Error('FROZEN_BUSINESS_BINDING_REQUIRED');
+  await pool.query('UPDATE mcp_invocation SET arguments_json=$2::jsonb WHERE invocation_id=$1', [
+    binding.mcpInvocationId,
+    JSON.stringify({ resourceId: 'vehicle:ugv1' }),
+  ]);
+  if (options.protocolSnapshotId === undefined)
+    await new PostgresMcpRegistryRepository(pool).saveProtocolSnapshot({
+      snapshotId: protocolSnapshotId,
+      serverId: binding.serverId,
+      protocolMode: 'frozen_v1',
+      protocolVersion: '2026-07-28',
+      baselineSha256: 'a'.repeat(64),
+      supportedVersions: ['2026-07-28'],
+      capabilities: {
+        extensions: {
+          'io.sdar/providerCatalog': {
+            providerId: 'provider-catalog-1',
+            providerType: 'isr.vehicle.ugv',
+            providerVersion: '1.3',
+            manifestHash: 'c'.repeat(64),
+          },
+          'io.sdar/taskBusiness': { profileVersion: '1.0-rc2' },
+        },
+      },
+      serverInfo: { name: 'isolated-smpp-contract', version: '1.3' },
+      taskNotifications: true,
+      discoveredAt: '2026-10-10T12:00:00.000Z',
+      toolRevision: 1,
+    });
+  const view = taskBusinessFixture({
+    taskId: binding.remoteTaskId,
+    operationName: binding.operationName,
+  });
+  const contents = view.objects.map((object): TaskBusinessContent => {
+    const bytes = Buffer.from(JSON.stringify(object.value));
+    return {
+      ref: taskBusinessObjectRef(object),
+      identity: object.value.identity,
+      metadata: object.value,
+      digest: taskBusinessContentDigest(bytes),
+      bytes,
+    };
+  });
+  const projection = projectTaskBusiness({
+    bindingId: binding.bindingId,
+    taskId: binding.agentTaskId,
+    view,
+    contents,
+    receivedAt: '2026-10-10T12:00:00.000Z',
+    projectedAt: '2026-10-10T12:00:00.000Z',
+    historyContinuous: true,
+  });
+  return {
+    repository,
+    binding,
+    view,
+    protocolSnapshotId,
+    commit: {
+      bindingId: binding.bindingId,
+      expectedBindingVersion: binding.version,
+      observedBinding: binding,
+      expectedProjectionRevision: 0,
+      projection,
+      contents,
+    },
+  };
+}
+
 async function createGoalContinuationInvalidationFixture(
-  prefix: 'cancel' | 'patch' | 'terminal-cancel-authority' | 'goal-cancel-authority',
+  prefix:
+    | 'cancel'
+    | 'patch'
+    | 'terminal-cancel-authority'
+    | 'goal-cancel-authority'
+    | 'smpp-v13-history'
+    | 'smpp-v13-binding'
+    | 'smpp-v13-content'
+    | 'smpp-v13-atomic'
+    | 'smpp-v13-crash'
+    | 'smpp-v13-poll-cas'
+    | 'smpp-v13-invalidated'
+    | 'smpp-v13-input-claim',
+  options: Readonly<{ serverId?: string; protocolSnapshotId?: string }> = {},
 ): Promise<GoalContinuationInvalidationFixture> {
   const timestamp = '2026-07-16T09:00:00.000Z';
   const contextId = `continuation-invalidation-context-${prefix}`;
@@ -9505,7 +10579,7 @@ async function createGoalContinuationInvalidationFixture(
   const planId = `continuation-invalidation-plan-${prefix}`;
   const instanceId = `continuation-invalidation-instance-${prefix}`;
   const controlId = `continuation-invalidation-control-${prefix}`;
-  const serverId = `continuation-invalidation-server-${prefix}`;
+  const serverId = options.serverId ?? `continuation-invalidation-server-${prefix}`;
   const snapshotId = `continuation-invalidation-snapshot-${prefix}`;
   const bindingIds = [
     `continuation-invalidation-binding-${prefix}-mapped`,
@@ -9613,7 +10687,7 @@ async function createGoalContinuationInvalidationFixture(
        server_id,name,endpoint,transport,status,tool_revision,encrypted_credential,
        created_at,updated_at)
      VALUES($1,$2,'http://127.0.0.1:1','streamable_http','enabled',1,
-            'encrypted-test-value',$3,$3)`,
+            'encrypted-test-value',$3,$3) ON CONFLICT(server_id) DO NOTHING`,
     [serverId, `Continuation invalidation ${prefix}`, timestamp],
   );
   const remoteTasks = new PostgresRemoteTaskRepository(pool);
@@ -9652,7 +10726,8 @@ async function createGoalContinuationInvalidationFixture(
           mode: 'frozen_v1',
           protocolVersion: '2026-07-28',
           baselineSha256: 'a'.repeat(64),
-          serverDiscoverySnapshotId: `snapshot-${prefix}-${String(sequence)}`,
+          serverDiscoverySnapshotId:
+            options.protocolSnapshotId ?? `snapshot-${prefix}-${String(sequence)}`,
         },
         taskBehavior: 'server_directed',
         taskCancellation: 'task_cancel',
@@ -9666,7 +10741,8 @@ async function createGoalContinuationInvalidationFixture(
             endpoint: `https://${serverId}.test/mcp`,
             serverUpdatedAt: 'credential-revision-1',
             toolRevision: 1,
-            protocolSnapshotId: `snapshot-${prefix}-${String(sequence)}`,
+            protocolSnapshotId:
+              options.protocolSnapshotId ?? `snapshot-${prefix}-${String(sequence)}`,
             catalogRevision: 'catalog-revision-1',
             catalogChecksum: 'c'.repeat(64),
             operationCount: 1,
@@ -9861,4 +10937,45 @@ function sequenceIds(): Readonly<{
 function requiredFixture<T>(value: T | undefined | null): T {
   if (value === undefined || value === null) throw new Error('REQUIRED_TEST_FIXTURE_MISSING');
   return value;
+}
+
+function businessProjectionReader(
+  views: readonly ReturnType<typeof taskBusinessFixture>[],
+): TaskBusinessReader {
+  const find = (taskId: string) => {
+    const view = views.find((item) => item.context.identity.taskId === taskId);
+    if (view === undefined)
+      throw Object.assign(new Error('unsupported'), {
+        code: 'SMPP_BUSINESS_EXTENSION_UNAVAILABLE',
+      });
+    return view;
+  };
+  const artifact = (input: Parameters<TaskBusinessReader['readRemoteTaskBusinessArtifact']>[0]) => {
+    const found = find(input.remoteTaskId).objects.find(
+      (object) =>
+        object.kind === 'artifact' &&
+        object.value['artifactId'] === input.artifactId &&
+        object.value.revision === input.revision,
+    );
+    if (found?.kind !== 'artifact') throw new Error('FROZEN_ARTIFACT_REQUIRED');
+    return found.value;
+  };
+  return {
+    readRemoteTaskBusinessContext: (input) => Promise.resolve(find(input.remoteTaskId)),
+    readRemoteTaskBusinessArtifact: (input) => Promise.resolve({ artifact: artifact(input) }),
+    readRemoteTaskBusinessArtifactContent: (input) =>
+      Promise.resolve(Buffer.from(JSON.stringify(artifact(input)['content']))),
+  };
+}
+async function writeBusinessCaseEvidence(caseId: string, evidence: unknown): Promise<void> {
+  const report = 'reports/sdar-smpp-v13-upgrade/20261010-local/shared-event-proofs';
+  await mkdir(report, { recursive: true });
+  await writeFile(
+    `${report}/${caseId}.json`,
+    JSON.stringify(
+      { caseId, environment: 'owned_loopback_sse_and_postgres', evidence, site: 'NOT_RUN' },
+      null,
+      2,
+    ) + '\n',
+  );
 }
