@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "scope": "focused_recovery_source_identity",
+  "source": "/tmp/sdar-verify-recovery-focused-yNi3jg/source",
+  "baseCommit": "59def84c97043481b3a5a9e026479c6a5c724bd9",
+  "sourceOverlay": [
+    {
+      "path": "packages/runtime-control-persistence-postgres/test/task-revision-authority.integration.test.ts",
+      "beforeSha256": "c284caf128de86d7952aaa8a9d9205a3dbaca8a6a8590ea46370138a7b3871a5",
+      "afterSha256": "3adf5e2e601baa81a0bdd6e115520fef112e46f6e90bee78ea31fa86d4779fe3"
+    }
+  ],
+  "canonicalRuntimeInputSha256": "70c73ae08370d855fe0d1b7dcabb82cfbd0b55abb8a9bb04dcb155517804dac8",
+  "sameRuntimeAsFormalCommit": "43faa3a9cb88160153c0fc4b7e4ff4fc5f7663bd",
+  "sameRuntimeInputs": true,
+  "focusedBaselineSha256": "3dac5970f980c200ee68cd901e553ffcecbab517c540783d309ac91bb802bcfa",
+  "rawRecordRuntimeHash": "2307ae53f7814dc879ba1e41dac007e1e4a6e7f0e58d44ac7a7d1c6bc8beb541",
+  "correction": "The focused helper originally included classification fields in its serialized digest. The immutable raw record is retained; this normalized path/sha256 digest supersedes only that hash label. Test execution and explicit overlay hashes are unaffected."
+}

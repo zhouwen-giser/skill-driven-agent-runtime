@@ -14,6 +14,10 @@ These failures are evidence, not acceptance passes. The full run/inputs/cleanup 
 | M3 `e6aa47e2` | Two new test callbacks violated lint's arrow-body rule. | Correct callback syntax without changing assertions. |
 | M3 `83a73cc8` | Cognitive replay command produced no output before the existing 60-second timeout and received SIGTERM. | The same command on that frozen source passes when rerun alone; preserve the timeout and run subsequent complete gates serially. The precise environmental cause is not established. |
 
+| M4 post-review `ff0fb504` | Existing P08 claim COMMIT response-loss test expired its 120 ms nominal lease before the intended explicit expiry transition; expected reconciliation-pending, actual lease-lost. New formal Workflow PostgreSQL regression passed. | Preserve all failed stage logs, unchanged inputs and cleanup 0 in `review-fixes/failed-full/`. The unchanged frozen suite passes 10/10 alone; recovery fixtures use the existing nominal test lease and assert explicit SQL expiry updates one pending row, with all state/no-replay assertions retained. A new full freeze is required. |
+
+| M4 post-review `f6caff6a` | Existing 50 ms projection lease expired before entry, causing lease-conflict and an unresolved entry-barrier timeout. New Workflow regression and all ten P08 recovery tests pass. | Preserve runtime/baseline hashes, original failure/unhandled rejection and cleanup 0. The projection test now waits for real PostgreSQL expiry/lock state, propagates early errors and retains its 30-second timeout plus owner/attempt/order assertions; focused case PASS. |
+
 Additional diagnostic failures remain separate from full-gate acceptance:
 
 - CPU-affinity performance isolation failed (28.44% drift, 73.82% P95 regression). See [focused/performance-affinity.json](focused/performance-affinity.json) and the hash-checked raw runner log. Affinity is not a product or final verification setting.
@@ -22,3 +26,5 @@ Additional diagnostic failures remain separate from full-gate acceptance:
 - The source-identity audit helper initially exceeded Node's default stdout buffer, then treated Git-escaped Chinese documentation paths as extra runtime files. Its rejected result is retained as `attempts/source-enumeration-escaped-paths.json`. NUL-delimited Git enumeration with an adequate buffer corrects the helper; actual runtime file hashes were equal throughout. This is an evidence-collection error, not a product or gate failure.
 
 The final owned performance fixture uses real PostgreSQL with the original 72/72 runtime samples, 100 append samples, and 15% drift / 10% P95 / 20 ms append limits. Only that benchmark's database directory is tmpfs. Functional, integration, migration, recovery and smoke tests retain the existing persistent-store infrastructure. Resolved Compose hash, immutable image IDs, database version, ownership and cleanup are recorded with the run. Site/device actions and deployment are `NOT_RUN` throughout.
+
+The focused recovery helper initially hashed entries with extra classification fields. Its original raw hash label is retained; `review-fixes/CONTROLLED_TASK_REVISION_SOURCE_IDENTITY.json` normalizes path/sha256 entries, verifies the exact overlay and matches runtime commit 43faa3a9. This is a helper normalization correction, not a changed test result.

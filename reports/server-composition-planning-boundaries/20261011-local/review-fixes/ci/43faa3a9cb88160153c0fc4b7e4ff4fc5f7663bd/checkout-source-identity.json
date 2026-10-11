@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "ref": "c26b8fae2b6959b92f28b92f316c27eac030e19d",
+  "testedCommit": "43faa3a9cb88160153c0fc4b7e4ff4fc5f7663bd",
+  "runId": "sdar-verify-f6caff6a-e6d1-4fa5-bbf0-caf84887f334",
+  "expectedRuntimeInputSha256": "70c73ae08370d855fe0d1b7dcabb82cfbd0b55abb8a9bb04dcb155517804dac8",
+  "actualRuntimeInputSha256": "70c73ae08370d855fe0d1b7dcabb82cfbd0b55abb8a9bb04dcb155517804dac8",
+  "runtimeFiles": 2025,
+  "externalVerificationInputs": 6,
+  "runtimeFilesChanged": [],
+  "extraRuntimeFiles": [],
+  "status": "PASS",
+  "metadataRule": "Reports, PROJECT_STATUS, CHANGELOG, ExecPlan and baseline evidence text have separate classification; no production or test runtime input may differ."
+}

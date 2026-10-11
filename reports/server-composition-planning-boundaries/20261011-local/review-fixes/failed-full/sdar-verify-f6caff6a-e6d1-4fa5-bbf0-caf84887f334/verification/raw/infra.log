@@ -1,0 +1,2 @@
+$ node scripts/verify-compose.mjs && node scripts/verify-compose-config.mjs
+Compose and SDAR v1.2.2 clean baseline/reset/seed verified.

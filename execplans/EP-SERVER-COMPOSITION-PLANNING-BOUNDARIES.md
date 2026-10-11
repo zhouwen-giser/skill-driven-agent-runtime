@@ -44,6 +44,8 @@ Explicit typed composition stages retain construction/recovery order and one ins
 
 - Post-review frozen run `sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563` fails the existing P08 claim-COMMIT-response-loss integration case: a 120 ms Cognitive lease expires before expected reconciliation. New Workflow atomic regression passes. Runtime/baseline remain unchanged and cleanup exits 0; all failed-stage raw hashes are retained in `review-fixes/failed-full/`. Unchanged frozen-source focused P08 runs 10/10 PASS on fresh owned PostgreSQL. Recovery fixtures now retain the existing default 10-second nominal test lease, and explicitly expire it with a checked one-row SQL update; all reconciliation/replay assertions stay intact. A new full freeze is required.
 
+- Frozen `sdar-verify-f6caff6a-e6d1-4fa5-bbf0-caf84887f334` preserves a second existing fixture failure: its 50 ms projection lease expires before entry, yielding lease-conflict and an unresolved barrier timeout. New Workflow regression and all ten corrected P08 recovery cases PASS. Runtime/baseline unchanged, cleanup 0. The projection test now uses the existing nominal test lease, observes actual database expiry and the takeover connection waiting on a PostgreSQL Lock, and propagates early projection errors. Original order/state assertions and 30-second test timeout remain. Focused real PostgreSQL projection test PASS; another full freeze is required.
+
 ## 7. Decision Log
 
 - D1: Preserve APIs, wire schemas, error codes, defaults, migrations, dependencies and protocol pins (ADR-161).
@@ -57,6 +59,8 @@ Explicit typed composition stages retain construction/recovery order and one ins
 - D8: Use an optional formal atomic persistence port backed by one PostgreSQL transaction. Existing repository methods remain compatible, candidate-only ports remain writer-free, command fencing and device ownership precede writes.
 
 - D9: Recovery fixtures control expiry through `expireAction`, rather than depending on unrelated I/O completing within 120 ms. Use the existing nominal test lease and assert explicit expiry changes one pending action. Production lease/defaults and every state/replay assertion remain unchanged.
+
+- D10: Verify projection/takeover serialization using PostgreSQL expiry and lock-wait observations rather than fixed sleeps. Retain the original 30-second test limit and exact owner/attempt/order assertions, and always release the projection/owned takeover Pool.
 
 ## 8. Implementation Steps
 

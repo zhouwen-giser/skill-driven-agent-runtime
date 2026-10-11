@@ -637,7 +637,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       claimedAt: '2026-08-11T00:00:00.000Z',
       leaseOwner: 'runtime-owner-projection-1',
       leaseToken: 'lease-token-projection-1',
-      leaseDurationMs: 50,
+      leaseDurationMs: 10_000,
     };
     const firstClaim = await firstRepository.claim(claim);
     if (firstClaim.disposition !== 'claimed') throw new Error('ACTION_LEASE_NOT_CLAIMED');
@@ -658,30 +658,65 @@ describe('PostgreSQL protocol-domain repositories', () => {
       order.push('projection-finished');
     });
 
-    await projectionEntered;
-    await new Promise<void>((resolve) => setTimeout(resolve, 100));
-    const restartedRepository = new PostgresCognitiveManagementActionRepository(pool);
+    const takeoverApplication = 'sdar-projection-fence-takeover';
+    const takeoverPool = new Pool({ connectionString, application_name: takeoverApplication });
+    const restartedRepository = new PostgresCognitiveManagementActionRepository(takeoverPool);
     let takeoverSettled = false;
-    const takeover = restartedRepository
-      .claim({
-        ...claim,
-        leaseOwner: 'runtime-owner-projection-2',
-        leaseToken: 'lease-token-projection-2',
-        leaseDurationMs: 60_000,
-      })
-      .then((result) => {
-        takeoverSettled = true;
-        order.push('takeover-finished');
-        return result;
-      });
+    let takeover: ReturnType<typeof restartedRepository.claim> | undefined;
+    const waitForDatabaseCondition = async (check: () => Promise<boolean>) => {
+      const deadline = Date.now() + 15_000;
+      while (!(await check())) {
+        if (Date.now() >= deadline) throw new Error('PROJECTION_FENCE_CONDITION_NOT_OBSERVED');
+        await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      }
+    };
     try {
-      await new Promise<void>((resolve) => setTimeout(resolve, 30));
+      // An early lease error must fail promptly instead of leaving the entry barrier unresolved.
+      await Promise.race([projectionEntered, projection]);
+      await waitForDatabaseCondition(async () => {
+        const expiry = await pool.query<{ expired: boolean }>(
+          'SELECT lease_expires_at<=clock_timestamp() AS expired FROM cognitive_management_action WHERE action_id=$1',
+          [claim.actionId],
+        );
+        return expiry.rows[0]?.expired === true;
+      });
+      takeover = restartedRepository
+        .claim({
+          ...claim,
+          leaseOwner: 'runtime-owner-projection-2',
+          leaseToken: 'lease-token-projection-2',
+          leaseDurationMs: 60_000,
+        })
+        .then((result) => {
+          takeoverSettled = true;
+          order.push('takeover-finished');
+          return result;
+        });
+      await Promise.race([
+        waitForDatabaseCondition(async () => {
+          const blocked = await pool.query<{ blocked: boolean }>(
+            `SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+               WHERE datname=current_database() AND application_name=$1
+                 AND wait_event_type='Lock') AS blocked`,
+            [takeoverApplication],
+          );
+          return blocked.rows[0]?.blocked === true;
+        }),
+        takeover.then(() => {
+          throw new Error('TAKEOVER_DID_NOT_WAIT_FOR_PROJECTION');
+        }),
+      ]);
       expect(takeoverSettled).toBe(false);
       expect(order).toEqual(['projection-entered']);
     } finally {
       releaseProjection?.();
+      try {
+        await projection;
+        await takeover;
+      } finally {
+        await takeoverPool.end();
+      }
     }
-    await projection;
     const recovered = await takeover;
     expect(recovered).toMatchObject({
       disposition: 'recovered',

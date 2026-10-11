@@ -1586,6 +1586,38 @@
           "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         }
       ]
+    },
+    {
+      "milestone": "M4 post-review",
+      "runId": "sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563",
+      "sourceCommit": "59def84c97043481b3a5a9e026479c6a5c724bd9",
+      "inputSha256": "be698c00d6e29d540a6e2dcbcc08e04a45dd5803dbd2c5ca675f9406561912d0",
+      "baselineSha256": "3dac5970f980c200ee68cd901e553ffcecbab517c540783d309ac91bb802bcfa",
+      "dependencyMode": "frozen",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563",
+      "failure": "P08 existing 120 ms Cognitive action lease expires before explicit response-loss reconciliation; expected RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING, actual COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST. New formal Workflow PostgreSQL regression passes.",
+      "focusedUnchanged": "review-fixes/unchanged-task-revision.json",
+      "focusedControlled": "review-fixes/controlled-task-revision.json",
+      "focusedCanonicalIdentity": "review-fixes/CONTROLLED_TASK_REVISION_SOURCE_IDENTITY.json"
+    },
+    {
+      "milestone": "M4 post-review",
+      "runId": "sdar-verify-f6caff6a-e6d1-4fa5-bbf0-caf84887f334",
+      "sourceCommit": "43faa3a9cb88160153c0fc4b7e4ff4fc5f7663bd",
+      "inputSha256": "70c73ae08370d855fe0d1b7dcabb82cfbd0b55abb8a9bb04dcb155517804dac8",
+      "baselineSha256": "385d1b59aee8fc3b1b1d87226236de0a7545edeba10cc163029a1c2ac061f64d",
+      "dependencyMode": "frozen",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-f6caff6a-e6d1-4fa5-bbf0-caf84887f334",
+      "failure": "Existing 50 ms projection-fence lease expires before entry, causing COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT and an unresolved entry barrier timeout. Workflow formal commit regression and all ten P08 recovery tests PASS.",
+      "focusedControlled": "review-fixes/controlled-projection-fence.json"
     }
   ]
 }
