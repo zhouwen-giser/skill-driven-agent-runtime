@@ -1,0 +1,13 @@
+{
+  "status": "FAIL",
+  "runId": "sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563",
+  "sourceCommit": "59def84c97043481b3a5a9e026479c6a5c724bd9",
+  "runtimeInputSha256": "be698c00d6e29d540a6e2dcbcc08e04a45dd5803dbd2c5ca675f9406561912d0",
+  "baselineSha256": "3dac5970f980c200ee68cd901e553ffcecbab517c540783d309ac91bb802bcfa",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "sourceUnchanged": true,
+  "baselineUnchanged": true,
+  "failure": "P08 existing 120 ms Cognitive action lease expires before explicit response-loss reconciliation; expected RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING, actual COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST. New formal Workflow PostgreSQL regression passes.",
+  "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563"
+}

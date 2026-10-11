@@ -1,0 +1,18 @@
+{
+  "project": "sdar-verify-focused-revision-fe7b68a5-d5e8-457b-ad85-b40fe13b6968",
+  "source": "/tmp/sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563-wJ3QkC/source",
+  "sourceCommit": "59def84c97043481b3a5a9e026479c6a5c724bd9",
+  "runtimeInputSha256": "be698c00d6e29d540a6e2dcbcc08e04a45dd5803dbd2c5ca675f9406561912d0",
+  "baselineSha256": "3dac5970f980c200ee68cd901e553ffcecbab517c540783d309ac91bb802bcfa",
+  "command": [
+    "pnpm",
+    "test:integration",
+    "--",
+    "packages/runtime-control-persistence-postgres/test/task-revision-authority.integration.test.ts"
+  ],
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "scope": "focused_task_revision_on_fresh_owned_loopback_postgres",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

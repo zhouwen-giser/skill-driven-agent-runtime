@@ -42,6 +42,8 @@ Explicit typed composition stages retain construction/recovery order and one ins
 - PR36 review found that PostgreSQL plan reads omitted append-only readiness, so an idempotent return could lose a confirmation blocker. Both plan and confirmed-definition reads now hydrate durable planning readiness rather than accepting a fresh candidate assessment.
 - Deferred attempts previously committed separate GOWM roots before readiness and source CAS. PostgreSQL now saves all deferred attempts, readiness/snapshots, source CAS, final plan/targets and command effect in one fenced transaction. A planning failure is thrown only after its formal failed record commits.
 
+- Post-review frozen run `sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563` fails the existing P08 claim-COMMIT-response-loss integration case: a 120 ms Cognitive lease expires before expected reconciliation. New Workflow atomic regression passes. Runtime/baseline remain unchanged and cleanup exits 0; all failed-stage raw hashes are retained in `review-fixes/failed-full/`. Unchanged frozen-source focused P08 runs 10/10 PASS on fresh owned PostgreSQL. Recovery fixtures now retain the existing default 10-second nominal test lease, and explicitly expire it with a checked one-row SQL update; all reconciliation/replay assertions stay intact. A new full freeze is required.
+
 ## 7. Decision Log
 
 - D1: Preserve APIs, wire schemas, error codes, defaults, migrations, dependencies and protocol pins (ADR-161).
@@ -53,6 +55,8 @@ Explicit typed composition stages retain construction/recovery order and one ins
 
 - D7: Reload authoritative PostgreSQL readiness for idempotent plan/confirmed-definition reads; preserve persisted blockers and confirmation status.
 - D8: Use an optional formal atomic persistence port backed by one PostgreSQL transaction. Existing repository methods remain compatible, candidate-only ports remain writer-free, command fencing and device ownership precede writes.
+
+- D9: Recovery fixtures control expiry through `expireAction`, rather than depending on unrelated I/O completing within 120 ms. Use the existing nominal test lease and assert explicit expiry changes one pending action. Production lease/defaults and every state/replay assertion remain unchanged.
 
 ## 8. Implementation Steps
 

@@ -1,0 +1,48 @@
+Scope: all 2 workspace projects
+✓ Lockfile passes supply-chain policies (verified 20h ago)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +290
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 290, reused 0, downloaded 0, added 0
+Progress: resolved 290, reused 0, downloaded 18, added 17
+Progress: resolved 290, reused 0, downloaded 110, added 108
+Progress: resolved 290, reused 0, downloaded 248, added 247
+Progress: resolved 290, reused 0, downloaded 284, added 284
+Progress: resolved 290, reused 0, downloaded 287, added 287
+Progress: resolved 290, reused 0, downloaded 288, added 288
+[WARN] GET https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz error (ECONNRESET). Will retry in 10 seconds. 2 retries left.
+Progress: resolved 290, reused 0, downloaded 289, added 288
+Progress: resolved 290, reused 0, downloaded 289, added 289
+Progress: resolved 290, reused 0, downloaded 290, added 289
+Progress: resolved 290, reused 0, downloaded 290, added 290, done
+.../node_modules/msgpackr-extract install$ node-gyp-build-optional-packages
+.../esbuild@0.28.1/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.28.1/node_modules/esbuild postinstall: Done
+.../node_modules/msgpackr-extract install: Done
+
+dependencies:
++ @a2a-js/sdk 1.0.0-beta.0
++ @langchain/core 1.2.2
++ @langchain/langgraph 1.4.7
++ @modelcontextprotocol/client 2.0.0-beta.4
++ @modelcontextprotocol/sdk 1.29.0
++ ajv 8.20.0
++ bullmq 5.80.1
++ express 5.2.1
++ pg 8.22.0
++ zod 4.4.3
+
+devDependencies:
++ @eslint/js 10.0.1
++ @types/express 5.0.6
++ @types/node 26.1.1
++ @types/pg 8.20.0
++ eslint 10.7.0
++ prettier 3.9.5
++ tsx 4.23.0
++ typescript 6.0.3
++ typescript-eslint 8.63.0
++ vitest 4.1.10
+
+Done in 22.5s using pnpm v11.7.0
