@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 
-import { Ajv2020 } from 'ajv/dist/2020.js';
 import { z } from 'zod';
+
+import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
+import { validateSmppPublicContract } from './smpp-public-contract.js';
 
 import type { FrozenBusinessEventsClient } from './business-events-client.js';
 import {
@@ -213,6 +215,8 @@ export interface SmppTaskBusinessOptions extends SmppBusinessEndpoint {
   readonly now: () => string;
   readonly expectedProviderId: string;
   readonly expectedResourceId: string;
+  readonly expectedExecutionId?: string;
+  readonly expectedOperationName?: string;
   readonly mutationAuthority?: SmppBusinessMutationAuthority;
   readonly businessEvents?: FrozenBusinessEventsClient;
 }
@@ -226,6 +230,8 @@ export class SmppTaskBusinessClient {
   readonly #now: () => string;
   readonly #providerId: string;
   readonly #resourceId: string;
+  readonly #executionId: string | undefined;
+  readonly #operationName: string | undefined;
   readonly #mutationAuthority: SmppBusinessMutationAuthority | undefined;
   readonly #businessEvents: FrozenBusinessEventsClient | undefined;
   #methods: Readonly<Record<string, string>> | undefined;
@@ -240,6 +246,8 @@ export class SmppTaskBusinessClient {
     this.#now = options.now;
     this.#providerId = options.expectedProviderId;
     this.#resourceId = options.expectedResourceId;
+    this.#executionId = options.expectedExecutionId;
+    this.#operationName = options.expectedOperationName;
     this.#mutationAuthority = options.mutationAuthority;
     this.#businessEvents = options.businessEvents;
   }
@@ -329,6 +337,8 @@ export class SmppTaskBusinessClient {
         if (context?.contextRevision !== revision)
           throw new SmppBusinessError('SMPP_CONTEXT_INCOMPLETE');
         this.#validateIdentity(context.identity, input.taskId);
+        if (!validateSmppPublicContract('context', context))
+          throw new SmppBusinessError('SMPP_BUSINESS_SCHEMA_INVALID');
         for (const item of objects.values()) {
           if (
             item.value.identity.executionId !== context.identity.executionId ||
@@ -398,7 +408,6 @@ export class SmppTaskBusinessClient {
       if (next.context.contextRevision < current.context.contextRevision)
         throw new SmppBusinessError('SMPP_CONTEXT_REVISION_REGRESSED');
       lastSequence = sequence;
-      if (next.context.contextRevision === current.context.contextRevision) continue;
       current = next;
       yield current;
     }
@@ -432,6 +441,8 @@ export class SmppTaskBusinessClient {
       throw new SmppBusinessError('SMPP_ARTIFACT_REVISION_MISMATCH');
     }
     this.#validateIdentity(parsed.data.artifact.identity, input.taskId);
+    if (!validateSmppPublicContract('artifact', parsed.data.artifact))
+      throw new SmppBusinessError('SMPP_BUSINESS_SCHEMA_INVALID');
     // Content is not assumed complete merely because metadata was returned.
     if (parsed.data.content !== undefined) {
       const content = parsed.data.content;
@@ -479,6 +490,8 @@ export class SmppTaskBusinessClient {
       )
         throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_UNAVAILABLE');
       this.#validateIdentity(parsed.data.artifact.identity, input.taskId);
+      if (!validateSmppPublicContract('artifact', parsed.data.artifact))
+        throw new SmppBusinessError('SMPP_BUSINESS_SCHEMA_INVALID');
       const part = parsed.data.content;
       const length = Number(part.totalBytes);
       if (
@@ -569,6 +582,13 @@ export class SmppTaskBusinessClient {
     ) {
       throw new SmppBusinessError('SMPP_INPUT_NOT_CURRENT');
     }
+    const nativeRequest = task.data.inputRequests?.[input.requestKey];
+    if (
+      !isRecord(nativeRequest) ||
+      !isRecord(nativeRequest['params']) ||
+      !isDeepStrictEqual(nativeRequest['params']['requestedSchema'], exact.value['inputSchema'])
+    )
+      throw new SmppBusinessError('SMPP_INPUT_SCHEMA_CONFLICT');
     await this.#authorize(input.taskId, input.executionId, 'input_response');
     const raw = await this.#client.request({
       ...this.#endpoint,
@@ -710,6 +730,8 @@ export class SmppTaskBusinessClient {
     taskId: string,
   ): void {
     this.#validateIdentity(item.value.identity, taskId);
+    if (!validateSmppPublicContract(item.kind, item.value))
+      throw new SmppBusinessError('SMPP_BUSINESS_SCHEMA_INVALID');
     const id = businessVersionId(item);
     if (!id) throw new SmppBusinessError('SMPP_SNAPSHOT_OBJECT_INVALID');
     const key = JSON.stringify([item.kind, id, item.value.revision]);
@@ -717,6 +739,15 @@ export class SmppTaskBusinessClient {
     if (old && !isDeepStrictEqual(old, item))
       throw new SmppBusinessError('SMPP_SNAPSHOT_OBJECT_CONFLICT');
     store.set(key, item);
+    if (
+      store.size > 1024 ||
+      [...store.values()].reduce(
+        (total, object) => total + Buffer.byteLength(JSON.stringify(object)),
+        0,
+      ) >
+        16 * 1_048_576
+    )
+      throw new SmppBusinessError('SMPP_CONTEXT_CONTENT_LIMIT');
   }
 
   #checkExecution(view: SmppBusinessView, taskId: string, executionId: string): void {
@@ -732,6 +763,11 @@ export class SmppTaskBusinessClient {
       identity.resourceId !== this.#resourceId
     )
       throw new SmppBusinessError('SMPP_BUSINESS_IDENTITY_MISMATCH');
+    if (
+      (this.#executionId !== undefined && identity.executionId !== this.#executionId) ||
+      (this.#operationName !== undefined && identity.operationName !== this.#operationName)
+    )
+      throw new SmppBusinessError('SMPP_BUSINESS_EXECUTION_MISMATCH');
   }
 
   async #requireMethod(key: string, method: string): Promise<void> {
@@ -754,8 +790,9 @@ export class SmppTaskBusinessClient {
   #validateInputSchema(schema: unknown, value: unknown): void {
     try {
       if (typeof schema !== 'boolean' && !isRecord(schema)) throw new Error('invalid-schema');
-      const validator = new Ajv2020({ strict: false, allErrors: true }).compile(schema);
-      if (!validator(value)) throw new Error('input-schema-rejected');
+      const validator = new AjvJsonSchemaValidator({ strict: false });
+      if (!validator.checkSchema(schema).valid || !validator.validate(schema, value).valid)
+        throw new Error('input-schema-rejected');
     } catch {
       throw new SmppBusinessError('SMPP_BUSINESS_INPUT_SCHEMA_INVALID');
     }

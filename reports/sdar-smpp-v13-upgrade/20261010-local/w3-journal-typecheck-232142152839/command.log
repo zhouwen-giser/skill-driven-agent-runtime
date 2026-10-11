@@ -1,0 +1,9 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/src/task-business-command-repository.ts(395,7): error TS2769: No overload matches this call.
+  Overload 1 of 7, '(queryTextOrConfig: string | QueryConfig<any[]>, values?: any[] | undefined): Promise<QueryResult<{ intent_id: string; }>>', gave the following error.
+    Argument of type 'readonly unknown[]' is not assignable to parameter of type 'any[]'.
+      The type 'readonly unknown[]' is 'readonly' and cannot be assigned to the mutable type 'any[]'.
+  Overload 2 of 7, '(queryTextOrConfig: string | QueryConfig<any[]>, callback: (err: Error, result: QueryResult<{ intent_id: string; }>) => void): void', gave the following error.
+    Argument of type 'readonly unknown[]' is not assignable to parameter of type '(err: Error, result: QueryResult<{ intent_id: string; }>) => void'.
+      Type 'readonly unknown[]' provides no match for the signature '(err: Error, result: QueryResult<{ intent_id: string; }>): void'.
+[ELIFECYCLE] Command failed with exit code 2.

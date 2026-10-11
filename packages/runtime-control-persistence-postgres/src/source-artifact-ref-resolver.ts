@@ -1,4 +1,10 @@
 import type { Pool } from 'pg';
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { evidenceTaskScope } from './gowm-evidence-scope.js';
+import {
+  buildTaskBusinessSourceArtifact,
+  taskBusinessContentFromStoredObject,
+} from '../../domain/src/task-business-evidence.js';
 
 import {
   assertRuntimeSourceArtifactRef,
@@ -30,18 +36,81 @@ export interface ResolvedRuntimeSourceArtifact extends CanonicalRuntimeSourceArt
 }
 
 /**
- * Resolves only the four frozen Runtime PostgreSQL ArtifactRef routes. SQL identifiers and JSON
+ * Resolves only the allowlisted Runtime PostgreSQL ArtifactRef routes. SQL identifiers and JSON
  * paths are fixed by the parsed route; source identities are always supplied as query parameters.
  */
 export class PostgresRuntimeSourceArtifactResolver {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
+  }
+
+  async resolveTaskBusiness(
+    taskId: string,
+    ref: ArtifactRef,
+  ): Promise<ResolvedRuntimeSourceArtifact> {
+    const address = validateRuntimeSourceArtifactRef(ref);
+    if (address.sourceTable !== 'remote_task_observation')
+      throw new RuntimeSourceArtifactResolutionError(ref.uri);
+    const scope = evidenceTaskScope(this.deviceScope, 3);
+    const owner = await this.#pool.query(
+      `SELECT 1 FROM remote_task_observation observation
+       JOIN remote_task_binding binding ON binding.binding_id=observation.binding_id
+       JOIN agent_task task ON task.task_id=binding.agent_task_id
+       WHERE observation.observation_id=$1 AND task.task_id=$2 AND ${scope.predicate}`,
+      [address.sourceRecordId, taskId, ...scope.values],
+    );
+    if (owner.rowCount !== 1) throw new RuntimeSourceArtifactResolutionError(ref.uri);
+    return this.resolve(ref);
   }
 
   async resolve(ref: ArtifactRef): Promise<ResolvedRuntimeSourceArtifact> {
     const address = validateRuntimeSourceArtifactRef(ref);
+    if (address.sourceTable === 'remote_task_observation') {
+      const scope = evidenceTaskScope(this.deviceScope, 2);
+      const row = (
+        await this.#pool.query<{ payload_json: unknown; binding_id: string }>(
+          `SELECT observation.payload_json,observation.binding_id FROM remote_task_observation observation
+        JOIN remote_task_binding binding ON binding.binding_id=observation.binding_id JOIN agent_task task ON task.task_id=binding.agent_task_id
+        WHERE observation.observation_id=$1 AND ${scope.predicate} AND observation.payload_json->>'recordType' IN ('task_business.object','task_business.command','task_business.projection')`,
+          [address.sourceRecordId, ...scope.values],
+        )
+      ).rows[0];
+      if (row === undefined) throw new RuntimeSourceArtifactResolutionError(ref.uri);
+      const payload = row.payload_json as Readonly<Record<string, unknown>>;
+      if (payload['recordType'] !== 'task_business.object') {
+        const canonical = buildRuntimeSourceArtifact({
+          sourceTable: 'remote_task_observation',
+          sourceRecordId: address.sourceRecordId,
+          sourceVersion: 1,
+          value: row.payload_json as EvidenceJsonValue,
+        });
+        assertRuntimeSourceArtifactRef(ref, canonical);
+        return Object.freeze({
+          ...canonical,
+          value: JSON.parse(canonical.canonicalJson) as EvidenceJsonValue,
+        });
+      }
+      const chunks = await this.#pool.query<{ payload_json: unknown }>(
+        `SELECT payload_json FROM remote_task_observation WHERE binding_id=$1
+        AND payload_json->>'recordType'='task_business.content' AND payload_json->>'digest'=($2::jsonb->>'digest') ORDER BY (payload_json->>'offset')::integer LIMIT 172`,
+        [row.binding_id, JSON.stringify(row.payload_json)],
+      );
+      const content = taskBusinessContentFromStoredObject(
+        row.payload_json,
+        chunks.rows.map((chunk) => chunk.payload_json),
+      );
+      const canonical = buildTaskBusinessSourceArtifact(address.sourceRecordId, content);
+      assertRuntimeSourceArtifactRef(ref, canonical);
+      return Object.freeze({
+        ...canonical,
+        value: JSON.parse(canonical.canonicalJson) as EvidenceJsonValue,
+      });
+    }
     const query = resolutionQuery(address);
     const result = await this.#pool.query<{ value: unknown }>(query.sql, query.parameters);
     const value = result.rows[0]?.value;
@@ -105,5 +174,9 @@ function resolutionQuery(address: RuntimeSourceArtifactAddress): ResolutionQuery
               WHERE pattern_id=$1 AND $2::integer=1`,
         parameters,
       });
+    case 'remote_task_observation':
+      throw new RuntimeSourceArtifactResolutionError(
+        'remote_task_observation is resolved through immutable chunks',
+      );
   }
 }

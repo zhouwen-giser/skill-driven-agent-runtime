@@ -1,0 +1,53 @@
+{"step":"owner-export","startedAt":"2026-10-10T19:15:18.099Z"}
+{"step":"owner-extract","startedAt":"2026-10-10T19:15:18.292Z"}
+{"step":"postgres-start","startedAt":"2026-10-10T19:15:21.319Z"}
+6b801409867cdc57394e97de36ec896cf33f2d3b5901be823250f21c5e45198f
+{"step":"redis-start","startedAt":"2026-10-10T19:15:21.837Z"}
+91b244342ade64e3fa0d6a54848bfd6dd3f24e23223a76f321498ccc77312535
+{"step":"owner-core-bootstrap","startedAt":"2026-10-10T19:15:36.329Z"}
+isolated core bootstrap PASS
+{"step":"owner-domain-install","startedAt":"2026-10-10T19:15:38.975Z"}
+INSTALL PASS
+{"step":"formal-navigation-recon-shared-storage","startedAt":"2026-10-10T19:15:41.502Z"}
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-10T19:16:05.661Z"}
+{"event":"formal_native_diagnostics","operation":"vehicle_navigate","diagnostics":{"task":[{"task_id":"d20b6529-ecd7-4913-b90d-c7414e1006df","phase":"queued","phase_message":"Task queued.","error_code":null},{"task_id":"14621e4c-ffa7-496c-bb98-e63e6b4a681e","phase":"completed","phase_message":"Task completed.","error_code":null},{"task_id":"0611c8d5-6e25-491b-9e0c-2ee11f07aad5","phase":"awaiting_plan_confirmation","phase_message":"Plan confirmation required.","error_code":null}],"binding":[{"binding_id":"remote-task-binding-mcp-invocation-f7e0a3bb-ce45-4d8f-80b8-ab29f0efd184","protocol_status":"completed","local_state":"reentered","version":"27","last_safe_error_code":null}],"controls":[{"event_type":"task.completed","status":"processed"}],"continuationSnapshots":[{"workflow_instance_id":"instance-control-task-14621e4c-ffa7-496c-bb98-e63e6b4a681e-0-17053d80-8407-4c73-a777-a9568586dfa2","lifecycle":"terminal","state_version":"1"}],"continuationWaits":[{"snapshot_id":"workflow-continuation-snapshot-573431c5-d874-4055-a3cc-dae46e2f8139","binding_id":"remote-task-binding-mcp-invocation-f7e0a3bb-ce45-4d8f-80b8-ab29f0efd184"}],"instances":[{"instance_id":"instance-control-task-14621e4c-ffa7-496c-bb98-e63e6b4a681e-0-17053d80-8407-4c73-a777-a9568586dfa2","status":"succeeded","errors_json":{}}],"inputs":[],"observations":[{"record_type":null,"count":13},{"record_type":"task_business.projection","count":5},{"record_type":"task_business.content","count":5},{"record_type":"task_business.object","count":6},{"record_type":"task_business.command","count":6}],"commands":[{"intent_id":"business-navigation-a652697922161e74592a071f748973aaefe7220f9868bdb1bb0235c077098d7f","state":"confirmed","error_code":null}],"calls":["server/discover","tools/list","io.sdar/taskExecution/checkAvailability","io.sdar/taskExecution/checkAvailability","tools/call","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","io.sdar/taskBusiness/interventions/apply","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","io.sdar/taskExecution/checkAvailability"]}}
+{"event":"provider_binding_reconciliation.failed","serverId":"smpp-1a40886e-f666-4c29-9140-33e66564ba7e","errorCode":"TASK_EXECUTION_FAILED"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"provider_binding_reconciliation.failed","serverId":"smpp-1a40886e-f666-4c29-9140-33e66564ba7e","errorCode":"TASK_EXECUTION_FAILED"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-10T19:16:22.967Z"}
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 34750[2mms[22m[39m
+[31m     [31m×[31m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 17707[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch [33m 17041[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mError[22m: FORMAL_HTTP_FAILURE:/api/v1/tasks/0611c8d5-6e25-491b-9e0c-2ee11f07aad5/actions:400:{"error":{"code":"REQUEST_VALIDATION_FAILED","message":"Request validation failed.","details":[{"expected":"string","code":"invalid_type","path":["messageText"],"message":"Invalid input: expected string, received undefined"}]}}[39m
+[36m [2m❯[22m jsonRequest apps/server/test/smpp-task-business.e2e.test.ts:[2m1048:11[22m[39m
+    [90m1046|[39m   const raw: unknown = content === '' ? undefined : JSON.parse(content…
+    [90m1047|[39m   [35mif[39m ([33m![39mresponse[33m.[39mok)
+    [90m1048|[39m     [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   |[39m           [31m^[39m
+    [90m1049|[39m       `FORMAL_HTTP_FAILURE:${new URL(url).pathname}:${response.status}…
+    [90m1050|[39m     )[33m;[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m808:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 03:15:41
+[2m   Duration [22m 41.20s[2m (transform 4.34s, setup 0ms, import 6.28s, tests 34.75s, environment 0ms)[22m
+
+{"report":"reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-23e17d53-fdd0-46ee-a246-934f66492dc9/result.json","status":"FAIL","cleanup":[{"id":"91b244342ade64e3fa0d6a54848bfd6dd3f24e23223a76f321498ccc77312535","exitCode":0},{"id":"6b801409867cdc57394e97de36ec896cf33f2d3b5901be823250f21c5e45198f","exitCode":0}],"site":"NOT_RUN"}
+OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1

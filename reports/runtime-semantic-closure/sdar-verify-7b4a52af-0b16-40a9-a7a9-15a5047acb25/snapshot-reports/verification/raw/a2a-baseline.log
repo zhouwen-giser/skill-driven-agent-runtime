@@ -1,0 +1,2 @@
+$ node scripts/verify-a2a-baseline.mjs
+{"specVersion":"1.0.1","wireVersion":"1.0","sdk":"@a2a-js/sdk@1.0.0-beta.0","sdkStability":"beta","tckCommit":"5996b79f9cefa6fc390980e383e358a66fb9e49e","tckScope":"http_json/must","tests":235,"passed":74,"skipped":161,"failures":0,"errors":0,"mustCompatibility":"100.0%"}

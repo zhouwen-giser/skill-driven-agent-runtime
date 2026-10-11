@@ -1,0 +1,30 @@
+$ eslint .
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/src/business-events.ts
+  435:14  error  void is not valid as a constituent in a union type  @typescript-eslint/no-invalid-void-type
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/src/task-business-events.ts
+  97:15  error  Unnecessary optional chain on a non-nullish value  @typescript-eslint/no-unnecessary-condition
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/test/task-business-sync.unit.test.ts
+  146:12  error  A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.
+Consider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. 
+If a function does not access `this`, it can be annotated with `this: void`  @typescript-eslint/unbound-method
+  155:12  error  A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.
+Consider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. 
+If a function does not access `this`, it can be annotated with `this: void`  @typescript-eslint/unbound-method
+  196:56  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function                                                                                                                                                                                                                          @typescript-eslint/no-confusing-void-expression
+  207:28  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function                                                                                                                                                                                                                          @typescript-eslint/no-confusing-void-expression
+
+/home/sz/code/skill-driven-agent-runtime/packages/mcp-adapter/src/frozen-v1-mcp-client.ts
+  313:15  error  Invalid operand for a '+' operation. Operands must each be a number or string. Got `any`     @typescript-eslint/restrict-plus-operands
+  313:26  error  Unsafe member access .byteLength on an `any` value                                           @typescript-eslint/no-unsafe-member-access
+  321:19  error  Unsafe argument of type `any` assigned to a parameter of type `Uint8Array<ArrayBufferLike>`  @typescript-eslint/no-unsafe-argument
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/src/task-business-repository.ts
+  63:9  error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+
+✖ 10 problems (10 errors, 0 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+
+[ELIFECYCLE] Command failed with exit code 1.

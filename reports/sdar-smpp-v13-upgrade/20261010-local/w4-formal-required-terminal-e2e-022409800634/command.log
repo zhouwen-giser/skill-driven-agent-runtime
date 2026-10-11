@@ -1,0 +1,133 @@
+{"scope":"isolated_loopback","project":"sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a","postgresPort":36051,"redisPort":40555,"site":"NOT_RUN"}
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 762B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 1.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.1s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 1.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.3s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.1s done
+#9 DONE 0.1s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:b18e87a2784cad5d4274f4803e45024025080009747de5c9dc3fd1e759e200c9 0.0s done
+#13 exporting config sha256:a001f80b782fd15a670e11cc915455ced05360c770de3f33fbc5e28ba70b6d6e 0.1s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.1s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-local Creating 
+ Network sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-local Created 
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-postgres-data Creating 
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-postgres-data Created 
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-redis-data Creating 
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-redis-data Created 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Creating 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Creating 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Created 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Created 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Starting 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Starting 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Started 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Started 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Waiting 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Waiting 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Healthy 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Healthy 
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"f7bba6da-f57f-49a6-b8c8-3974114fe804","workflowPlanId":"plan-task-f7bba6da-f57f-49a6-b8c8-3974114fe804-25a8c567-8967-47d3-a460-6675cc283057","errorCode":"MODEL_INVOCATION_FAILED","errorSummary":"Configured stage model invocation failed."}
+{"event":"formal_model_fixture_failure","operation":"vehicle_navigate","failures":["Unexpected native Workflow status: {\"runtime\":{\"code\":\"GOVERNED_CONTROL_CONSTRAINTS_INVALID\",\"message\":\"The frozen Capability lacks exact confirmation, physical-side-effect, provider, Skill, or public resource policy.\"}}\n+ actual - expected\n\n+ 'failed'\n- 'succeeded'\n"]}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"033a3449-b52b-4f94-b7ac-15f3a349417f","workflowPlanId":"plan-task-033a3449-b52b-4f94-b7ac-15f3a349417f-cb246909-0a61-4707-af52-1b2623fde0bf","errorCode":"MODEL_INVOCATION_FAILED","errorSummary":"Configured stage model invocation failed."}
+{"event":"formal_model_fixture_failure","operation":"vehicle_area_recon","failures":["Unexpected native Workflow status: {\"runtime\":{\"code\":\"GOVERNED_CONTROL_CONSTRAINTS_INVALID\",\"message\":\"The frozen Capability lacks exact confirmation, physical-side-effect, provider, Skill, or public resource policy.\"}}\n+ actual - expected\n\n+ 'failed'\n- 'succeeded'\n"]}
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 46635[2mms[22m[39m
+[31m     [31m×[31m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 23401[2mms[22m[39m
+[31m     [31m×[31m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 23231[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mMemoryApplicationError[22m: Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth[39m
+[36m [2m❯[22m assertDurableAdmission packages/application/src/memory-service.ts:[2m513:11[22m[39m
+    [90m511|[39m function assertDurableAdmission(value: Pick<MemoryRefinement, 'durabil…
+    [90m512|[39m   [35mif[39m (value[33m.[39mdurability [33m!==[39m [32m'durable'[39m)
+    [90m513|[39m     [35mthrow[39m [35mnew[39m [33mMemoryApplicationError[39m(
+    [90m   |[39m           [31m^[39m
+    [90m514|[39m       [32m'MEMORY_DURABILITY_NOT_ADMITTED'[39m[33m,[39m
+    [90m515|[39m       `Only durable knowledge enters long-term Memory: ${value.durabil…
+[90m [2m❯[22m MemoryService.refine packages/application/src/memory-service.ts:[2m224:5[22m[39m
+[90m [2m❯[22m TaskService.fail packages/application/src/task-service.ts:[2m1363:5[22m[39m
+[90m [2m❯[22m apps/server/src/runtime.ts:[2m4782:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 02:24:28
+[2m   Duration [22m 52.91s[2m (transform 4.15s, setup 0ms, import 6.10s, tests 46.63s, environment 0ms)[22m
+
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Stopping 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Stopping 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Stopped 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Stopped 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Removing 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Removing 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-postgres-1 Removed 
+ Container sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a-redis-1 Removed 
+ Network sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-local Removing 
+ Network sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-local Removed 
+file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77
+  if (result.status !== 0) throw new Error(`E2E_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+                                 ^
+
+Error: E2E_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project e2e apps/server/test/smpp-task-business.e2e.test.ts
+    at run (file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77:34)
+    at file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:27:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-postgres-data Removing 
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-redis-data Removing 
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-postgres-data Removed 
+ Volume sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a_sdar-redis-data Removed 
+{"project":"sdar-verify-smpp-v13-208a2318-ae7d-4fee-8cc2-26cfeb0a1e8a","cleanupExitCode":0,"signal":null}

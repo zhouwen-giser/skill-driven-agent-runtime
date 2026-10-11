@@ -1,0 +1,53 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/src/task-business-command-repository.ts(193,7): error TS2769: No overload matches this call.
+  Overload 1 of 7, '(queryTextOrConfig: string | QueryConfig<any[]>, values?: any[] | undefined): Promise<QueryResult<{ payload_json: unknown; }>>', gave the following error.
+    Argument of type 'readonly unknown[]' is not assignable to parameter of type 'any[]'.
+      The type 'readonly unknown[]' is 'readonly' and cannot be assigned to the mutable type 'any[]'.
+  Overload 2 of 7, '(queryTextOrConfig: string | QueryConfig<any[]>, callback: (err: Error, result: QueryResult<{ payload_json: unknown; }>) => void): void', gave the following error.
+    Argument of type 'readonly unknown[]' is not assignable to parameter of type '(err: Error, result: QueryResult<{ payload_json: unknown; }>) => void'.
+      Type 'readonly unknown[]' provides no match for the signature '(err: Error, result: QueryResult<{ payload_json: unknown; }>): void'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(420,41): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(420,41): error TS7053: Element implicitly has an 'any' type because expression of type '"recordType"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'recordType' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(422,26): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(422,26): error TS7053: Element implicitly has an 'any' type because expression of type '"projection"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'projection' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(430,18): error TS18049: 'artifact' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(430,18): error TS7053: Element implicitly has an 'any' type because expression of type '"uri"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'uri' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(432,77): error TS18049: 'artifact' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(432,77): error TS7053: Element implicitly has an 'any' type because expression of type '"uri"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'uri' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1034,16): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1034,16): error TS7053: Element implicitly has an 'any' type because expression of type '"recordType"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'recordType' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1036,70): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1036,70): error TS7053: Element implicitly has an 'any' type because expression of type '"digest"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'digest' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1040,17): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1040,17): error TS7053: Element implicitly has an 'any' type because expression of type '"digest"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'digest' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1041,17): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1041,17): error TS7053: Element implicitly has an 'any' type because expression of type '"refKey"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'refKey' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1042,17): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1042,17): error TS7053: Element implicitly has an 'any' type because expression of type '"offset"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'offset' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1043,21): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1043,21): error TS7053: Element implicitly has an 'any' type because expression of type '"totalBytes"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'totalBytes' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1055,5): error TS2322: Type 'EvidenceJsonValue | undefined' is not assignable to type 'EvidenceJsonValue'.
+  Type 'undefined' is not assignable to type 'EvidenceJsonValue'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1058,21): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1058,21): error TS7053: Element implicitly has an 'any' type because expression of type '"command"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'command' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1083,9): error TS2322: Type 'ArtifactRef' is not assignable to type 'EvidenceJsonValue'.
+  Type 'ArtifactRef' is not assignable to type 'Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+    Index signature for type 'string' is missing in type 'ArtifactRef'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1088,22): error TS18049: 'payload' is possibly 'null' or 'undefined'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1088,22): error TS7053: Element implicitly has an 'any' type because expression of type '"projection"' can't be used to index type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+  Property 'projection' does not exist on type 'string | number | boolean | readonly EvidenceJsonValue[] | Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+packages/runtime-control-application/src/mcp-capability-evidence-projector.ts(1098,7): error TS2322: Type 'ArtifactRef' is not assignable to type 'EvidenceJsonValue'.
+  Type 'ArtifactRef' is not assignable to type 'Readonly<{ [key: string]: EvidenceJsonValue; }>'.
+    Index signature for type 'string' is missing in type 'ArtifactRef'.
+[ELIFECYCLE] Command failed with exit code 2.

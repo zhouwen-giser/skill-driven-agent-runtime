@@ -1,0 +1,8 @@
+$ eslint .
+
+/tmp/sdar-verify-5508ab7c-80d7-4fe2-ab81-26245541c215-GPcywZ/source/packages/application/test/plan-preparation-processor.unit.test.ts
+  50:25  error  Unnecessary optional chain on a non-nullish value  @typescript-eslint/no-unnecessary-condition
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

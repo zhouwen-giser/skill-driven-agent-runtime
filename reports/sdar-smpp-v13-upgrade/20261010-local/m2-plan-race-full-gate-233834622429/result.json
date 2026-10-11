@@ -1,0 +1,16 @@
+{
+  "command": [
+    "pnpm",
+    "verify:isolated"
+  ],
+  "cwd": "/tmp/sdar-smpp-v13-m2-plan-race-repair",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "6d215da7de637b4688662bfc6c6c815fc6e0c1a9a48a7899d0428ddfb20c521b",
+  "startedAt": "2026-10-10T23:38:34.622429+08:00",
+  "finishedAt": "2026-10-10T23:38:37.820451+08:00",
+  "durationSeconds": 3.198022,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "5b316657b8e33b27f4c9d33c33952d3e99fe9d69da2e724afca1ddb44c57d773",
+  "environment": "local_source_or_loopback_fixture_only"
+}

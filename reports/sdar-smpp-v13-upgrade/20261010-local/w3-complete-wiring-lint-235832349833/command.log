@@ -1,0 +1,53 @@
+
+/home/sz/code/skill-driven-agent-runtime/apps/console/src/TaskBusinessPanel.tsx
+   10:32  error  ["items"] is better written in dot notation                                                                                        @typescript-eslint/dot-notation
+   60:20  error  ["status"] is better written in dot notation                                                                                       @typescript-eslint/dot-notation
+   61:34  error  ["allowedInterventions"] is better written in dot notation                                                                         @typescript-eslint/dot-notation
+   62:20  error  ["allowedInterventions"] is better written in dot notation                                                                         @typescript-eslint/dot-notation
+   75:43  error  ["bindingId"] is better written in dot notation                                                                                    @typescript-eslint/dot-notation
+   77:34  error  ["status"] is better written in dot notation                                                                                       @typescript-eslint/dot-notation
+   77:76  error  ["contextRevision"] is better written in dot notation                                                                              @typescript-eslint/dot-notation
+   79:45  error  ["identity"] is better written in dot notation                                                                                     @typescript-eslint/dot-notation
+   80:45  error  ["executionSummary"] is better written in dot notation                                                                             @typescript-eslint/dot-notation
+   82:46  error  'projection['sourceTime'] ?? 'unavailable'' will use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+   82:57  error  ["sourceTime"] is better written in dot notation                                                                                   @typescript-eslint/dot-notation
+   83:48  error  ["sdarReceivedAt"] is better written in dot notation                                                                               @typescript-eslint/dot-notation
+   85:45  error  ["quality"] is better written in dot notation                                                                                      @typescript-eslint/dot-notation
+   91:47  error  ["interactionRequests"] is better written in dot notation                                                                          @typescript-eslint/dot-notation
+   92:47  error  ["allowedInterventions"] is better written in dot notation                                                                         @typescript-eslint/dot-notation
+  100:42  error  ["objects"] is better written in dot notation                                                                                      @typescript-eslint/dot-notation
+  100:67  error  ["objects"] is better written in dot notation                                                                                      @typescript-eslint/dot-notation
+  103:47  error  ["ref"] is better written in dot notation                                                                                          @typescript-eslint/dot-notation
+  104:43  error  ["digest"] is better written in dot notation                                                                                       @typescript-eslint/dot-notation
+  107:37  error  ["kind"] is better written in dot notation                                                                                         @typescript-eslint/dot-notation
+  107:63  error  ["id"] is better written in dot notation                                                                                           @typescript-eslint/dot-notation
+  107:87  error  ["revision"] is better written in dot notation                                                                                     @typescript-eslint/dot-notation
+  108:42  error  ["resolution"] is better written in dot notation                                                                                   @typescript-eslint/dot-notation
+  114:91  error  ["bindingId"] is better written in dot notation                                                                                    @typescript-eslint/dot-notation
+  155:62  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function                 @typescript-eslint/no-confusing-void-expression
+  159:57  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function                 @typescript-eslint/no-confusing-void-expression
+  171:40  error  ["state"] is better written in dot notation                                                                                        @typescript-eslint/dot-notation
+  173:46  error  ["intent"] is better written in dot notation                                                                                       @typescript-eslint/dot-notation
+  176:74  error  ["intentId"] is better written in dot notation                                                                                     @typescript-eslint/dot-notation
+  194:39  error  ["intent"] is better written in dot notation                                                                                       @typescript-eslint/dot-notation
+  196:41  error  ["intentId"] is better written in dot notation                                                                                     @typescript-eslint/dot-notation
+  198:79  error  ["state"] is better written in dot notation                                                                                        @typescript-eslint/dot-notation
+  204:78  error  ["intentId"] is better written in dot notation                                                                                     @typescript-eslint/dot-notation
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/src/task-business-commands.ts
+  644:31  error  Unnecessary conditional, value is always truthy  @typescript-eslint/no-unnecessary-condition
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/test/task-business-commands.unit.test.ts
+  148:7  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  160:9  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  168:7  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+/home/sz/code/skill-driven-agent-runtime/packages/domain/test/task-business-command.unit.test.ts
+  56:20  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/test/task-business-control-fixture.ts
+  245:453  error  Parsing error: ',' expected
+
+✖ 39 problems (39 errors, 0 warnings)
+  36 errors and 0 warnings potentially fixable with the `--fix` option.
+

@@ -2,6 +2,7 @@ import {
   EVIDENCE_RECORD_CATALOG,
   createCanonicalEvidenceEnvelope,
   hashCanonicalEvidenceJson,
+  buildRuntimeSourceArtifact,
   type CanonicalEvidenceEnvelope,
   type EvidenceJsonValue,
   type EvidenceQualityIssue,
@@ -69,6 +70,7 @@ interface McpCapabilityEmitInput {
   readonly occurredAt: string;
   readonly payload: RuntimeCoreSourceRow;
   readonly refs: readonly string[];
+  readonly artifactRefs?: readonly string[];
   readonly capabilityBindingId?: string;
   readonly remoteTaskBindingId?: string;
   readonly skillExecutionId?: string;
@@ -160,6 +162,7 @@ export class McpCapabilityEvidenceProjector {
         deliveryGuarantee: catalog.deliveryGuarantee,
         evaluationRole: catalog.evaluationRole,
         evidenceRefs: input.refs,
+        ...(input.artifactRefs === undefined ? {} : { artifactRefs: input.artifactRefs }),
         ...(input.capabilityBindingId === undefined
           ? {}
           : { capabilityBindingId: input.capabilityBindingId }),
@@ -411,6 +414,24 @@ export class McpCapabilityEvidenceProjector {
         remoteTaskBindingId: bindingId,
       });
     }
+    const contentRefs = new Map<string, string>();
+    for (const row of snapshot.observations) {
+      const payload = row['payload_json'];
+      if (!isObject(payload) || payload['recordType'] !== 'task_business.projection') continue;
+      const projection = payload['projection'];
+      if (!isObject(projection) || !Array.isArray(projection['objects'])) continue;
+      const objects: readonly EvidenceJsonValue[] = projection['objects'];
+      for (const object of objects) {
+        if (!isObject(object)) continue;
+        const artifact = object['artifactRef'];
+        if (
+          typeof object['digest'] === 'string' &&
+          isObject(artifact) &&
+          typeof artifact['uri'] === 'string'
+        )
+          contentRefs.set(`${text(row, 'binding_id')}:${object['digest']}`, artifact['uri']);
+      }
+    }
     for (const row of snapshot.observations) {
       const id = text(row, 'observation_id');
       const bindingId = text(row, 'binding_id');
@@ -421,10 +442,27 @@ export class McpCapabilityEvidenceProjector {
         });
         continue;
       }
+      const business = businessObservation(row, contentRefs);
+      const skillOutcomes = snapshot.existingEvidence
+        .filter((evidence) => evidence['record_type'] === 'runtime.outcome')
+        .map((evidence) => text(evidence, 'record_id'));
       await emit({
         type: 'mcp_task.observation',
         sourceId: id,
-        revision: row,
+        revision:
+          business === undefined
+            ? row
+            : {
+                observationId: id,
+                bindingId,
+                accepted: value(row, 'accepted'),
+                payloadHash: buildRuntimeSourceArtifact({
+                  sourceTable: 'remote_task_observation',
+                  sourceRecordId: id,
+                  sourceVersion: 1,
+                  value: value(row, 'payload_json'),
+                }).artifactRef.sha256,
+              },
         occurredAt: timestamp(row, 'observed_at'),
         payload: {
           observationId: id,
@@ -432,10 +470,12 @@ export class McpCapabilityEvidenceProjector {
           observationType: value(row, 'observation_type'),
           accepted: value(row, 'accepted'),
           source: row['observation_source'] ?? 'poll',
-          payload: value(row, 'payload_json'),
+          payload: business?.payload ?? value(row, 'payload_json'),
+          ...(business === undefined ? {} : { skillOutcomeEvidenceRefs: skillOutcomes }),
           workflowTrigger: false,
         },
-        refs: [bindingRef],
+        refs: compact(bindingRef, ...(business === undefined ? [] : skillOutcomes)),
+        ...(business === undefined ? {} : { artifactRefs: business.artifactRefs }),
         remoteTaskBindingId: bindingId,
       });
     }
@@ -514,6 +554,13 @@ export class McpCapabilityEvidenceProjector {
     for (const row of snapshot.observations.filter(
       (candidate) => candidate['observation_source'] === 'reconciliation',
     )) {
+      const businessPayload = row['payload_json'];
+      if (
+        isObject(businessPayload) &&
+        typeof businessPayload['recordType'] === 'string' &&
+        businessPayload['recordType'].startsWith('task_business.')
+      )
+        continue;
       const id = text(row, 'observation_id');
       const bindingId = text(row, 'binding_id');
       const observationRef = ref('mcp_task.observation', id);
@@ -994,8 +1041,92 @@ function skillExecutionRefs(
     )
     .map((row) => text(row, 'record_id'));
 }
-function isObject(value: EvidenceJsonValue): value is Readonly<Record<string, EvidenceJsonValue>> {
-  return value !== null && !Array.isArray(value) && typeof value === 'object';
+function isObject(
+  value: EvidenceJsonValue | undefined,
+): value is Readonly<Record<string, EvidenceJsonValue>> {
+  return (
+    value !== undefined && value !== null && !Array.isArray(value) && typeof value === 'object'
+  );
+}
+
+function businessObservation(
+  row: RuntimeCoreSourceRow,
+  contentRefs: ReadonlyMap<string, string>,
+): Readonly<{ payload: RuntimeCoreSourceRow; artifactRefs: readonly string[] }> | undefined {
+  const payload = row['payload_json'];
+  if (!isObject(payload)) return undefined;
+  const type = payload['recordType'];
+  if (type === 'task_business.content' || type === 'task_business.object') {
+    const digest = payload['digest'];
+    const uri =
+      typeof digest === 'string'
+        ? contentRefs.get(`${text(row, 'binding_id')}:${digest}`)
+        : undefined;
+    return {
+      payload: {
+        recordType: type,
+        digest: payload['digest'] ?? null,
+        refKey: payload['refKey'] ?? null,
+        offset: payload['offset'] ?? null,
+        totalBytes: payload['totalBytes'] ?? null,
+        completeContentRetained: uri !== undefined,
+        gaps: uri === undefined ? ['formal_content_reference_unresolved'] : [],
+      },
+      artifactRefs: uri === undefined ? [] : [uri],
+    };
+  }
+  if (type !== 'task_business.command' && type !== 'task_business.projection') return undefined;
+  const source = buildRuntimeSourceArtifact({
+    sourceTable: 'remote_task_observation',
+    sourceRecordId: text(row, 'observation_id'),
+    sourceVersion: 1,
+    value: payload,
+  });
+  if (type === 'task_business.command') {
+    const command = payload['command'];
+    if (!isObject(command)) return undefined;
+    const intent = command['intent'];
+    if (!isObject(intent)) return undefined;
+    const request = intent['request'];
+    const gaps = [
+      ...(command['confirmationFact'] === undefined ? ['trusted_confirmation_fact_absent'] : []),
+      ...(command['dispatchClaim'] === undefined ? ['send_claim_absent'] : []),
+      ...(command['receipt'] === undefined ? ['transport_ack_absent'] : []),
+      ...(command['evidence'] === undefined ? ['business_application_evidence_absent'] : []),
+    ];
+    return {
+      payload: {
+        recordType: type,
+        intentId: intent['intentId'] ?? null,
+        contentHash: intent['contentHash'] ?? null,
+        identity: intent['identity'] ?? null,
+        operation: isObject(request) ? (request['operation'] ?? null) : null,
+        state: command['state'] ?? null,
+        revision: command['revision'] ?? null,
+        confirmationFact: command['confirmationFact'] ?? null,
+        dispatchClaim: command['dispatchClaim'] ?? null,
+        receipt: command['receipt'] ?? null,
+        evidence: command['evidence'] ?? null,
+        gaps,
+        completeIntentRef: { ...source.artifactRef },
+      },
+      artifactRefs: [source.artifactRef.uri],
+    };
+  }
+  const projection = payload['projection'];
+  if (!isObject(projection)) return undefined;
+  return {
+    payload: {
+      recordType: type,
+      identity: projection['identity'] ?? null,
+      status: projection['status'] ?? null,
+      quality: projection['quality'] ?? null,
+      businessOutcome: projection['businessOutcome'] ?? null,
+      geometry: Array.isArray(projection['geometry']) ? projection['geometry'].slice(0, 16) : [],
+      completeProjectionRef: { ...source.artifactRef },
+    },
+    artifactRefs: [source.artifactRef.uri],
+  };
 }
 
 function sanitizeEvidenceValue(value: EvidenceJsonValue): EvidenceJsonValue {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { managementRequest } from './api.js';
+import { TaskBusinessPanel } from './TaskBusinessPanel.js';
 
 export interface TaskRecord {
   readonly taskId: string;
@@ -469,6 +470,13 @@ export function TaskPanel({
             taskId={task.taskId}
             value={evidence.find((item) => item.key === 'planning-session')?.value}
             onApplied={() => loadTask(task.taskId)}
+          />
+          <TaskBusinessPanel
+            taskId={task.taskId}
+            phase={task.phase}
+            value={evidence.find((item) => item.key === 'task-business')?.value}
+            commands={evidence.find((item) => item.key === 'task-business-commands')?.value}
+            onRefresh={() => loadTask(task.taskId)}
           />
           <RemoteTaskLifecyclePanel
             value={evidence.find((item) => item.key === 'remote-task-lifecycle')?.value}
@@ -1360,6 +1368,12 @@ export function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem,
       key: 'remote-task-lifecycle',
       label: 'MCP Task Lifecycle',
       endpoint: `/api/v1/tasks/${id}/remote-task-lifecycle`,
+    },
+    { key: 'task-business', label: 'Task Business', endpoint: `/api/v1/tasks/${id}/business` },
+    {
+      key: 'task-business-commands',
+      label: 'Task Business Commands',
+      endpoint: `/api/v1/tasks/${id}/business/commands`,
     },
     {
       key: 'governed-control',

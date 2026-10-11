@@ -1,0 +1,9 @@
+$ tsc -p tsconfig.json --noEmit
+apps/server/src/runtime.ts(7430,7): error TS2375: Type '{ taskBusiness?: { list: (taskId: string) => Promise<readonly TaskBusinessProjection[]>; commands: TaskBusinessCommandService; content(taskId: string, bindingId: string, digest: string): Promise<...>; }; ... 58 more ...; isolatedDemo?: IsolatedDemoService; }' is not assignable to type 'ManagementOperations' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  The types returned by 'taskBusiness.content(...)' are incompatible between these types.
+    Type 'Promise<Uint8Array<ArrayBufferLike> | undefined>' is not assignable to type 'Promise<Buffer<ArrayBufferLike>>'.
+      Type 'Uint8Array<ArrayBufferLike> | undefined' is not assignable to type 'Buffer<ArrayBufferLike>'.
+        Type 'undefined' is not assignable to type 'Buffer<ArrayBufferLike>'.
+packages/application/src/remote-task-input.ts(147,9): error TS2322: Type '"acknowledged" | "uncertain"' is not assignable to type 'RemoteTaskInputAttemptStatus'.
+  Type '"uncertain"' is not assignable to type 'RemoteTaskInputAttemptStatus'.
+[ELIFECYCLE] Command failed with exit code 2.

@@ -303,34 +303,73 @@ describe('RemoteTaskContinuationService', () => {
     expect(harness.continuations.control(event.eventId)).toMatchObject({ status: 'processed' });
   });
 
-  it('quarantines an irrecoverable frozen Capability terminal rejection without callback replay', async () => {
-    const callbackError = Object.assign(new Error('frozen terminal criterion failed'), {
-      code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
-    });
-    const onContinued = vi.fn().mockRejectedValue(callbackError);
+  it.each([
+    'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+    'TASK_BUSINESS_SKILL_SUCCESS_EVIDENCE_INCOMPLETE',
+    'RESULT_SCHEMA_MISMATCH',
+    'RESULT_SCHEMA_INVALID',
+    'RESULT_TEXT_REQUIRED',
+  ])(
+    'quarantines irreversible terminal rejection %s without callback replay',
+    async (errorCode) => {
+      const callbackError = Object.assign(new Error('frozen terminal criterion failed'), {
+        code: errorCode,
+      });
+      const onContinued = vi.fn().mockRejectedValue(callbackError);
+      const harness = createHarness({ onContinued });
+      const event = completedEvent();
+      harness.continuations.addControl(event);
+
+      await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+        disposition: 'uncertain',
+        errorCode,
+      });
+      expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+      expect(onContinued).toHaveBeenCalledTimes(1);
+      expect(harness.failTask).toHaveBeenCalledWith(
+        'task-1',
+        errorCode,
+        errorCode === 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED'
+          ? 'The frozen Capability rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.'
+          : 'The published Skill rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.',
+      );
+      expect(harness.continuations.control(event.eventId)).toMatchObject({
+        status: 'failed',
+        errorCode,
+      });
+      expect(harness.continuations.finishInputs.at(-1)).toMatchObject({
+        status: 'failed',
+        bindingDisposition: 'quarantined',
+      });
+      expect(await harness.service.process(jobFor(event))).toEqual({ disposition: 'not_claimed' });
+      expect(onContinued).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('retains a deterministic denial when post-failure enhancement throws and propagates that error', async () => {
+    const onContinued = vi.fn().mockRejectedValue(
+      Object.assign(new Error('invalid Skill output'), {
+        code: 'RESULT_SCHEMA_MISMATCH',
+      }),
+    );
     const harness = createHarness({ onContinued });
+    const enhancementError = Object.assign(new Error('Memory admission rejected volatile facts'), {
+      code: 'MEMORY_DURABILITY_NOT_ADMITTED',
+    });
+    harness.failTask.mockRejectedValueOnce(enhancementError);
     const event = completedEvent();
     harness.continuations.addControl(event);
-
-    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
-      disposition: 'uncertain',
-      errorCode: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
-    });
-    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
-    expect(onContinued).toHaveBeenCalledTimes(1);
-    expect(harness.failTask).toHaveBeenCalledWith(
-      'task-1',
-      'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
-      'The frozen Capability rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.',
-    );
+    await expect(harness.service.process(jobFor(event))).rejects.toBe(enhancementError);
     expect(harness.continuations.control(event.eventId)).toMatchObject({
       status: 'failed',
-      errorCode: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+      errorCode: 'RESULT_SCHEMA_MISMATCH',
     });
     expect(harness.continuations.finishInputs.at(-1)).toMatchObject({
-      status: 'failed',
       bindingDisposition: 'quarantined',
     });
+    expect(await harness.service.process(jobFor(event))).toEqual({ disposition: 'not_claimed' });
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+    expect(onContinued).toHaveBeenCalledTimes(1);
   });
 
   it('fails closed without replay when a running attempt has no durable graph outcome', async () => {

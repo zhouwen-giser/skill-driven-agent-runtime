@@ -1,0 +1,11 @@
+$ node scripts/generate-sbom.mjs --check
+file:///tmp/sdar-verify-7b4a52af-0b16-40a9-a7a9-15a5047acb25-vabaca/source/scripts/generate-sbom.mjs:535
+    if (current !== content) throw new Error(`GENERATED_EVIDENCE_STALE: ${relativePath}`);
+                                   ^
+
+Error: GENERATED_EVIDENCE_STALE: ../../THIRD_PARTY_NOTICES.md
+    at emit (file:///tmp/sdar-verify-7b4a52af-0b16-40a9-a7a9-15a5047acb25-vabaca/source/scripts/generate-sbom.mjs:535:36)
+    at async file:///tmp/sdar-verify-7b4a52af-0b16-40a9-a7a9-15a5047acb25-vabaca/source/scripts/generate-sbom.mjs:526:1
+
+Node.js v22.23.2
+[ELIFECYCLE] Command failed with exit code 1.

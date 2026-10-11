@@ -392,20 +392,35 @@ export class RemoteTaskContinuationService {
       });
     } catch (error: unknown) {
       const errorCode = normalizedCode(error);
-      if (errorCode === 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED') {
-        await this.#failTask(
-          snapshot.agentTaskId,
-          errorCode,
-          'The frozen Capability rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.',
-        );
-        await this.#continuations.finishControl({
-          eventId: control.eventId,
-          claimToken,
-          status: 'failed',
-          processedAt: this.#clock.now(),
-          errorCode,
-          bindingDisposition: 'quarantined',
-        });
+      if (
+        [
+          'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+          'TASK_BUSINESS_SKILL_SUCCESS_EVIDENCE_INCOMPLETE',
+          'RESULT_SCHEMA_MISMATCH',
+          'RESULT_SCHEMA_INVALID',
+          'RESULT_TEXT_REQUIRED',
+        ].includes(errorCode)
+      ) {
+        try {
+          await this.#failTask(
+            snapshot.agentTaskId,
+            errorCode,
+            errorCode === 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED'
+              ? 'The frozen Capability rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.'
+              : 'The published Skill rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.',
+          );
+        } finally {
+          // Optional post-failure enhancement errors must not reopen a
+          // deterministic result denial or replay the committed continuation.
+          await this.#continuations.finishControl({
+            eventId: control.eventId,
+            claimToken,
+            status: 'failed',
+            processedAt: this.#clock.now(),
+            errorCode,
+            bindingDisposition: 'quarantined',
+          });
+        }
         return { disposition: 'uncertain', errorCode };
       }
       await this.#continuations.deferControl({

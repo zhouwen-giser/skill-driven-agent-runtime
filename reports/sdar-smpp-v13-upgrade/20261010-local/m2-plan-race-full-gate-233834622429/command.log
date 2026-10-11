@@ -1,0 +1,23 @@
+Scope: all 2 workspace projects
+✓ Lockfile passes supply-chain policies (verified 3h ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 1.1s using pnpm v11.25.0
+$ node scripts/verify-isolated.mjs
+node:internal/fs/promises:1028
+  const result = await PromisePrototypeThen(
+                 ^
+
+Error: ENOENT: no such file or directory, lstat '/tmp/smpp-telemetry-platform/deploy/ugv-debug/collector.template.yaml'
+    at async lstat (node:internal/fs/promises:1028:18)
+    at async copyExternalVerificationInputs (file:///tmp/sdar-smpp-v13-m2-plan-race-repair/scripts/lib/verification-external-inputs.mjs:20:18)
+    at async file:///tmp/sdar-smpp-v13-m2-plan-race-repair/scripts/verify-isolated.mjs:63:17 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'lstat',
+  path: '/tmp/smpp-telemetry-platform/deploy/ugv-debug/collector.template.yaml'
+}
+
+Node.js v22.23.2
+[ELIFECYCLE] Command failed with exit code 1.

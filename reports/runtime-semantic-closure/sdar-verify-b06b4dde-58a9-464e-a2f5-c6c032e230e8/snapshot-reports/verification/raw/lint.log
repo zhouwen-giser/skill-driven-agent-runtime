@@ -1,0 +1,9 @@
+$ eslint .
+
+/tmp/sdar-verify-b06b4dde-58a9-464e-a2f5-c6c032e230e8-pSbMwP/source/packages/persistence-postgres/test/governed-control-management-authority-reader.unit.test.ts
+  42:73  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+
+✖ 1 problem (1 error, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+
+[ELIFECYCLE] Command failed with exit code 1.

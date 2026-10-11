@@ -1,0 +1,22 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "apps/server/src/runtime.ts",
+    "apps/server/test/migration-image-identity.integration.test.ts",
+    "packages/application/src/task-business-commands.ts",
+    "packages/persistence-postgres/src/task-business-command-repository.ts",
+    "packages/persistence-postgres/test/task-business-command.integration.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "6ecdb16ec04c2ff65e8f2670164591a879925ba4660b5a800b9f16d4c64fe114",
+  "startedAt": "2026-10-11T00:26:17.699943+08:00",
+  "finishedAt": "2026-10-11T00:26:32.299378+08:00",
+  "durationSeconds": 14.599435,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "ee9dae1607184c7c44ecd07165994e67604bfa3051afa826174cbf376ef503c5",
+  "environment": "local_source_or_loopback_fixture_only"
+}

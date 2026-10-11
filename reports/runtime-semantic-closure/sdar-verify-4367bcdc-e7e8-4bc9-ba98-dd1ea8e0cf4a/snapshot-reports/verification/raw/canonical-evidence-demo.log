@@ -1,0 +1,183 @@
+$ node scripts/run-v141-evidence-e2e.mjs
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 807B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile:
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:ff9b02de76d1996bd3e5292ea7ea2346045ac716e4de6da198a3a3d1824cba68 done
+#13 exporting config sha256:b7325f7c4cb9754bc1cf56031eeb01e12b4a61e531204a2fd3a1b25f028ad4f7 done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.1s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Creating 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Created 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Creating 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Creating 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Created 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Created 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Starting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Starting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Started 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Started 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Waiting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Waiting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Healthy 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Healthy 
+[evidence-e2e] 1/25 contract packages/mcp-adapter/test/frozen-v1-availability.contract.test.ts (1 direct tests)
+[evidence-e2e] 2/25 contract packages/mcp-adapter/test/frozen-v1-component.contract.test.ts (2 direct tests)
+[evidence-e2e] 3/25 contract packages/mcp-adapter/test/frozen-v1-task-lifecycle.contract.test.ts (1 direct tests)
+[evidence-e2e] 4/25 contract packages/mcp-adapter/test/frozen-v1-task-subscriptions.contract.test.ts (1 direct tests)
+[evidence-e2e] 5/25 contract packages/persistence-postgres/test/artifact-replay-p05.contract.test.ts (1 direct tests)
+[evidence-e2e] 6/25 e2e packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts (8 direct tests)
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Stopping 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Stopping 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Stopped 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Removing 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Stopped 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Removing 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Removed 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Removed 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Removing 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Removed 
+[evidence-e2e] 7/25 integration apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts (1 direct tests)
+[evidence-e2e] 8/25 integration apps/server/test/remote-task-composition.integration.test.ts (1 direct tests)
+[evidence-e2e] 9/25 integration packages/node-control-persistence-postgres/test/foundation.integration.test.ts (1 direct tests)
+[evidence-e2e] 10/25 integration packages/persistence-postgres/test/candidate-generation.integration.test.ts (1 direct tests)
+[evidence-e2e] 11/25 integration packages/persistence-postgres/test/fast-gateway-p10.integration.test.ts (1 direct tests)
+[evidence-e2e] 12/25 integration packages/runtime-control-persistence-postgres/test/configuration-apply.integration.test.ts (1 direct tests)
+[evidence-e2e] 13/25 integration packages/runtime-control-persistence-postgres/test/evidence-export.integration.test.ts (3 direct tests)
+[evidence-e2e] 14/25 integration packages/runtime-control-persistence-postgres/test/evidence-persistence.integration.test.ts (4 direct tests)
+[evidence-e2e] 15/25 integration packages/runtime-control-persistence-postgres/test/runtime-core-evidence.integration.test.ts (4 direct tests)
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 807B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#7 DONE 0.0s
+
+#8 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:ff9b02de76d1996bd3e5292ea7ea2346045ac716e4de6da198a3a3d1824cba68 done
+#13 exporting config sha256:b7325f7c4cb9754bc1cf56031eeb01e12b4a61e531204a2fd3a1b25f028ad4f7 done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.0s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Creating 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Created 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Creating 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Creating 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Created 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Created 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Starting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Starting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Started 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Started 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Waiting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Waiting 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Healthy 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Healthy 
+[evidence-e2e] 16/25 unit packages/application/test/artifact-replay-validator.unit.test.ts (1 direct tests)
+[evidence-e2e] 17/25 unit packages/application/test/experience-job.unit.test.ts (1 direct tests)
+[evidence-e2e] 18/25 unit packages/application/test/remote-task-cancellation.unit.test.ts (1 direct tests)
+[evidence-e2e] 19/25 unit packages/application/test/remote-task-polling.unit.test.ts (1 direct tests)
+[evidence-e2e] 20/25 unit packages/application/test/skill-usage-composition.unit.test.ts (1 direct tests)
+[evidence-e2e] 21/25 unit packages/application/test/skill-usage-planning.unit.test.ts (2 direct tests)
+[evidence-e2e] 22/25 unit packages/application/test/workflow-planner.unit.test.ts (1 direct tests)
+[evidence-e2e] 23/25 unit packages/domain/test/experience-compilation.unit.test.ts (1 direct tests)
+[evidence-e2e] 24/25 unit packages/runtime-control-application/test/node-control-evidence-projector.unit.test.ts (1 direct tests)
+[evidence-e2e] 25/25 unit packages/runtime-control-application/test/phase10-evidence-sealing.unit.test.ts (1 direct tests)
+[evidence-e2e] PASS 44/44 scenarios; 42 direct tests in 25 shared suites
+[evidence-e2e] report /tmp/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-7JbrUG/source/reports/v1.4.1-evidence/phase-12-e2e.json
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Stopping 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Stopping 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Stopped 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Removing 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Stopped 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Removing 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-redis-1 Removed 
+ Container sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a-postgres-1 Removed 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Removing 
+ Network sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a_sdar-local Removed 

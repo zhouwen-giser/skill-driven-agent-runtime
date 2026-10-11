@@ -7,6 +7,9 @@ import {
   type RemoteTaskControlEvent,
 } from '../../domain/src/index.js';
 
+import type { GovernedControlPrincipal } from './governed-control-management.js';
+import type { TaskBusinessCommandService } from './task-business-commands.js';
+
 import type {
   AgentTaskRepository,
   Clock,
@@ -42,6 +45,8 @@ export class RemoteTaskInputService {
   }>;
   readonly #claimLeaseMs: number;
   readonly #onTaskChanged: ((task: AgentTask) => void) | undefined;
+  readonly #businessCommands:
+    Pick<TaskBusinessCommandService, 'authorizeInput' | 'dispatchInput'> | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -63,6 +68,7 @@ export class RemoteTaskInputService {
       }>;
       claimLeaseMs?: number;
       onTaskChanged?: (task: AgentTask) => void;
+      businessCommands?: Pick<TaskBusinessCommandService, 'authorizeInput' | 'dispatchInput'>;
     }>,
   ) {
     this.#continuations = dependencies.continuations;
@@ -78,6 +84,7 @@ export class RemoteTaskInputService {
     this.#ids = dependencies.ids;
     this.#claimLeaseMs = dependencies.claimLeaseMs ?? 30_000;
     this.#onTaskChanged = dependencies.onTaskChanged;
+    this.#businessCommands = dependencies.businessCommands;
   }
 
   async process(
@@ -89,7 +96,11 @@ export class RemoteTaskInputService {
     return this.#serial.run(binding.contextId, () => this.#activate(event, binding));
   }
 
-  async prepareResponse(inputRequestId: string, inputContent: unknown) {
+  async prepareResponse(
+    inputRequestId: string,
+    inputContent: unknown,
+    principal?: GovernedControlPrincipal,
+  ) {
     const link = await this.#inputs.findLink(inputRequestId);
     if (link?.status !== 'waiting')
       throw new RemoteTaskInputError(
@@ -108,6 +119,7 @@ export class RemoteTaskInputService {
           : validateElicitationResponse(schema, rawResponse, this.#schemas);
       responses[key] = response;
     }
+    await this.#businessCommands?.authorizeInput(inputRequestId, responses, principal);
     return Object.freeze(responses);
   }
 
@@ -130,13 +142,28 @@ export class RemoteTaskInputService {
     let protocolRevision: string | undefined;
     let errorCode: string | undefined;
     try {
-      const ack = await this.#sender.updateRemoteTask({
-        serverId: binding.serverId,
-        remoteTaskId: binding.remoteTaskId,
-        inputResponses: responses,
-        executionContext: binding.executionContext,
-      });
-      protocolRevision = ack.protocolRevision;
+      const governed = await this.#businessCommands?.dispatchInput(inputRequestId, responses);
+      if (governed?.handled === true) {
+        status = governed.acknowledged === true ? 'acknowledged' : 'provider_unreachable';
+        protocolRevision = governed.protocolRevision;
+        if (status === 'acknowledged' && protocolRevision !== binding.protocolRevision)
+          throw new RemoteTaskInputError(
+            'REMOTE_TASK_INPUT_ACK_REVISION_MISMATCH',
+            'Governed input acknowledgement must retain the original frozen protocol revision.',
+          );
+        errorCode =
+          status === 'acknowledged'
+            ? undefined
+            : (governed.errorCode ?? 'TASK_BUSINESS_INPUT_ACK_UNCERTAIN');
+      } else {
+        const ack = await this.#sender.updateRemoteTask({
+          serverId: binding.serverId,
+          remoteTaskId: binding.remoteTaskId,
+          inputResponses: responses,
+          executionContext: binding.executionContext,
+        });
+        protocolRevision = ack.protocolRevision;
+      }
     } catch (error: unknown) {
       ({ status, errorCode } = classifyUpdateFailure(error));
     }
@@ -332,7 +359,11 @@ function classifyUpdateFailure(error: unknown): Readonly<{
     typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
       ? error.code
       : 'MCP_TASK_UPDATE_PROVIDER_UNREACHABLE';
-  if (code === 'MCP_TASK_RESPONSE_INVALID' || code === 'MCP_TASK_RESPONSE_TOO_LARGE')
+  if (
+    code === 'MCP_TASK_RESPONSE_INVALID' ||
+    code === 'MCP_TASK_RESPONSE_TOO_LARGE' ||
+    code === 'REMOTE_TASK_INPUT_ACK_REVISION_MISMATCH'
+  )
     return { status: 'contract_invalid', errorCode: code };
   if (
     code === 'MCP_TASK_CAPABILITY_REQUIRED' ||
@@ -362,6 +393,7 @@ export type RemoteTaskInputErrorCode =
   | 'REMOTE_TASK_INPUT_TEXT_AMBIGUOUS'
   | 'REMOTE_TASK_INPUT_LINK_NOT_WAITING'
   | 'REMOTE_TASK_INPUT_LINK_NOT_ANSWERED'
+  | 'REMOTE_TASK_INPUT_ACK_REVISION_MISMATCH'
   | 'REMOTE_TASK_INPUT_BINDING_STALE';
 
 export class RemoteTaskInputError extends Error {

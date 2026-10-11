@@ -6,13 +6,29 @@
   "additionalProperties": false,
   "required": ["manifest", "skillMarkdown", "normative", "adaptive", "modes", "evidence"],
   "properties": {
-    "manifest": { "$ref": "#/$defs/manifest" },
-    "skillMarkdown": { "type": "string", "minLength": 1, "maxLength": 65536 },
-    "normative": { "$ref": "#/$defs/normativeDocument" },
-    "adaptive": { "$ref": "#/$defs/adaptiveDocument" },
-    "modes": { "$ref": "#/$defs/modes" },
-    "composition": { "$ref": "#/$defs/composition" },
-    "evidence": { "$ref": "#/$defs/evidencePolicy" }
+    "manifest": {
+      "$ref": "#/$defs/manifest"
+    },
+    "skillMarkdown": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    },
+    "normative": {
+      "$ref": "#/$defs/normativeDocument"
+    },
+    "adaptive": {
+      "$ref": "#/$defs/adaptiveDocument"
+    },
+    "modes": {
+      "$ref": "#/$defs/modes"
+    },
+    "composition": {
+      "$ref": "#/$defs/composition"
+    },
+    "evidence": {
+      "$ref": "#/$defs/evidencePolicy"
+    }
   },
   "$defs": {
     "identifier": {
@@ -21,45 +37,75 @@
       "maxLength": 256,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
     },
-    "boundedText": { "type": "string", "minLength": 1, "maxLength": 8192 },
+    "boundedText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    },
     "stringList": {
       "type": "array",
       "maxItems": 64,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/boundedText" }
+      "items": {
+        "$ref": "#/$defs/boundedText"
+      }
     },
     "identifierList": {
       "type": "array",
       "maxItems": 64,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/identifier" }
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
     },
-    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "jsonSchema": {
-      "anyOf": [{ "type": "object" }, { "type": "boolean" }]
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
     },
     "toolReference": {
       "type": "object",
       "additionalProperties": false,
       "required": ["serverId", "toolName"],
       "properties": {
-        "serverId": { "$ref": "#/$defs/identifier" },
-        "toolName": { "$ref": "#/$defs/identifier" }
+        "serverId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "toolName": {
+          "$ref": "#/$defs/identifier"
+        }
       }
     },
     "toolReferenceList": {
       "type": "array",
       "maxItems": 64,
-      "items": { "$ref": "#/$defs/toolReference" }
+      "items": {
+        "$ref": "#/$defs/toolReference"
+      }
     },
     "toolPolicy": {
       "type": "object",
       "additionalProperties": false,
       "required": ["required", "optional", "forbidden"],
       "properties": {
-        "required": { "$ref": "#/$defs/toolReferenceList" },
-        "optional": { "$ref": "#/$defs/toolReferenceList" },
-        "forbidden": { "$ref": "#/$defs/toolReferenceList" }
+        "required": {
+          "$ref": "#/$defs/toolReferenceList"
+        },
+        "optional": {
+          "$ref": "#/$defs/toolReferenceList"
+        },
+        "forbidden": {
+          "$ref": "#/$defs/toolReferenceList"
+        }
       }
     },
     "runtimePolicy": {
@@ -67,17 +113,45 @@
       "additionalProperties": false,
       "required": ["autoConfirmPlan"],
       "properties": {
-        "autoConfirmPlan": { "type": "boolean" },
-        "maxReplans": { "type": "integer", "minimum": 0 },
-        "maxDurationSeconds": { "type": "integer", "minimum": 1 },
-        "maxLlmCalls": { "type": "integer", "minimum": 0 },
-        "maxMcpCalls": { "type": "integer", "minimum": 0 },
-        "maxCost": { "type": "number", "minimum": 0 },
-        "pauseReplanThresholdSeconds": { "type": "integer", "minimum": 0 },
+        "autoConfirmPlan": {
+          "type": "boolean"
+        },
+        "maxReplans": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxDurationSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxLlmCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxMcpCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxCost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "pauseReplanThresholdSeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
         "cancelStrategy": {
           "enum": ["wait_current", "try_interrupt", "cleanup_workflow"]
         },
-        "compensationGuidance": { "$ref": "#/$defs/boundedText" }
+        "compensationGuidance": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "taskBusinessMutationPolicy": {
+          "$ref": "#/$defs/taskBusinessMutationPolicy"
+        },
+        "taskBusinessEvidencePolicy": {
+          "$ref": "#/$defs/taskBusinessEvidencePolicy"
+        }
       }
     },
     "skill": {
@@ -103,27 +177,59 @@
         "createdAt"
       ],
       "properties": {
-        "skillId": { "$ref": "#/$defs/identifier" },
-        "version": { "type": "integer", "minimum": 1 },
-        "name": { "$ref": "#/$defs/boundedText" },
-        "summary": { "$ref": "#/$defs/boundedText" },
-        "description": { "$ref": "#/$defs/boundedText" },
-        "capabilities": { "$ref": "#/$defs/stringList" },
-        "workflowGuidance": { "$ref": "#/$defs/boundedText" },
-        "outputInstruction": { "$ref": "#/$defs/boundedText" },
-        "inputSchema": { "$ref": "#/$defs/jsonSchema" },
-        "outputSchema": { "$ref": "#/$defs/jsonSchema" },
-        "toolPolicy": { "$ref": "#/$defs/toolPolicy" },
-        "runtimePolicy": { "$ref": "#/$defs/runtimePolicy" },
-        "outcomeSpecification": { "$ref": "#/$defs/outcomeSpecification" },
+        "skillId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "summary": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "description": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "workflowGuidance": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "outputInstruction": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "inputSchema": {
+          "$ref": "#/$defs/jsonSchema"
+        },
+        "outputSchema": {
+          "$ref": "#/$defs/jsonSchema"
+        },
+        "toolPolicy": {
+          "$ref": "#/$defs/toolPolicy"
+        },
+        "runtimePolicy": {
+          "$ref": "#/$defs/runtimePolicy"
+        },
+        "outcomeSpecification": {
+          "$ref": "#/$defs/outcomeSpecification"
+        },
         "status": {
           "enum": ["draft", "validating", "enabled", "disabled", "deprecated", "validation_failed"]
         },
         "sourceKind": {
           "enum": ["admin", "a2a_draft", "experience_evolution", "manual_correction"]
         },
-        "validationPassed": { "type": "boolean" },
-        "previousVersion": { "type": "integer", "minimum": 1 },
+        "validationPassed": {
+          "type": "boolean"
+        },
+        "previousVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
         "createdAt": {
           "type": "string",
           "minLength": 20,
@@ -148,16 +254,38 @@
         "sideEffectPolicy"
       ],
       "properties": {
-        "schemaVersion": { "const": "1.0" },
-        "skillId": { "$ref": "#/$defs/identifier" },
-        "skillVersion": { "type": "integer", "minimum": 1 },
-        "specificationHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-        "effects": { "$ref": "#/$defs/identifierList" },
-        "evidence": { "$ref": "#/$defs/identifierList" },
-        "artifacts": { "$ref": "#/$defs/identifierList" },
-        "taskGoalPolicy": { "type": "object" },
-        "confidencePolicy": { "type": "object" },
-        "sideEffectPolicy": { "type": "object" }
+        "schemaVersion": {
+          "const": "1.0"
+        },
+        "skillId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "skillVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "specificationHash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "effects": {
+          "$ref": "#/$defs/identifierList"
+        },
+        "evidence": {
+          "$ref": "#/$defs/identifierList"
+        },
+        "artifacts": {
+          "$ref": "#/$defs/identifierList"
+        },
+        "taskGoalPolicy": {
+          "type": "object"
+        },
+        "confidencePolicy": {
+          "type": "object"
+        },
+        "sideEffectPolicy": {
+          "type": "object"
+        }
       }
     },
     "fileDeclaration": {
@@ -171,7 +299,9 @@
           "maxLength": 512,
           "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+\\.json$"
         },
-        "sha256": { "$ref": "#/$defs/sha256" }
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
       }
     },
     "manifest": {
@@ -179,20 +309,38 @@
       "additionalProperties": false,
       "required": ["apiVersion", "kind", "skill", "skillMarkdownSha256", "files"],
       "properties": {
-        "apiVersion": { "const": "sdar.io/v1alpha1" },
-        "kind": { "const": "SkillPackage" },
-        "skill": { "$ref": "#/$defs/skill" },
-        "skillMarkdownSha256": { "$ref": "#/$defs/sha256" },
+        "apiVersion": {
+          "const": "sdar.io/v1alpha1"
+        },
+        "kind": {
+          "const": "SkillPackage"
+        },
+        "skill": {
+          "$ref": "#/$defs/skill"
+        },
+        "skillMarkdownSha256": {
+          "$ref": "#/$defs/sha256"
+        },
         "files": {
           "type": "object",
           "additionalProperties": false,
           "required": ["normative", "adaptive", "modes", "evidence"],
           "properties": {
-            "normative": { "$ref": "#/$defs/fileDeclaration" },
-            "adaptive": { "$ref": "#/$defs/fileDeclaration" },
-            "modes": { "$ref": "#/$defs/fileDeclaration" },
-            "composition": { "$ref": "#/$defs/fileDeclaration" },
-            "evidence": { "$ref": "#/$defs/fileDeclaration" }
+            "normative": {
+              "$ref": "#/$defs/fileDeclaration"
+            },
+            "adaptive": {
+              "$ref": "#/$defs/fileDeclaration"
+            },
+            "modes": {
+              "$ref": "#/$defs/fileDeclaration"
+            },
+            "composition": {
+              "$ref": "#/$defs/fileDeclaration"
+            },
+            "evidence": {
+              "$ref": "#/$defs/fileDeclaration"
+            }
           }
         }
       }
@@ -202,9 +350,15 @@
       "additionalProperties": false,
       "required": ["userSelectable", "composable", "internalOnly"],
       "properties": {
-        "userSelectable": { "type": "boolean" },
-        "composable": { "type": "boolean" },
-        "internalOnly": { "type": "boolean" }
+        "userSelectable": {
+          "type": "boolean"
+        },
+        "composable": {
+          "type": "boolean"
+        },
+        "internalOnly": {
+          "type": "boolean"
+        }
       }
     },
     "normativePolicy": {
@@ -212,10 +366,18 @@
       "additionalProperties": false,
       "required": ["constraints", "forbiddenActions", "requiredConfirmations", "noApplicableSkill"],
       "properties": {
-        "constraints": { "$ref": "#/$defs/stringList" },
-        "forbiddenActions": { "$ref": "#/$defs/stringList" },
-        "requiredConfirmations": { "$ref": "#/$defs/stringList" },
-        "noApplicableSkill": { "enum": ["fallback", "confirm", "reject"] }
+        "constraints": {
+          "$ref": "#/$defs/stringList"
+        },
+        "forbiddenActions": {
+          "$ref": "#/$defs/stringList"
+        },
+        "requiredConfirmations": {
+          "$ref": "#/$defs/stringList"
+        },
+        "noApplicableSkill": {
+          "enum": ["fallback", "confirm", "reject"]
+        }
       }
     },
     "contextRequirement": {
@@ -223,9 +385,15 @@
       "additionalProperties": false,
       "required": ["requirementId", "description", "required", "sourceOrder"],
       "properties": {
-        "requirementId": { "$ref": "#/$defs/identifier" },
-        "description": { "$ref": "#/$defs/boundedText" },
-        "required": { "type": "boolean" },
+        "requirementId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "description": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "required": {
+          "type": "boolean"
+        },
         "sourceOrder": {
           "type": "array",
           "maxItems": 4,
@@ -251,11 +419,21 @@
         "requiredAttributes"
       ],
       "properties": {
-        "selection": { "enum": ["dynamic", "preferred", "required"] },
-        "preferredProviderIds": { "$ref": "#/$defs/identifierList" },
-        "requiredProviderId": { "$ref": "#/$defs/identifier" },
-        "forbiddenProviderIds": { "$ref": "#/$defs/identifierList" },
-        "requiredAttributes": { "$ref": "#/$defs/stringList" }
+        "selection": {
+          "enum": ["dynamic", "preferred", "required"]
+        },
+        "preferredProviderIds": {
+          "$ref": "#/$defs/identifierList"
+        },
+        "requiredProviderId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "forbiddenProviderIds": {
+          "$ref": "#/$defs/identifierList"
+        },
+        "requiredAttributes": {
+          "$ref": "#/$defs/stringList"
+        }
       }
     },
     "taskBinding": {
@@ -263,9 +441,15 @@
       "additionalProperties": false,
       "required": ["bindingId", "taskType", "providerPolicy"],
       "properties": {
-        "bindingId": { "$ref": "#/$defs/identifier" },
-        "taskType": { "$ref": "#/$defs/identifier" },
-        "providerPolicy": { "$ref": "#/$defs/providerPolicy" }
+        "bindingId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "taskType": {
+          "$ref": "#/$defs/identifier"
+        },
+        "providerPolicy": {
+          "$ref": "#/$defs/providerPolicy"
+        }
       }
     },
     "normativeDocument": {
@@ -273,17 +457,25 @@
       "additionalProperties": false,
       "required": ["visibility", "normative", "contextRequirements", "taskBindings"],
       "properties": {
-        "visibility": { "$ref": "#/$defs/visibility" },
-        "normative": { "$ref": "#/$defs/normativePolicy" },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "normative": {
+          "$ref": "#/$defs/normativePolicy"
+        },
         "contextRequirements": {
           "type": "array",
           "maxItems": 64,
-          "items": { "$ref": "#/$defs/contextRequirement" }
+          "items": {
+            "$ref": "#/$defs/contextRequirement"
+          }
         },
         "taskBindings": {
           "type": "array",
           "maxItems": 64,
-          "items": { "$ref": "#/$defs/taskBinding" }
+          "items": {
+            "$ref": "#/$defs/taskBinding"
+          }
         }
       }
     },
@@ -292,9 +484,15 @@
       "additionalProperties": false,
       "required": ["instructions", "optimizationHints", "allowPreferredProviderFallback"],
       "properties": {
-        "instructions": { "$ref": "#/$defs/stringList" },
-        "optimizationHints": { "$ref": "#/$defs/stringList" },
-        "allowPreferredProviderFallback": { "type": "boolean" }
+        "instructions": {
+          "$ref": "#/$defs/stringList"
+        },
+        "optimizationHints": {
+          "$ref": "#/$defs/stringList"
+        },
+        "allowPreferredProviderFallback": {
+          "type": "boolean"
+        }
       }
     },
     "observedProfile": {
@@ -302,9 +500,18 @@
       "additionalProperties": false,
       "required": ["sampleCount", "notes"],
       "properties": {
-        "sampleCount": { "type": "integer", "minimum": 0 },
-        "successRate": { "type": "number", "minimum": 0, "maximum": 1 },
-        "notes": { "$ref": "#/$defs/stringList" }
+        "sampleCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "notes": {
+          "$ref": "#/$defs/stringList"
+        }
       }
     },
     "adaptiveDocument": {
@@ -312,8 +519,12 @@
       "additionalProperties": false,
       "required": ["adaptive"],
       "properties": {
-        "adaptive": { "$ref": "#/$defs/adaptiveGuidance" },
-        "observedProfile": { "$ref": "#/$defs/observedProfile" }
+        "adaptive": {
+          "$ref": "#/$defs/adaptiveGuidance"
+        },
+        "observedProfile": {
+          "$ref": "#/$defs/observedProfile"
+        }
       }
     },
     "modeDescriptor": {
@@ -321,8 +532,12 @@
       "additionalProperties": false,
       "required": ["summary", "instructions"],
       "properties": {
-        "summary": { "$ref": "#/$defs/boundedText" },
-        "instructions": { "$ref": "#/$defs/stringList" },
+        "summary": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "instructions": {
+          "$ref": "#/$defs/stringList"
+        },
         "artifactRef": {
           "type": "string",
           "minLength": 1,
@@ -341,12 +556,22 @@
           "minItems": 1,
           "maxItems": 3,
           "uniqueItems": true,
-          "items": { "enum": ["guidance", "template", "procedure"] }
+          "items": {
+            "enum": ["guidance", "template", "procedure"]
+          }
         },
-        "defaultMode": { "enum": ["guidance", "template", "procedure"] },
-        "guidance": { "$ref": "#/$defs/modeDescriptor" },
-        "template": { "$ref": "#/$defs/modeDescriptor" },
-        "procedure": { "$ref": "#/$defs/modeDescriptor" }
+        "defaultMode": {
+          "enum": ["guidance", "template", "procedure"]
+        },
+        "guidance": {
+          "$ref": "#/$defs/modeDescriptor"
+        },
+        "template": {
+          "$ref": "#/$defs/modeDescriptor"
+        },
+        "procedure": {
+          "$ref": "#/$defs/modeDescriptor"
+        }
       }
     },
     "fixedDependency": {
@@ -354,27 +579,56 @@
       "additionalProperties": false,
       "required": ["dependencyId", "skillId", "failurePolicy"],
       "properties": {
-        "dependencyId": { "$ref": "#/$defs/identifier" },
-        "skillId": { "$ref": "#/$defs/identifier" },
-        "skillVersion": { "type": "integer", "minimum": 1 },
-        "failurePolicy": { "$ref": "#/$defs/failurePolicy" },
-        "inputMappings": { "$ref": "#/$defs/valueMappings" },
-        "outputMappings": { "$ref": "#/$defs/valueMappings" }
+        "dependencyId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "skillId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "skillVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failurePolicy": {
+          "$ref": "#/$defs/failurePolicy"
+        },
+        "inputMappings": {
+          "$ref": "#/$defs/valueMappings"
+        },
+        "outputMappings": {
+          "$ref": "#/$defs/valueMappings"
+        }
       }
     },
-    "failurePolicy": { "enum": ["fail_fast", "recoverable", "optional", "degraded"] },
+    "failurePolicy": {
+      "enum": ["fail_fast", "recoverable", "optional", "degraded"]
+    },
     "capabilitySlot": {
       "type": "object",
       "additionalProperties": false,
       "required": ["slotId", "capability", "required", "candidateSkillIds", "failurePolicy"],
       "properties": {
-        "slotId": { "$ref": "#/$defs/identifier" },
-        "capability": { "$ref": "#/$defs/boundedText" },
-        "required": { "type": "boolean" },
-        "candidateSkillIds": { "$ref": "#/$defs/identifierList" },
-        "failurePolicy": { "$ref": "#/$defs/failurePolicy" },
-        "inputMappings": { "$ref": "#/$defs/valueMappings" },
-        "outputMappings": { "$ref": "#/$defs/valueMappings" }
+        "slotId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "capability": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "candidateSkillIds": {
+          "$ref": "#/$defs/identifierList"
+        },
+        "failurePolicy": {
+          "$ref": "#/$defs/failurePolicy"
+        },
+        "inputMappings": {
+          "$ref": "#/$defs/valueMappings"
+        },
+        "outputMappings": {
+          "$ref": "#/$defs/valueMappings"
+        }
       }
     },
     "valueMapping": {
@@ -399,23 +653,33 @@
     "valueMappings": {
       "type": "array",
       "maxItems": 64,
-      "items": { "$ref": "#/$defs/valueMapping" }
+      "items": {
+        "$ref": "#/$defs/valueMapping"
+      }
     },
     "composition": {
       "type": "object",
       "additionalProperties": false,
       "required": ["maxDepth", "fixedDependencies", "capabilitySlots"],
       "properties": {
-        "maxDepth": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
         "fixedDependencies": {
           "type": "array",
           "maxItems": 64,
-          "items": { "$ref": "#/$defs/fixedDependency" }
+          "items": {
+            "$ref": "#/$defs/fixedDependency"
+          }
         },
         "capabilitySlots": {
           "type": "array",
           "maxItems": 64,
-          "items": { "$ref": "#/$defs/capabilitySlot" }
+          "items": {
+            "$ref": "#/$defs/capabilitySlot"
+          }
         }
       }
     },
@@ -424,10 +688,18 @@
       "additionalProperties": false,
       "required": ["requirementId", "evidenceType", "required", "hardGate"],
       "properties": {
-        "requirementId": { "$ref": "#/$defs/identifier" },
-        "evidenceType": { "$ref": "#/$defs/identifier" },
-        "required": { "type": "boolean" },
-        "hardGate": { "type": "boolean" }
+        "requirementId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "evidenceType": {
+          "$ref": "#/$defs/identifier"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "hardGate": {
+          "type": "boolean"
+        }
       }
     },
     "evidencePolicy": {
@@ -438,10 +710,150 @@
         "requirements": {
           "type": "array",
           "maxItems": 64,
-          "items": { "$ref": "#/$defs/evidenceRequirement" }
+          "items": {
+            "$ref": "#/$defs/evidenceRequirement"
+          }
         },
-        "rejectSuccessWithoutRequiredEvidence": { "type": "boolean" }
+        "rejectSuccessWithoutRequiredEvidence": {
+          "type": "boolean"
+        }
       }
+    },
+    "taskBusinessMutationPolicy": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "task_business_mutation_policy"
+        },
+        "profileVersion": {
+          "type": "string",
+          "const": "1.0-rc2"
+        },
+        "allowedOperations": {
+          "minItems": 1,
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["input_response", "navigation_adjust_plan"]
+          }
+        },
+        "confirmation": {
+          "type": "string",
+          "const": "trusted_human_per_command"
+        },
+        "dispatchPolicy": {
+          "type": "string",
+          "const": "single_sender_reconcile_never_redispatch"
+        }
+      },
+      "required": ["type", "profileVersion", "allowedOperations", "confirmation", "dispatchPolicy"],
+      "additionalProperties": false
+    },
+    "taskBusinessEvidencePolicy": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "sdar.task-business-evidence-policy/v1"
+        },
+        "operationName": {
+          "type": "string",
+          "enum": ["vehicle_navigate", "vehicle_area_recon"]
+        },
+        "providerSuccess": {
+          "type": "object",
+          "properties": {
+            "jsonPointer": {
+              "type": "string",
+              "maxLength": 512,
+              "pattern": "^(?:\\/(?:[^~]|~[01])*)*$"
+            },
+            "equals": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": ["jsonPointer", "equals"],
+          "additionalProperties": false
+        },
+        "skillSuccess": {
+          "type": "object",
+          "properties": {
+            "jsonPointer": {
+              "type": "string",
+              "maxLength": 512,
+              "pattern": "^(?:\\/(?:[^~]|~[01])*)*$"
+            },
+            "equals": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": ["jsonPointer", "equals"],
+          "additionalProperties": false
+        },
+        "requiredGeometryRoles": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "requested_target",
+              "planned_route",
+              "adopted_route",
+              "actual_trajectory",
+              "observation_area",
+              "measured_coverage",
+              "estimated_fov",
+              "other"
+            ]
+          }
+        },
+        "requireHistoryContinuity": {
+          "type": "boolean"
+        },
+        "requireTrajectoryTime": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "operationName",
+        "providerSuccess",
+        "skillSuccess",
+        "requiredGeometryRoles",
+        "requireHistoryContinuity",
+        "requireTrajectoryTime"
+      ],
+      "additionalProperties": false
     }
   }
 }

@@ -1,0 +1,158 @@
+{
+  "scope": "offline_source_audit_only",
+  "repositoryRoot": "/home/sz/code/skill-driven-agent-runtime",
+  "head": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "branch": "codex/sdar-smpp-v13-business-closure",
+  "workingTreeStatus": [],
+  "baselinePins": {
+    "observedMain": {
+      "sha": "f94d0b98d140dd22514029ccdc34978209426940",
+      "locallyAvailable": true,
+      "ancestorOfHead": true
+    },
+    "pr34Head": {
+      "sha": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+      "locallyAvailable": true,
+      "ancestorOfHead": true
+    }
+  },
+  "knownPaths": {
+    "AGENTS.md": {
+      "exists": true,
+      "sha256": "afe5c071935aee1e67250242ba6dd5d51b93a2881776f5aa182f09b395701803"
+    },
+    "PLANS.md": {
+      "exists": true,
+      "sha256": "fde3e37f46317d6c2c1f5055ef310f67075e018a691994b01ab23025e3601a49"
+    },
+    "package.json": {
+      "exists": true,
+      "sha256": "30280f9ea26e004994317a69a06cc32329ad7a3d538f4971f1a7965042fddeae"
+    },
+    "docs/SDAR_SMPP_UGV_V13_ADAPTER.md": {
+      "exists": true,
+      "sha256": "50bdbdcc32fc3219a5bb11a3b4507c717001ca26c5a33fa26818ca7c7c4c9dd1"
+    },
+    "packages/mcp-adapter/src/smpp-task-business-client.ts": {
+      "exists": true,
+      "sha256": "85810ef5116d809b02e618523abbd2797a04c15778c6d87da70dff08a8d5c933"
+    },
+    "packages/application/src/mcp-registry.ts": {
+      "exists": true,
+      "sha256": "6ccbeef7db57a74eabe3724bf49476961f58a4535e33807731e6854adb5df76d"
+    },
+    "packages/application/src/business-events.ts": {
+      "exists": true,
+      "sha256": "9c365b02a335fe4b05bde1979a9deb1fa883c8ed36523852a3432720167be714"
+    },
+    "packages/application/src/remote-task-input.ts": {
+      "exists": true,
+      "sha256": "c5463a696e0ac1fc9720495e29dbf2bb4093176b3c1f66ee55bf931d441c2de2"
+    },
+    "packages/persistence-postgres/src/index.ts": {
+      "exists": true,
+      "sha256": "f9baa2358fc957911438e328c86bd551adb3081587442b49035026fbe9372960"
+    },
+    "apps/server/src/runtime.ts": {
+      "exists": true,
+      "sha256": "c6b66cb5e2ae5ebc8613be068c64eba62a42bb78900a319831cd1e89a1578a68"
+    }
+  },
+  "packageManager": "pnpm@11.7.0",
+  "nodeEngines": ">=20.19.0",
+  "availableScriptNames": [
+    "build",
+    "complete:v13-p13",
+    "configure:home-lab-a2a-model-fixture",
+    "db:reset:v1.2.2",
+    "db:reset:v1.4.1",
+    "demo:acceptance",
+    "demo:client",
+    "demo:evidence-e2e",
+    "demo:local",
+    "dev:console",
+    "evidence:licenses",
+    "evidence:v13-capacity",
+    "evidence:v13-migration",
+    "evidence:v13-release",
+    "format",
+    "format:check",
+    "generate:evidence-contract",
+    "generate:evidence-handoff",
+    "gowm-storage:check",
+    "gowm-storage:smoke",
+    "gowm-storage:verify",
+    "integrate:home-lab-catalog",
+    "lint",
+    "package:joint",
+    "smoke",
+    "smoke:infra",
+    "smoke:node-control",
+    "smoke:server",
+    "start:a2a-tck-sut",
+    "start:home-lab-a2a-model-fixture",
+    "start:node-control-api",
+    "start:node-control-worker",
+    "start:server",
+    "test",
+    "test:a2a-tck",
+    "test:contract",
+    "test:e2e",
+    "test:gowm-storage:postgres",
+    "test:gowm-storage:runtime",
+    "test:gowm-storage:unit",
+    "test:integration",
+    "test:node-control",
+    "test:unit",
+    "test:unit:performance",
+    "test:verification",
+    "typecheck",
+    "ugv:debug",
+    "ugv:driver:bootstrap",
+    "ugv:driver:bootstrap-provider",
+    "ugv:driver:bootstrap-source",
+    "ugv:driver:control-gate",
+    "ugv:driver:govern-capabilities",
+    "ugv:driver:preflight",
+    "ugv:driver:qualify-a2a-readonly",
+    "ugv:driver:qualify-control",
+    "ugv:driver:qualify-model",
+    "ugv:driver:reconcile-point-authority",
+    "ugv:driver:remediate-control-authority",
+    "ugv:driver:smoke-readonly",
+    "verify",
+    "verify:a2a-baseline",
+    "verify:acceptance",
+    "verify:architecture",
+    "verify:bootstrap",
+    "verify:cognitive-replay",
+    "verify:ep01",
+    "verify:evidence-contract",
+    "verify:evidence-coverage",
+    "verify:home-lab-a2a-readonly",
+    "verify:home-lab-g09-governed-light",
+    "verify:infra",
+    "verify:isolated",
+    "verify:licenses",
+    "verify:management-openapi",
+    "verify:migrations",
+    "verify:node-control-contract",
+    "verify:node-control-implementation-conformance",
+    "verify:project-license",
+    "verify:protocol",
+    "verify:smpp-registry-projection",
+    "verify:smpp-registry-projection:cross-repo",
+    "verify:sources",
+    "verify:v13-p14",
+    "verify:v13-recovery",
+    "verify:v13-release",
+    "verify:v13-reproducibility",
+    "verify:v13-secrets",
+    "verify:v14-recovery",
+    "verify:v14-security"
+  ],
+  "networkRequests": 0,
+  "repositoryWrites": 0,
+  "siteProbes": 0,
+  "note": "Missing pins/symbols require inspection; this does not verify implementation, CI or deployment."
+}

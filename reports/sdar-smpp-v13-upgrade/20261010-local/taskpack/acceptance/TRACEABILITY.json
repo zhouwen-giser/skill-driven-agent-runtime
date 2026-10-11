@@ -1,0 +1,318 @@
+{
+  "schemaVersion": "sdar-taskpack-traceability/1",
+  "requirements": [
+    {
+      "id": "UPG-V13-R01",
+      "title": "固定部署兼容合同与治理 successor",
+      "workItems": [
+        "W0"
+      ],
+      "caseIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R02",
+      "title": "原任务/Execution/authority 精确关联",
+      "workItems": [
+        "W1"
+      ],
+      "caseIds": [
+        "AC-006",
+        "AC-007",
+        "AC-008",
+        "AC-009",
+        "AC-010"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R03",
+      "title": "完整分页分块及精确版本读取",
+      "workItems": [
+        "W1",
+        "W2",
+        "W4"
+      ],
+      "caseIds": [
+        "AC-008",
+        "AC-011",
+        "AC-033"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R04",
+      "title": "复用事件 inbox、双水位和 continuity",
+      "workItems": [
+        "W2"
+      ],
+      "caseIds": [
+        "AC-012",
+        "AC-013",
+        "AC-014",
+        "AC-015",
+        "AC-016"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R05",
+      "title": "正式 Skill/Agent 消费受校验业务投影",
+      "workItems": [
+        "W2"
+      ],
+      "caseIds": [
+        "AC-017",
+        "AC-018"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R06",
+      "title": "真实控制授权、单发送者和取消边界",
+      "workItems": [
+        "W3",
+        "W5"
+      ],
+      "caseIds": [
+        "AC-019",
+        "AC-028",
+        "AC-029",
+        "AC-030",
+        "AC-048"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R07",
+      "title": "原任务 RequiredInput 闭环",
+      "workItems": [
+        "W3"
+      ],
+      "caseIds": [
+        "AC-020",
+        "AC-021",
+        "AC-022",
+        "AC-023",
+        "AC-024"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R08",
+      "title": "同一任务运行中导航调整与 applied 确认",
+      "workItems": [
+        "W3"
+      ],
+      "caseIds": [
+        "AC-025",
+        "AC-026",
+        "AC-027",
+        "AC-028"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R09",
+      "title": "技术终态、业务结果和证据质量分离",
+      "workItems": [
+        "W4"
+      ],
+      "caseIds": [
+        "AC-031",
+        "AC-037"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R10",
+      "title": "完整实际轨迹与几何角色分离",
+      "workItems": [
+        "W4"
+      ],
+      "caseIds": [
+        "AC-032",
+        "AC-033",
+        "AC-035"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R11",
+      "title": "Provider 接收时间为 canonical 源时间",
+      "workItems": [
+        "W0",
+        "W4"
+      ],
+      "caseIds": [
+        "AC-005",
+        "AC-034",
+        "AC-035"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R12",
+      "title": "估算/未知/缺失不伪装为真实完成",
+      "workItems": [
+        "W4"
+      ],
+      "caseIds": [
+        "AC-036",
+        "AC-037"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R13",
+      "title": "正式确认链及 evidence 输出兼容",
+      "workItems": [
+        "W4"
+      ],
+      "caseIds": [
+        "AC-038"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R14",
+      "title": "只恢复原读取/核对，防止重复执行",
+      "workItems": [
+        "W1",
+        "W2",
+        "W5"
+      ],
+      "caseIds": [
+        "AC-010",
+        "AC-013",
+        "AC-039",
+        "AC-040",
+        "AC-041"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R15",
+      "title": "两条正式入口隔离端到端链",
+      "workItems": [
+        "W5"
+      ],
+      "caseIds": [
+        "AC-042",
+        "AC-043"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R16",
+      "title": "迁移与未决命令回滚保护",
+      "workItems": [
+        "W5"
+      ],
+      "caseIds": [
+        "AC-039",
+        "AC-044"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R17",
+      "title": "现场授权与本地/现场分层验收",
+      "workItems": [
+        "W5"
+      ],
+      "caseIds": [
+        "AC-045",
+        "AC-046",
+        "AC-047",
+        "AC-048"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R18",
+      "title": "同源完整门禁与失败证据保留",
+      "workItems": [
+        "W5"
+      ],
+      "caseIds": [
+        "AC-049"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "UPG-V13-R19",
+      "title": "现有 GOWM 正式存储边界",
+      "workItems": [
+        "W5"
+      ],
+      "caseIds": [
+        "AC-039",
+        "AC-050"
+      ],
+      "implementationPaths": [],
+      "testPaths": [],
+      "evidencePaths": [],
+      "status": "NOT_STARTED"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "status": "LOCAL_UPGRADE_VERIFIED",
+  "scope": "M1–M4 and authorized W0–W5 local work",
+  "authoritativeFiles": [
+    {
+      "path": "source/Agent通用模板Server需求规格说明书_V1.0.docx",
+      "sha256": "5a0d94be36096316566400621e00a3d90324807b2bfe811bbdc8dd92ad44be82"
+    },
+    {
+      "path": "docs/01_REQUIREMENTS_BASELINE.md",
+      "sha256": "86042a5dfe276089c088c5d952bde8628141185facdd0bdc60c038e0bdbb7919"
+    },
+    {
+      "path": "docs/16_DEFINITION_OF_DONE.md",
+      "sha256": "505491e8054360151763687809cbfab6e65f6aa1eddd998f626bf3c9bb993026"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "sha256": "9228cb7d70c7e05bc44ea8f56a91805257ae959a44c15d3de0ab96f4dc6f892a"
+    }
+  ],
+  "fourMilestones": [
+    {
+      "milestone": "M1",
+      "evidence": "M1_VALIDATION.json",
+      "status": "PASS"
+    },
+    {
+      "milestone": "M2",
+      "evidence": "M2_VALIDATION.json",
+      "status": "PASS"
+    },
+    {
+      "milestone": "M3",
+      "evidence": "M3_VALIDATION.json",
+      "status": "PASS"
+    },
+    {
+      "milestone": "M4",
+      "evidence": "M4_VALIDATION.json",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "localCasesPassed": 48,
+    "siteCasesNotRun": 2,
+    "gateStagesPassed": 30,
+    "frozenInstallPassed": true
+  },
+  "sameRepositorySource": "SAME_SOURCE_ALIGNMENT.json",
+  "classifications": {
+    "storage": "real owned PostgreSQL/Redis",
+    "processes": "real OS process contention and SIGKILL",
+    "Server_A2A_Registry_Skill": "real local runtime through formal interfaces",
+    "Provider_and_Model": "simulated loopback protocol fixtures",
+    "site_and_real_device": "unverified NOT_RUN"
+  },
+  "sourceAndBaselineUnchanged": true,
+  "cleanup": "PASS",
+  "failedAttempts": "FAILED_ATTEMPTS.json",
+  "upstreamFactsRetainedAsGaps": [
+    "per-sample trajectory source clocks",
+    "complete business-event history"
+  ],
+  "preexistingProjectGowmGapsUnchanged": [
+    "auxiliary execution link identity contract",
+    "temporary Skill provenance finalization"
+  ],
+  "protectedOrUnrequestedOperations": {
+    "commit": "NOT_RUN",
+    "push": "NOT_RUN",
+    "PR_modification": "NOT_RUN",
+    "merge": "NOT_RUN",
+    "deploy": "NOT_RUN",
+    "site_read": "NOT_RUN",
+    "site_write": "NOT_RUN"
+  },
+  "officialA2AScope": "Existing HTTP JSON MUST TCK qualification; 74 passed, 161 skipped, 30 deselected. NOT TESTED requirements remain NOT TESTED; see TCK_SCOPE_AND_COUNTS.json.",
+  "projectReleaseDefinitionOfDoneSatisfied": false,
+  "reason": "Local implementation and reproducible acceptance complete; merge, clean release worktree, site and whole-project upstream acceptance are outside this authorized scope."
+}

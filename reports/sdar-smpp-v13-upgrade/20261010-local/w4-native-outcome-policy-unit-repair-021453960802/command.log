@@ -1,0 +1,27 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |unit| packages/application/test/task-business-outcome.unit.test.ts (11 tests | 1 failed) 13ms
+     × uses published effects with actual retained references only after native capability and business proof 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/task-business-outcome.unit.test.ts > Published business policy at the original terminal outcome boundary > uses published effects with actual retained references only after native capability and business proof
+TaskBusinessError: TASK_BUSINESS_SKILL_SUCCESS_EVIDENCE_INCOMPLETE
+ ❯ verifiedTaskBusinessOutcomeRefs packages/application/src/task-business-outcome.ts:49:11
+     47|     )
+     48|   )
+     49|     throw new TaskBusinessError('TASK_BUSINESS_SKILL_SUCCESS_EVIDENCE_…
+       |           ^
+     50|   const refs = own.flatMap((p) =>
+     51|     p.objects.flatMap((o) => (o.artifactRef === undefined ? [] : [o.ar…
+ ❯ packages/application/test/task-business-outcome.unit.test.ts:99:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 15 passed (16)
+   Start at  02:14:55
+   Duration  636ms (transform 442ms, setup 0ms, import 888ms, tests 180ms, environment 0ms)
+

@@ -1,0 +1,21 @@
+{
+  "name": "a2a-baseline",
+  "command": "pnpm verify:a2a-baseline",
+  "status": "passed",
+  "startedAt": "2026-10-10T18:05:58.865Z",
+  "finishedAt": "2026-10-10T18:06:06.436Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/a2a-baseline.log",
+  "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 7570,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 8,
+    "peakRssBytes": 275283968,
+    "peakProcesses": 2
+  },
+  "cleanupErrors": []
+}

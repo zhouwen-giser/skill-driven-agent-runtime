@@ -1,0 +1,2 @@
+$ node scripts/verify-acceptance-map.mjs
+Verified the structural mapping of 18 acceptance scenarios and historical evidence classifications; this does not certify current behavior.

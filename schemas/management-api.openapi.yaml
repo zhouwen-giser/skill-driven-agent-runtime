@@ -919,6 +919,222 @@ paths:
       operationId: listTaskRuntimeEvents
       responses:
         '200': { description: Ordered displayable Task lifecycle events }
+  /api/v1/tasks/{taskId}/business:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listTaskBusiness
+      description: Reads exact identity, current summaries, resolved object refs, geometry content refs and explicit time/history quality from native Task observations.
+      responses:
+        '200': { description: Native business projection collection }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/business/commands:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listTaskBusinessCommands
+      responses:
+        '200':
+          {
+            description: Immutable business intents,
+            native confirmation and dispatch/reconciliation evidence,
+          }
+  /api/v1/tasks/{taskId}/business/content/{bindingId}/{digest}:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string } }
+      - { name: bindingId, in: path, required: true, schema: { type: string } }
+      - { name: digest, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getTaskBusinessContent
+      responses:
+        '200':
+          description: Complete retained original JSON bytes verified against immutable raw SHA256, without display simplification
+          content:
+            application/json: { schema: {} }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/business/source-artifact:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string } }
+      - {
+          name: artifactId,
+          in: query,
+          required: true,
+          schema: { type: string },
+          example: 'task-business-348b5cc0-849e-4f73-9f27-b7ddedd52e20',
+        }
+      - {
+          name: version,
+          in: query,
+          required: true,
+          schema: { type: integer, minimum: 1 },
+          example: 1,
+        }
+      - {
+          name: uri,
+          in: query,
+          required: true,
+          schema: { type: string },
+          example: 'artifact://runtime/v1/remote_task_observation/task-business-348b5cc0-849e-4f73-9f27-b7ddedd52e20/1/content',
+        }
+      - {
+          name: sha256,
+          in: query,
+          required: true,
+          schema: { type: string },
+          example: 'sha256:95ecac28a7fd86ace40cab8a498664fcc6aa4d8e3ba8130d7384b63e4c315db4',
+        }
+      - {
+          name: mediaType,
+          in: query,
+          required: true,
+          schema: { type: string, enum: [application/json] },
+          example: 'application/json',
+        }
+      - {
+          name: byteSize,
+          in: query,
+          required: true,
+          schema: { type: integer, minimum: 0, maximum: 16777216 },
+          example: 1309,
+        }
+    get:
+      operationId: getTaskBusinessSourceArtifact
+      description: Resolves an immutable native business ArtifactRef within the original Task scope and verifies its canonical envelope SHA256 and size. The envelope preserves complete raw bytes and their separate SHA256.
+      responses:
+        '200':
+          description: Complete integrity-verified canonical source artifact
+          content:
+            application/json:
+              schema: { type: object }
+              example:
+                {
+                  'bytes': 'eyJraW5kIjoiZ2VvanNvbiIsImNycyI6Ik9HQzpDUlM4NCIsImdlb21ldHJ5Ijp7InR5cGUiOiJQb2ludCIsImNvb3JkaW5hdGVzIjpbMTE2LDM5XX19',
+                  'encoding': 'base64',
+                  'identity':
+                    {
+                      'executionId': 'execution:387e3503-8070-4940-b7e7-6dfc3b6bf5b5',
+                      'operationName': 'vehicle_navigate',
+                      'providerId': 'isr.vehicle.ugv.ugv',
+                      'resourceId': 'vehicle:ugv',
+                      'taskId': '387e3503-8070-4940-b7e7-6dfc3b6bf5b5',
+                    },
+                  'metadata':
+                    {
+                      'artifactId': 'destination-point',
+                      'artifactType': 'navigation.destination',
+                      'availability': 'available',
+                      'content':
+                        {
+                          'crs': 'OGC:CRS84',
+                          'geometry': { 'coordinates': [116, 39], 'type': 'Point' },
+                          'kind': 'geojson',
+                        },
+                      'createdAt': '2026-09-23T00:00:00Z',
+                      'identity':
+                        {
+                          'executionId': 'execution:387e3503-8070-4940-b7e7-6dfc3b6bf5b5',
+                          'operationName': 'vehicle_navigate',
+                          'providerId': 'isr.vehicle.ugv.ugv',
+                          'resourceId': 'vehicle:ugv',
+                          'taskId': '387e3503-8070-4940-b7e7-6dfc3b6bf5b5',
+                        },
+                      'lifecycle': 'active',
+                      'properties': { 'intent': 'requested' },
+                      'revision': 1,
+                      'schemaVersion': 'sdar.task-artifact/1.0-rc2',
+                      'semantics': 'requested',
+                      'source':
+                        { 'producer': 'device_planner', 'sourceRecordRef': 'catalog-source-1' },
+                      'updatedAt': '2026-09-23T00:01:00Z',
+                    },
+                  'rawByteSize': 87,
+                  'rawSha256': 'sha256:56745a37b49a85957da9f299b73621bd7e5c8762b3f336ff929405bc720d1063',
+                  'ref': { 'id': 'destination-point', 'kind': 'artifact', 'revision': 1 },
+                  'schemaVersion': 'sdar.task-business-source-artifact/v1',
+                }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/business/navigation/prepare:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: prepareTaskNavigationAdjustment
+      description: Resolves the original running Task and freezes its available Intervention, revisions, identity and legal payload before confirmation. Performs zero mutation wire calls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [idempotencyKey, waypoints, density]
+              example:
+                {
+                  idempotencyKey: navigation-review-1,
+                  waypoints: [{ longitude: 106.802, latitude: 29.7 }],
+                  density: normal,
+                }
+              properties:
+                idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+                waypoints:
+                  type: array
+                  minItems: 1
+                  maxItems: 256
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [longitude, latitude]
+                    properties:
+                      longitude: { type: number, minimum: -180, maximum: 180 }
+                      latitude: { type: number, minimum: -90, maximum: 90 }
+                density: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200': { description: Prepared intent containing exact reviewable payload and contentHash }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/business/commands/{intentId}/confirm:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string } }
+      - { name: intentId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: confirmTaskBusinessCommand
+      description: Uses the configured trusted human principal and original confirmation service, then consumes one exact receipt in the durable single-sender transaction. Acceptance does not establish business application.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '200':
+          {
+            description: Accepted,
+            uncertain,
+            obsolete or confirmed command record; retries never resend,
+          }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/business/commands/{intentId}/reconcile:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string } }
+      - { name: intentId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: reconcileTaskBusinessCommand
+      description: Performs bounded read-only reconciliation through original Context, Intervention, RequiredInput and adopted-route facts. It never dispatches a command.
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: false } }
+      responses:
+        '200': { description: Persisted reconciliation state and identity/correlation evidence }
+  /api/v1/task-business/rollback-preflight:
+    get:
+      operationId: getTaskBusinessRollbackPreflight
+      description: Denies write takeover when native prepared or in-flight/uncertain business intents remain; old code must keep their fence and journal.
+      responses:
+        '200': { description: writeTakeoverAllowed and pendingIntentIds }
   /api/v1/tasks/{taskId}/gateway-evidence:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:

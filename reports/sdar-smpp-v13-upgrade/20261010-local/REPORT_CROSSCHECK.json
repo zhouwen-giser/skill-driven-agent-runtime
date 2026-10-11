@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "scope": "final local report cross-check",
+  "officialRuntimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+  "checks": [
+    {
+      "name": "all case/requirement mappings and actual file/log hashes",
+      "status": "PASS",
+      "caseCount": 50,
+      "requirementCount": 19,
+      "referencedHashChecks": 208
+    },
+    {
+      "name": "M1 original 30-stage gate",
+      "status": "PASS",
+      "dependencyMode": "reuse",
+      "run": "reports/runtime-semantic-closure/sdar-verify-4367bcdc-e7e8-4bc9-ba98-dd1ea8e0cf4a",
+      "inputSha256": "101c40afb75143ee390965e031e224b3f49ab8ed1333ab5daa568de1274d3eeb",
+      "cleanupExitCode": 0
+    },
+    {
+      "name": "M2 original 30-stage gate",
+      "status": "PASS",
+      "dependencyMode": "reuse",
+      "run": "reports/runtime-semantic-closure/sdar-verify-6d401db7-abc8-4cf4-be82-52a21bf1dfd0",
+      "inputSha256": "14013bbf3b01099dbb0234b6d40edeced9f795aab36b5b847350610bdca09582",
+      "cleanupExitCode": 0
+    },
+    {
+      "name": "M3 original 30-stage gate",
+      "status": "PASS",
+      "dependencyMode": "reuse",
+      "run": "reports/runtime-semantic-closure/sdar-verify-ecbbb50e-29bc-472a-86fd-7bfc4fcb2610",
+      "inputSha256": "5d63724fa4944d3a52a0b8875be97898cde2a8ecd323633151191ad4b9e21496",
+      "cleanupExitCode": 0
+    },
+    {
+      "name": "M4 original 30-stage gate",
+      "status": "PASS",
+      "dependencyMode": "frozen",
+      "run": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506",
+      "inputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+      "cleanupExitCode": 0
+    },
+    {
+      "name": "current repository source/baseline still equal final frozen inputs",
+      "status": "PASS",
+      "fileCount": 2807
+    },
+    {
+      "name": "clickable local evidence links",
+      "status": "PASS",
+      "linkCount": 32
+    },
+    {
+      "name": "current formal positive/negative evidence sample hashes",
+      "status": "PASS",
+      "sampleCount": 3
+    },
+    {
+      "name": "original PR34 head retained on local successor branch",
+      "status": "PASS",
+      "branch": "codex/sdar-smpp-v13-business-closure",
+      "HEAD": "52f54a11a40380f7c73bd9da277d640e49bdfbf7"
+    },
+    {
+      "name": "status and active ExecPlan document formatting",
+      "status": "PASS",
+      "command": "pnpm exec prettier --check PROJECT_STATUS.md CHANGELOG.md execplans/EP-SDAR-SMPP-V13-BUSINESS-CLOSURE.md",
+      "exitCode": 0,
+      "output": "All matched files use Prettier code style!"
+    },
+    {
+      "name": "git whitespace and deployment/config paths",
+      "status": "PASS",
+      "command": "git diff --check; git diff --name-only -- deploy config .env .state",
+      "exitCode": 0,
+      "deploymentConfigDiff": []
+    },
+    {
+      "name": "final gate owned Compose resource inventory",
+      "status": "PASS",
+      "project": "sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506",
+      "remainingContainers": []
+    }
+  ],
+  "status": "PASS",
+  "site": "NOT_RUN",
+  "protectedRemoteOperations": "NOT_RUN"
+}

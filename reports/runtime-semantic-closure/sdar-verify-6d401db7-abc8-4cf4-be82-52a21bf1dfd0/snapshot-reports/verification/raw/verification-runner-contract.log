@@ -1,0 +1,140 @@
+$ node scripts/test-verification-isolation.mjs && node scripts/test-verification-runner.mjs
+TAP version 13
+{"event":"test.ready","a2aUrl":"http://127.0.0.1:12345"}
+# Subtest: endpoint readiness comes from the started child, including split stdout records
+ok 1 - endpoint readiness comes from the started child, including split stdout records
+  ---
+  duration_ms: 42.447402
+  type: 'test'
+  ...
+# Subtest: a child that exits before readiness cannot authorize an HTTP probe
+ok 2 - a child that exits before readiness cannot authorize an HTTP probe
+  ---
+  duration_ms: 46.096034
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+# Subtest: service shutdown waits for delayed cleanup before allowing database teardown
+ok 3 - service shutdown waits for delayed cleanup before allowing database teardown
+  ---
+  duration_ms: 130.792012
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+{"event":"shutdown.ready"}
+# Subtest: service shutdown rejects nonzero exits and kills timed-out children
+ok 4 - service shutdown rejects nonzero exits and kills timed-out children
+  ---
+  duration_ms: 148.584696
+  type: 'test'
+  ...
+# Subtest: isolated build/config/cleanup always name the owned project and ignore local dotenv
+ok 5 - isolated build/config/cleanup always name the owned project and ignore local dotenv
+  ---
+  duration_ms: 188.726933
+  type: 'test'
+  ...
+# Subtest: isolated verification refuses the shared project before calling Docker
+ok 6 - isolated verification refuses the shared project before calling Docker
+  ---
+  duration_ms: 55.027857
+  type: 'test'
+  ...
+# Subtest: a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+ok 7 - a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+  ---
+  duration_ms: 103.212995
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 723.853456
+TAP version 13
+# Subtest: outer migration cleanup finds resources after a killed verifier and preserves removal errors
+ok 1 - outer migration cleanup finds resources after a killed verifier and preserves removal errors
+  ---
+  duration_ms: 9.809225
+  type: 'test'
+  ...
+# Subtest: migration cleanup never removes a resource outside its exact ownership set
+ok 2 - migration cleanup never removes a resource outside its exact ownership set
+  ---
+  duration_ms: 4.747382
+  type: 'test'
+  ...
+# Subtest: stage output is persisted before exit; nonzero exit cannot pass
+ok 3 - stage output is persisted before exit; nonzero exit cannot pass
+  ---
+  duration_ms: 451.019728
+  type: 'test'
+  ...
+descendant=2111767
+# Subtest: timeout kills a SIGTERM-resistant descendant, records reason and never passes
+ok 4 - timeout kills a SIGTERM-resistant descendant, records reason and never passes
+  ---
+  duration_ms: 808.803629
+  type: 'test'
+  ...
+# Subtest: successful leader cannot leak a background child or an inherited stdout pipe
+ok 5 - successful leader cannot leak a background child or an inherited stdout pipe
+  ---
+  duration_ms: 53.975607
+  type: 'test'
+  ...
+# Subtest: caller cancellation is retained even when the child exits with zero
+ok 6 - caller cancellation is retained even when the child exits with zero
+  ---
+  duration_ms: 508.622633
+  type: 'test'
+  ...
+# Subtest: missing executable produces a failed stage report
+ok 7 - missing executable produces a failed stage report
+  ---
+  duration_ms: 12.803767
+  type: 'test'
+  ...
+# Subtest: runtime identity ignores progress reports but binds code, tests, assets and lockfile
+ok 8 - runtime identity ignores progress reports but binds code, tests, assets and lockfile
+  ---
+  duration_ms: 21.532815
+  type: 'test'
+  ...
+# Subtest: full gate includes every bootstrap stage with independent limits and no aggregate command
+ok 9 - full gate includes every bootstrap stage with independent limits and no aggregate command
+  ---
+  duration_ms: 0.949126
+  type: 'test'
+  ...
+# Subtest: release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+ok 10 - release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+  ---
+  duration_ms: 1.644835
+  type: 'test'
+  ...
+# Subtest: sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+ok 11 - sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+  ---
+  duration_ms: 9.935198
+  type: 'test'
+  ...
+# Subtest: nested smoke projects belong to the outer run cleanup allowlist
+ok 12 - nested smoke projects belong to the outer run cleanup allowlist
+  ---
+  duration_ms: 0.367485
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1893.060509

@@ -46,10 +46,13 @@ const ACTIVE_ATTEMPT_STATUSES = new Set(['prepared', 'running', 'waiting']);
 
 /** Reads the complete confirmation scope from one PostgreSQL statement snapshot. */
 export class PostgresGovernedControlManagementAuthorityReader implements GovernedControlManagementAuthorityReader {
-  readonly #pool: Pool;
+  readonly #pool: Pick<Pool, 'query'>;
   readonly #authorityKind: GovernedControlAuthorityKind;
 
-  constructor(pool: Pool, authorityKind: GovernedControlAuthorityKind = 'physical_control') {
+  constructor(
+    pool: Pick<Pool, 'query'>,
+    authorityKind: GovernedControlAuthorityKind = 'physical_control',
+  ) {
     this.#pool = pool;
     this.#authorityKind = authorityKind;
   }

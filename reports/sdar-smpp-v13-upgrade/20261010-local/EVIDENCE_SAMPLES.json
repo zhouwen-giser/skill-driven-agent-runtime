@@ -1,0 +1,49 @@
+{
+  "positiveFullSourceAndConfirmationChains": [
+    {
+      "path": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/sdar-smpp-v13-upgrade/20261010-local/formal-vehicle_area_recon-b2c388fe-b3ae-4c3d-86d2-6b0107bd73d9/evidence.json",
+      "sha256": "01d08cc6bc06955516a253ab8bd55a7545a2d834283ab85fefad06d2eab77919",
+      "taskId": "bf75153b-832c-4898-893d-b83a3046fdf3",
+      "identity": {
+        "taskId": "1b76235b-1980-4a0e-8369-ee45bd72283b",
+        "executionId": "execution:1b76235b-1980-4a0e-8369-ee45bd72283b",
+        "providerId": "isr.vehicle.ugv.ugv",
+        "resourceId": "vehicle:ugv",
+        "operationName": "vehicle_area_recon"
+      },
+      "canonicalSourceArtifactCount": 6,
+      "wireToolCalls": 1,
+      "notPresentInFrozenPreRunInputs": true,
+      "projectedAt": "2026-10-10T20:32:13.429Z"
+    },
+    {
+      "path": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/sdar-smpp-v13-upgrade/20261010-local/formal-vehicle_navigate-920fd123-15e6-4894-b102-19b0eee2b64d/evidence.json",
+      "sha256": "9823d5a2108f473f6ae76fc09e8b7b5e48f9609cb73ac9ef4789fae506a2d5ac",
+      "taskId": "329a5f4f-2958-42d7-991f-a8cde4578597",
+      "identity": {
+        "taskId": "c6b00417-3720-4e08-8b5c-c7b8abe66562",
+        "executionId": "execution:c6b00417-3720-4e08-8b5c-c7b8abe66562",
+        "providerId": "isr.vehicle.ugv.ugv",
+        "resourceId": "vehicle:ugv",
+        "operationName": "vehicle_navigate"
+      },
+      "canonicalSourceArtifactCount": 6,
+      "wireToolCalls": 1,
+      "notPresentInFrozenPreRunInputs": true,
+      "projectedAt": "2026-10-10T20:31:42.890Z"
+    }
+  ],
+  "selectionProof": {
+    "frozenInputs": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/inputs.json",
+    "method": "new paths absent from immutable pre-run input manifest; original projection time inside actual E2E stage",
+    "e2eStartedAt": "2026-10-10T20:30:16.773Z",
+    "e2eFinishedAt": "2026-10-10T20:35:27.330Z"
+  },
+  "samePublishedSkillNegative": {
+    "path": "reports/runtime-semantic-closure/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506/snapshot-reports/sdar-smpp-v13-upgrade/20261010-local/formal-vehicle_navigate-920fd123-15e6-4894-b102-19b0eee2b64d/same-skill-negative.json",
+    "sha256": "8088928b6bb7bdb737b5fce1bb44769bd3cb3ba09c53c07b442afa3ab171974b"
+  },
+  "site": "NOT_RUN",
+  "modelBoundary": "local_protocol_fixture",
+  "interpretation": "Complete retained raw trajectory bytes and canonical confirmation references, not complete upstream history or manufactured per-sample clocks."
+}

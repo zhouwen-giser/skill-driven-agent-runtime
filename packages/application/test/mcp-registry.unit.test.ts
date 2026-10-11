@@ -401,6 +401,7 @@ describe('MCP Registry invocation boundary', () => {
       taskId: identity.remoteTaskId,
       expectedProviderId: 'external-provider-1',
       expectedResourceId: 'vehicle:ugv',
+      expectedOperationName: 'light_get_state',
     });
     const calls = fixture.businessRead.mock.calls.length;
     await expect(
@@ -430,6 +431,7 @@ describe('MCP Registry invocation boundary', () => {
       taskId: identity.remoteTaskId,
       expectedProviderId: 'external-provider-1',
       expectedResourceId: 'vehicle:ugv',
+      expectedOperationName: 'light_get_state',
       artifactId: 'route-1',
       revision: 2,
     });

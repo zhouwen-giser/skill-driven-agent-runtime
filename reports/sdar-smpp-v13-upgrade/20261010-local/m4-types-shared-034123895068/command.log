@@ -1,0 +1,12 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/test/repositories.integration.test.ts(3060,73): error TS2379: Argument of type '{ serverId: string; protocolSnapshotId: string | undefined; }' is not assignable to parameter of type 'Readonly<{ serverId?: string; protocolSnapshotId?: string; }>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'protocolSnapshotId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+packages/persistence-postgres/test/repositories.integration.test.ts(3067,80): error TS2379: Argument of type '{ serverId: string; protocolSnapshotId: string | undefined; }' is not assignable to parameter of type 'Readonly<{ serverId?: string; protocolSnapshotId?: string; }>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'protocolSnapshotId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+packages/persistence-postgres/test/repositories.integration.test.ts(10472,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+[ELIFECYCLE] Command failed with exit code 2.

@@ -1,0 +1,12 @@
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/test/task-business-command.integration.test.ts
+  177:53  error  Passing a string to String() does not change the type or value of the string  @typescript-eslint/no-unnecessary-type-conversion
+  177:68  error  ["requestId"] is better written in dot notation                               @typescript-eslint/dot-notation
+  189:6   error  Passing a string to String() does not change the type or value of the string  @typescript-eslint/no-unnecessary-type-conversion
+  189:21  error  ["requestKey"] is better written in dot notation                              @typescript-eslint/dot-notation
+  229:6   error  Passing a string to String() does not change the type or value of the string  @typescript-eslint/no-unnecessary-type-conversion
+  229:21  error  ["requestKey"] is better written in dot notation                              @typescript-eslint/dot-notation
+
+✖ 6 problems (6 errors, 0 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+

@@ -41,7 +41,7 @@ describe('PostgresGovernedControlManagementAuthorityReader', () => {
     };
     const reader = new PostgresGovernedControlManagementAuthorityReader({
       query: vi.fn().mockResolvedValue({ rows: [row] }),
-    } as unknown as Pool);
+    });
     await expect(reader.issueAuthority('task-1')).resolves.toMatchObject({
       planHash: canonicalHash(definition),
     });

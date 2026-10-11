@@ -1,0 +1,16 @@
+{
+  "command": [
+    "pnpm",
+    "verify:isolated"
+  ],
+  "cwd": "/tmp/sdar-verify-88f86afd-9116-49f6-bb92-a74f1e8e108a-0xR6JJ/source-m2-repair",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "6d215da7de637b4688662bfc6c6c815fc6e0c1a9a48a7899d0428ddfb20c521b",
+  "startedAt": "2026-10-11T00:02:34.827799+08:00",
+  "finishedAt": "2026-10-11T00:09:24.987353+08:00",
+  "durationSeconds": 410.159554,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "d67b2143ffe04bdc666e47ab05ef1c42971506c14482fa9e477578b9b217053f",
+  "environment": "local_source_or_loopback_fixture_only"
+}

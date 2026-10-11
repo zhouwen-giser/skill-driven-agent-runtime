@@ -1,0 +1,11 @@
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/test/repositories.integration.test.ts
+   3063:9   error  Unnecessary conditional, comparison is always true, since `"frozen_v1" === "frozen_v1"` is true    @typescript-eslint/no-unnecessary-condition
+   3063:35  error  Unnecessary optional chain on a non-nullish value                                                  @typescript-eslint/no-unnecessary-condition
+   3070:9   error  Unnecessary conditional, comparison is always true, since `"frozen_v1" === "frozen_v1"` is true    @typescript-eslint/no-unnecessary-condition
+   3070:35  error  Unnecessary optional chain on a non-nullish value                                                  @typescript-eslint/no-unnecessary-condition
+  10465:7   error  Unnecessary conditional, comparison is always false, since `"frozen_v1" !== "frozen_v1"` is false  @typescript-eslint/no-unnecessary-condition
+  10465:31  error  Unnecessary optional chain on a non-nullish value                                                  @typescript-eslint/no-unnecessary-condition
+
+✖ 6 problems (6 errors, 0 warnings)
+

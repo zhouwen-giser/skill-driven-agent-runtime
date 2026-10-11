@@ -1,0 +1,17 @@
+{
+  "command": [
+    "node",
+    "/home/sz/code/skill-driven-agent-runtime/scripts/sdar-smpp-v13/verify-local.mjs",
+    "apps/server/test/ugv-agent-profile-execution.integration.test.ts"
+  ],
+  "cwd": "/tmp/sdar-verify-88f86afd-9116-49f6-bb92-a74f1e8e108a-0xR6JJ/source",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "ac8f5a15f2326a89e118ff19cd9c0040ef06942b12a0b9d63d4dd7bc85aedc5b",
+  "startedAt": "2026-10-10T23:34:47.667891+08:00",
+  "finishedAt": "2026-10-10T23:35:30.636778+08:00",
+  "durationSeconds": 42.968887,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "bc54b3ce3a9e146331ac2f59e7f64810dddbb41344ba8e1507458be56c1e5865",
+  "environment": "local_source_or_loopback_fixture_only"
+}

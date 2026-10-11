@@ -1,5 +1,16 @@
 # Changelog
 
+- 2026-10-11: SMPP v1.3 M3 passes the complete 30-stage isolated gate on unchanged input 5d63724f…; preserve every failed attempt. W4 adds native source Artifacts, geometry/outcome evidence and real Registry/Skill/Task navigation and RequiredInput E2E. Final W4/W5 gate and GOWM verification remain in progress.
+
+## 2026-10-10 — SMPP v1.3 upgrade in progress
+
+- Preserve PR34 and pin the deployed public TaskBusiness contracts, source provenance and license intake (ADR-156).
+- Add native binding-derived read-only hydration, bounded full content, exact immutable Execution/object identities,
+  original inbox processing leases and atomic projection/checkpoint updates that stop before processing holes (ADR-157).
+- Feed persisted business summaries/quality/references into the real Skill result stage as bounded untrusted facts.
+- Focused unit/contract 110 and isolated PostgreSQL/Redis 96 PASS; full milestone gates and business mutation/E2E still pending.
+  Prior failed runs retained; site operations and remote publication are NOT_RUN.
+
 - 2026-09-09：修复公开 vehicle:ugv 与内部 ugv1 冲突；自然语言、移动绑定、Skill Usage、终态及仿真资格使用治理资源身份，跨设备漂移仍拒绝。ADR-155 / EP-UGV-RESOURCE-IDENTITY。已部署 sz-gowm 并验证，联合包与现场源码摘要一致；性能首次失败及独立环境通过证据均保留。
 
 ## 2026-09-09 — default capability governance
@@ -2428,30 +2439,21 @@ All notable changes to this project are documented here. The format follows Keep
 
 - GOWM 直接 Task checkpoint 校验分区编码、实际 Task 归属和已有分区 Evidence 范围。
 
-
 2026-09-08：按耗时反馈整理 GOWM 剩余实施方案，区分在途缺陷、必要集成补缺、延期和上游阻塞；取消重复正常链、重复 unit/contract 集合和逐小步报告扩张。未修改业务代码或提升验收状态。
-
 
 2026-09-08：Evidence infrastructure 投影加入设备来源/reference 范围；新增归属使用独立修订，保留旧证据身份，避免 v2 诊断递归。
 
-
 2026-09-08：修复共享存储 Skill 子计划自动确认未传父 Task ID 导致的确认失败；扩展已有子执行夹具，验证双设备真实执行和重入幂等。
-
 
 2026-09-08：增加正常 Server 的双设备 Business Event 接收/重复投递/影响持久化验证；复用现有目标几何与回滚回归，避免同类测试扩张。
 
-
 2026-09-08：复用原 GOWM driver 增加 --cancel，验证真实远程取消和待确认 successor；模型 fixture 区分成功/取消失败，PASS 必须模型桩零失败。
-
 
 2026-09-08：共享模式 Evidence retention 每日调度身份包含规范化设备范围；保持 standalone 和旧记录不变，避免不同 worker 命中同一恢复记录。
 
-
 2026-09-08：临时 Skill Repository 增加原生设备写入、Task/Context 范围和完成身份检查；记录原生终态触发器设备归属冲突，未修改上游结构。
 
-
 2026-09-08：增加 GOWM runtime 测试脚本入口和无副作用 --help，补 worker-scope-inventory 与交接文档当前状态，不提升验收结论。
-
 
 2026-09-08：为 Evidence quality authority source 装配设备范围，过滤 Task 来源及范围外导出批次，避免先全局返回再由写入端拒绝。
 
@@ -2460,20 +2462,60 @@ All notable changes to this project are documented here. The format follows Keep
 - 更新现有 GOWM ExecPlan：移除已经有分项证据的重复开发项，锁定在途收尾、关键恢复差异与一次开发交付。
 - 单列两个上游合同阻塞；外围审计和发布级证明继续开放，停止重复夹具、逐补丁全链和逐小步报告。此次仅调整计划，无新增实现或测试通过声明。
 
-
 2026-09-08 R1 Artifact：上次会话句柄均已失效，隔离库无执行记录，未据此推断通过。重新执行暴露夹具 ENOENT（错误 packages/schemas 路径）；改为相对 import.meta.url 的现有 golden fixture 后，verifyGowmArtifactExecutionScope 在既有 ce11 双设备 Task 上通过 start 原生 device_id、越界 start/complete/feedback 拒绝及所属完成/反馈写入。仅证明仓储和事务入口，不证明 Artifact 全生命周期。
-
 
 2026-09-08 R2 父 Task 取消：复用现有 runtime driver 新增 --parent-cancel，经官方 A2A 客户端每设备重复取消两次。报告 execution-gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b.json 为 PASS：两个 Task 和对应 Workflow instance 均 canceled 且 device_id 正确，工具总调用 2，本地模型夹具失败 0，cleanupErrors=[]。此证据不宣称 Provider 已终止、物理进程重启或迟到回调全部完成；启动仍有已有模型路由 MODEL_INVOCATION_FAILED 告警。进程丢失现有 gowm-recovery.postgres-cases.ts 已证明持久恢复范围、重复调用无新增状态，真实进程重启组合仍开放。
 
-
 2026-09-08 集中回归结束：SDAR_VERIFY_ISOLATED=true pnpm test 退出 0，351 文件/3064 项全通过，124.36 秒；本批 136 个修改代码文件 prettier --check 通过。完整日志保存 development-checks/，不重复启动已通过集合。迁移检查仍失败；验收索引保留全部 45 项及开放状态，最终交付尚未完成。
 
-
 2026-09-08 开发交付整理：最终 PG driver 26 组通过（616862f8）；正常 Remote 代表链 d6f0a68a 通过，两次工具、2.0 continuation 完成、canonical 延迟补齐无重发，cleanupErrors=[]。FINAL_REPORT.md/json、postgres-results、runtime-smoke-results、optional-smpp-interop 和 45 项 acceptance-results 已保存，整体 INCOMPLETE。两个本任务隔离容器及匿名 PG 卷已清理并回查为空；用户实例未动。准备单仓提交与 Draft PR；原 Goal 的未完成范围保持开放。
-
 
 2026-09-08 交付状态：实现提交 83286afe607a59d9d05e06cd589d549d6549a122 已推送指定分支，HEAD 与本地 origin 跟踪引用一致。Draft PR 创建被自动审批两次拒绝；核实目标仓库与任务包一致、当前账号 ADMIN 后仍被拒绝，要求用户明确授权公开正文。已询问用户，等待答复；未改写正文绕过拒绝。此次仅归并本地交付状态，不新增测试、部署或外部发布。
 
 ## SDAR 联合源码交付（2026-09-09）
+
 新增 package:joint，原样保留上游 Authority 联合包，加入 SDAR 源码、部署历史、嵌套完整性验证和冲突保护；源码 tar 规范化元数据。
+
+## 2026-10-10 SMPP v1.3 business upgrade (in progress)
+
+- Preserve PR34's adapter and Registry implementation on a local successor branch.
+- Pin exact public TaskBusiness schemas/catalog with license/provenance, W0 contract regressions and audit.
+- Use the existing JSON Schema adapter in the SMPP client to honor architecture boundaries.
+- No live operation, push, merge or deployment. Later W1–W5 implementation and full gates remain pending.
+
+- SMPP v1.3 local W3: explicit per-command Capability/Skill policy, original human confirmation, native single-sender journal and RequiredInput continuation; running navigation review/reconciliation and full content HTTP reads. Added guarded 0184 native input-source compatibility migration and isolated image identity fix. Focused validation only; full gate pending.
+
+SDAR/SMPP v1.3 upgrade update (2026-10-11): M2 COMPLETE, all 30 isolated stages PASS
+(`reports/sdar-smpp-v13-upgrade/20261010-local/M2_VALIDATION.json`, unchanged input 14013bbf3b01…).
+M3/M4 IN_PROGRESS: formal initial-plan publication order and transaction pool deadlock regression
+repairs, native Skill policy round-trip and Task-scoped full evidence export are under validation.
+Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
+
+## 2026-10-11 SMPP v1.3 local business upgrade complete
+
+- Complete W0–W5 in four local batches while preserving PR34, exact frozen contracts,
+  original Task/Skill/Registry authority and the single LangGraph runtime.
+- Add immutable original-binding business projections, complete retained content,
+  shared-event dual cursor/continuity handling and bounded real Skill result facts.
+- Reuse original human governance/input continuation for navigation and non-fire
+  RequiredInput, with exact published policies, consumed confirmation, durable single
+  sender and finite read-only recovery.
+- Export full Task-scoped canonical trajectory/confirmation sources; distinguish
+  receipt acceptance, own-command application, protocol completion and business/Skill
+  success. Repair original input claims, acknowledgment revision handling, native
+  polling admission CAS, Task/Binding lock order and terminal denial retry behavior.
+- Append guarded 0184 native input-source migration; verify actual PR34 reader
+  compatibility, two-process/SIGKILL recovery and restricted GOWM owner storage.
+- Final `pnpm verify:isolated --frozen` passes 30 stages on input 8e908f0f… with
+  unchanged baseline f5e3e050…, zero cleanup errors; unit 2,629, contract 552,
+  real integration 270, E2E 77. Separate GOWM eight-step verification matches all
+  2,807 repository runtime/baseline files. Original failures remain.
+- Publish local handoffs, 19 requirement results, 48 PASS/2 NOT_RUN case results,
+  complete evidence samples and rollback guidance in
+  `reports/sdar-smpp-v13-upgrade/20261010-local/FINAL_CLOSEOUT.md`.
+- Source remains uncommitted. Site, push, PR mutation, merge and deployment NOT_RUN;
+  upstream clock/history and preexisting project GOWM/release gaps remain explicit.
+
+2026-10-11：用户授权提交、推送和合并本次 SMPP v1.3 升级。保留原 PR34 与独立后续升级 PR，以及原门禁/失败证据。现场与部署未授权，保持 NOT_RUN。发布过程见 publication-20261011。
+
+2026-10-11 发布事实：实施提交 b2544c16 已推送；原 PR34 普通合并为 8fa2afec。升级 PR35 的 GitHub 原记录提供最终 CI 和合并身份；门禁/失败日志、逐项证据和原任务包已提交。未修改已验证源码/基线，现场和部署仍 NOT_RUN。

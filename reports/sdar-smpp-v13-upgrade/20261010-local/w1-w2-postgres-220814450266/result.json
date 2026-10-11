@@ -1,0 +1,18 @@
+{
+  "command": [
+    "node",
+    "scripts/sdar-smpp-v13/verify-local.mjs",
+    "packages/persistence-postgres/test/repositories.integration.test.ts",
+    "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "be9e9c65a16126d99980e8cf4a7f63eb1353d6fa6d19f18a1aafb1535287199c",
+  "startedAt": "2026-10-10T22:08:14.450266+08:00",
+  "finishedAt": "2026-10-10T22:10:07.603010+08:00",
+  "durationSeconds": 113.152744,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "36c01d5a476adeac557d92b443f2f49c5c6d26bddf1b1a7fac149207f395c64d",
+  "environment": "local_source_or_loopback_fixture_only"
+}

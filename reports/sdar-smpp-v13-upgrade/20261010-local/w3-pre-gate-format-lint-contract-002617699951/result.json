@@ -1,0 +1,21 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "contract",
+    "apps/server/test/runtime-migration-selection.contract.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "6ecdb16ec04c2ff65e8f2670164591a879925ba4660b5a800b9f16d4c64fe114",
+  "startedAt": "2026-10-11T00:26:17.699951+08:00",
+  "finishedAt": "2026-10-11T00:26:26.617696+08:00",
+  "durationSeconds": 8.917745,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "fdb5efce29bab9b0128b756e880c92b29532dd4aa64a7f0ce820a97f5c775f73",
+  "environment": "local_source_or_loopback_fixture_only"
+}

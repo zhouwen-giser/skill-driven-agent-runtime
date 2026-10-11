@@ -1,0 +1,19 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "packages/domain/src/task-business-evidence.ts",
+    "packages/persistence-postgres/test/repositories.integration.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "28bd4f06e677e67372b5fc185597f0de79c0938e516329b7aac3236bd42322db",
+  "startedAt": "2026-10-11T03:42:52.645817+08:00",
+  "finishedAt": "2026-10-11T03:43:04.630251+08:00",
+  "durationSeconds": 11.984434,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment": "local_source_or_loopback_fixture_only"
+}

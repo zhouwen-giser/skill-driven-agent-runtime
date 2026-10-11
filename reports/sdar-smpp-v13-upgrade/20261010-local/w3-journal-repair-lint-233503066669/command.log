@@ -1,0 +1,7 @@
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/src/task-business-commands.ts
+  429:14  error  Returning an awaited promise is required in this context  @typescript-eslint/return-await
+  449:14  error  Returning an awaited promise is required in this context  @typescript-eslint/return-await
+
+✖ 2 problems (2 errors, 0 warnings)
+

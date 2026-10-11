@@ -1,0 +1,639 @@
+Scope: all 2 workspace projects
+✓ Lockfile passes supply-chain policies (verified 3h ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 1.1s using pnpm v11.25.0
+$ node scripts/verify-isolated.mjs
+Cloning into bare repository '/tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source-history.git'...
+done.
+Isolated verification sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203
+Source: /tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source
+Evidence: /tmp/sdar-verify-88f86afd-9116-49f6-bb92-a74f1e8e108a-0xR6JJ/source-m2-repair/reports/runtime-semantic-closure/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203
+
+[verification] format: pnpm format:check (limit 300000 ms)
+$ prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json "apps/**/*.{ts,tsx,json}" "packages/**/*.{ts,tsx,json}" "infra/**/*.{ts,tsx,json}"
+Checking formatting...
+All matched files use Prettier code style!
+[verification] format: passed, 39686 ms
+
+[verification] verification-runner-contract: pnpm test:verification (limit 60000 ms)
+$ node scripts/test-verification-isolation.mjs && node scripts/test-verification-runner.mjs
+TAP version 13
+{"event":"test.ready","a2aUrl":"http://127.0.0.1:12345"}
+# Subtest: endpoint readiness comes from the started child, including split stdout records
+ok 1 - endpoint readiness comes from the started child, including split stdout records
+  ---
+  duration_ms: 43.056791
+  type: 'test'
+  ...
+# Subtest: a child that exits before readiness cannot authorize an HTTP probe
+ok 2 - a child that exits before readiness cannot authorize an HTTP probe
+  ---
+  duration_ms: 38.735158
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+# Subtest: service shutdown waits for delayed cleanup before allowing database teardown
+ok 3 - service shutdown waits for delayed cleanup before allowing database teardown
+  ---
+  duration_ms: 126.307446
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+{"event":"shutdown.ready"}
+# Subtest: service shutdown rejects nonzero exits and kills timed-out children
+ok 4 - service shutdown rejects nonzero exits and kills timed-out children
+  ---
+  duration_ms: 142.396257
+  type: 'test'
+  ...
+# Subtest: isolated build/config/cleanup always name the owned project and ignore local dotenv
+ok 5 - isolated build/config/cleanup always name the owned project and ignore local dotenv
+  ---
+  duration_ms: 176.283304
+  type: 'test'
+  ...
+# Subtest: isolated verification refuses the shared project before calling Docker
+ok 6 - isolated verification refuses the shared project before calling Docker
+  ---
+  duration_ms: 51.771309
+  type: 'test'
+  ...
+# Subtest: a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+ok 7 - a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+  ---
+  duration_ms: 96.263035
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 683.451566
+TAP version 13
+# Subtest: outer migration cleanup finds resources after a killed verifier and preserves removal errors
+ok 1 - outer migration cleanup finds resources after a killed verifier and preserves removal errors
+  ---
+  duration_ms: 9.418158
+  type: 'test'
+  ...
+# Subtest: migration cleanup never removes a resource outside its exact ownership set
+ok 2 - migration cleanup never removes a resource outside its exact ownership set
+  ---
+  duration_ms: 4.318656
+  type: 'test'
+  ...
+# Subtest: stage output is persisted before exit; nonzero exit cannot pass
+ok 3 - stage output is persisted before exit; nonzero exit cannot pass
+  ---
+  duration_ms: 451.564521
+  type: 'test'
+  ...
+descendant=1833267
+# Subtest: timeout kills a SIGTERM-resistant descendant, records reason and never passes
+ok 4 - timeout kills a SIGTERM-resistant descendant, records reason and never passes
+  ---
+  duration_ms: 807.180687
+  type: 'test'
+  ...
+# Subtest: successful leader cannot leak a background child or an inherited stdout pipe
+ok 5 - successful leader cannot leak a background child or an inherited stdout pipe
+  ---
+  duration_ms: 53.159233
+  type: 'test'
+  ...
+# Subtest: caller cancellation is retained even when the child exits with zero
+ok 6 - caller cancellation is retained even when the child exits with zero
+  ---
+  duration_ms: 507.722411
+  type: 'test'
+  ...
+# Subtest: missing executable produces a failed stage report
+ok 7 - missing executable produces a failed stage report
+  ---
+  duration_ms: 6.693833
+  type: 'test'
+  ...
+# Subtest: runtime identity ignores progress reports but binds code, tests, assets and lockfile
+ok 8 - runtime identity ignores progress reports but binds code, tests, assets and lockfile
+  ---
+  duration_ms: 22.300476
+  type: 'test'
+  ...
+# Subtest: full gate includes every bootstrap stage with independent limits and no aggregate command
+ok 9 - full gate includes every bootstrap stage with independent limits and no aggregate command
+  ---
+  duration_ms: 0.983693
+  type: 'test'
+  ...
+# Subtest: release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+ok 10 - release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+  ---
+  duration_ms: 1.550909
+  type: 'test'
+  ...
+# Subtest: sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+ok 11 - sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+  ---
+  duration_ms: 9.857404
+  type: 'test'
+  ...
+# Subtest: nested smoke projects belong to the outer run cleanup allowlist
+ok 12 - nested smoke projects belong to the outer run cleanup allowlist
+  ---
+  duration_ms: 0.345339
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1883.723146
+[verification] verification-runner-contract: passed, 10209 ms
+
+[verification] lint: pnpm lint (limit 1200000 ms)
+$ eslint .
+[verification] lint: passed, 138269 ms
+
+[verification] typecheck: pnpm typecheck (limit 1200000 ms)
+$ tsc -p tsconfig.json --noEmit
+[verification] typecheck: passed, 45209 ms
+
+[verification] unit: pnpm test:unit (limit 1200000 ms)
+$ vitest run --project unit --exclude packages/application/test/fast-gateway-p10.unit.test.ts && pnpm test:unit:performance
+
+ RUN  v4.1.10 /tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source
+
+ ✓ |unit| packages/runtime-control-application/test/experience-replay-artifact-evidence-projector.unit.test.ts (8 tests) 6626ms
+     ✓ externalizes a legal 10k Pattern without truncating associations or exceeding envelope refs  6485ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-deployment-guards.unit.test.ts (23 tests) 3438ms
+     ✓ admits unsafe_test_open without allowlists only in explicit test/integration environments  627ms
+ ✓ |unit| apps/server/test/ugv-move-binding.unit.test.ts (29 tests) 2701ms
+     ✓ rejects Provider manifest lineage drift and expired readiness  317ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts (81 tests) 14565ms
+     ✓ reuses published debug registration using GET only without refreshing health or running tasks  479ms
+     ✓ bootstraps idempotently and proves the exact suspend-to-empty-to-same-v1 restore lifecycle  475ms
+     ✓ accepts the formal prefixed readiness ETag and rejects bare or drifted authority  578ms
+     ✓ restores exact published v1 before surfacing a lifecycle termination signal  6308ms
+ ✓ |unit| packages/langgraph-runtime/test/workflow-compiler.unit.test.ts (62 tests) 2041ms
+     ✓ executes all 100 authorized loop iterations (1.0)  328ms
+     ✓ executes all 100 authorized loop iterations (2.0)  321ms
+ ✓ |unit| apps/server/test/united-package.unit.test.ts (1 test) 1130ms
+   ✓ verifies union identities, unsafe archives, source coverage, secrets and repeatable publication  1128ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts (15 tests) 1756ms
+     ✓ is idempotent for the same exact versions and fails closed on later exact-version drift  321ms
+ ✓ |unit| apps/node-control-acceptance/test/home-lab-read-only-execution-driver.unit.test.ts (10 tests) 1056ms
+     ✓ selects only the exact get-state Tools from mixed read/write frozen catalogs  425ms
+ ✓ |unit| packages/application/test/task-capability.unit.test.ts (48 tests) 973ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-driver-command.unit.test.ts (14 tests) 762ms
+ ✓ |unit| apps/server/test/ugv-move-workflow-authority.unit.test.ts (7 tests) 806ms
+ ✓ |unit| apps/server/test/ugv-move-workflow.unit.test.ts (8 tests) 709ms
+ ✓ |unit| apps/node-control-acceptance/test/home-lab-capability-governance-driver.unit.test.ts (7 tests) 604ms
+ ✓ |unit| packages/application/test/skill-call-workflow.unit.test.ts (28 tests) 546ms
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"completed","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"awaiting_user_input","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"capability_gap","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.single-performance","environment":"vitest-node-local","waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":3,"elapsedMs":252}
+{"event":"a2a.wait.missed-notification-recovery","environment":"vitest-node-local","safetyPollIntervalMs":100,"databaseReads":1,"deterministicTimeoutRelease":true}
+{"event":"a2a.wait.performance","environment":"vitest-node-local","concurrentWaiters":20,"waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":60,"elapsedMs":260,"closeElapsedMs":0}
+ ✓ |unit| packages/a2a-adapter/test/task-service-executor.unit.test.ts (9 tests) 557ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-agent-profile-b02-source-recovery-runner.unit.test.ts (6 tests) 524ms
+     ✓ revalidates identity and current NO while returning an exact existing report read-only  493ms
+ ✓ |unit| packages/application/test/workflow-validator.unit.test.ts (19 tests) 452ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-deterministic-read-only-driver.unit.test.ts (4 tests) 446ms
+ ✓ |unit| packages/application/test/task-service.unit.test.ts (43 tests) 247ms
+ ✓ |unit| apps/server/test/ugv-agent-profile.unit.test.ts (7 tests) 369ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-agent-profile-b02-source-recovery-driver.unit.test.ts (35 tests) 241ms
+ ✓ |unit| packages/application/test/skill-registry.unit.test.ts (8 tests) 249ms
+ ✓ |unit| packages/application/test/process-miner.unit.test.ts (9 tests) 224ms
+ ✓ |unit| apps/server/test/development-deployment.unit.test.ts (5 tests) 213ms
+ ✓ |unit| apps/server/test/ugv-move-terminal-outcome.unit.test.ts (22 tests) 219ms
+ ✓ |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts (14 tests) 213ms
+ ✓ |unit| packages/application/test/temporary-skill.unit.test.ts (5 tests) 167ms
+ ✓ |unit| apps/server/test/ugv-agent-profile-card.unit.test.ts (1 test) 199ms
+ ✓ |unit| packages/domain/test/decision-rule-runtime-p09.unit.test.ts (41 tests) 172ms
+ ✓ |unit| packages/application/test/workflow-planner.unit.test.ts (18 tests) 182ms
+ ✓ |unit| packages/runtime-control-application/test/skill-provider-dependency-policy.unit.test.ts (26 tests) 172ms
+ ✓ |unit| packages/application/test/skill-evolution.unit.test.ts (8 tests) 164ms
+ ✓ |unit| apps/server/test/development-plan-confirmation.unit.test.ts (2 tests) 167ms
+ ✓ |unit| packages/application/test/business-events.unit.test.ts (5 tests) 147ms
+ ✓ |unit| packages/application/test/skill-authoring.unit.test.ts (4 tests) 134ms
+ ✓ |unit| apps/console/src/console.unit.test.tsx (26 tests) 134ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-agent-profile-b02-authority-gate.unit.test.ts (28 tests) 135ms
+ ✓ |unit| packages/application/test/result-processing-service.unit.test.ts (3 tests) 133ms
+ ✓ |unit| packages/application/test/cognitive-management-action.unit.test.ts (10 tests) 127ms
+ ✓ |unit| apps/node-control-acceptance/test/home-lab-catalog-materialization-driver.unit.test.ts (22 tests) 124ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-model-stage-conformance-driver.unit.test.ts (2 tests) 118ms
+ ✓ |unit| packages/application/test/remote-task-input.unit.test.ts (3 tests) 79ms
+ ✓ |unit| packages/application/test/generic-capability-admission.unit.test.ts (6 tests) 105ms
+ ✓ |unit| apps/node-control-acceptance/test/provider-json-schema.unit.test.ts (2 tests) 95ms
+ ✓ |unit| apps/node-control-acceptance/test/home-lab-a2a-model-bootstrap.unit.test.ts (3 tests) 110ms
+ ✓ |unit| packages/application/test/mcp-registry.unit.test.ts (78 tests) 98ms
+ ✓ |unit| packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts (3 tests) 109ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts (7 tests) 97ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-control-authority-remediation-driver.unit.test.ts (4 tests) 92ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-agent-profile-b02-supervisor-state.unit.test.ts (11 tests) 83ms
+ ✓ |unit| packages/node-control-application/test/a2a-exposure-service.unit.test.ts (16 tests) 86ms
+ ✓ |unit| packages/node-control-application/test/mcp-provider-binding-service.unit.test.ts (15 tests) 96ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-driver.unit.test.ts (20 tests) 79ms
+ ✓ |unit| apps/node-control-acceptance/test/home-lab-a2a-model-fixture.unit.test.ts (10 tests) 86ms
+ ✓ |unit| packages/application/test/experience-observer.unit.test.ts (6 tests) 80ms
+ ✓ |unit| packages/persistence-postgres/test/gowm-targets.unit.test.ts (8 tests) 88ms
+ ✓ |unit| apps/node-control-acceptance/test/smpp-provider-materializer.unit.test.ts (12 tests) 76ms
+ ✓ |unit| apps/server/test/ugv-move-workflow-evidence.unit.test.ts (28 tests) 88ms
+ ✓ |unit| packages/json-schema-adapter/test/result-processor.unit.test.ts (4 tests) 78ms
+ ✓ |unit| packages/application/test/capability-summary-builder.unit.test.ts (11 tests) 77ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-source-bootstrap-driver.unit.test.ts (11 tests) 76ms
+ ✓ |unit| packages/application/test/decision-rule-runtime-p09.unit.test.ts (11 tests) 74ms
+ ✓ |unit| apps/node-control-api/test/provider-health-reconciler.unit.test.ts (5 tests) 66ms
+ ✓ |unit| packages/langgraph-runtime/test/dynamic-graph.unit.test.ts (6 tests) 65ms
+ ✓ |unit| packages/smpp-registry-adapter/test/http-smpp-registry-client.unit.test.ts (26 tests) 61ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-smpp-a2a-read-only-driver.unit.test.ts (6 tests) 76ms
+ ✓ |unit| packages/runtime-redis/test/context-serial-executor.unit.test.ts (2 tests) 58ms
+ ✓ |unit| packages/application/test/candidate-generation.unit.test.ts (16 tests) 60ms
+ ✓ |unit| packages/runtime-control-application/test/skill-evidence-projector.unit.test.ts (7 tests) 57ms
+ ✓ |unit| packages/persistence-postgres/test/gowm-storage.unit.test.ts (4 tests) 48ms
+ ✓ |unit| packages/application/test/task-business-agent-facts.unit.test.ts (1 test) 48ms
+ ✓ |unit| packages/runtime-control-http-client/test/http-runtime-governance-client.unit.test.ts (1 test) 55ms
+ ✓ |unit| packages/runtime-control-http-client/test/http-node-control-capability-evidence-reader.unit.test.ts (9 tests) 56ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-debug-sdar-telemetry.unit.test.ts (5 tests) 53ms
+ ✓ |unit| packages/runtime-control-http-client/test/http-runtime-task-control-client.unit.test.ts (5 tests) 59ms
+ ✓ |unit| packages/domain/test/task-business.unit.test.ts (8 tests) 50ms
+ ✓ |unit| packages/application/test/task-business-sync.unit.test.ts (7 tests) 41ms
+ ✓ |unit| packages/application/test/workflow-controller.unit.test.ts (24 tests) 46ms
+ ✓ |unit| packages/application/test/governed-control-ugv-authority.unit.test.ts (16 tests) 52ms
+ ✓ |unit| packages/application/test/experience-normalizer.unit.test.ts (9 tests) 51ms
+ ✓ |unit| packages/application/test/skill-usage-planning.unit.test.ts (9 tests) 48ms
+ ✓ |unit| packages/a2a-adapter/test/observed-request-handler.unit.test.ts (3 tests) 47ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-debug-identity.unit.test.ts (2 tests) 40ms
+ ✓ |unit| packages/application/test/artifact-replay-validator.unit.test.ts (24 tests) 45ms
+ ✓ |unit| packages/domain/test/experience-compilation.unit.test.ts (7 tests) 38ms
+ ✓ |unit| packages/application/test/workflow-execution.unit.test.ts (18 tests) 41ms
+ ✓ |unit| packages/application/test/interactive-planning.unit.test.ts (11 tests) 33ms
+ ✓ |unit| packages/application/test/model-runtime.unit.test.ts (9 tests) 39ms
+ ✓ |unit| apps/server/test/deterministic-capability-recovery.unit.test.ts (29 tests) 35ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts (9 tests) 37ms
+ ✓ |unit| packages/application/test/case-model-runtime-p11.unit.test.ts (15 tests) 37ms
+ ✓ |unit| apps/server/test/environment.unit.test.ts (20 tests) 36ms
+ ✓ |unit| packages/a2a-adapter/test/terminal-projection-reconciler.unit.test.ts (6 tests) 31ms
+ ✓ |unit| packages/application/test/experience-reflector.unit.test.ts (9 tests) 33ms
+ ✓ |unit| packages/domain/test/evidence-domain.unit.test.ts (25 tests) 34ms
+ ✓ |unit| packages/node-control-application/test/task-control-service.unit.test.ts (22 tests) 33ms
+ ✓ |unit| packages/application/test/generic-task-understanding.unit.test.ts (9 tests) 32ms
+ ✓ |unit| packages/application/test/skill-usage-composition.unit.test.ts (9 tests) 32ms
+ ✓ |unit| packages/application/test/governed-control-authority.unit.test.ts (24 tests) 31ms
+ ✓ |unit| packages/application/test/remote-task-continuation.unit.test.ts (17 tests) 32ms
+ ✓ |unit| packages/runtime-control-application/test/node-control-evidence-projector.unit.test.ts (7 tests) 31ms
+ ✓ |unit| packages/application/test/artifact-retrieval.unit.test.ts (13 tests) 30ms
+ ✓ |unit| packages/domain/test/artifact-domain.unit.test.ts (8 tests) 30ms
+ ✓ |unit| packages/application/test/remote-task-admission-recovery.unit.test.ts (20 tests) 31ms
+ ✓ |unit| packages/persistence-postgres/test/governed-control-authority-repository.unit.test.ts (13 tests) 30ms
+ ✓ |unit| packages/application/test/experience-enriched-planning.unit.test.ts (11 tests) 29ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/source-artifact-ref-resolver.unit.test.ts (8 tests) 29ms
+ ✓ |unit| packages/application/test/replay-dataset.unit.test.ts (11 tests) 31ms
+ ✓ |unit| apps/server/test/ugv-move-skill-usage.unit.test.ts (9 tests) 29ms
+ ✓ |unit| packages/application/test/capability-pattern-induction.unit.test.ts (6 tests) 27ms
+ ✓ |unit| packages/application/test/memory-service.unit.test.ts (10 tests) 27ms
+ ✓ |unit| packages/application/test/task-state-notifier.unit.test.ts (3 tests) 26ms
+ ✓ |unit| packages/application/test/capability-card-publisher.unit.test.ts (6 tests) 25ms
+ ✓ |unit| packages/application/test/experience-compilation.unit.test.ts (7 tests) 28ms
+ ✓ |unit| packages/application/test/template-runtime-p08.unit.test.ts (5 tests) 26ms
+ ✓ |unit| packages/application/test/remote-task-cancellation.unit.test.ts (14 tests) 22ms
+ ✓ |unit| packages/application/test/remote-task-polling.unit.test.ts (18 tests) 25ms
+ ✓ |unit| packages/application/test/skill-selection.unit.test.ts (11 tests) 25ms
+ ✓ |unit| apps/server/test/home-lab-skill-selection.unit.test.ts (5 tests) 27ms
+ ✓ |unit| packages/application/test/workflow-revision.unit.test.ts (3 tests) 25ms
+ ✓ |unit| packages/application/test/user-goal-planning.unit.test.ts (9 tests) 25ms
+ ✓ |unit| packages/mcp-adapter/test/node-control-catalog-authority.unit.test.ts (10 tests) 26ms
+ ✓ |unit| apps/node-control-api/test/environment.unit.test.ts (6 tests) 24ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/governed-skill-capability-readiness.unit.test.ts (22 tests) 24ms
+ ✓ |unit| packages/application/test/skill-input-resolution.unit.test.ts (17 tests) 22ms
+ ✓ |unit| packages/application/test/plan-preparation-processor.unit.test.ts (19 tests) 23ms
+ ✓ |unit| packages/application/test/task-type-induction.unit.test.ts (5 tests) 22ms
+ ✓ |unit| apps/node-control-acceptance/test/home-lab-a2a-read-only-driver.unit.test.ts (10 tests) 23ms
+ ✓ |unit| packages/application/test/planning-replay.unit.test.ts (6 tests) 23ms
+ ✓ |unit| packages/runtime-control-application/test/runtime-core-evidence-projector.unit.test.ts (4 tests) 21ms
+ ✓ |unit| apps/server/test/ugv-move-position-result.unit.test.ts (53 tests) 21ms
+ ✓ |unit| packages/application/test/interactive-goal-session.unit.test.ts (5 tests) 22ms
+ ✓ |unit| packages/application/test/frozen-mcp-registry.unit.test.ts (15 tests) 21ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/dynamic-skill-provider-readiness.unit.test.ts (10 tests) 20ms
+ ✓ |unit| packages/persistence-postgres/test/remote-task-admission-intent-store.unit.test.ts (11 tests) 21ms
+ ✓ |unit| packages/domain/test/workflow-continuation.unit.test.ts (8 tests) 20ms
+ ✓ |unit| packages/application/test/user-goal-plan-controller.unit.test.ts (4 tests) 17ms
+ ✓ |unit| packages/application/test/business-event-impact.unit.test.ts (8 tests) 20ms
+ ✓ |unit| packages/application/test/artifact-management-p12.unit.test.ts (9 tests) 21ms
+ ✓ |unit| packages/application/test/gateway-feedback-analysis-p10.unit.test.ts (8 tests) 20ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/experience-replay-artifact-evidence-source.unit.test.ts (2 tests) 19ms
+ ✓ |unit| apps/server/test/ugv-simulation-qualification.unit.test.ts (8 tests) 19ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/runtime-mcp-catalog-authority-reader.unit.test.ts (4 tests) 21ms
+ ✓ |unit| packages/a2a-adapter/test/task-mapping.unit.test.ts (11 tests) 17ms
+ ✓ |unit| packages/application/test/planning-knowledge-retrieval.unit.test.ts (7 tests) 19ms
+ ✓ |unit| packages/application/test/skill-usage-selection.unit.test.ts (10 tests) 17ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-debug-profile.unit.test.ts (4 tests) 19ms
+ ✓ |unit| packages/application/test/knowledge-promotion.unit.test.ts (9 tests) 17ms
+ ✓ |unit| apps/server/test/task-provider-binding-context.unit.test.ts (13 tests) 17ms
+ ✓ |unit| packages/persistence-postgres/test/task-capability-repository.unit.test.ts (13 tests) 17ms
+ ✓ |unit| packages/runtime-control-application/test/evidence-export-service.unit.test.ts (4 tests) 17ms
+ ✓ |unit| packages/persistence-postgres/test/pattern-definition-canonical.unit.test.ts (1 test) 17ms
+ ✓ |unit| packages/persistence-postgres/test/governed-control-management-authority-reader.unit.test.ts (9 tests) 18ms
+ ✓ |unit| apps/server/test/model-runtime-bootstrap-configuration.unit.test.ts (4 tests) 16ms
+ ✓ |unit| packages/mcp-adapter/test/outbound-endpoint-policy.unit.test.ts (2 tests) 17ms
+ ✓ |unit| packages/application/test/subworkflow-execution.unit.test.ts (9 tests) 16ms
+ ✓ |unit| packages/runtime-control-application/test/evidence-projection-pipeline.unit.test.ts (4 tests) 15ms
+ ✓ |unit| packages/domain/test/skill-usage.unit.test.ts (11 tests) 16ms
+ ✓ |unit| packages/domain/test/artifact-replay-validation.unit.test.ts (11 tests) 15ms
+ ✓ |unit| packages/application/test/artifact-registry-governance.unit.test.ts (7 tests) 15ms
+ ✓ |unit| packages/a2a-adapter/test/postgres-task-store.unit.test.ts (5 tests) 15ms
+ ✓ |unit| packages/domain/test/fast-gateway-p10.unit.test.ts (9 tests) 16ms
+ ✓ |unit| packages/application/test/replay-safety.unit.test.ts (15 tests) 15ms
+ ✓ |unit| apps/node-control-api/test/outbound-endpoint-policy.unit.test.ts (3 tests) 14ms
+ ✓ |unit| apps/server/test/gowm-storage-configuration.unit.test.ts (10 tests) 13ms
+ ✓ |unit| packages/application/test/experience-job.unit.test.ts (4 tests) 15ms
+ ✓ |unit| apps/server/test/default-capability-bootstrap.unit.test.ts (9 tests) 15ms
+ ✓ |unit| packages/application/test/artifact-shadow-runtime.unit.test.ts (5 tests) 15ms
+ ✓ |unit| packages/application/test/artifact-replay-runtime.unit.test.ts (4 tests) 15ms
+ ✓ |unit| packages/application/test/skill-goal-scheduler.unit.test.ts (6 tests) 14ms
+ ✓ |unit| packages/runtime-control-application/test/phase10-evidence-sealing.unit.test.ts (3 tests) 13ms
+ ✓ |unit| packages/application/test/skill-task-readiness.unit.test.ts (8 tests) 14ms
+ ✓ |unit| packages/domain/test/case-model-runtime-p11.unit.test.ts (7 tests) 14ms
+ ✓ |unit| packages/application/test/goal-evaluator.unit.test.ts (4 tests) 14ms
+ ✓ |unit| apps/server/test/managed-deterministic-capability-admission.unit.test.ts (6 tests) 14ms
+ ✓ |unit| packages/application/test/goal-patch-service.unit.test.ts (2 tests) 13ms
+ ✓ |unit| packages/domain/test/source-artifact-ref.unit.test.ts (24 tests) 13ms
+ ✓ |unit| packages/domain/test/cognitive-domain.unit.test.ts (7 tests) 14ms
+ ✓ |unit| packages/application/test/skill-execution-recording.unit.test.ts (2 tests) 14ms
+ ✓ |unit| apps/server/test/ugv-natural-language-capability-admission.unit.test.ts (10 tests) 13ms
+ ✓ |unit| packages/application/test/skill-composition.unit.test.ts (7 tests) 14ms
+ ✓ |unit| packages/domain/test/workflow-control-flow.unit.test.ts (10 tests) 14ms
+ ✓ |unit| apps/server/test/home-lab-governed-light-profile.unit.test.ts (6 tests) 14ms
+ ✓ |unit| packages/application/test/governed-control-management.unit.test.ts (6 tests) 12ms
+ ✓ |unit| packages/application/test/model-decisions.unit.test.ts (5 tests) 12ms
+ ✓ |unit| packages/node-control-domain/test/smpp-registry.unit.test.ts (5 tests) 13ms
+ ✓ |unit| apps/server/test/ugv-move-input-adapter.unit.test.ts (19 tests) 12ms
+ ✓ |unit| packages/node-control-application/test/smpp-registry-service.unit.test.ts (6 tests) 10ms
+ ✓ |unit| packages/persistence-postgres/test/skill-package-authority-reader.unit.test.ts (6 tests) 12ms
+ ✓ |unit| packages/runtime-control-application/test/runtime-configuration-agent.unit.test.ts (3 tests) 12ms
+ ✓ |unit| apps/server/test/home-lab-task-understanding.unit.test.ts (20 tests) 11ms
+ ✓ |unit| packages/application/test/planning-correction.unit.test.ts (3 tests) 12ms
+ ✓ |unit| packages/application/test/mcp-task-readiness.unit.test.ts (4 tests) 11ms
+ ✓ |unit| packages/persistence-postgres/test/task-capability-physical-evidence-repository.unit.test.ts (1 test) 11ms
+ ✓ |unit| packages/langgraph-runtime/test/bound-value-resolver.unit.test.ts (7 tests) 11ms
+ ✓ |unit| packages/persistence-postgres/test/gowm-mcp-ownership.unit.test.ts (4 tests) 11ms
+ ✓ |unit| packages/domain/test/skill-execution.unit.test.ts (4 tests) 11ms
+ ✓ |unit| packages/persistence-postgres/test/gowm-workflow-ownership.unit.test.ts (4 tests) 11ms
+ ✓ |unit| packages/domain/test/provider-business-outcome.unit.test.ts (13 tests) 11ms
+ ✓ |unit| packages/node-control-application/test/foundation-service.unit.test.ts (4 tests) 10ms
+ ✓ |unit| apps/server/test/remote-task-cancellation-compensation.unit.test.ts (4 tests) 11ms
+ ✓ |unit| packages/domain/test/remote-task-input.unit.test.ts (6 tests) 10ms
+ ✓ |unit| packages/domain/test/artifact-shadow-governance.unit.test.ts (7 tests) 11ms
+ ✓ |unit| packages/application/test/model-runtime-bootstrap.unit.test.ts (3 tests) 11ms
+ ✓ |unit| apps/node-control-acceptance/test/home-lab-g09-governed-light-driver.unit.test.ts (4 tests) 10ms
+ ✓ |unit| apps/node-control-worker/test/environment.unit.test.ts (3 tests) 11ms
+ ✓ |unit| apps/server/test/gowm-task-ownership.unit.test.ts (4 tests) 10ms
+ ✓ |unit| packages/node-control-application/test/node-capability-service.unit.test.ts (2 tests) 11ms
+ ✓ |unit| packages/persistence-postgres/test/gowm-task-ownership.unit.test.ts (4 tests) 10ms
+ ✓ |unit| apps/server/test/artifact-management-identity.unit.test.ts (4 tests) 10ms
+ ✓ |unit| packages/application/test/goal-input-inference.unit.test.ts (2 tests) 11ms
+ ✓ |unit| packages/application/test/home-lab-read-only-workflow-contract.unit.test.ts (2 tests) 10ms
+ ✓ |unit| packages/application/test/fast-gateway-adapters-p10.unit.test.ts (5 tests) 10ms
+ ✓ |unit| packages/application/test/workflow-template.unit.test.ts (1 test) 10ms
+ ✓ |unit| packages/application/test/artifact-promotion-governance.unit.test.ts (4 tests) 10ms
+ ✓ |unit| packages/application/test/progress-recovery.unit.test.ts (3 tests) 10ms
+ ✓ |unit| apps/server/test/managed-capability-task-understanding.unit.test.ts (4 tests) 9ms
+ ✓ |unit| packages/runtime-control-application/test/capability-readiness.unit.test.ts (2 tests) 9ms
+ ✓ |unit| packages/application/test/evaluation-analytics.unit.test.ts (2 tests) 9ms
+ ✓ |unit| packages/runtime-control-application/test/runtime-llm-configuration-applier.unit.test.ts (2 tests) 10ms
+ ✓ |unit| packages/domain/test/remote-task-authority.unit.test.ts (6 tests) 8ms
+ ✓ |unit| packages/domain/test/mcp-frozen-protocol.unit.test.ts (4 tests) 8ms
+ ✓ |unit| packages/application/test/temporary-skill-resolver.unit.test.ts (2 tests) 9ms
+ ✓ |unit| packages/node-control-domain/test/mcp-provider-binding.unit.test.ts (4 tests) 9ms
+ ✓ |unit| apps/server/test/governed-control-management-identity.unit.test.ts (4 tests) 10ms
+ ✓ |unit| packages/domain/test/mcp-task-consumer-sync.unit.test.ts (3 tests) 9ms
+ ✓ |unit| packages/domain/test/skill-schema-contract.unit.test.ts (16 tests) 9ms
+ ✓ |unit| packages/application/test/task-quality.unit.test.ts (1 test) 9ms
+ ✓ |unit| packages/domain/test/user-goal-runtime.unit.test.ts (5 tests) 9ms
+ ✓ |unit| packages/application/test/evaluation-influence.unit.test.ts (2 tests) 9ms
+ ✓ |unit| packages/runtime-control-application/test/provider-binding-evidence.unit.test.ts (2 tests) 9ms
+ ✓ |unit| packages/runtime-control-application/test/evidence-background-fairness.unit.test.ts (5 tests) 9ms
+ ✓ |unit| packages/node-control-persistence-postgres/test/node-capability-repository.unit.test.ts (2 tests) 9ms
+ ✓ |unit| apps/node-control-acceptance/test/ugv-point-navigation-authority-successor-driver.unit.test.ts (2 tests) 9ms
+ ✓ |unit| packages/management-api/test/cognitive-management-controller.unit.test.ts (1 test) 8ms
+ ✓ |unit| packages/application/test/interactive-action-router.unit.test.ts (2 tests) 8ms
+ ✓ |unit| apps/server/test/a2a-cancellation-reconciliation.unit.test.ts (2 tests) 8ms
+ ✓ |unit| packages/node-control-domain/test/provider-binding-policy.unit.test.ts (16 tests) 9ms
+ ✓ |unit| apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts (7 tests) 9ms
+ ✓ |unit| packages/application/test/skill-confirmation.unit.test.ts (4 tests) 9ms
+ ✓ |unit| apps/server/test/ugv-live-side-effect-gate.unit.test.ts (2 tests) 7ms
+ ✓ |unit| apps/server/test/provider-binding-reconciler.unit.test.ts (3 tests) 9ms
+ ✓ |unit| packages/domain/test/domain.unit.test.ts (6 tests) 8ms
+ ✓ |unit| packages/application/test/initial-task-admission.unit.test.ts (4 tests) 8ms
+ ✓ |unit| packages/persistence-postgres/test/runtime-recovery-admission-intent.unit.test.ts (2 tests) 8ms
+ ✓ |unit| packages/persistence-postgres/test/business-event-device-projection.unit.test.ts (1 test) 8ms
+ ✓ |unit| packages/node-control-domain/test/configuration-revision.unit.test.ts (3 tests) 8ms
+ ✓ |unit| packages/node-control-domain/test/node-capability.unit.test.ts (3 tests) 7ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/evidence-operations-repository.unit.test.ts (1 test) 8ms
+ ✓ |unit| packages/application/test/prompt-service.unit.test.ts (3 tests) 8ms
+ ✓ |unit| apps/node-control-api/test/readiness-agent-card-reconciler.unit.test.ts (3 tests) 9ms
+ ✓ |unit| packages/application/test/outcome-judges.unit.test.ts (4 tests) 8ms
+ ✓ |unit| packages/node-control-domain/test/evidence-export.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/node-control-domain/test/llm-governance.unit.test.ts (2 tests) 8ms
+ ✓ |unit| packages/node-control-persistence-postgres/test/governed-skill-capability-authority.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/node-control-domain/test/a2a-exposure.unit.test.ts (2 tests) 8ms
+ ✓ |unit| packages/application/test/runtime-hardening.unit.test.ts (4 tests) 7ms
+ ✓ |unit| packages/persistence-postgres/test/artifact-retrieval-repository.unit.test.ts (2 tests) 8ms
+ ✓ |unit| packages/application/test/task-projection.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/application/test/skill-graph.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/application/test/implicit-feedback.unit.test.ts (2 tests) 6ms
+ ✓ |unit| packages/application/test/replay-metrics.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/node-control-domain/test/node-profile.unit.test.ts (3 tests) 7ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/task-summary-query.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/application/test/skill-semantic-retriever.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/application/test/mcp-protocol-operations.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/node-control-domain/test/node-event.unit.test.ts (3 tests) 7ms
+ ✓ |unit| packages/application/test/isolated-demo.unit.test.ts (1 test) 7ms
+ ✓ |unit| packages/crypto-adapter/test/aes-gcm-secret-cipher.unit.test.ts (2 tests) 7ms
+ ✓ |unit| packages/application/test/goal-cancellation-service.unit.test.ts (1 test) 7ms
+ ✓ |unit| packages/langgraph-runtime/test/expression-interpreter.unit.test.ts (4 tests) 7ms
+ ✓ |unit| apps/server/test/remote-task-workflow-hierarchy.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/application/test/task-wait-timeout.unit.test.ts (1 test) 7ms
+ ✓ |unit| packages/model-provider-adapter/test/outbound-endpoint-policy.unit.test.ts (2 tests) 6ms
+ ✓ |unit| packages/application/test/ugv-profile-provider-output-schema.unit.test.ts (9 tests) 7ms
+ ✓ |unit| apps/server/test/home-lab-runtime-profile.unit.test.ts (3 tests) 6ms
+ ✓ |unit| packages/domain/test/workflow-budget.unit.test.ts (3 tests) 6ms
+ ✓ |unit| packages/runtime-environment/test/environment-file.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/application/test/memory-retention.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/domain/test/mcp-tool-execution-semantics.unit.test.ts (3 tests) 6ms
+ ✓ |unit| packages/runtime-control-persistence-postgres/test/runtime-core-evidence-source.unit.test.ts (1 test) 6ms
+ ✓ |unit| apps/server/test/evidence-retention-identity.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/application/test/evolution-policy.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/application/test/skill-evidence-matcher.unit.test.ts (2 tests) 6ms
+ ✓ |unit| packages/domain/test/runtime-execution.unit.test.ts (1 test) 5ms
+ ✓ |unit| packages/application/test/skill-quality.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/domain/test/business-contract-diff.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/a2a-adapter/test/interactive-planning-projection.unit.test.ts (2 tests) 5ms
+ ✓ |unit| apps/server/test/ugv-unknown-availability-policy.unit.test.ts (7 tests) 5ms
+ ✓ |unit| packages/application/test/evolution-experience.unit.test.ts (1 test) 6ms
+ ✓ |unit| packages/a2a-adapter/test/phase13-performance-statistics.unit.test.ts (3 tests) 5ms
+ ✓ |unit| packages/application/test/task-attempt-dispatch.unit.test.ts (1 test) 5ms
+ ✓ |unit| packages/application/test/skill-tool-policy.unit.test.ts (1 test) 5ms
+ ✓ |unit| packages/domain/test/goal.unit.test.ts (1 test) 5ms
+ ✓ |unit| packages/langgraph-runtime/test/mcp-task-execution-resolver.unit.test.ts (1 test) 5ms
+ ✓ |unit| packages/node-control-persistence-postgres/test/migrations.unit.test.ts (1 test) 4ms
+
+ Test Files  296 passed (296)
+      Tests  2560 passed (2560)
+   Start at  00:06:39
+   Duration  116.30s (transform 11.49s, setup 0ms, import 132.27s, tests 50.14s, environment 37ms)
+
+$ vitest run --project unit packages/application/test/fast-gateway-p10.unit.test.ts
+
+ RUN  v4.1.10 /tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source
+
+{"event":"p10.fast_gateway.no_match_performance","samples":250,"p95Ms":0.461,"maximumMs":2.303,"budgetMs":25}
+{"event":"p10.fast_gateway.concurrency_performance","results":[{"concurrency":1,"p50Ms":0.405,"p95Ms":0.405,"p99Ms":0.405,"elapsedMs":0.57,"errorRate":0},{"concurrency":10,"p50Ms":2.624,"p95Ms":2.892,"p99Ms":2.892,"elapsedMs":2.977,"errorRate":0},{"concurrency":100,"p50Ms":28.387,"p95Ms":31.198,"p99Ms":31.467,"elapsedMs":31.63,"errorRate":0},{"concurrency":1000,"p50Ms":287.215,"p95Ms":315.963,"p99Ms":318.619,"elapsedMs":320.882,"errorRate":0}]}
+ ✓ |unit| packages/application/test/fast-gateway-p10.unit.test.ts (22 tests) 673ms
+     ✓ reports bounded Gateway latency at 1, 10, 100 and 1000 concurrent requests  358ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  00:08:36
+   Duration  3.36s (transform 1.95s, setup 0ms, import 2.51s, tests 673ms, environment 0ms)
+
+[verification] unit: passed, 128820 ms
+
+[verification] contract: pnpm test:contract (limit 600000 ms)
+$ vitest run --project contract
+
+ RUN  v4.1.10 /tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source
+
+ ❯ |contract| packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts (3 tests | 3 failed) 10ms
+     × pins the exact reviewed Skill package and external contract authorities 7ms
+     × freezes the exact Profile, point adapter, evidence gate and zero-side-effect boundary 1ms
+     × fails closed for a missing, ambiguous, mocked, auto-wire or non-exact contract 1ms
+ ✓ |contract| packages/management-api/test/http-endpoint.contract.test.ts (82 tests) 1014ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-deployment.contract.test.ts (121 tests) 6930ms
+ ✓ |contract| packages/json-schema-adapter/test/evidence-schema.contract.test.ts (11 tests) 5542ms
+     ✓ compiles and validates a concrete envelope for all 100 record types  1681ms
+     ✓ fails closed for unknown Phase 8 authority enum values  931ms
+     ✓ rejects zero for every Phase 8 positive-version payload field  507ms
+     ✓ compiles Batch, ACK, Manifest, Issue and ArtifactRef protocol schemas  1577ms
+ ✓ |contract| packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts (4 tests) 2865ms
+     ✓ AC-002 validates all upstream positive objects without opening their schemas  2718ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts (13 tests) 4608ms
+     ✓ crosses the real offline supervisor spawn, manifest, status, restart, and B02 capture boundary  3589ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-debug-command.contract.test.ts (45 tests) 1832ms
+ ✓ |contract| apps/node-control-api/test/operation-conformance.contract.test.ts (6 tests) 1319ms
+     ✓ matches the complete frozen inventory to production routes, RBAC, and executed coverage  1314ms
+ ✓ |contract| packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts (11 tests) 920ms
+ ✓ |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts (12 tests) 586ms
+ ✓ |contract| apps/node-control-api/test/http-endpoint.contract.test.ts (8 tests) 533ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts (7 tests) 414ms
+ ✓ |contract| packages/skill-package-adapter/test/skill-package.contract.test.ts (10 tests) 489ms
+ ✓ |contract| packages/skill-package-adapter/test/formal-skill-packages.contract.test.ts (4 tests) 445ms
+ ✓ |contract| packages/mcp-adapter/test/business-events-provider-fixtures.contract.test.ts (2 tests) 424ms
+ ✓ |contract| packages/json-schema-adapter/test/cognitive-domain-schema.contract.test.ts (1 test) 334ms
+     ✓ accepts the golden fixture and rejects candidate-to-active schema drift  332ms
+ ✓ |contract| packages/json-schema-adapter/test/workflow-dsl-schema.contract.test.ts (4 tests) 334ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-protocol-package.contract.test.ts (1 test) 263ms
+ ✓ |contract| packages/json-schema-adapter/test/artifact-domain-schema.contract.test.ts (12 tests) 244ms
+ ✓ |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts (5 tests) 72ms
+ ✓ |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts (5 tests) 99ms
+ ✓ |contract| packages/model-provider-adapter/test/anthropic-messages-adapter.contract.test.ts (2 tests) 46ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-task-lifecycle.contract.test.ts (18 tests) 46ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-task-subscriptions.contract.test.ts (8 tests) 45ms
+ ✓ |contract| packages/evidence-export-adapter/test/http-evidence-export-transport.contract.test.ts (8 tests) 42ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-http.contract.test.ts (14 tests) 38ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-registry.contract.test.ts (8 tests) 28ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-availability.contract.test.ts (6 tests) 26ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-evidence.contract.test.ts (5 tests) 21ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-shadow-p06.contract.test.ts (7 tests) 12ms
+ ✓ |contract| packages/a2a-adapter/test/a2a-compatibility.contract.test.ts (11 tests) 17ms
+ ✓ |contract| packages/application/test/case-model-runtime-p11.contract.test.ts (5 tests) 12ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-p02.contract.test.ts (4 tests) 12ms
+ ✓ |contract| packages/application/test/decision-rule-runtime-p09.contract.test.ts (4 tests) 10ms
+ ✓ |contract| packages/application/test/fast-gateway-p10.contract.test.ts (5 tests) 11ms
+ ✓ |contract| packages/persistence-postgres/test/experience-p03.contract.test.ts (5 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/deterministic-capability-execution-action.contract.test.ts (5 tests) 9ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-replay-p05.contract.test.ts (6 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/initial-model-prompts.contract.test.ts (4 tests) 9ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-b02-source-recovery-deployment.contract.test.ts (3 tests) 9ms
+ ✓ |contract| packages/a2a-adapter/test/node-control-agent-card.contract.test.ts (4 tests) 9ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-authority-snapshot.contract.test.ts (3 tests) 7ms
+ ✓ |contract| packages/runtime-control-persistence-postgres/test/task-revision-authority.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-match-exact-version.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/runtime-redis/test/artifact-shadow-workers.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts (4 tests) 8ms
+ ✓ |contract| packages/application/test/artifact-retrieval.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-cancellation-authority.contract.test.ts (3 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/mcp-execution-semantics-authority-repair.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/mcp-task-consumer-sync-migration.contract.test.ts (2 tests) 7ms
+ ✓ |contract| apps/server/test/runtime-migration-selection.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-admission-recovery.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/capability-attempt-evidence-lineage.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/runtime-task-control-actions.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/task-capability-initial-plan-binding.contract.test.ts (2 tests) 5ms
+ ✓ |contract| packages/persistence-postgres/test/model-operation-routes.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-authority-kind.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-confirmation.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-dispatch-consumption.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/initial-task-admission.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-accepted-substate.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-catalog-lineage.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/domain/test/artifact-management-p12.contract.test.ts (2 tests) 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |contract| packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts > UGV Agent Profile contract freeze > pins the exact reviewed Skill package and external contract authorities
+Error: ENOENT: no such file or directory, open '/tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source/reports/ugv-agent-profile-simulation/contract-freeze.json'
+ ❯ packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts:17:38
+     15| describe('UGV Agent Profile contract freeze', () => {
+     16|   it('pins the exact reviewed Skill package and external contract auth…
+     17|     const report = record(JSON.parse(await readFile(freezePath, 'utf8'…
+       |                                      ^
+     18|     const contract = record(report['contract']);
+     19|     const sources = record(contract['sourceAuthorities']);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  |contract| packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts > UGV Agent Profile contract freeze > freezes the exact Profile, point adapter, evidence gate and zero-side-effect boundary
+Error: ENOENT: no such file or directory, open '/tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source/reports/ugv-agent-profile-simulation/contract-freeze.json'
+ ❯ packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts:42:38
+     40|
+     41|   it('freezes the exact Profile, point adapter, evidence gate and zero…
+     42|     const report = record(JSON.parse(await readFile(freezePath, 'utf8'…
+       |                                      ^
+     43|     const contract = record(report['contract']);
+     44|     const profile = record(contract['profile']);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |contract| packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts > UGV Agent Profile contract freeze > fails closed for a missing, ambiguous, mocked, auto-wire or non-exact contract
+Error: ENOENT: no such file or directory, open '/tmp/sdar-verify-fc86b0ff-a84b-49c6-93bc-6f076b566203-8ubgf8/source/reports/ugv-agent-profile-simulation/contract-freeze.json'
+ ❯ packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts:108:38
+    106|
+    107|   it('fails closed for a missing, ambiguous, mocked, auto-wire or non-…
+    108|     const report = record(JSON.parse(await readFile(freezePath, 'utf8'…
+       |                                      ^
+    109|     const contract = record(report['contract']);
+    110|     const binding = record(contract['bindingFreeze']);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 62 passed (63)
+      Tests  3 failed | 546 passed (549)
+   Start at  00:08:48
+   Duration  35.22s (transform 7.44s, setup 0ms, import 29.52s, tests 29.85s, environment 8ms)
+
+[ELIFECYCLE] Command failed with exit code 1.
+[verification] contract: failed, 44026 ms
+[ELIFECYCLE] Command failed with exit code 1.

@@ -1499,7 +1499,6 @@ GOWM Shared Storage P5 增量：Evidence Task 原生归属及 Runtime/Skill/MCP 
 
 GOWM Goal 复用执行归属增量：user-goal-runtime Domain.executionTaskId → UserGoalPlanController / PostgresUserGoalRuntimeRepository → RuntimeCoreEvidenceSource；验证 user-goal-plan-controller.unit.test.ts、gowm-goal-outcome.postgres-cases.ts、正常双设备 run 167a1865。局部实现已验证；完整恢复与验收开放，见 ADR-153 / 当前 ExecPlan。
 
-
 GOWM D03/D08 恢复来源增量：`progress-recovery.ts` 与 `user-goal-runtime-repository.ts` 保留 Task 来源、限定设备进度读取并拒绝不明确旧状态。回归位于 `progress-recovery.unit.test.ts`、`gowm-goal-outcome.postgres-cases.ts`；本次定向 PG 结果见 EP-GOWM-SHARED-STORAGE-INTEGRATION.md 的 d0a4a7ee 记录，仅覆盖恢复来源，不代表完整任务包验收。
 
 GOWM D03/D08 结果写入/终态增量：gowm-outcome-scope.ts、user-goal-runtime-repository.ts 与 repositories.ts 对应 gowm-outcome-write-scope.postgres-cases.ts；正常 Server ce11aff1 双设备终态及后续投影范围回归 PASS，详见现有 ExecPlan。局部证据不关闭全部消费者或任务包。
@@ -1526,47 +1525,79 @@ GOWM D08 issue 修改：evidence-store.ts 对应 gowm-issue-resolve-scope.postgr
 
 GOWM D08 checkpoint 增量：gowm-evidence-scope.ts / EvidenceStore / EvidenceOperationsRepository 对应 gowm-checkpoint-scope.postgres-cases.ts，四类直接 Task 分区真库正反例 PASS；派生 infrastructure 投影源仍开放。
 
-
 2026-09-08：GOWM D08 / Evidence infrastructure 增量：实现 evidence-infrastructure-source.ts / evidence-infrastructure-projector.ts；phase10-evidence-sealing.unit.test.ts 及 gowm-infrastructure-scope.postgres-cases.ts 提供本次归属 successor、幂等和双设备 direct/pending 来源回归。范围为局部行为，reference 异常与全部 global 分类尚未证明；完整要求保持 OPEN。
-
 
 2026-09-08：GOWM Task/Plan/Skill 子调用：skill-call-workflow.ts 自动确认继承 Task；skill-call-workflow.unit.test.ts 28 项、gowm-child-execution.ts skill 模式真库报告 d07acdc5 通过。证据覆盖实际 Planner/LangGraph/PG 与本地模型桩，不等同正式 Usage/Server/Remote 全链。
 
-
 2026-09-08：GOWM D08 / Business Event：gowm-business-event-execution.ts 经正常 Server 注册、协议适配与后台 worker，147d9fdf 报告验证双设备 inbox/assessment 幂等及独立游标。无真实 Remote Binding/模型/设备，不扩大到事件恢复决策。目标几何现有 gowm-targets.postgres-cases.ts 及报告已覆盖解析/事务子集，本轮复用。
-
 
 2026-09-08：GOWM Remote cancellation：execution-gowm-runtime-0b57b0fe-4626-4d3b-8fd3-6115e152b034.json，经正常 Server/API 验证双设备取消幂等、投递及恢复到新计划确认；不等同父 Task 取消或所有恢复组合。早期 48906c1a 的局部 PASS 不作闭环证据。
 
-
 2026-09-08：GOWM worker/retention scope：evidence-retention-identity.ts + runtime.ts 修复调度身份碰撞；evidence-retention-identity.unit.test.ts 及同配置/日期双设备隔离 PG 请求验证通过。未执行清理 action，不替代 retention 行为回归或正常 Server 最终验收。
-
 
 2026-09-08：GOWM D09 Temporary Skill：repositories.ts/runtime.ts 与 gowm-temporary-skill-scope.ts 证明双设备创建/读取范围；77a39e98 报告终态失败且原事务回滚。终态要求 BLOCKED_BY_UPSTREAM_CONTRACT，详见 UPSTREAM_STORAGE_GAP.md；不得标记完整已验证。
 
-
 2026-09-08：GOWM D07/D08 quality source：evidence-quality-source.ts/runtime.ts；gowm-quality-source.postgres-cases.ts 真库非空双设备冲突诊断正反例与十类 SQL 执行通过。仅候选范围子集，不替代所有聚合/共享服务语义验收。
-
 
 GOWM 设备派生执行范围增量（2026-09-08）：`packages/persistence-postgres/src/compiler/artifact-repositories.ts` 的 ArtifactExecution start/complete/feedback 已接入正常 runtime 的 DeviceWorkScope。`packages/persistence-postgres/test/gowm-artifact-execution.postgres-cases.ts::verifyGowmArtifactExecutionScope` 经 `node --env-file=.state/gowm-storage/runtime-test.env --import tsx --input-type=module` 调用，在已有隔离 PG 双设备 Task 上 PASS；初次错误夹具路径失败保留于 ExecPlan。共享制品完整生命周期及当前源码完整回归仍开放。
 
-
 2026-09-08 R2 父 Task 取消：复用现有 runtime driver 新增 --parent-cancel，经官方 A2A 客户端每设备重复取消两次。报告 execution-gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b.json 为 PASS：两个 Task 和对应 Workflow instance 均 canceled 且 device_id 正确，工具总调用 2，本地模型夹具失败 0，cleanupErrors=[]。此证据不宣称 Provider 已终止、物理进程重启或迟到回调全部完成；启动仍有已有模型路由 MODEL_INVOCATION_FAILED 告警。进程丢失现有 gowm-recovery.postgres-cases.ts 已证明持久恢复范围、重复调用无新增状态，真实进程重启组合仍开放。
-
 
 2026-09-09 sz-gowm deployment (ADR-153 / Development deployment): implementation `deploy/development/{config,package,upgrade-preflight}.mjs`, `deploy/sz-gowm/`; regression `apps/server/test/development-deployment.unit.test.ts` (5 PASS); full gate and real deployment evidence `reports/sz-gowm-deployment-20260909/README.md`. Real GOWM ugv_sdar contract PASS, fixed scoped Pool, existing managed role, official device successor binding, SMPP tools/list 10, external Console/A2A/Control 200 and synthetic model connectivity 200. This is deployment verification, not closure of all shared-runtime business acceptance gaps.
 
 ### 联合源码交付补充证据（2026-09-09）
+
 DEV-DEPLOY / NFR-SEC-001 / NFR-SEC-002（交付凭据排除子集，运行时加密不变）/ ADR-153：`deploy/united/package.mjs`、`bundle.py`、`DEPLOYMENT_HISTORY.md`；计划 `EP-UNITED-SOURCE-PACKAGE`；回归与完整 gate 结果记录于 `reports/united-package-20260909`。不新增业务需求或声明完整项目验收。
 
 联合包验证完成：`pnpm package:joint -- --upstream PATH`，`python3 bundle.py verify ARCHIVE`；部署回归 6 PASS（内含 Python 4 组）、全量 unit 2534 / integration 242 / contract 534 / E2E 75 PASS，format/lint/typecheck/build/smoke PASS。归档重复生成及干净解包构建结果见 `reports/united-package-20260909/validation-summary.json`、`package-final.json`。
 
 ### 默认治理初始化与非空 Agent Card（2026-09-09，ADR-154）
+
 DEV-DEPLOY / FR-SKL 生命周期 / Agent Card 发布 / NFR-SEC-001/002：实现 `deploy/development/bootstrap*.mjs`、`capability-manifest.json`、`apps/node-control-acceptance/src/{smpp-provider-materializer,ugv-smpp-source-bootstrap-driver,ugv-smpp-capability-governance-driver,provider-json-schema}.ts`、`packages/runtime-control-application/src/skill-provider-dependency-policy.ts`、`deploy/sz-gowm/pms-*`。
 回归：`default-capability-bootstrap.unit.test.ts`、对应治理/Source/Provider/schema/readiness unit；完整 gate、正式 PMS、只读现场逐项验收、重复初始化与交付源码证据在 `reports/default-capabilities-20260909`。实际 12 个 Skills/公开能力已验证；巡逻等待 GOWM inspection 合同，未标为完整清单通过。未调用现场设备动作。
 
 ### UGV 执行资源身份一致性（2026-09-09，ADR-155）
+
 Agent Card / Task Capability / MCP Binding / DEV-DEPLOY：`apps/server/src/ugv-{move-input-adapter,move-binding,agent-profile-admission,natural-language-capability-admission,move-skill-usage,move-terminal-outcome,simulation-qualification}.ts`、`packages/domain/src/selected-task-operation.ts`、内部治理输入适配端口与 PostgreSQL Authority Reader。
 测试：对应 UGV unit、`fixtures/sz-gowm-ugv-resource-contracts.json`（只读现场合同）、已有治理控制 integration / contract / E2E；证据：`reports/resource-identity-20260909`。范围为身份贯通修复，不代替真实设备移动 benchmark 验收，巡逻 Provider 缺失仍保留。
 
 本次身份修复验收：unit 2561、integration 242、contract 534、E2E 74+1、format/lint/typecheck/build/smoke 全部有通过证据；性能独立复核保持原阈值。现场 `site-resource-identity-final.json` PASS；三个 SDAR 容器各 2780 源文件无差异，与联合包 sourceHash 81e64ef90f96e97424c6f7ddf711dd5e9db1907fe20a16b74b00ba6b693d0446 一致。`validation-summary.json` 保留失败尝试、环境及验证边界；真实移动 benchmark 未执行。
+
+## SMPP v1.3 business upgrade — local implementation and evidence (2026-10-11)
+
+Plan: `execplans/EP-SDAR-SMPP-V13-BUSINESS-CLOSURE.md`; decisions: accepted ADR-156–160.
+UPG IDs are local upgrade tracking and retain the original SRS/baseline. M1, M2 and M3
+have independent complete 30-stage gates in `M1_VALIDATION.json`, `M2_VALIDATION.json` and
+`M3_VALIDATION.json` under `reports/sdar-smpp-v13-upgrade/20261010-local/`.
+The authoritative latest local conclusion for every AC is `CASE_RESULTS.json`/`CASE_RESULTS.md`
+in that directory, with exact test names, commands, source identities, environment and logs.
+M4 has its own `M4_VALIDATION.json`; an implementation path alone is never a PASS.
+Site AC-045/046 remain NOT_RUN. This table does not grant project release or site approval.
+
+| Upgrade requirement | Baseline boundary                              | Implementation                                                                                                      | Tests and case evidence                                                                                                                                                  |
+| ------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| UPG-V13-R01         | FR-MCP-002/006/009, governance                 | `contracts/smpp-task-business/v1.3; domain/business-contract-diff; mcp-adapter/smpp-public-contract`                | `json-schema-adapter/smpp-v13-frozen-contract.contract; domain/business-contract-diff.unit; persistence/repositories.integration`; AC-001–004, linked CASE_RESULTS       |
+| UPG-V13-R02         | FR-MCP-007/012, FR-GOAL-004/005                | `domain/task-business; application/task-business-sync; persistence/task-business-repository`                        | `task-business.unit; task-business-sync.unit; repositories.integration; smpp-task-business.e2e`; AC-006–010, linked CASE_RESULTS                                         |
+| UPG-V13-R03         | FR-MCP-007/012, NFR-OBS                        | `mcp-adapter/smpp-task-business-client; domain/task-business-evidence; persistence/task-business-repository`        | `smpp-task-business-client.contract; task-business-evidence.unit; repositories.integration`; AC-008/011/033, linked CASE_RESULTS                                         |
+| UPG-V13-R04         | FR-MCP-012, FR-EXE continuation                | `application/business-events and task-business-events; persistence/business-event-checkpoint`                       | `business-events.unit; task-business-sync.unit; repositories.integration shared routing/continuity/backpressure`; AC-012–016, linked CASE_RESULTS                        |
+| UPG-V13-R05         | FR-SKL-004/005, FR-RST                         | `application/task-business-agent-facts, result-processing-service; domain/skill`                                    | `task-business-agent-facts.unit; result-processing-service.unit; smpp-task-business.e2e same Skill`; AC-017/018, linked CASE_RESULTS                                     |
+| UPG-V13-R06         | FR-GOAL-004/005/008, FR-EXE confirmation       | `application/task-business-commands; persistence/task-business-command-repository; governed-control authority`      | `task-business-commands.unit; task-business-command.integration (including two OS processes/SIGKILL)`; AC-019/028–030/048, linked CASE_RESULTS                           |
+| UPG-V13-R07         | FR-MCP-007, FR-EXE input                       | `application/remote-task-input; persistence/workflow-continuation-repository; 0184 migration`                       | `remote-task-input.unit; task-business-command.integration; repositories.integration; smpp-task-business.e2e recon`; AC-020–024, linked CASE_RESULTS                     |
+| UPG-V13-R08         | FR-MCP-007/012, FR-EXE                         | `application/task-business-commands; management-api/http-endpoint; console/TaskBusinessPanel`                       | `smpp-task-business-client.contract; task-business-command.integration; smpp-task-business.e2e navigation`; AC-025–028, linked CASE_RESULTS                              |
+| UPG-V13-R09         | FR-RST business outcome                        | `domain/task-business-evidence; application/task-business-outcome; remote-task-continuation`                        | `task-business-evidence.unit; task-business-outcome.unit; remote-task-continuation.unit; same Skill negative E2E`; AC-031/037, linked CASE_RESULTS                       |
+| UPG-V13-R10         | FR-RST geometry and NFR-OBS                    | `domain/task-business-evidence; persistence/task-business-repository`                                               | `task-business-evidence.unit; repositories.integration; formal full trajectory source-artifact E2E`; AC-032/033/035, linked CASE_RESULTS                                 |
+| UPG-V13-R11         | FR-MCP-012, NFR-OBS source clocks              | `mcp-adapter/smpp-task-business-client; domain/task-business; TIME_FIELD_MAP.md`                                    | `smpp-v13-frozen-contract.contract; task-business.unit; task-business-evidence.unit`; AC-005/034/035, linked CASE_RESULTS                                                |
+| UPG-V13-R12         | FR-RST evidence coverage                       | `domain/task-business-evidence; application/task-business-outcome`                                                  | `task-business-evidence.unit; task-business-outcome.unit; formal failed-mission E2E`; AC-036/037, linked CASE_RESULTS                                                    |
+| UPG-V13-R13         | FR-A2A-004/005/010, NFR-OBS                    | `application/task-projection; a2a-adapter/task-mapping; management-api/http-endpoint; source-artifact-ref-resolver` | `http-endpoint.contract; mcp-capability-evidence-projector.unit; smpp-task-business.e2e full source/receipt chain`; AC-038, linked CASE_RESULTS                          |
+| UPG-V13-R14         | FR-EXE recovery, FR-GOAL invalidation          | `application/task-business-sync and remote-task-initial-reconciliation; native projection/command repositories`     | `repositories.integration; task-business-command.integration OS processes; smpp-task-business.e2e restart`; AC-010/013/039–041, linked CASE_RESULTS                      |
+| UPG-V13-R15         | FR-SKL/FR-MCP/FR-A2A composed chain            | `apps/server/runtime; published Skill/Capability; native original Task workflow`                                    | `apps/server/test/smpp-task-business.e2e.test.ts through real Registry/Skill/Task/A2A`; AC-042/043, linked CASE_RESULTS                                                  |
+| UPG-V13-R16         | NFR persistence compatibility                  | `infra/postgres/migrations/0184; command rollbackPreflight; migration selector`                                     | `repositories.integration actual PR34 reader/down-up; task-business-command.integration rollback; runtime-migration-selection.contract`; AC-039/044, linked CASE_RESULTS |
+| UPG-V13-R17         | trusted intranet and physical-control boundary | `owned loopback runners; local acceptance and closeout reports`                                                     | `CASE_RESULTS (site 045/046 NOT_RUN); full E2E wire counts and original UGV authorization regressions`; AC-045–048, linked CASE_RESULTS                                  |
+| UPG-V13-R18         | NFR test/evidence reproducibility              | `scripts/verify-isolated; scripts/sdar-smpp-v13/verify-gowm; reports retained failure ledger`                       | `M1–M4_VALIDATION.json; CASE_RESULTS; FAILED_ATTEMPTS.json`; AC-049, linked CASE_RESULTS                                                                                 |
+| UPG-V13-R19         | existing GOWM native Task ownership            | `existing scoped native repositories and GOWM migration selection, no consumer DDL`                                 | `verify-gowm pinned owner install, restricted consumer formal E2E and original native-storage-boundaries`; AC-039/050, linked CASE_RESULTS                               |
+
+All test paths above are under `packages/<module>/test` unless an app path is explicit.
+Canonical source Artifacts preserve all retained bytes, while published trajectory source-clock
+absence and event history gaps remain explicit. Receipt acceptance is separate from observed
+application; protocol completed alone cannot satisfy a Skill success policy. Original GOWM
+auxiliary-link and temporary-Skill upstream gaps elsewhere in this document remain open.

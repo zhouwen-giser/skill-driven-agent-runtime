@@ -34,17 +34,20 @@ export class RemoteTaskAdmissionService {
   readonly #repository: RemoteTaskRepository;
   readonly #queue: RemoteTaskPollQueue;
   readonly #nextObservationId: () => string;
+  readonly #onAdmitted: ((bindingId: string) => Promise<void>) | undefined;
 
   constructor(
     dependencies: Readonly<{
       repository: RemoteTaskRepository;
       queue: RemoteTaskPollQueue;
       nextObservationId(): string;
+      onAdmitted?(bindingId: string): Promise<void>;
     }>,
   ) {
     this.#repository = dependencies.repository;
     this.#queue = dependencies.queue;
     this.#nextObservationId = dependencies.nextObservationId;
+    this.#onAdmitted = dependencies.onAdmitted;
   }
 
   async admit(
@@ -59,6 +62,7 @@ export class RemoteTaskAdmissionService {
   > {
     const candidate = createRemoteTaskBinding(input);
     const admitted = await this.#repository.admit(candidate, this.#nextObservationId());
+    await this.#onAdmitted?.(admitted.binding.bindingId);
     const pollScheduled =
       options.schedulePoll === false ? false : await this.schedule(admitted.binding);
     return { ...admitted, pollScheduled };
@@ -102,6 +106,7 @@ export class RemoteTaskPollingService {
   readonly #providerFailureBackoffBaseMs: number;
   readonly #providerFailureBackoffMaximumMs: number;
   readonly #claimLeaseMs: number;
+  readonly #onSnapshot: ((bindingId: string) => Promise<void>) | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -113,6 +118,7 @@ export class RemoteTaskPollingService {
       ids: RemoteTaskPollingIds;
       hash(value: unknown): string;
       options?: RemoteTaskPollingOptions;
+      onSnapshot?(bindingId: string): Promise<void>;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -129,6 +135,7 @@ export class RemoteTaskPollingService {
     this.#providerFailureBackoffMaximumMs =
       dependencies.options?.providerFailureBackoffMaximumMs ?? 60_000;
     this.#claimLeaseMs = dependencies.options?.claimLeaseMs ?? 30_000;
+    this.#onSnapshot = dependencies.onSnapshot;
   }
 
   async process(job: RemoteTaskPollJob): Promise<RemoteTaskPollProcessResult> {
@@ -288,6 +295,7 @@ export class RemoteTaskPollingService {
         );
         return 'stale_provider_snapshot';
       }
+      if (snapshot.status !== 'working') await this.#onSnapshot?.(mutation.binding.bindingId);
       if (
         mutation.binding.localState !== 'polling' &&
         mutation.binding.localState !== 'cancel_observing'

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "sdar-upgrade-site-scope/1",
+  "isAuthorizationProof": false,
+  "status": "NOT_GRANTED",
+  "userApprovalReference": null,
+  "allowedScope": [],
+  "mayCreateTask": false,
+  "operationBudget": 0,
+  "mustRemainFireDisabled": true,
+  "directDeviceAccessAllowed": false,
+  "independentLockAllowed": false,
+  "reason": "The user authorized local code and isolated verification only. A referenced chat does not transfer authorization."
+}

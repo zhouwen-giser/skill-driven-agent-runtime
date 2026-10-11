@@ -1,0 +1,2 @@
+$ node scripts/run-cognitive-replay.mjs --check
+Cognitive Replay artifact verified: passed, 1 passed, 0 failed, no physical Provider calls.

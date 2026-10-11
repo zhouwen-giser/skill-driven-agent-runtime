@@ -1,0 +1,7 @@
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/test/business-events.unit.test.ts
+  129:26  error  This is the default value for this type parameter, so it can be omitted  @typescript-eslint/no-unnecessary-type-arguments
+
+✖ 1 problem (1 error, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--project",
+    "contract",
+    "packages/management-api/test/http-endpoint.contract.test.ts",
+    "apps/server/test/runtime-migration-selection.contract.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "2b67f54e52fcf3dda847c3eab9622c4ddf1ceb932b51ef18dbc4d40dcad904ca",
+  "startedAt": "2026-10-11T03:25:40.453638+08:00",
+  "finishedAt": "2026-10-11T03:25:47.379338+08:00",
+  "durationSeconds": 6.9257,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "82c83c5a8592a5ea3cc5a194f08290339964e6b506483b72e6fcfa4d203e63c9",
+  "environment": "local_source_or_loopback_fixture_only"
+}

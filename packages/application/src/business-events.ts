@@ -94,8 +94,17 @@ export interface BusinessEventRuntimeRepository {
   ): Promise<Readonly<{ created: boolean }>>;
   admitBusinessEvent(record: BusinessEventInboxRecord): Promise<Readonly<{ created: boolean }>>;
   claimBusinessEventInbox(limit: number): Promise<readonly BusinessEventInboxRecord[]>;
-  markBusinessEventProcessed(inboxId: string, processedAt: string): Promise<void>;
-  markBusinessEventFailed(inboxId: string, errorCode: string, retryable: boolean): Promise<void>;
+  markBusinessEventProcessed(
+    inboxId: string,
+    processedAt: string,
+    processingToken?: string,
+  ): Promise<void>;
+  markBusinessEventFailed(
+    inboxId: string,
+    errorCode: string,
+    retryable: boolean,
+    processingToken?: string,
+  ): Promise<void>;
   saveBusinessEventRelationProjection(projection: BusinessEventRelationProjection): Promise<void>;
 }
 
@@ -421,7 +430,9 @@ export class ProviderSubscriptionCoordinator {
 }
 
 export interface BusinessEventProcessor {
-  process(record: BusinessEventInboxRecord): Promise<void>;
+  process(
+    record: BusinessEventInboxRecord,
+  ): Promise<void> | Promise<Readonly<{ processedAtomically: true }>>;
 }
 
 export class BusinessEventIngressWorker {
@@ -447,8 +458,13 @@ export class BusinessEventIngressWorker {
     let failed = 0;
     for (const record of records) {
       try {
-        await this.#processor.process(record);
-        await this.#repository.markBusinessEventProcessed(record.inboxId, this.#clock.now());
+        const result = await this.#processor.process(record);
+        if (result?.processedAtomically !== true)
+          await this.#repository.markBusinessEventProcessed(
+            record.inboxId,
+            this.#clock.now(),
+            record.processingToken,
+          );
         processed += 1;
       } catch (error: unknown) {
         const retryable = !(error instanceof BusinessEventTerminalProcessingError);
@@ -456,6 +472,7 @@ export class BusinessEventIngressWorker {
           record.inboxId,
           runtimeErrorCode(error),
           retryable,
+          record.processingToken,
         );
         failed += 1;
       }

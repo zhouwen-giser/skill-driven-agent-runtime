@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "sdar-upgrade-taskpack-baseline/1",
+  "packageVersion": "1.0.0",
+  "preparedOn": "2026-10-10",
+  "timezone": "Asia/Tokyo",
+  "purpose": "SDAR consumes deployed SMPP TaskBusiness through the existing governed runtime; non-weapon navigation and observation only",
+  "sdar": {
+    "repository": "zhouwen-giser/skill-driven-agent-runtime",
+    "observedMainSha": "f94d0b98d140dd22514029ccdc34978209426940",
+    "integrationBranch": "codex/sdar-smpp-ugv-v1.3-taskbusiness",
+    "integrationHeadSha": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+    "prNumber": 34,
+    "observedPrState": "open_draft",
+    "observedCi": {
+      "runId": 38033079355,
+      "name": "SMPP UGV v1.3 Adapter",
+      "conclusion": "success",
+      "scope": "upstream_workflow_only"
+    },
+    "packageManager": "pnpm@11.7.0"
+  },
+  "smpp": {
+    "repository": "zhouwen-giser/sdar-mcp-provider-platform",
+    "compatibilitySha": "0a4a7c36865d4c9920a4e65857c0903e9ef12533",
+    "deploymentVerification": "historical_handoff_only_not_reprobed_in_this_delivery"
+  },
+  "protocol": {
+    "frozenMcp": "2026-07-28",
+    "taskBusiness": "1.0-rc2",
+    "businessEvents": "1.0",
+    "businessSemantics": "ugv.business-semantics/1"
+  },
+  "identity": {
+    "providerId": "isr.vehicle.ugv.ugv",
+    "resourceId": "vehicle:ugv",
+    "gowmDeviceId": "ugv:ugv"
+  },
+  "runtimeDefaults": {
+    "authMode": "development",
+    "executionMode": "live",
+    "simulationIdInLiveRequests": false,
+    "fireEnabled": false
+  },
+  "timePolicy": {
+    "canonicalSourceTimeBasis": "provider_received_at",
+    "preserveDeviceReportedTime": true,
+    "preserveSdarReceivedAt": true,
+    "localTimeFallbackAllowed": false,
+    "wireFieldPath": "resolve_from_pinned_public_contract_in_W0"
+  },
+  "authorization": {
+    "thisDelivery": "documents_only",
+    "codexWhenExplicitlyInvoked": "local_source_changes_and_isolated_tests",
+    "remotePushOrPr": "requires_explicit_user_instruction",
+    "merge": "not_authorized",
+    "siteRead": "requires_selected_target_authorization",
+    "siteWrite": "requires_separate_scoped_authorization",
+    "deployment": "requires_separate_authorization",
+    "deviceDirectAccess": false,
+    "weaponActions": false
+  },
+  "scopeExclusions": [
+    "PMS-api",
+    "pms-web",
+    "device-side changes",
+    "SDK delivery",
+    "second workflow runtime",
+    "new database service",
+    "takeover of Provider internal AutoLock",
+    "undeployed sequential AutoLock",
+    "weapon control",
+    "unrequested large refactor"
+  ],
+  "sourceRefs": [
+    {
+      "id": "S01",
+      "title": "SDAR PR #34 元数据",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/34",
+      "gitBlobSha": null
+    },
+    {
+      "id": "S02",
+      "title": "SDAR 适配边界文档",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/docs/SDAR_SMPP_UGV_V13_ADAPTER.md",
+      "gitBlobSha": "a0356d6842e01c6945d310369804e0b033e6943b"
+    },
+    {
+      "id": "S03",
+      "title": "仓库 Codex 规则",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/AGENTS.md",
+      "gitBlobSha": "764affaf26a250ef58b92c2a5a25522d732d3e07"
+    },
+    {
+      "id": "S04",
+      "title": "ExecPlan 规范",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/PLANS.md",
+      "gitBlobSha": "e304a3ca8f305567ae5c613fae422a3125d63d0d"
+    },
+    {
+      "id": "S05",
+      "title": "真实脚本与依赖版本",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/package.json",
+      "gitBlobSha": "840eded3d80852782c9aa17ff7f51e1bc61dd6e9"
+    },
+    {
+      "id": "S06",
+      "title": "现有应用层导出",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/packages/application/src/index.ts",
+      "gitBlobSha": "427f4c2dee36073ad84af61ddc143e214692288d"
+    },
+    {
+      "id": "S07",
+      "title": "既有 RemoteTaskInputService",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/packages/application/src/remote-task-input.ts",
+      "gitBlobSha": "558a9fbcd6bbb71291eed2563492ad333dde7161"
+    },
+    {
+      "id": "S08",
+      "title": "既有业务事件订阅与 inbox",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/packages/application/src/business-events.ts",
+      "gitBlobSha": "421b48d18976088be9e0da515bae50c95cd738c7"
+    },
+    {
+      "id": "S09",
+      "title": "现有 SmppTaskBusinessClient",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/packages/mcp-adapter/src/smpp-task-business-client.ts",
+      "gitBlobSha": "c4764d4b3fd1a61eae46493ef064f1214da3b71d"
+    },
+    {
+      "id": "S10",
+      "title": "现有 PostgreSQL 导出",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/blob/52f54a11a40380f7c73bd9da277d640e49bdfbf7/packages/persistence-postgres/src/index.ts",
+      "gitBlobSha": "a71a4c7aea6690aa5053cdb600a0467727ff1bde"
+    },
+    {
+      "id": "S11",
+      "title": "已部署版本的 Provider 公共接口指南",
+      "url": "https://github.com/zhouwen-giser/sdar-mcp-provider-platform/blob/0a4a7c36865d4c9920a4e65857c0903e9ef12533/docs/ugv-provider-mcp-api-guide.md",
+      "gitBlobSha": null
+    },
+    {
+      "id": "S12",
+      "title": "已部署版本的现场交付记录",
+      "url": "https://github.com/zhouwen-giser/sdar-mcp-provider-platform/blob/0a4a7c36865d4c9920a4e65857c0903e9ef12533/reports/ugv-business-simplification/SITE_DELIVERY.md",
+      "gitBlobSha": null
+    },
+    {
+      "id": "S13",
+      "title": "PR #34 专项 CI",
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/actions/runs/38033079355",
+      "gitBlobSha": null
+    }
+  ]
+}

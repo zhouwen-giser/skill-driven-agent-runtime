@@ -1,0 +1,7 @@
+$ tsc -p tsconfig.json --noEmit
+apps/server/src/runtime.ts(7661,59): error TS2345: Argument of type 'Readonly<{ artifactId: string; version: number; uri: string; sha256: string; mediaType: string; byteSize: number; }>' is not assignable to parameter of type 'ArtifactRef'.
+  Types of property 'sha256' are incompatible.
+    Type 'string' is not assignable to type '`sha256:${string}`'.
+apps/server/test/smpp-task-business.e2e.test.ts(8,3): error TS2724: '"../../../packages/a2a-adapter/test-support/client.js"' has no exported member named 'getA2ATestTaskAtUrl'. Did you mean 'getA2ATestTask'?
+apps/server/test/smpp-task-business.e2e.test.ts(313,13): error TS2353: Object literal may only specify known properties, and 'taskBusinessMutationPolicy' does not exist in type 'SkillRuntimePolicy'.
+[ELIFECYCLE] Command failed with exit code 2.

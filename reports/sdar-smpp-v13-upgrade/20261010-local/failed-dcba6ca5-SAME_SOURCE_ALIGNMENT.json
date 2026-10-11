@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "sameRepositorySource": true,
+  "comparedRepositoryFiles": 2807,
+  "changes": [],
+  "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+  "fullGateInputSha256": "69d95ca8f43520f3eb91c913a45e6442d197a4d38134ab994c7d0b50a681dfa1",
+  "gowmRepositoryInputSha256": "ea4c728d3b5aa49f0a69c48cec7d60eb8bdabff06be17f906c6246d8e7661198",
+  "fullGateAdditionalLegacyFixtureFiles": [
+    {
+      "path": "../smpp-telemetry-platform/deploy/ugv-debug/collector.template.yaml",
+      "sha256": "cb4ef7f2fde22c8209ef05aaabb79d26103426f1678dda29f4419c825c7fc09e",
+      "classification": "runtime"
+    },
+    {
+      "path": "../smpp-telemetry-platform/deploy/ugv-debug/compose.yaml",
+      "sha256": "e9ab908e1f62a4fa3770ac8bace87dfdcbf199bba0d9774a8b9eb9474aca1ae3",
+      "classification": "runtime"
+    },
+    {
+      "path": "../smpp-telemetry-platform/config/projection-targets.example.json",
+      "sha256": "9794ab97238170727978d5ebf150343cbdf8825d11164a1ca72865e5d894fc9c",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-telemetry-platform/migrations/clickhouse/015_provider_closure_v2.sql",
+      "sha256": "dba7693c2ee3fe52bc4ea61182cce87244c6f83dbf2f5a94048da9fb9ed9740a",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-mcp-provider-platform/compose.yaml",
+      "sha256": "91842138fcfd447d20a6644e18a113094a4500bcc8a051ddc420003af4332e1e",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-mcp-provider-platform/compose.ugv-agent-profile-simulation.yaml",
+      "sha256": "377bdd1f2b1151c20c8f718c1de34b06ad4872f5dcad8f84303b4d2fc558e649",
+      "classification": "runtime"
+    }
+  ],
+  "reasonForDifferentDigests": "The existing full gate also captures six legacy sibling fixture files. Every repository runtime and baseline file matches the independent GOWM run byte-for-byte.",
+  "fullGateInputs": "reports/runtime-semantic-closure/sdar-verify-dcba6ca5-e5bb-48a7-8f60-49e7843367af/inputs.json",
+  "gowmInputs": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-f3f89dba-b4d5-4be0-abf6-e95d714a92b8/inputs.json",
+  "site": "NOT_RUN"
+}

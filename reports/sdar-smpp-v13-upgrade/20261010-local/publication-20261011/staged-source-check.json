@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "matchedRuntimeAndBaselineFiles": 2807,
+  "newUnverifiedSourcePaths": [],
+  "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+  "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+  "method": "SHA-256 equals frozen successful gate input and Git blob SHA-1 equals index object for each runtime/baseline file."
+}

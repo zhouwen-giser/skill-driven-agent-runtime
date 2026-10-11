@@ -36,6 +36,54 @@ import {
 const timestamp = '2026-07-11T10:00:00.000Z';
 
 describe('TaskService', () => {
+  it('does not expose a confirmable plan until its Capability attempt binding completes', async () => {
+    const capabilities = capabilityService();
+    let release: () => void = () => undefined;
+    let entered: () => void = () => undefined;
+    const bindingStarted = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const bindingGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(capabilities, 'bindInitialPlan').mockImplementation(async () => {
+      entered();
+      await bindingGate;
+    });
+    const harness = createHarness('resumed', false, undefined, capabilities);
+    const submitted = await harness.service.submitDeterministic({
+      taskId: 'task-plan-race',
+      contextId: 'context-plan-race',
+      messageText: 'Read state',
+      metadata: {},
+    });
+    await harness.service.prepareDeterministicExecution(submitted.task.taskId, {
+      goalId: 'goal-plan-race',
+      goalVersion: 1,
+      skillId: 'skill-read',
+      skillVersion: 1,
+      selectionId: 'selection-race',
+    });
+    const ready = await harness.service.get(submitted.task.taskId);
+    harness.tasks.set(
+      ready.taskId,
+      transitionTask(ready, 'awaiting_plan_confirmation', 'Plan ready.', timestamp),
+    );
+    const pending = harness.service.attachPlan(submitted.task.taskId, {
+      planId: 'plan-race',
+      goalId: 'goal-plan-race',
+      goalVersion: 1,
+    });
+    await bindingStarted;
+    expect((await harness.service.get(submitted.task.taskId)).planId).toBeUndefined();
+    release();
+    await expect(pending).resolves.toMatchObject({
+      planId: 'plan-race',
+      phase: 'awaiting_plan_confirmation',
+    });
+    expect((await harness.service.get(submitted.task.taskId)).planId).toBe('plan-race');
+  });
+
   it('resolves device ownership before any task creation and preserves it in persistence', async () => {
     const owner = { deviceId: 'device-a', bindingId: 'binding-a', sdarServiceKey: 'service' };
     const resolveDeviceOwnership = vi.fn().mockResolvedValue(owner);

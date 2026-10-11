@@ -1,0 +1,16 @@
+{
+  "command": [
+    "node",
+    "scripts/sdar-smpp-v13/verify-gowm.mjs"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "5769f8b6231ee38a5529fedf711f4ed8b9cbaede79d0ff308bb277cd5d285acd",
+  "startedAt": "2026-10-11T03:15:18.007870+08:00",
+  "finishedAt": "2026-10-11T03:16:26.686737+08:00",
+  "durationSeconds": 68.678867,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "e422e655829540baeb37cd09e873231b198eaa40c92caa49ef98421126f9469f",
+  "environment": "local_source_or_loopback_fixture_only"
+}

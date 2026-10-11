@@ -1,0 +1,443 @@
+{
+  "caseId": "AC-015",
+  "environment": "owned_loopback_sse_and_postgres",
+  "evidence": {
+    "continuity": [
+      {
+        "previous_stream_id": "018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0001",
+        "new_stream_id": "018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0002",
+        "reason_code": "SOURCE_CURSOR_EXPIRED"
+      }
+    ],
+    "current": {
+      "schemaVersion": "sdar.task-business-projection/v1",
+      "bindingId": "continuation-invalidation-binding-smpp-v13-binding-mapped",
+      "taskId": "continuation-invalidation-task-smpp-v13-binding",
+      "identity": {
+        "taskId": "provider-smpp-v13-binding-1",
+        "executionId": "execution-catalog-1",
+        "providerId": "provider-catalog-1",
+        "resourceId": "vehicle:ugv1",
+        "operationName": "remote_operation"
+      },
+      "contextRevision": 5,
+      "effectivePlanRevision": 2,
+      "projectionRevision": 2,
+      "status": "current",
+      "executionSummary": {
+        "status": "in_progress",
+        "resultCode": "SCAN_ACTIVE"
+      },
+      "objects": [
+        {
+          "ref": {
+            "kind": "artifact",
+            "id": "route-line",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "495b0c012f3c89d8651a916415e1fadedc29fe8dc6113ac6f726f202730be931",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/495b0c012f3c89d8651a916415e1fadedc29fe8dc6113ac6f726f202730be931",
+          "artifactRef": {
+            "artifactId": "task-business-5a8a9a0d-83b7-411f-9aab-07b219603922",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-5a8a9a0d-83b7-411f-9aab-07b219603922/1/content",
+            "sha256": "sha256:7b0152fbd3158be45f962b7b66205af09f2d0a4eb31cac79b6e14b065d9e471f",
+            "mediaType": "application/json",
+            "byteSize": 1327
+          }
+        },
+        {
+          "ref": {
+            "kind": "action",
+            "id": "lock-1",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "009ad0349c9a930cf98c4f600e1764cec3df7178b0e11c898888a3f0e213e57e",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/009ad0349c9a930cf98c4f600e1764cec3df7178b0e11c898888a3f0e213e57e",
+          "artifactRef": {
+            "artifactId": "task-business-365b42ad-8cd7-4e71-9fd7-255453aa5b07",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-365b42ad-8cd7-4e71-9fd7-255453aa5b07/1/content",
+            "sha256": "sha256:fd65a780f370e45f0e380f2be69ed3672e308b155f1f071addef486744b3e225",
+            "mediaType": "application/json",
+            "byteSize": 1649
+          }
+        },
+        {
+          "ref": {
+            "kind": "input_request",
+            "id": "input-1",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "89823f5ec3c92d79a007e7231f957dec98f1f5c79fa78735b68c2345c167dc4f",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/89823f5ec3c92d79a007e7231f957dec98f1f5c79fa78735b68c2345c167dc4f",
+          "artifactRef": {
+            "artifactId": "task-business-1bd25b11-0e8b-47b1-945d-3db0d4eb7169",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-1bd25b11-0e8b-47b1-945d-3db0d4eb7169/1/content",
+            "sha256": "sha256:61044ab849cc403edffbf82ac817d9ae6b0b244e76d5cdc41777884339232585",
+            "mediaType": "application/json",
+            "byteSize": 2526
+          }
+        },
+        {
+          "ref": {
+            "kind": "intervention",
+            "id": "intervention-1",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "b2a1959676054a8205eff59697174e548dfe291e646e2404b16d6c49c484319c",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/b2a1959676054a8205eff59697174e548dfe291e646e2404b16d6c49c484319c",
+          "artifactRef": {
+            "artifactId": "task-business-3e4dd705-e3f6-4bf0-85f7-22e3aa5a56bd",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-3e4dd705-e3f6-4bf0-85f7-22e3aa5a56bd/1/content",
+            "sha256": "sha256:0776174755163c31eca24a9cc1b997b0c6c0c2a2bb9b45691ba565bb08bacbfb",
+            "mediaType": "application/json",
+            "byteSize": 1917
+          }
+        }
+      ],
+      "interactionRequests": [
+        {
+          "state": "pending",
+          "title": "Choose target disposition",
+          "blocking": true,
+          "identity": {
+            "taskId": "provider-smpp-v13-binding-1",
+            "providerId": "provider-catalog-1",
+            "resourceId": "vehicle:ugv1",
+            "executionId": "execution-catalog-1",
+            "operationName": "remote_operation"
+          },
+          "onExpire": "release_and_resume_scan",
+          "revision": 1,
+          "inputType": "target.disposition_decision",
+          "onDecline": "end_observation",
+          "onDismiss": "release_and_resume_scan",
+          "requestId": "input-1",
+          "deadlineAt": "2026-09-24T00:00:00Z",
+          "reasonCode": "DECISION_REQUIRED",
+          "requestKey": "input-key-1",
+          "inputSchema": {
+            "type": "object",
+            "required": [
+              "decision"
+            ]
+          },
+          "requestedAt": "2026-09-23T00:00:00Z",
+          "schemaVersion": "sdar.required-input/1.0-rc2",
+          "waitingPolicy": "pause_execution",
+          "subjectBinding": {
+            "kind": "visual_lock",
+            "targetId": "target-image",
+            "actionRef": {
+              "id": "lock-1",
+              "kind": "action",
+              "revision": 1
+            },
+            "lockSessionId": "lock-session-1"
+          },
+          "requiredResponder": "user"
+        }
+      ],
+      "allowedInterventions": [
+        {
+          "state": "available",
+          "title": "Adjust route",
+          "blocking": false,
+          "identity": {
+            "taskId": "provider-smpp-v13-binding-1",
+            "providerId": "provider-catalog-1",
+            "resourceId": "vehicle:ugv1",
+            "executionId": "execution-catalog-1",
+            "operationName": "remote_operation"
+          },
+          "revision": 1,
+          "appliesTo": [
+            {
+              "id": "route-line",
+              "kind": "artifact",
+              "revision": 1
+            }
+          ],
+          "createdAt": "2026-09-23T00:00:00Z",
+          "reasonCode": "ADJUSTMENT_AVAILABLE",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "viaPoints": {
+                "type": "array"
+              }
+            }
+          },
+          "schemaVersion": "sdar.runtime-intervention/1.0-rc2",
+          "interventionId": "intervention-1",
+          "interventionType": "navigation.adjust_plan",
+          "effectivePlanRevision": 2
+        }
+      ],
+      "snapshotWatermark": {
+        "streamId": "018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0002",
+        "afterSequence": "0"
+      },
+      "quality": {
+        "currentStateComplete": true,
+        "historyContinuous": false,
+        "requiredObjectsResolved": true,
+        "trajectoryTimeComplete": true,
+        "gaps": [
+          "business_event_history_gap",
+          "provider_receive_time_unavailable"
+        ]
+      },
+      "sdarReceivedAt": "2026-10-10T12:00:00.000Z",
+      "projectedAt": "2026-10-10T12:00:00.000Z",
+      "contextDigest": "sha256:989bfe9476cc4e68f684a6ef50678a5bb144ea8cfd2bf4528f823f1ddd20b764",
+      "geometry": [
+        {
+          "ref": {
+            "kind": "artifact",
+            "id": "route-line",
+            "revision": 1
+          },
+          "artifactType": "navigation.route",
+          "role": "planned_route",
+          "semantics": "planned",
+          "crs": "OGC:CRS84",
+          "geometryType": "LineString",
+          "retainedCoordinateCount": 2,
+          "coordinateOrder": "longitude_latitude",
+          "sampleOrder": "provider_retained_order",
+          "rawContentComplete": true,
+          "current": true,
+          "perSampleSourceTimeComplete": false,
+          "displayDerived": true,
+          "gaps": []
+        }
+      ],
+      "businessOutcome": {
+        "protocolStatus": "working",
+        "businessStatus": "in_progress",
+        "policySatisfied": false,
+        "missingRequiredRoles": [],
+        "gaps": []
+      }
+    },
+    "retainedAfterOldGeneration": {
+      "schemaVersion": "sdar.task-business-projection/v1",
+      "bindingId": "continuation-invalidation-binding-smpp-v13-binding-mapped",
+      "taskId": "continuation-invalidation-task-smpp-v13-binding",
+      "identity": {
+        "taskId": "provider-smpp-v13-binding-1",
+        "executionId": "execution-catalog-1",
+        "providerId": "provider-catalog-1",
+        "resourceId": "vehicle:ugv1",
+        "operationName": "remote_operation"
+      },
+      "contextRevision": 5,
+      "effectivePlanRevision": 2,
+      "projectionRevision": 3,
+      "status": "history",
+      "executionSummary": {
+        "status": "in_progress",
+        "resultCode": "SCAN_ACTIVE"
+      },
+      "objects": [
+        {
+          "ref": {
+            "kind": "artifact",
+            "id": "route-line",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "495b0c012f3c89d8651a916415e1fadedc29fe8dc6113ac6f726f202730be931",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/495b0c012f3c89d8651a916415e1fadedc29fe8dc6113ac6f726f202730be931",
+          "artifactRef": {
+            "artifactId": "task-business-5a8a9a0d-83b7-411f-9aab-07b219603922",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-5a8a9a0d-83b7-411f-9aab-07b219603922/1/content",
+            "sha256": "sha256:7b0152fbd3158be45f962b7b66205af09f2d0a4eb31cac79b6e14b065d9e471f",
+            "mediaType": "application/json",
+            "byteSize": 1327
+          }
+        },
+        {
+          "ref": {
+            "kind": "action",
+            "id": "lock-1",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "009ad0349c9a930cf98c4f600e1764cec3df7178b0e11c898888a3f0e213e57e",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/009ad0349c9a930cf98c4f600e1764cec3df7178b0e11c898888a3f0e213e57e",
+          "artifactRef": {
+            "artifactId": "task-business-365b42ad-8cd7-4e71-9fd7-255453aa5b07",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-365b42ad-8cd7-4e71-9fd7-255453aa5b07/1/content",
+            "sha256": "sha256:fd65a780f370e45f0e380f2be69ed3672e308b155f1f071addef486744b3e225",
+            "mediaType": "application/json",
+            "byteSize": 1649
+          }
+        },
+        {
+          "ref": {
+            "kind": "input_request",
+            "id": "input-1",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "89823f5ec3c92d79a007e7231f957dec98f1f5c79fa78735b68c2345c167dc4f",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/89823f5ec3c92d79a007e7231f957dec98f1f5c79fa78735b68c2345c167dc4f",
+          "artifactRef": {
+            "artifactId": "task-business-1bd25b11-0e8b-47b1-945d-3db0d4eb7169",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-1bd25b11-0e8b-47b1-945d-3db0d4eb7169/1/content",
+            "sha256": "sha256:61044ab849cc403edffbf82ac817d9ae6b0b244e76d5cdc41777884339232585",
+            "mediaType": "application/json",
+            "byteSize": 2526
+          }
+        },
+        {
+          "ref": {
+            "kind": "intervention",
+            "id": "intervention-1",
+            "revision": 1
+          },
+          "resolution": "resolved",
+          "digest": "b2a1959676054a8205eff59697174e548dfe291e646e2404b16d6c49c484319c",
+          "contentRef": "sdar-task-business://continuation-invalidation-binding-smpp-v13-binding-mapped/b2a1959676054a8205eff59697174e548dfe291e646e2404b16d6c49c484319c",
+          "artifactRef": {
+            "artifactId": "task-business-3e4dd705-e3f6-4bf0-85f7-22e3aa5a56bd",
+            "version": 1,
+            "uri": "artifact://runtime/v1/remote_task_observation/task-business-3e4dd705-e3f6-4bf0-85f7-22e3aa5a56bd/1/content",
+            "sha256": "sha256:0776174755163c31eca24a9cc1b997b0c6c0c2a2bb9b45691ba565bb08bacbfb",
+            "mediaType": "application/json",
+            "byteSize": 1917
+          }
+        }
+      ],
+      "interactionRequests": [],
+      "allowedInterventions": [],
+      "snapshotWatermark": {
+        "streamId": "018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0002",
+        "afterSequence": "0"
+      },
+      "quality": {
+        "currentStateComplete": false,
+        "historyContinuous": false,
+        "requiredObjectsResolved": false,
+        "trajectoryTimeComplete": true,
+        "gaps": [
+          "business_event_history_gap",
+          "provider_receive_time_unavailable",
+          "refresh_failed:TASK_BUSINESS_CONTEXT_REGRESSED"
+        ]
+      },
+      "sdarReceivedAt": "2026-10-10T12:00:00.000Z",
+      "projectedAt": "2026-10-10T12:00:00.000Z",
+      "contextDigest": "sha256:989bfe9476cc4e68f684a6ef50678a5bb144ea8cfd2bf4528f823f1ddd20b764",
+      "geometry": [
+        {
+          "ref": {
+            "kind": "artifact",
+            "id": "route-line",
+            "revision": 1
+          },
+          "artifactType": "navigation.route",
+          "role": "planned_route",
+          "semantics": "planned",
+          "crs": "OGC:CRS84",
+          "geometryType": "LineString",
+          "retainedCoordinateCount": 2,
+          "coordinateOrder": "longitude_latitude",
+          "sampleOrder": "provider_retained_order",
+          "rawContentComplete": true,
+          "current": true,
+          "perSampleSourceTimeComplete": false,
+          "displayDerived": true,
+          "gaps": []
+        }
+      ],
+      "businessOutcome": {
+        "protocolStatus": "working",
+        "businessStatus": "in_progress",
+        "policySatisfied": false,
+        "missingRequiredRoles": [],
+        "gaps": []
+      }
+    },
+    "source": [
+      {
+        "method": "server/discover",
+        "headers": {
+          "host": "127.0.0.1:41209",
+          "connection": "keep-alive",
+          "accept": "application/json, text/event-stream",
+          "content-type": "application/json",
+          "mcp-protocol-version": "2026-07-28",
+          "mcp-method": "server/discover",
+          "accept-language": "*",
+          "sec-fetch-mode": "cors",
+          "user-agent": "node",
+          "accept-encoding": "gzip, deflate",
+          "content-length": "310"
+        },
+        "params": {
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientInfo": {
+              "name": "sdar",
+              "version": "1.2.2"
+            },
+            "io.modelcontextprotocol/clientCapabilities": {
+              "extensions": {
+                "io.sdar/businessEvents": {
+                  "profileVersion": "1.0"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "method": "io.sdar/businessEvents/listen",
+        "headers": {
+          "host": "127.0.0.1:41209",
+          "connection": "keep-alive",
+          "accept": "application/json, text/event-stream",
+          "content-type": "application/json",
+          "mcp-protocol-version": "2026-07-28",
+          "mcp-method": "io.sdar/businessEvents/listen",
+          "accept-language": "*",
+          "sec-fetch-mode": "cors",
+          "user-agent": "node",
+          "accept-encoding": "gzip, deflate",
+          "content-length": "361"
+        },
+        "params": {
+          "startPosition": "earliest_available",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientInfo": {
+              "name": "sdar",
+              "version": "1.2.2"
+            },
+            "io.modelcontextprotocol/clientCapabilities": {
+              "extensions": {
+                "io.sdar/businessEvents": {
+                  "profileVersion": "1.0"
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "site": "NOT_RUN"
+}

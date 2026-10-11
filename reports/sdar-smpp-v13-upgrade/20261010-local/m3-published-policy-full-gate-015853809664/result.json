@@ -1,0 +1,18 @@
+{
+  "command": [
+    "env",
+    "PATH=/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin:/home/sz/.codex/tmp/arg0/codex-arg0Lb3zto:/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/sz/.nvm/versions/node/v22.23.2/bin:/home/sz/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+    "pnpm",
+    "verify:isolated"
+  ],
+  "cwd": "/tmp/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb-m5Gyyf/source-m3-repair",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "7da196cfe5314718a63c9ed49252af817459b70381c31af9847fd2ef7364ac37",
+  "startedAt": "2026-10-11T01:58:53.809664+08:00",
+  "finishedAt": "2026-10-11T02:14:22.582243+08:00",
+  "durationSeconds": 928.772579,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "f5e6b519c3f5f40af8509ee43c3115fef72f3cb2c6eeb311c0c6e6829eef754c",
+  "environment": "local_source_or_loopback_fixture_only"
+}

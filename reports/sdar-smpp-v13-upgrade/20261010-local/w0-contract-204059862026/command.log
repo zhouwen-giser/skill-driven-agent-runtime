@@ -1,0 +1,62 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime
+
+ ❯ |contract| packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts (4 tests | 2 failed) 237ms
+     × AC-002 validates all upstream positive objects without opening their schemas 151ms
+     × AC-005 preserves published time fields and detects missing per-sample provenance 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |contract| packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts > SMPP v1.3 pinned public contract (W0) > AC-002 validates all upstream positive objects without opening their schemas
+AssertionError: feedback: expected { valid: false, errors: [ …(7) ] } to deeply equal { valid: true, errors: [] }
+
+- Expected
++ Received
+
+  {
+-   "errors": [],
+-   "valid": true,
++   "errors": [
++     "/ must be object",
++     "/ must be object",
++     "/ must be object",
++     "/ must be object",
++     "/ must be object",
++     "/ must be object",
++     "/ must match exactly one schema in oneOf",
++   ],
++   "valid": false,
+  }
+
+ ❯ packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts:48:62
+     46|       interventionCommand: interaction['interventionCommand'],
+     47|     })) {
+     48|       expect(validator.validate(schema, examples[key]), key).toEqual({…
+       |                                                              ^
+     49|     }
+     50|     for (const item of examples['artifacts'] as unknown[])
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |contract| packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts > SMPP v1.3 pinned public contract (W0) > AC-005 preserves published time fields and detects missing per-sample provenance
+AssertionError: expected 'undefined' to be 'string' // Object.is equality
+
+Expected: "string"
+Received: "undefined"
+
+ ❯ packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts:82:51
+     80|     const examples = await json('positive-catalog.json');
+     81|     const feedback = examples['feedback'] as Record<string, unknown>;
+     82|     expect(typeof feedback['providerRecordedAt']).toBe('string');
+       |                                                   ^
+     83|     expect(feedback).not.toHaveProperty('providerReceivedAt');
+     84|     const validator = new AjvJsonSchemaValidator({ strict: false });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  2 failed | 104 passed (106)
+   Start at  20:41:01
+   Duration  3.31s (transform 6.95s, setup 0ms, import 10.01s, tests 602ms, environment 1ms)
+

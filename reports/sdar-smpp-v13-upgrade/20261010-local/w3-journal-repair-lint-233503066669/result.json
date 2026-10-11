@@ -1,0 +1,22 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "packages/application/src/task-business-commands.ts",
+    "packages/domain/src/task-business-command.ts",
+    "packages/persistence-postgres/src/task-business-command-repository.ts",
+    "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+    "packages/persistence-postgres/src/governed-control-management-authority-reader.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "299f048098f264603a3f0afb91a5f766e7648eff9e7cab37cd176fbc187e174d",
+  "startedAt": "2026-10-10T23:35:03.066669+08:00",
+  "finishedAt": "2026-10-10T23:35:13.067421+08:00",
+  "durationSeconds": 10.000752,
+  "exitCode": 1,
+  "log": "command.log",
+  "logSha256": "0038f287c3a83b1e79cc1d42875ded3fd58df66fab6e49c3c9f9f9aa19dc29f5",
+  "environment": "local_source_or_loopback_fixture_only"
+}

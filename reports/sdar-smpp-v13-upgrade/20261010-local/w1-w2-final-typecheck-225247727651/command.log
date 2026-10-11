@@ -1,0 +1,7 @@
+$ tsc -p tsconfig.json --noEmit
+packages/application/test/business-events.unit.test.ts(129,11): error TS2322: Type 'Promise<void | Readonly<{ processedAtomically: true; }>>' is not assignable to type 'Promise<void> | Promise<Readonly<{ processedAtomically: true; }>>'.
+  Type 'Promise<void | Readonly<{ processedAtomically: true; }>>' is not assignable to type 'Promise<void>'.
+    Type 'void | Readonly<{ processedAtomically: true; }>' is not assignable to type 'void'.
+      Type 'Readonly<{ processedAtomically: true; }>' is not assignable to type 'void'.
+packages/mcp-adapter/src/frozen-v1-mcp-client.ts(312,19): error TS2304: Cannot find name 'ReadableStreamReadResult'.
+[ELIFECYCLE] Command failed with exit code 2.

@@ -1,0 +1,175 @@
+{"scope":"isolated_loopback","project":"sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7","postgresPort":35645,"redisPort":35577,"site":"NOT_RUN"}
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 762B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.1s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.1s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#7 DONE 0.0s
+
+#8 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#10 CACHED
+
+#11 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:5189d4e8e129173d20556a72b05ad024c82805d57e2881e4098e48f5582ac265 0.1s done
+#13 exporting config sha256:8ad212375581c55f972e7eb053c49b3aeee7903092db997154c6151383a8b44d
+#13 exporting config sha256:8ad212375581c55f972e7eb053c49b3aeee7903092db997154c6151383a8b44d 0.1s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.3s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-local Creating 
+ Network sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-local Created 
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-redis-data Creating 
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-redis-data Created 
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-postgres-data Creating 
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-postgres-data Created 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Creating 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Creating 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Created 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Created 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Starting 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Starting 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Started 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Started 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Waiting 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Waiting 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Healthy 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Healthy 
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":1,"reconciled":1,"alreadyConverged":0,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"formal_native_diagnostics","operation":"vehicle_navigate","diagnostics":{"task":[{"task_id":"c10d58c1-5437-4709-8919-1678b92ec2d0","phase":"failed","error_code":"TASK_CAPABILITY_TERMINAL_GUARD_FAILED"}],"binding":[{"binding_id":"remote-task-binding-mcp-invocation-55f8caf8-36ea-414c-a557-d9483a2ca15a","protocol_status":"completed","local_state":"terminal_event_pending","version":"186","last_safe_error_code":null}],"controls":[{"event_type":"task.completed","status":"pending"}],"continuationSnapshots":[{"workflow_instance_id":"instance-control-task-c10d58c1-5437-4709-8919-1678b92ec2d0-0-360e3aa4-051d-4d79-8b27-64d8cf956258","lifecycle":"terminal","state_version":"1"}],"continuationWaits":[{"snapshot_id":"workflow-continuation-snapshot-962390b4-b2ca-4ce6-9af8-7e776d6a0f50","binding_id":"remote-task-binding-mcp-invocation-55f8caf8-36ea-414c-a557-d9483a2ca15a"}],"instances":[{"instance_id":"instance-control-task-c10d58c1-5437-4709-8919-1678b92ec2d0-0-360e3aa4-051d-4d79-8b27-64d8cf956258","status":"succeeded","errors_json":{}}],"inputs":[],"observations":[{"record_type":null,"count":14},{"record_type":"task_business.projection","count":7},{"record_type":"task_business.content","count":5},{"record_type":"task_business.object","count":6},{"record_type":"task_business.command","count":6}],"calls":["server/discover","tools/list","io.sdar/taskExecution/checkAvailability","io.sdar/taskExecution/checkAvailability","tools/call","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","io.sdar/taskBusiness/interventions/apply","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get"]}}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"formal_native_diagnostics","operation":"vehicle_area_recon","diagnostics":{"task":[{"task_id":"1303c327-11de-43ae-97c5-30a658e1d17a","phase":"executing","error_code":null}],"binding":[{"binding_id":"remote-task-binding-mcp-invocation-b9240730-f335-4f13-9828-f89c3baeb2f8","protocol_status":"input_required","local_state":"awaiting_input","version":"3","last_safe_error_code":null}],"controls":[{"event_type":"task.input_required","status":"pending"}],"continuationSnapshots":[{"workflow_instance_id":"instance-control-task-1303c327-11de-43ae-97c5-30a658e1d17a-0-a6a7e41a-452b-43a0-9231-ee61b32a9bc0","lifecycle":"active","state_version":"1"}],"continuationWaits":[{"snapshot_id":"workflow-continuation-snapshot-6e1db8fe-11aa-4c8f-98ff-7af72a071c8e","binding_id":"remote-task-binding-mcp-invocation-b9240730-f335-4f13-9828-f89c3baeb2f8"}],"instances":[{"instance_id":"instance-control-task-1303c327-11de-43ae-97c5-30a658e1d17a-0-a6a7e41a-452b-43a0-9231-ee61b32a9bc0","status":"waiting_external","errors_json":{}}],"inputs":[],"observations":[{"record_type":null,"count":2},{"record_type":"task_business.projection","count":2},{"record_type":"task_business.content","count":4},{"record_type":"task_business.object","count":4}],"calls":["server/discover","tools/list","io.sdar/taskExecution/checkAvailability","io.sdar/taskExecution/checkAvailability","tools/call","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get"]}}
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 80876[2mms[22m[39m
+[31m     [31m×[31m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 55368[2mms[22m[39m
+[31m     [31m×[31m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 25506[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mAssertionError[22m: {"taskId":"c10d58c1-5437-4709-8919-1678b92ec2d0","contextId":"0a19fb90-132d-4f6c-a56c-555eef2e0653","userId":"anonymous","requestText":"Execute vehicle_navigate for original vehicle:ugv once with human confirmation","requestMetadata":{"idempotency_key":"eaadebf6-099d-46dd-b5a8-e5f88cc3dbc9","structured_input":{"mission":{"type":"point","target":{"latitude":29.7,"longitude":106.802}},"resourceId":"vehicle:ugv","stopOnObstacle":true},"io.sdar/requestedCapability":{"requestId":"eaadebf6-099d-46dd-b5a8-e5f88cc3dbc9","exposureId":"exposure-eaadebf6-099d-46dd-b5a8-e5f88cc3dbc9","versionConstraint":"1"}},"phase":"failed","phaseMessage":"The frozen Capability rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.","goalId":"goal-852920f0-f44a-4e5a-854e-e50d5d4dd006","goalVersion":1,"planId":"plan-task-c10d58c1-5437-4709-8919-1678b92ec2d0-ac5922f5-78b7-4a36-9429-5af310018bc9","selectedSkillId":"skill-eaadebf6-099d-46dd-b5a8-e5f88cc3dbc9","selectedSkillVersion":1,"skillSelectionId":"skill-selection-f6aa79b9-2d22-456b-966e-6f3d3b87aba2","userGoalPlanId":"user-goal-plan-66d048d8-ea01-4428-a8e5-8f3fb848c4a6","skillGoalId":"user-goal-plan-66d048d8-ea01-4428-a8e5-8f3fb848c4a6:skill-goal:1","skillAttemptId":"skill-attempt-65b61758-27c0-441c-941f-33fcf1ec1ecb","skillExecutionContractId":"skill-execution-contract-0d5ab4d6-a1b1-4b06-a599-90922799c5fa","skillInputResolutionId":"skill-input-resolution-e03dc2bb-2d1a-497e-b60a-1694eca7791c","errorCode":"TASK_CAPABILITY_TERMINAL_GUARD_FAILED","createdAt":"2026-10-10T18:52:18.133Z","updatedAt":"2026-10-10T18:52:32.182Z"}: expected { …(21) } to match object { phase: 'completed' }
+(23 matching properties omitted from actual)[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "phase": "completed",[39m
+[31m+   "phase": "failed",[39m
+[2m  }[22m
+
+[36m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m668:52[22m[39m
+    [90m666|[39m             await jsonRequest(runtime!.management.baseUrl + `/api/v1/t…
+    [90m667|[39m           )[33m;[39m
+    [90m668|[39m           expect(current, JSON.stringify(current)).toMatchObject({ pha…
+    [90m   |[39m                                                    [31m^[39m
+    [90m669|[39m         }[33m,[39m [34m40_000[39m)[33m;[39m
+    [90m670|[39m         [34mexpect[39m(model[33m.[39mfailures)[33m.[39m[34mtoEqual[39m([])[33m;[39m
+[90m [2m❯[22m eventually apps/server/test/smpp-task-business.e2e.test.ts:[2m872:14[22m[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m664:9[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mAssertionError[22m: expected [] to have a length of 1 but got +0[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m618:33[22m[39m
+    [90m616|[39m               [taskId][33m,[39m
+    [90m617|[39m             )[33m;[39m
+    [90m618|[39m             [34mexpect[39m(result[33m.[39mrows)[33m.[39m[34mtoHaveLength[39m([34m1[39m)[33m;[39m
+    [90m   |[39m                                 [31m^[39m
+    [90m619|[39m             [35mreturn[39m result[33m.[39mrows[[34m0[39m][33m![39m[33m.[39minput_request_id[33m;[39m
+    [90m620|[39m           })[33m;[39m
+[90m [2m❯[22m eventually apps/server/test/smpp-task-business.e2e.test.ts:[2m872:14[22m[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m613:34[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 02:52:08
+[2m   Duration [22m 87.24s[2m (transform 4.17s, setup 0ms, import 6.17s, tests 80.88s, environment 0ms)[22m
+
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Stopping 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Stopping 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Stopped 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Removing 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Stopped 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Removing 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-postgres-1 Removed 
+ Container sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7-redis-1 Removed 
+ Network sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-local Removing 
+ Network sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-local Removed 
+file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77
+  if (result.status !== 0) throw new Error(`E2E_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+                                 ^
+
+Error: E2E_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project e2e apps/server/test/smpp-task-business.e2e.test.ts
+    at run (file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77:34)
+    at file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:27:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-postgres-data Removing 
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-redis-data Removing 
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-postgres-data Removed 
+ Volume sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7_sdar-redis-data Removed 
+{"project":"sdar-verify-smpp-v13-aa701dc7-434e-4436-8560-6002ce3357e7","cleanupExitCode":0,"signal":null}

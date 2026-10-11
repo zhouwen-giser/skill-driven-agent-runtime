@@ -1,0 +1,15 @@
+$ node scripts/verify-isolated.mjs
+Cloning into bare repository '/tmp/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb-m5Gyyf/source-history.git'...
+done.
+Isolated verification sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb
+Source: /tmp/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb-m5Gyyf/source
+Evidence: /home/sz/code/skill-driven-agent-runtime/reports/runtime-semantic-closure/sdar-verify-2e942ec5-f709-433f-9645-abaf323eeafb
+
+[verification] format: pnpm format:check (limit 300000 ms)
+$ prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json "apps/**/*.{ts,tsx,json}" "packages/**/*.{ts,tsx,json}" "infra/**/*.{ts,tsx,json}"
+Checking formatting...
+[warn] packages/application/test/remote-task-input.unit.test.ts
+[warn] Code style issues found in the above file. Run Prettier with --write to fix.
+[ELIFECYCLE] Command failed with exit code 1.
+[verification] format: failed, 40224 ms
+[ELIFECYCLE] Command failed with exit code 1.

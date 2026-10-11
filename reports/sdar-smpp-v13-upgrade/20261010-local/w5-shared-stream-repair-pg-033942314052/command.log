@@ -1,0 +1,222 @@
+{"scope":"isolated_loopback","project":"sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec","postgresPort":40699,"redisPort":37669,"site":"NOT_RUN"}
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 762B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.9s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.9s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#10 CACHED
+
+#11 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:80c524080829e9f8cc80b54c4d5b1ee14e712a4ec4a27fd09974ff34a4a1132e 0.1s done
+#13 exporting config sha256:732dff221a77ab20fb97baffc1bcb3cb63d95f27ce847bf6c130d59ec01190a9
+#13 exporting config sha256:732dff221a77ab20fb97baffc1bcb3cb63d95f27ce847bf6c130d59ec01190a9 0.1s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.2s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-local Creating 
+ Network sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-local Created 
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-postgres-data Creating 
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-postgres-data Created 
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-redis-data Creating 
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-redis-data Created 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Creating 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Creating 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Created 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Created 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Starting 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Starting 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Started 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Started 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Waiting 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Waiting 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Healthy 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Healthy 
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+ [31m❯[39m [30m[45m integration [49m[39m packages/persistence-postgres/test/repositories.integration.test.ts [2m([22m[2m96 tests[22m[2m | [22m[31m1 failed[39m[2m | [22m[33m91 skipped[39m[2m)[22m[33m 8419[2mms[22m[39m
+     [2m[90m↓[39m[22m persists cognitive management idempotency, result audit, and conflicting-key rejection
+     [2m[90m↓[39m[22m persists deterministic Capability execution actions for restart-safe replay
+     [2m[90m↓[39m[22m persists all Runtime Task command actions for restart-safe replay and conflict rejection
+     [2m[90m↓[39m[22m atomically takes over expired leases and fences every stale owner across dispatch
+     [2m[90m↓[39m[22m holds the action row fence until a projection finishes before allowing lease takeover
+     [2m[90m↓[39m[22m persists low-confidence feedback and finds the previous terminal Task
+     [2m[90m↓[39m[22m collects conversation evidence and replays an explainable input inference
+     [2m[90m↓[39m[22m persists source-linked global memory and ranks active pgvector matches
+     [2m[90m↓[39m[22m persists Memory retention fields without enabling or executing cleanup
+     [2m[90m↓[39m[22m persists every Workflow planning attempt and immutable validated plan
+     [2m[90m↓[39m[22m round-trips structured Task capability-gap evidence
+     [2m[90m↓[39m[22m atomically supersedes a plan when persisting its immutable revision
+     [2m[90m↓[39m[22m persists Workflow instance transitions and ordered node events
+     [2m[90m↓[39m[22m persists an independently traceable Skill-call child Workflow and actual Skill version
+     [2m[90m↓[39m[22m atomically fails interrupted Tasks and Workflow instances without reconstructing execution
+     [2m[90m↓[39m[22m persists Goal authority and replayable outer-control rounds
+     [2m[90m↓[39m[22m atomically persists related and unrelated Goal history decisions
+     [2m[90m↓[39m[22m atomically cancels a Goal and all nonterminal Task, plan, and instance state
+     [2m[90m↓[39m[22m atomically versions a Goal and invalidates its old plans and instances
+     [2m[90m↓[39m[22m AC-004 keeps historical remote authority frozen when the registered catalog advances
+     [2m[90m↓[39m[22m AC-006/007/010 binds the first exact Execution once and recovers the same native Task without dispatch
+     [2m[90m↓[39m[22m a native poll lease cannot turn current business facts into historical authority
+     [33m[2m✓[22m[39m AC-039 preserves active legacy authority across 0184 and reads old/new observations with the actual PR34 repository [33m 3471[2mms[22m[39m
+     [2m[90m↓[39m[22m projection waits for the original Task before taking its Binding and permits key-share ownership reads
+     [33m[2m✓[22m[39m AC-041 retains late terminal facts without reactivating Task or exposing new controls [33m 701[2mms[22m[39m
+     [2m[90m↓[39m[22m AC-032 retains invalidated late facts as history with no new input or intervention
+     [2m[90m↓[39m[22m native RequiredInput claim preserves awaiting_input and never enters a terminal claim
+     [2m[90m↓[39m[22m AC-008/033 retains complete large content once, rejects same-revision changes, and detects stored corruption
+     [2m[90m↓[39m[22m AC-013/014 atomically projects events without crossing a processing hole or a different Task watermark
+[31m     [31m×[31m AC-014 routes one shared stream by exact Task identity and formal relatedTasks without changing unrelated tasks[39m[33m 664[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-015 persists real SSE continuity, resynchronizes current state and rejects an old generation snapshot [33m 754[2mms[22m[39m
+     [33m[2m✓[22m[39m AC-016 coalesces 512 changes with real persistence, survives an SSE failure and continues bounded polling without dispatch [33m 733[2mms[22m[39m
+     [2m[90m↓[39m[22m AC-013/040 reclaims a crashed read lease and rejects the stale worker token
+     [2m[90m↓[39m[22m invalidates active continuations and every old-Goal remote binding on patch and cancellation
+     [2m[90m↓[39m[22m keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects
+     [2m[90m↓[39m[22m persists encrypted Model Providers, fixed stage routes, and displayable invocation audits
+     [2m[90m↓[39m[22m atomically bootstraps structured and embedding Providers with operation routes only once
+     [2m[90m↓[39m[22m stores rebuildable Skill vectors and scores only matching provider dimensions with pgvector
+     [2m[90m↓[39m[22m expires Temporary Skills atomically into experience without inserting a formal Skill
+     [2m[90m↓[39m[22m persists Skill metrics, selection snapshots, and confirmation-bound replacement plans
+     [2m[90m↓[39m[22m persists immutable top-level Skill input decisions and context result evidence
+     [2m[90m↓[39m[22m persists and deletes typed Skill graph relations with metadata
+     [2m[90m↓[39m[22m stores encrypted MCP credentials and atomically replaces discovered Tool definitions
+     [2m[90m↓[39m[22m persists Frozen MCP discovery snapshots and Tool profiles without Legacy translation
+     [2m[90m↓[39m[22m atomically stores immutable Skill versions and publishes only the enabled current version
+     [2m[90m↓[39m[22m atomically persists native Skill Usage and checksum-bound package import audit
+     [2m[90m↓[39m[22m persists TaskService context/task/event and reads domain values back
+     [2m[90m↓[39m[22m serializes initial Task admission across concurrent requests and replays after restart
+     [2m[90m↓[39m[22m replays a committed initial admission after queue failure and recovers its one durable job
+     [2m[90m↓[39m[22m answers a persisted waiting request after service restart and creates a new attempt
+     [2m[90m↓[39m[22m persists normalized result, facts, value assessment, and memory candidates
+     [2m[90m↓[39m[22m atomically cancels both confirmation and input waits using the managed timeout
+     [2m[90m↓[39m[22m updates task state without creating a duplicate system-of-record row
+     [2m[90m↓[39m[22m persists and filters rebuildable external task projections
+     [2m[90m↓[39m[22m persists Skill requests only as drafts
+     [2m[90m↓[39m[22m keeps the v1.2.2 clean baseline idempotent without replaying historical migrations
+     [2m[90m↓[39m[22m atomically commits and idempotently replays an achieved runtime outcome
+     [2m[90m↓[39m[22m rolls back every terminal projection when a bound achieved Task omits its Capability proof
+     [2m[90m↓[39m[22m stores and idempotently replays the exact Capability attempt proof while conflicting replays fail
+     [2m[90m↓[39m[22m idempotently reconciles active Capability attempts owned by canceled Tasks
+     [2m[90m↓[39m[22m idempotently reconciles active Capability attempts owned by failed Tasks
+     [2m[90m↓[39m[22m round-trips MCP Capability-attempt lineage and rejects a cross-Task attempt identity
+     [2m[90m↓[39m[22m rejects terminal proof when an appended attempt becomes latest first
+     [2m[90m↓[39m[22m atomically dispatches a terminal Fact into one leased job and immutable Goal Episode
+     [2m[90m↓[39m[22m normalizes an Episode once with PostgreSQL fencing, immutable Trace and deletion propagation
+     [2m[90m↓[39m[22m runs the formal Episode through Server BullMQ composition into a durable Workflow Pattern
+     [2m[90m↓[39m[22m dead-letters an expired terminal-attempt compiler lease after a worker crash
+     [2m[90m↓[39m[22m mines a scoped cohort deterministically and persists one evidence-only Workflow Pattern
+     [2m[90m↓[39m[22m persists and round-trips a real 10k cohort within frozen JSON projections
+     [2m[90m↓[39m[22m persists a source/model-linked Observation and atomically schedules reflection
+     [2m[90m↓[39m[22m reclaims expired PostgreSQL leases and supports explicit dead-letter replay
+     [2m[90m↓[39m[22m dead-letters a terminal job instead of fabricating Experience when Judgment is missing
+     [2m[90m↓[39m[22m atomically closes and idempotently replays Capability attempts for unachievable and canceled terminal projections
+     [2m[90m↓[39m[22m requests remote cancellation from a canceled terminal outcome only for frozen task_cancel bindings
+     [2m[90m↓[39m[22m requests remote cancellation from Goal cancellation only for frozen task_cancel bindings
+     [2m[90m↓[39m[22m rejects a terminal retry when the persisted Capability-attempt lineage has drifted
+     [2m[90m↓[39m[22m rolls back the Capability-attempt closure when terminal outcome insertion fails
+     [2m[90m↓[39m[22m rolls back every authoritative write when fault before_processed_result is injected
+     [2m[90m↓[39m[22m rolls back every authoritative write when fault after_task is injected
+     [2m[90m↓[39m[22m rolls back every authoritative write when fault after_goal is injected
+     [2m[90m↓[39m[22m rolls back every authoritative write when fault after_control is injected
+     [2m[90m↓[39m[22m rolls back every authoritative write when fault runtime_event is injected
+     [2m[90m↓[39m[22m prevents stale workers and conflicting retries from reviving committed terminal state
+     [2m[90m↓[39m[22m rejects a terminal Round that does not belong to the locked Control plan
+     [2m[90m↓[39m[22m persists append-only Skill execution status and thin evidence links
+     [2m[90m↓[39m[22m atomically activates one idempotent hash-matched Capability Summary under concurrency
+     [2m[90m↓[39m[22m records exact Skill catalog changes and marks only the consumed outbox batch
+     [2m[90m↓[39m[22m activates one Public Capability Card only when its active Summary binding matches
+     [2m[90m↓[39m[22m persists Task Understanding revisions with CAS, source lineage, dimensions and outbox
+     [2m[90m↓[39m[22m serializes interactive Goal actions with CAS, idempotency and audited outbox evidence
+     [2m[90m↓[39m[22m persists interactive planning across restart with CAS, idempotency, events and Goal-version locking
+     [2m[90m↓[39m[22m persists idempotent scoped correction facts, immutable episode revisions and isolated Memory projections
+     [2m[90m↓[39m[22m persists Candidate-only Task Type revisions with Episode exemplars and Outbox lineage
+     [2m[90m↓[39m[22m persists Capability Patterns, exact current Skill mappings, Gap Candidates and catalog invalidation
+     [2m[90m↓[39m[22m CAS-promotes real multi-Goal evidence, projects Active Memory and rebuilds deletion
+     [2m[90m↓[39m[22m hybrid-retrieves only scoped Active authority, expands one hop and deduplicates a Session
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m packages/persistence-postgres/test/repositories.integration.test.ts[2m > [22mPostgreSQL protocol-domain repositories[2m > [22mAC-014 routes one shared stream by exact Task identity and formal relatedTasks without changing unrelated tasks
+[31m[1merror[22m: duplicate key value violates unique constraint "mcp_protocol_snapshot_server_id_tool_revision_protocol_mode_key"[39m
+[90m [2m❯[22m node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:[2m652:17[22m[39m
+[36m [2m❯[22m PostgresMcpRegistryRepository.saveProtocolSnapshot packages/persistence-postgres/src/repositories.ts:[2m7448:7[22m[39m
+    [90m7446|[39m     try {
+    [90m7447|[39m       await client.query('BEGIN');
+    [90m7448|[39m       await client.query(
+    [90m   |[39m       [31m^[39m
+    [90m7449|[39m         `INSERT INTO mcp_protocol_snapshot
+    [90m7450|[39m            (snapshot_id,server_id,protocol_mode,protocol_version,basel…
+[90m [2m❯[22m taskBusinessPersistenceFixture packages/persistence-postgres/test/repositories.integration.test.ts:[2m10461:3[22m[39m
+[90m [2m❯[22m packages/persistence-postgres/test/repositories.integration.test.ts:[2m3060:15[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[2m | [22m[33m91 skipped[39m[90m (96)[39m
+[2m   Start at [22m 03:40:03
+[2m   Duration [22m 15.37s[2m (transform 6.63s, setup 0ms, import 6.76s, tests 8.42s, environment 0ms)[22m
+
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Stopping 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Stopping 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Stopped 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Removing 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Stopped 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Removing 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-redis-1 Removed 
+ Container sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec-postgres-1 Removed 
+ Network sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-local Removing 
+ Network sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-local Removed 
+file:///home/sz/code/skill-driven-agent-runtime/scripts/test-integration.mjs:77
+    throw new Error(`INTEGRATION_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+          ^
+
+Error: INTEGRATION_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project integration packages/persistence-postgres/test/repositories.integration.test.ts -t AC-014 routes|AC-015 persists|AC-016 coalesces|AC-039 preserves|AC-041 retains
+    at run (file:///home/sz/code/skill-driven-agent-runtime/scripts/test-integration.mjs:77:11)
+    at file:///home/sz/code/skill-driven-agent-runtime/scripts/test-integration.mjs:31:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-postgres-data Removing 
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-redis-data Removing 
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-redis-data Removed 
+ Volume sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec_sdar-postgres-data Removed 
+{"project":"sdar-verify-smpp-v13-f2c0998a-496c-4866-a521-08987b4579ec","cleanupExitCode":0,"signal":null}

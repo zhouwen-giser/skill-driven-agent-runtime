@@ -1,0 +1,169 @@
+{"scope":"isolated_loopback","project":"sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f","postgresPort":42391,"redisPort":45977,"site":"NOT_RUN"}
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 762B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 2.40kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.1s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.0s
+
+#7 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#7 DONE 0.0s
+
+#8 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:9fa9201a3e8153d06c03d2fdd94130f49821de2be873df37f6968b8fe1e12bf4 0.1s done
+#13 exporting config sha256:0323411c3fbef6df882d054fd0e4395dee72b3f3b6c3bae59a859561269d0dd7
+#13 exporting config sha256:0323411c3fbef6df882d054fd0e4395dee72b3f3b6c3bae59a859561269d0dd7 0.0s done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.1s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-local Creating 
+ Network sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-local Created 
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-postgres-data Creating 
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-postgres-data Created 
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-redis-data Creating 
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-redis-data Created 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Creating 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Creating 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Created 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Created 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Starting 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Starting 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Started 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Started 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Waiting 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Waiting 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Healthy 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Healthy 
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+[90mstderr[2m | apps/server/test/smpp-task-business.e2e.test.ts[2m > [22m[2mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22m[2mAC-043/044 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[22m[39mAgent execution failed for message 8748b6dd-bdf2-4db8-a6a7-d0935fd9ce09: A2AMappingError: Formal A2A Capability admission requires exactly one structured data part.
+    at toSubmitTaskCommand [90m(/home/sz/code/skill-driven-agent-runtime/[39mpackages/a2a-adapter/src/task-mapping.ts:166:11[90m)[39m
+    at TaskServiceAgentExecutor.execute [90m(/home/sz/code/skill-driven-agent-runtime/[39mpackages/a2a-adapter/src/task-service-executor.ts:101:21[90m)[39m
+    at ObservedRequestHandler._runExecutor [90m(file:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/index.js:851:24[90m)[39m
+    at ObservedRequestHandler.sendMessage [90m(file:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/index.js:1016:10[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at ObservedRequestHandler.sendMessage [90m(/home/sz/code/skill-driven-agent-runtime/[39mpackages/a2a-adapter/src/observed-request-handler.ts:35:21[90m)[39m
+    at [90mfile:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/express/index.js:445:20
+    at [90mfile:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/express/index.js:400:9 {
+  code: [32m'A2A_INPUT_CONTENT_INVALID'[39m
+}
+
+[90mstderr[2m | apps/server/test/smpp-task-business.e2e.test.ts[2m > [22m[2mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22m[2mAC-043/044 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[22m[39mAgent execution failed for message 32fd6161-42c9-4e88-b194-34a47421d387: A2AMappingError: Formal A2A Capability admission requires exactly one structured data part.
+    at toSubmitTaskCommand [90m(/home/sz/code/skill-driven-agent-runtime/[39mpackages/a2a-adapter/src/task-mapping.ts:166:11[90m)[39m
+    at TaskServiceAgentExecutor.execute [90m(/home/sz/code/skill-driven-agent-runtime/[39mpackages/a2a-adapter/src/task-service-executor.ts:101:21[90m)[39m
+    at ObservedRequestHandler._runExecutor [90m(file:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/index.js:851:24[90m)[39m
+    at ObservedRequestHandler.sendMessage [90m(file:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/index.js:1016:10[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at ObservedRequestHandler.sendMessage [90m(/home/sz/code/skill-driven-agent-runtime/[39mpackages/a2a-adapter/src/observed-request-handler.ts:35:21[90m)[39m
+    at [90mfile:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/express/index.js:445:20
+    at [90mfile:///home/sz/code/skill-driven-agent-runtime/[39mnode_modules/[4m.pnpm[24m/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/[4m@a2a-js/sdk[24m/dist/server/express/index.js:400:9 {
+  code: [32m'A2A_INPUT_CONTENT_INVALID'[39m
+}
+
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 49569[2mms[22m[39m
+[31m     [31m×[31m AC-043/044 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 23736[2mms[22m[39m
+[31m     [31m×[31m AC-043/044 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 25831[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-043/044 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mError[22m: FORMAL_HTTP_FAILURE:/api/v1/tasks/f0873a64-ec36-4662-9241-fdea145e18c5:404:{"error":{"code":"TASK_NOT_FOUND","message":"Task f0873a64-ec36-4662-9241-fdea145e18c5 was not found."}}[39m
+[36m [2m❯[22m jsonRequest apps/server/test/smpp-task-business.e2e.test.ts:[2m661:11[22m[39m
+    [90m659|[39m   [35mconst[39m content [33m=[39m [35mawait[39m response[33m.[39m[34mtext[39m()[33m;[39m
+    [90m660|[39m   const raw: unknown = content === '' ? undefined : JSON.parse(content…
+    [90m661|[39m   [35mif[39m ([33m![39mresponse[33m.[39mok)
+    [90m   |[39m           [31m^[39m
+    [90m662|[39m     [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m663|[39m       `FORMAL_HTTP_FAILURE:${new URL(url).pathname}:${response.status}…
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m461:13[22m[39m
+[90m [2m❯[22m eventually apps/server/test/smpp-task-business.e2e.test.ts:[2m671:14[22m[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m459:9[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-043/044 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mError[22m: FORMAL_HTTP_FAILURE:/api/v1/tasks/380c18e7-9cf5-4033-add7-1afb531b4590:404:{"error":{"code":"TASK_NOT_FOUND","message":"Task 380c18e7-9cf5-4033-add7-1afb531b4590 was not found."}}[39m
+[36m [2m❯[22m jsonRequest apps/server/test/smpp-task-business.e2e.test.ts:[2m661:11[22m[39m
+    [90m659|[39m   [35mconst[39m content [33m=[39m [35mawait[39m response[33m.[39m[34mtext[39m()[33m;[39m
+    [90m660|[39m   const raw: unknown = content === '' ? undefined : JSON.parse(content…
+    [90m661|[39m   [35mif[39m ([33m![39mresponse[33m.[39mok)
+    [90m   |[39m           [31m^[39m
+    [90m662|[39m     [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m663|[39m       `FORMAL_HTTP_FAILURE:${new URL(url).pathname}:${response.status}…
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m461:13[22m[39m
+[90m [2m❯[22m eventually apps/server/test/smpp-task-business.e2e.test.ts:[2m671:14[22m[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m459:9[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 02:08:18
+[2m   Duration [22m 56.02s[2m (transform 4.25s, setup 0ms, import 6.26s, tests 49.57s, environment 0ms)[22m
+
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Stopping 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Stopping 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Stopped 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Removing 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-postgres-1 Removed 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Stopped 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Removing 
+ Container sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f-redis-1 Removed 
+ Network sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-local Removing 
+ Network sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-local Removed 
+file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77
+  if (result.status !== 0) throw new Error(`E2E_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+                                 ^
+
+Error: E2E_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project e2e apps/server/test/smpp-task-business.e2e.test.ts
+    at run (file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:77:34)
+    at file:///home/sz/code/skill-driven-agent-runtime/scripts/test-e2e.mjs:27:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-redis-data Removing 
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-postgres-data Removing 
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-redis-data Removed 
+ Volume sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f_sdar-postgres-data Removed 
+{"project":"sdar-verify-smpp-v13-e1ec3582-cd49-418d-90f9-0dec23b8204f","cleanupExitCode":0,"signal":null}

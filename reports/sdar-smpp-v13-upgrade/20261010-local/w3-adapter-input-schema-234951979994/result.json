@@ -1,0 +1,21 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "contract",
+    "packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "0d4927376c55d66a5720246e8c612b4f40aaa21e4d546773e111301c95e18812",
+  "startedAt": "2026-10-10T23:49:51.979994+08:00",
+  "finishedAt": "2026-10-10T23:49:57.391476+08:00",
+  "durationSeconds": 5.411482,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "7c111df797ad627a807901bd2bb2bd9b217ea03760462eab3ea9e277eb0ffb43",
+  "environment": "local_source_or_loopback_fixture_only"
+}

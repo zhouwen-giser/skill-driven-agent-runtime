@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  businessCommandFixture,
+  businessMutationPolicy,
+} from '../../domain/test/task-business-command-fixture.js';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   createSkillUsageSpecification,
   createSkillVersion,
+  buildRuntimeSourceArtifact,
   createRemoteTaskBinding,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   type AgentTask,
@@ -50,6 +55,209 @@ describe('management HTTP API contract', () => {
   afterEach(async () => {
     await endpoint?.close();
     endpoint = undefined;
+  });
+
+  it('preserves validated published Task business mutation policy at the normal Skill registration boundary', async () => {
+    const original = operations();
+    const register = vi
+      .fn()
+      .mockImplementation((input: Parameters<ManagementOperations['skills']['register']>[0]) =>
+        Promise.resolve(input),
+      );
+    endpoint = await startManagementHttpEndpoint({
+      operations: { ...original, skills: { ...original.skills, register } },
+    });
+    const body = {
+      skillId: 'business-policy',
+      name: 'Business policy',
+      summary: 'Explicit policy',
+      description: 'Exact native mutation policy',
+      capabilities: ['navigation'],
+      workflowGuidance: 'Use published constraints',
+      outputInstruction: 'Return facts',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false, taskBusinessMutationPolicy: businessMutationPolicy },
+      status: 'draft',
+      sourceKind: 'admin',
+      validationPassed: false,
+    };
+    const post = (value: unknown) =>
+      fetch(`${endpoint?.baseUrl ?? ''}/api/v1/skills`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(value),
+      });
+    expect((await post(body)).status).toBe(201);
+    expect(register).toHaveBeenCalledWith(
+      expect.objectContaining({ runtimePolicy: body.runtimePolicy }),
+    );
+    expect(
+      (
+        await post({
+          ...body,
+          runtimePolicy: {
+            ...body.runtimePolicy,
+            taskBusinessMutationPolicy: { ...businessMutationPolicy, confirmation: 'model_output' },
+          },
+        })
+      ).status,
+    ).toBe(400);
+    expect(register).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes original Task business reads and review/confirmation/reconciliation without accepting client authority', async () => {
+    const command = { ...businessCommandFixture(), state: 'prepared' as const };
+    const commands: NonNullable<ManagementOperations['taskBusiness']>['commands'] = {
+      list: vi.fn().mockResolvedValue([command]),
+      prepareNavigation: vi.fn().mockResolvedValue(command),
+      confirm: vi.fn().mockResolvedValue(command),
+      dispatch: vi.fn().mockResolvedValue({ ...command, state: 'accepted' }),
+      reconcile: vi.fn().mockResolvedValue({ ...command, state: 'confirmed' }),
+      rollbackPreflight: vi.fn().mockResolvedValue({
+        writeTakeoverAllowed: false,
+        pendingIntentIds: [command.intent.intentId],
+      }),
+    };
+    const principal = {
+      actorId: 'human:local',
+      kind: 'human' as const,
+      authenticationMethod: 'trusted_intranet',
+      permissions: new Set<'physical_control.confirm'>(['physical_control.confirm']),
+      requestId: 'http-business',
+    };
+    const bytes = Buffer.from(
+      JSON.stringify({
+        type: 'LineString',
+        coordinates: [
+          [106.8, 29.7],
+          [106.9, 29.8],
+        ],
+      }),
+    );
+    const source = buildRuntimeSourceArtifact({
+      sourceTable: 'remote_task_observation',
+      sourceRecordId: 'business-source-1',
+      sourceVersion: 1,
+      value: { recordType: 'task_business.command', confirmation: 'immutable' },
+    });
+    const sourceArtifact = vi.fn().mockResolvedValue(source.canonicalBytes);
+    const originalOperations = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...originalOperations,
+        tasks: {
+          ...originalOperations.tasks,
+          get: () => Promise.resolve(runtimeTask('task-1', 'navigation')),
+        },
+        taskBusiness: {
+          list: () => Promise.resolve([]),
+          content: () => Promise.resolve(bytes),
+          sourceArtifact,
+          commands,
+        },
+      },
+      governedControl: {
+        confirmations: { issue: vi.fn(), revoke: vi.fn() },
+        principalResolver: { resolve: () => Promise.resolve(principal) },
+      },
+    });
+    const base = `${endpoint.baseUrl}/api/v1/tasks/task-1/business`;
+    expect((await fetch(base)).status).toBe(200);
+    const content = await fetch(`${base}/content/binding/digest`);
+    expect(Buffer.from(await content.arrayBuffer())).toEqual(bytes);
+    const query = new URLSearchParams(
+      Object.entries(source.artifactRef).map(([key, value]) => [key, String(value)]),
+    );
+    const retained = await fetch(`${base}/source-artifact?${query.toString()}`);
+    expect(retained.status).toBe(200);
+    expect(
+      Buffer.from(await retained.arrayBuffer()).equals(Buffer.from(source.canonicalBytes)),
+    ).toBe(true);
+    expect(sourceArtifact).toHaveBeenCalledWith('task-1', source.artifactRef);
+    expect(
+      (await fetch(`${base}/source-artifact?${query.toString()}&mutationAuthority=true`)).status,
+    ).toBe(400);
+    expect(sourceArtifact).toHaveBeenCalledTimes(1);
+    const body = {
+      idempotencyKey: 'human-edit-1',
+      waypoints: [{ longitude: 106.8, latitude: 29.7 }],
+      density: 'normal',
+    };
+    const post = (url: string, value: unknown) =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(value),
+      });
+    expect(
+      (await post(`${base}/navigation/prepare`, { ...body, mutationAuthority: true })).status,
+    ).toBe(400);
+    expect(commands.prepareNavigation).not.toHaveBeenCalled();
+    expect((await post(`${base}/navigation/prepare`, body)).status).toBe(200);
+    expect(commands.prepareNavigation).toHaveBeenCalledWith({ ...body, taskId: 'task-1' });
+    expect(commands.dispatch).not.toHaveBeenCalled();
+    const confirmed = await post(`${base}/commands/business-command-1/confirm`, {
+      reason: 'Approve exact displayed navigation.',
+    });
+    expect(confirmed.status).toBe(200);
+    expect(commands.confirm).toHaveBeenCalledWith(
+      'task-1',
+      'business-command-1',
+      principal,
+      'Approve exact displayed navigation.',
+    );
+    expect(commands.dispatch).toHaveBeenCalledTimes(1);
+    expect((await post(`${base}/commands/business-command-1/reconcile`, {})).status).toBe(200);
+    expect(commands.reconcile).toHaveBeenCalledWith('task-1', 'business-command-1');
+    expect(
+      (await fetch(`${endpoint.baseUrl}/api/v1/task-business/rollback-preflight`)).status,
+    ).toBe(200);
+  });
+
+  it('rejects a denied trusted-principal resolution before business confirmation or dispatch', async () => {
+    const command = businessCommandFixture();
+    const confirm = vi.fn();
+    const dispatch = vi.fn();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskBusiness: {
+          list: () => Promise.resolve([]),
+          content: () => Promise.resolve(Buffer.from('{}')),
+          commands: {
+            list: () => Promise.resolve([]),
+            prepareNavigation: () => Promise.resolve(command),
+            confirm,
+            dispatch,
+            reconcile: () => Promise.resolve(command),
+            rollbackPreflight: () =>
+              Promise.resolve({ writeTakeoverAllowed: true, pendingIntentIds: [] }),
+          },
+        },
+      },
+      governedControl: {
+        confirmations: { issue: vi.fn(), revoke: vi.fn() },
+        principalResolver: {
+          resolve: () =>
+            Promise.reject(
+              new GovernedControlManagementError('GOVERNED_CONTROL_PERMISSION_DENIED', 403),
+            ),
+        },
+      },
+    });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/business/commands/business-command-1/confirm`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'denied' }),
+      },
+    );
+    expect(response.status).toBe(403);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it('isolated software demo requires a separate manual acknowledgement and has no Device contract', async () => {

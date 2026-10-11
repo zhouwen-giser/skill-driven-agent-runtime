@@ -1,0 +1,38 @@
+{
+  "repository": "https://github.com/zhouwen-giser/sdar-mcp-provider-platform",
+  "commit": "0a4a7c36865d4c9920a4e65857c0903e9ef12533",
+  "use": "unmodified_contract_reference_only",
+  "noticeAtPin": false,
+  "files": [
+    {
+      "upstreamPath": "LICENSE",
+      "localPath": "LICENSE",
+      "gitBlob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "upstreamPath": "protocol/task-business/v1/core.schema.json",
+      "localPath": "core.schema.json",
+      "gitBlob": "d017fa1a36cf649830108ccef72f802308128b7a",
+      "sha256": "c2df666d828f9cbe7b0dd83467eba7f9a85dd13c5ee0854573596dc9d7cb4a90"
+    },
+    {
+      "upstreamPath": "protocol/task-business/v1/artifact.schema.json",
+      "localPath": "artifact.schema.json",
+      "gitBlob": "bebb7922a579fac5cd4b32580e96fbeb985fae61",
+      "sha256": "30ee236f236fd1758c236906e92db2b47830c993a639b430d9cff2b27b8e8cc9"
+    },
+    {
+      "upstreamPath": "protocol/task-business/v1/interaction.schema.json",
+      "localPath": "interaction.schema.json",
+      "gitBlob": "9581a6efc386abd1240e257c0ec7ce593e435946",
+      "sha256": "9d71f04e20b51b08930bec0f15e408d2dfafb816e1e64f8144c76e3f0dbdb4d1"
+    },
+    {
+      "upstreamPath": "protocol/task-business/v1/examples/positive-catalog.json",
+      "localPath": "positive-catalog.json",
+      "gitBlob": "74b74fc84788f333de7e400e8ee106f9e13a2d7b",
+      "sha256": "715648f6decd0ba622ec0ba3cc7aad33424e6b1cbe8f0cdc4ab8c11d542b5562"
+    }
+  ]
+}

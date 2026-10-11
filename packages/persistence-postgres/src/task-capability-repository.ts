@@ -544,7 +544,16 @@ export class PostgresTaskCapabilityRepository
         );
         const row = existing.rows[0];
         if (row?.status !== 'prepared' || row.plan_id !== planId)
-          throw new Error('TASK_CAPABILITY_INITIAL_PLAN_BINDING_INVALID');
+          throw Object.assign(
+            new Error(
+              `TASK_CAPABILITY_INITIAL_PLAN_BINDING_INVALID:${JSON.stringify({
+                status: row?.status ?? null,
+                currentPlanId: row?.plan_id ?? null,
+                requestedPlanId: planId,
+              })}`,
+            ),
+            { code: 'TASK_CAPABILITY_INITIAL_PLAN_BINDING_INVALID' },
+          );
       }
       await client.query('COMMIT');
     } catch (error) {

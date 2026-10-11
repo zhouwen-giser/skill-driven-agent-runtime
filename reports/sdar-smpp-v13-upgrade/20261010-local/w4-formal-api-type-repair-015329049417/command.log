@@ -1,0 +1,5 @@
+$ tsc -p tsconfig.json --noEmit
+apps/server/test/smpp-task-business.e2e.test.ts(310,13): error TS2322: Type '{ type: "task_business_mutation_policy"; profileVersion: "1.0-rc2"; allowedOperations: readonly ["input_response", "navigation_adjust_plan"]; confirmation: "trusted_human_per_command"; dispatchPolicy: "single_sender_reconcile_never_redispatch"; }' is not assignable to type '{ type: "task_business_mutation_policy"; profileVersion: "1.0-rc2"; allowedOperations: ("input_response" | "navigation_adjust_plan")[]; confirmation: "trusted_human_per_command"; dispatchPolicy: "single_sender_reconcile_never_redispatch"; }'.
+  Types of property 'allowedOperations' are incompatible.
+    The type 'readonly ["input_response", "navigation_adjust_plan"]' is 'readonly' and cannot be assigned to the mutable type '("input_response" | "navigation_adjust_plan")[]'.
+[ELIFECYCLE] Command failed with exit code 2.

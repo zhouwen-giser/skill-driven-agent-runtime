@@ -22,6 +22,7 @@ import {
   UserGoalPlanPanel,
 } from './TaskPanel.js';
 import { BusinessEventsPanel } from './BusinessEventsPanel.js';
+import { TaskBusinessPanel } from './TaskBusinessPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel, MemorySourceNavigation } from './MemoryPanel.js';
 import { McpPanel } from './McpPanel.js';
@@ -39,6 +40,47 @@ import { CognitiveGovernancePanel } from './CognitiveGovernancePanel.js';
 import { ArtifactPanel } from './ArtifactPanel.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders a running Task navigation preparation with real quality, retained content and uncertain command evidence', () => {
+    const markup = renderToStaticMarkup(
+      <TaskBusinessPanel
+        taskId="task-business"
+        phase="executing"
+        value={{
+          items: [
+            {
+              bindingId: 'binding-1',
+              status: 'current',
+              contextRevision: 7,
+              identity: { executionId: 'execution-original' },
+              executionSummary: { state: 'running' },
+              quality: { historyContinuous: false, gaps: ['business_event_history_gap'] },
+              objects: [
+                {
+                  ref: { kind: 'artifact', id: 'trajectory-1', revision: 3 },
+                  resolution: 'resolved',
+                  digest: 'abc',
+                },
+              ],
+              allowedInterventions: [{ interventionId: 'navigation-adjustment' }],
+            },
+          ],
+        }}
+        commands={{
+          items: [
+            { state: 'uncertain', intent: { intentId: 'command-original' }, readAttempts: 1 },
+          ],
+        }}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+    expect(markup).toContain('execution-original');
+    expect(markup).toContain('business_event_history_gap');
+    expect(markup).toContain('Prepare adjustment for review');
+    expect(markup).toContain('uncertain');
+    expect(markup).toContain('/api/v1/tasks/task-business/business/content/binding-1/abc');
+    expect(markup).toContain('Read business application evidence');
+    expect(markup).not.toContain('navigation applied');
+  });
   it('renders a real API-backed Artifact registry with semantic status and no fixture data', () => {
     const markup = renderToStaticMarkup(<ArtifactPanel />);
     expect(markup).toContain('Artifact Registry');

@@ -1,0 +1,14 @@
+$ eslint .
+
+/tmp/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568-8c3g1Y/source/packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts
+  21:48  error  Invalid type "number" of template literal expression  @typescript-eslint/restrict-template-expressions
+  82:22  error  Forbidden non-null assertion                          @typescript-eslint/no-non-null-assertion
+
+/tmp/sdar-verify-d5bb66fa-d1b7-41f3-89bb-3541e03a5568-8c3g1Y/source/packages/persistence-postgres/test/repositories.integration.test.ts
+  2529:8   error  Forbidden non-null assertion                           @typescript-eslint/no-non-null-assertion
+  2535:11  error  Forbidden non-null assertion                           @typescript-eslint/no-non-null-assertion
+  2537:18  error  Unsafe member access .tool_revision on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+✖ 5 problems (5 errors, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

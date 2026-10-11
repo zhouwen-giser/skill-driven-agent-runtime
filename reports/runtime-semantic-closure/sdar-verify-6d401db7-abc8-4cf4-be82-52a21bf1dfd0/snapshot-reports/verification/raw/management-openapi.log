@@ -1,0 +1,2 @@
+$ node scripts/check-management-openapi.mjs
+Verified 178 management API operations against OpenAPI.

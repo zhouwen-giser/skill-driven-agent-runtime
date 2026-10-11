@@ -1,0 +1,21 @@
+{
+  "name": "verification-runner-contract",
+  "command": "pnpm test:verification",
+  "status": "passed",
+  "startedAt": "2026-10-10T17:46:38.521Z",
+  "finishedAt": "2026-10-10T17:46:48.744Z",
+  "timeoutMs": 60000,
+  "logPath": "reports/verification/raw/verification-runner-contract.log",
+  "outputSha256": "cc05720cd1c32cd9003719baef698a35b26710bd3be82db85b3c64bf318df318",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 10223,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 11,
+    "peakRssBytes": 390635520,
+    "peakProcesses": 4
+  },
+  "cleanupErrors": []
+}

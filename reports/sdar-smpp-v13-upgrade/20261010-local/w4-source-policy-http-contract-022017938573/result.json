@@ -1,0 +1,21 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "contract",
+    "packages/management-api/test/http-endpoint.contract.test.ts"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "f13572296fbc40eb367484c85e7909bcc15f690f29d08fd6042a7952e28889f5",
+  "startedAt": "2026-10-11T02:20:17.938573+08:00",
+  "finishedAt": "2026-10-11T02:20:23.852419+08:00",
+  "durationSeconds": 5.913846,
+  "exitCode": 0,
+  "log": "command.log",
+  "logSha256": "45b2cf9623463985305d058229888c9b35a80936638906849181b7045c0a1178",
+  "environment": "local_source_or_loopback_fixture_only"
+}

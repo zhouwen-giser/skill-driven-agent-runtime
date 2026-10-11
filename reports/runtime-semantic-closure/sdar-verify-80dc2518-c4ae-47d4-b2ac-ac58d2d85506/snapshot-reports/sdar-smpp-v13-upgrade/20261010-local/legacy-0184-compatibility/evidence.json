@@ -1,0 +1,54 @@
+{
+  "case": "AC-039",
+  "pinnedReaderCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "sourceConstraintBefore": [
+    {
+      "definition": "CHECK ((source = ANY (ARRAY['goal_deliberation'::text, 'skill_input_resolution'::text, 'goal_evaluation'::text, 'workflow'::text])))"
+    }
+  ],
+  "sourceConstraintAfter": [
+    {
+      "definition": "CHECK ((source = ANY (ARRAY['goal_deliberation'::text, 'skill_input_resolution'::text, 'goal_evaluation'::text, 'workflow'::text, 'remote_task'::text])))"
+    }
+  ],
+  "legacyAuthorityBefore": {
+    "schemaVersion": "1.0",
+    "capturedAt": "2026-07-16T09:00:00.000Z",
+    "runtime": {
+      "serverId": "continuation-invalidation-server-smpp-v13-binding",
+      "endpoint": "https://continuation-invalidation-server-smpp-v13-binding.test/mcp",
+      "serverUpdatedAt": "credential-revision-1",
+      "toolRevision": 1,
+      "protocolSnapshotId": "snapshot-smpp-v13-binding-1",
+      "catalogRevision": "catalog-revision-1",
+      "catalogChecksum": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "operationCount": 1
+    }
+  },
+  "legacyAuthorityAfter": {
+    "schemaVersion": "1.0",
+    "capturedAt": "2026-07-16T09:00:00.000Z",
+    "runtime": {
+      "serverId": "continuation-invalidation-server-smpp-v13-binding",
+      "endpoint": "https://continuation-invalidation-server-smpp-v13-binding.test/mcp",
+      "serverUpdatedAt": "credential-revision-1",
+      "toolRevision": 1,
+      "protocolSnapshotId": "snapshot-smpp-v13-binding-1",
+      "catalogRevision": "catalog-revision-1",
+      "catalogChecksum": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "operationCount": 1
+    }
+  },
+  "taskIds": [
+    "continuation-invalidation-task-smpp-v13-binding",
+    "continuation-invalidation-task-smpp-v13-poll-cas"
+  ],
+  "invocationCount": [
+    {
+      "count": 4
+    }
+  ],
+  "oldProjectionAbsent": true,
+  "newObservationRecordsReadableByLegacy": 10,
+  "site": "NOT_RUN"
+}

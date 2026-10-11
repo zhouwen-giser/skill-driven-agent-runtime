@@ -1,0 +1,139 @@
+{
+  "runId": "sdar-smpp-gowm-472ec564-3492-46c7-bce0-85e46c5dfa7a",
+  "ownerCommit": "a1a86186ea866911124de72374e17fe19897fa9e",
+  "sourceDirectory": "/tmp/sdar-smpp-gowm-472ec564-3492-46c7-bce0-85e46c5dfa7a-EfZdlI/gowm",
+  "databaseName": "sdar_smpp_gowm_test_5ad577fb24b7c0e7",
+  "reportDirectory": "reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-472ec564-3492-46c7-bce0-85e46c5dfa7a",
+  "scope": "owned_loopback_fixture",
+  "site": "NOT_RUN",
+  "steps": [
+    {
+      "label": "owner-export",
+      "durationMs": 196,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-extract",
+      "durationMs": 120,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "postgres-start",
+      "durationMs": 342,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "redis-start",
+      "durationMs": 385,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-core-bootstrap",
+      "durationMs": 2609,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-domain-install",
+      "durationMs": 2400,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "native-storage-boundaries",
+      "durationMs": 3438,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "formal-navigation-recon-shared-storage",
+      "durationMs": 6653,
+      "exitCode": 1,
+      "signal": null
+    }
+  ],
+  "images": {
+    "postgresImage": "sha256:f8631c8babdbb9099cdfca09664e8454c06618c0b7ba5903ab246e781e470f11",
+    "redisImage": "sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+    "provenance": "captured_local_immutable_ids; owner source independently pinned"
+  },
+  "ports": {
+    "postgresPort": 32868,
+    "redisPort": 32869
+  },
+  "extensions": [
+    {
+      "extname": "fuzzystrmatch",
+      "extversion": "1.2"
+    },
+    {
+      "extname": "h3",
+      "extversion": "4.5.0"
+    },
+    {
+      "extname": "h3_postgis",
+      "extversion": "4.5.0"
+    },
+    {
+      "extname": "mobilitydb",
+      "extversion": "1.3.0"
+    },
+    {
+      "extname": "pg_trgm",
+      "extversion": "1.6"
+    },
+    {
+      "extname": "pgcrypto",
+      "extversion": "1.4"
+    },
+    {
+      "extname": "plpgsql",
+      "extversion": "1.0"
+    },
+    {
+      "extname": "postgis",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "postgis_raster",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "postgis_tiger_geocoder",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "postgis_topology",
+      "extversion": "3.6.4"
+    },
+    {
+      "extname": "vector",
+      "extversion": "0.8.5"
+    }
+  ],
+  "consumerPrivileges": {
+    "native_ddl": false,
+    "private_write": false,
+    "native_observation_write": true
+  },
+  "schemaBeforeFormal": "f4680fe15b40e8a84819d29601a880c264a4f2bb6e22abe97b14c6f7a4cb37d2",
+  "privateSmppBeforeFormal": {
+    "rows": 3
+  },
+  "status": "FAIL",
+  "error": "OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1",
+  "cleanup": [
+    {
+      "id": "3cbf9b7dc2141eb5fe4f8d3ac52690ed76ddee25052d38363ffab077464e7314",
+      "exitCode": 0
+    },
+    {
+      "id": "ffbe67cadf46dd15fb0689422331e67550b328bef00beed436e81ebeb3e84bef",
+      "exitCode": 0
+    }
+  ]
+}

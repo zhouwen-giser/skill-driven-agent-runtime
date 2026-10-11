@@ -1,0 +1,16 @@
+{
+  "command": [
+    "pnpm",
+    "typecheck"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "runtimeInputSha256": "f2974ebd16d2262d4d6e25a33d0ecb625f4e9ecf0f26d5dcd3e5d4979b83548d",
+  "startedAt": "2026-10-11T00:17:09.484691+08:00",
+  "finishedAt": "2026-10-11T00:17:50.212458+08:00",
+  "durationSeconds": 40.727767,
+  "exitCode": 2,
+  "log": "command.log",
+  "logSha256": "2bbc32d35ad555d115f3c2355faf58d091d3ddb6008a54bbf03541fe1de2cf47",
+  "environment": "local_source_or_loopback_fixture_only"
+}

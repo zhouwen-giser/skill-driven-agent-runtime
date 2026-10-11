@@ -1,0 +1,48 @@
+{"step":"owner-export","startedAt":"2026-10-10T19:08:15.951Z"}
+{"step":"owner-extract","startedAt":"2026-10-10T19:08:16.142Z"}
+{"step":"postgres-start","startedAt":"2026-10-10T19:08:20.433Z"}
+045c1de66adb892bb05208424a083813fcb92a3d45aed5e7fc2467e767d8b81b
+{"step":"redis-start","startedAt":"2026-10-10T19:08:20.840Z"}
+4774ab83d5c04832f42bce2063b06fad4174c64bf32aab25b2b9ee2ad8ac06a6
+{"step":"owner-core-bootstrap","startedAt":"2026-10-10T19:08:34.250Z"}
+isolated core bootstrap PASS
+{"step":"owner-domain-install","startedAt":"2026-10-10T19:08:36.939Z"}
+INSTALL PASS
+{"step":"native-storage-boundaries","startedAt":"2026-10-10T19:08:39.567Z"}
+{"status":"PASS","run":"sdar-pg-894cfc1b-71ab-40b0-b5fc-ea55c99326d9","scenarios":26,"scope":"repository-subset-only"}
+{"step":"formal-navigation-recon-shared-storage","startedAt":"2026-10-10T19:08:42.753Z"}
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 1512[2mms[22m[39m
+[31m     [31m×[31m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 819[2mms[22m[39m
+[31m     [31m×[31m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 690[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mDomainError[22m: Enabled Skill versions require an explicit SkillOutcomeSpecification.[39m
+[36m [2m❯[22m createSkillVersion packages/domain/src/skill.ts:[2m86:11[22m[39m
+    [90m 84|[39m   }
+    [90m 85|[39m   if (input.status === 'enabled' && input.outcomeSpecification === und…
+    [90m 86|[39m     [35mthrow[39m [35mnew[39m [33mDomainError[39m(
+    [90m   |[39m           [31m^[39m
+    [90m 87|[39m       [32m'SKILL_ENABLE_REQUIRES_OUTCOME_SPEC'[39m[33m,[39m
+    [90m 88|[39m       'Enabled Skill versions require an explicit SkillOutcomeSpecific…
+[90m [2m❯[22m mapSkillVersionRow packages/persistence-postgres/src/repositories.ts:[2m8218:10[22m[39m
+[90m [2m❯[22m PostgresSkillRepository.listEnabledVersions packages/persistence-postgres/src/repositories.ts:[2m4893:24[22m[39m
+[90m [2m❯[22m CapabilitySummaryService.rebuild packages/application/src/cognitive/capability-summary-service.ts:[2m84:20[22m[39m
+[90m [2m❯[22m startServerRuntime apps/server/src/runtime.ts:[2m1371:36[22m[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m177:19[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 03:08:43
+[2m   Duration [22m 7.74s[2m (transform 4.14s, setup 0ms, import 6.04s, tests 1.51s, environment 0ms)[22m
+
+{"report":"reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-9e147f22-9a79-413f-8459-69ca8b83ecce/result.json","status":"FAIL","cleanup":[{"id":"4774ab83d5c04832f42bce2063b06fad4174c64bf32aab25b2b9ee2ad8ac06a6","exitCode":0},{"id":"045c1de66adb892bb05208424a083813fcb92a3d45aed5e7fc2467e767d8b81b","exitCode":0}],"site":"NOT_RUN"}
+OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1

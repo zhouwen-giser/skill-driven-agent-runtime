@@ -1,0 +1,4 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/test/task-business-control-fixture.ts(245,454): error TS1005: ',' expected.
+packages/persistence-postgres/test/task-business-control-fixture.ts(245,462): error TS1005: ',' expected.
+[ELIFECYCLE] Command failed with exit code 2.

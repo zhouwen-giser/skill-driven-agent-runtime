@@ -1,0 +1,3 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/test/repositories.integration.test.ts(2617,7): error TS2353: Object literal may only specify known properties, and 'timestamp' does not exist in type 'Omit<GoalCancellationRecord, "invalidatedPlanIds" | "canceledTaskIds" | "canceledInstanceIds">'.
+[ELIFECYCLE] Command failed with exit code 2.

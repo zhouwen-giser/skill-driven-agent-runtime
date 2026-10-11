@@ -1,0 +1,77 @@
+{"step":"owner-export","startedAt":"2026-10-10T19:09:50.326Z"}
+{"step":"owner-extract","startedAt":"2026-10-10T19:09:50.526Z"}
+{"step":"postgres-start","startedAt":"2026-10-10T19:09:52.166Z"}
+f8c673e51b43b9dc2df6de772eebd50fed08562e79ed2143ead84ad6831eda85
+{"step":"redis-start","startedAt":"2026-10-10T19:09:52.534Z"}
+215c8332da1f1e2afb7387c488579bd293e36f12b81ed297f071e8a3941f062b
+{"step":"owner-core-bootstrap","startedAt":"2026-10-10T19:10:05.004Z"}
+isolated core bootstrap PASS
+{"step":"owner-domain-install","startedAt":"2026-10-10T19:10:07.588Z"}
+INSTALL PASS
+{"step":"formal-navigation-recon-shared-storage","startedAt":"2026-10-10T19:10:10.128Z"}
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/sz/code/skill-driven-agent-runtime[39m
+
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"formal_native_diagnostics","operation":"vehicle_navigate","diagnostics":{"task":[{"task_id":"4b608487-ee0f-41e7-83ac-3cf225a290c2","phase":"queued","phase_message":"Task queued.","error_code":null},{"task_id":"9ffedc1e-7fc6-4658-a025-8ef7485d773f","phase":"executing","phase_message":"Plan confirmed.","error_code":null}],"binding":[{"binding_id":"remote-task-binding-mcp-invocation-21d0aa9d-965e-4bb8-9774-8b47d36ea13a","protocol_status":"working","local_state":"polling","version":"15","last_safe_error_code":null}],"controls":[],"continuationSnapshots":[{"workflow_instance_id":"instance-control-task-9ffedc1e-7fc6-4658-a025-8ef7485d773f-0-6f52b08a-89ec-4101-92b6-31a72986e445","lifecycle":"active","state_version":"1"}],"continuationWaits":[{"snapshot_id":"workflow-continuation-snapshot-b9dbb7a2-7217-4b3b-a0df-09b334a5f5f0","binding_id":"remote-task-binding-mcp-invocation-21d0aa9d-965e-4bb8-9774-8b47d36ea13a"}],"instances":[{"instance_id":"instance-control-task-9ffedc1e-7fc6-4658-a025-8ef7485d773f-0-6f52b08a-89ec-4101-92b6-31a72986e445","status":"waiting_external","errors_json":{}}],"inputs":[],"observations":[{"record_type":null,"count":8},{"record_type":"task_business.projection","count":2},{"record_type":"task_business.content","count":4},{"record_type":"task_business.object","count":4}],"calls":["server/discover","tools/list","io.sdar/taskExecution/checkAvailability","io.sdar/taskExecution/checkAvailability","tools/call","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get"]}}
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_INVOCATION_FAILED","summary":"Configured stage embedding invocation failed."}
+{"event":"provider_binding_reconciliation.failed","serverId":"smpp-701095ca-d7e0-4763-8e88-b1ff2ba595a9","errorCode":"TASK_EXECUTION_FAILED"}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_INVOCATION_FAILED"}
+{"event":"capability_catalog_refresh.deferred","errorCode":"MODEL_INVOCATION_FAILED","summary":"Configured stage embedding invocation failed."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"remote_task_reconcile.failed","error":"REMOTE_TASK_PROVIDER_EXECUTION_LINK_CONFLICT"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"formal_native_diagnostics","operation":"vehicle_area_recon","diagnostics":{"task":[{"task_id":"4b608487-ee0f-41e7-83ac-3cf225a290c2","phase":"queued","phase_message":"Task queued.","error_code":null},{"task_id":"0e15ccbb-c325-437a-a4e9-614f5717ae07","phase":"queued","phase_message":"Task queued.","error_code":null},{"task_id":"9ffedc1e-7fc6-4658-a025-8ef7485d773f","phase":"executing","phase_message":"Plan confirmed.","error_code":null},{"task_id":"cd5f097d-25f8-4733-aa07-47fe3d8f5657","phase":"executing","phase_message":"Supplementary input saved; continuation queued.","error_code":null}],"binding":[{"binding_id":"remote-task-binding-mcp-invocation-21d0aa9d-965e-4bb8-9774-8b47d36ea13a","protocol_status":"working","local_state":"polling","version":"17","last_safe_error_code":null},{"binding_id":"remote-task-binding-mcp-invocation-0639f294-ba1d-4c23-b67c-8c98f58c124a","protocol_status":"working","local_state":"polling","version":"59","last_safe_error_code":null}],"controls":[{"event_type":"task.input_required","status":"processed"}],"continuationSnapshots":[{"workflow_instance_id":"instance-control-task-9ffedc1e-7fc6-4658-a025-8ef7485d773f-0-6f52b08a-89ec-4101-92b6-31a72986e445","lifecycle":"active","state_version":"1"},{"workflow_instance_id":"instance-control-task-cd5f097d-25f8-4733-aa07-47fe3d8f5657-0-43dc14d1-151a-4995-946e-4141e7261096","lifecycle":"active","state_version":"1"}],"continuationWaits":[{"snapshot_id":"workflow-continuation-snapshot-b9dbb7a2-7217-4b3b-a0df-09b334a5f5f0","binding_id":"remote-task-binding-mcp-invocation-21d0aa9d-965e-4bb8-9774-8b47d36ea13a"},{"snapshot_id":"workflow-continuation-snapshot-569a7a00-cea9-4e08-a1c6-799215c1c60d","binding_id":"remote-task-binding-mcp-invocation-0639f294-ba1d-4c23-b67c-8c98f58c124a"}],"instances":[{"instance_id":"instance-control-task-9ffedc1e-7fc6-4658-a025-8ef7485d773f-0-6f52b08a-89ec-4101-92b6-31a72986e445","status":"waiting_external","errors_json":{}},{"instance_id":"instance-control-task-cd5f097d-25f8-4733-aa07-47fe3d8f5657-0-43dc14d1-151a-4995-946e-4141e7261096","status":"waiting_external","errors_json":{}}],"inputs":[{"input_request_id":"remote-task-input-a34cb14f-41a8-4ce8-aa25-ab9f6f1e2df7","status":"update_acknowledged"}],"observations":[{"record_type":null,"count":38},{"record_type":"task_business.projection","count":9},{"record_type":"task_business.content","count":9},{"record_type":"task_business.object","count":9},{"record_type":"task_business.command","count":15}],"calls":["server/discover","tools/list","io.sdar/taskExecution/checkAvailability","io.sdar/taskExecution/checkAvailability","tools/call","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","tasks/update","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/context/get","tasks/get","server/discover","io.sdar/taskBusiness/context/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","tasks/get","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/artifacts/get","tasks/get","server/discover","io.sdar/taskBusiness/artifacts/get","server/discover","io.sdar/taskBusiness/context/get","tasks/get","tasks/get","tasks/get","tasks/get","tasks/get","tasks/get","tasks/get","tasks/get","tasks/get"]}}
+ [31m❯[39m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 35919[2mms[22m[39m
+[31m     [31m×[31m AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 8297[2mms[22m[39m
+[31m     [31m×[31m AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch[39m[33m 27620[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mError[22m: FORMAL_HTTP_FAILURE:/api/v1/tasks/9ffedc1e-7fc6-4658-a025-8ef7485d773f/business/navigation/prepare:400:{"error":{"code":"40P01","message":"deadlock detected"}}[39m
+[36m [2m❯[22m jsonRequest apps/server/test/smpp-task-business.e2e.test.ts:[2m866:11[22m[39m
+    [90m864|[39m   const raw: unknown = content === '' ? undefined : JSON.parse(content…
+    [90m865|[39m   [35mif[39m ([33m![39mresponse[33m.[39mok)
+    [90m866|[39m     [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   |[39m           [31m^[39m
+    [90m867|[39m       `FORMAL_HTTP_FAILURE:${new URL(url).pathname}:${response.status}…
+    [90m868|[39m     )[33m;[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m583:13[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m e2e [49m[39m apps/server/test/smpp-task-business.e2e.test.ts[2m > [22mSMPP v1.3 formal Registry → Skill → Task → HTTP feedback → native business → Task result[2m > [22mAC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch
+[31m[1mAssertionError[22m: expected 'uncertain' to be 'confirmed' // Object.is equality[39m
+
+Expected: [32m"confirmed"[39m
+Received: [31m"uncertain"[39m
+
+[36m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m657:15[22m[39m
+    [90m655|[39m                 )[33m,[39m
+    [90m656|[39m               )[[32m'state'[39m][33m,[39m
+    [90m657|[39m             )[33m.[39m[34mtoBe[39m([32m'confirmed'[39m)[33m;[39m
+    [90m   |[39m               [31m^[39m
+    [90m658|[39m           })[33m;[39m
+    [90m659|[39m         }
+[90m [2m❯[22m eventually apps/server/test/smpp-task-business.e2e.test.ts:[2m876:14[22m[39m
+[90m [2m❯[22m apps/server/test/smpp-task-business.e2e.test.ts:[2m640:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 03:10:10
+[2m   Duration [22m 41.96s[2m (transform 4.02s, setup 0ms, import 5.87s, tests 35.92s, environment 0ms)[22m
+
+{"report":"reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-874c7d45-0a85-41b8-a0d9-ff3da9438dbc/result.json","status":"FAIL","cleanup":[{"id":"215c8332da1f1e2afb7387c488579bd293e36f12b81ed297f071e8a3941f062b","exitCode":0},{"id":"f8c673e51b43b9dc2df6de772eebd50fed08562e79ed2143ead84ad6831eda85","exitCode":0}],"site":"NOT_RUN"}
+OWNED_GOWM_STEP_FAILED:formal-navigation-recon-shared-storage:1

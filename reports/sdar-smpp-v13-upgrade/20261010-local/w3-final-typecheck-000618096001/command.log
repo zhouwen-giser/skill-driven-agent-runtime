@@ -1,0 +1,6 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/test/task-business-command.integration.test.ts(138,7): error TS2322: Type '(() => Promise<void>) | undefined' is not assignable to type '() => Promise<void>'.
+  Type 'undefined' is not assignable to type '() => Promise<void>'.
+packages/persistence-postgres/test/task-business-command.integration.test.ts(144,7): error TS2322: Type '(() => Promise<void>) | undefined' is not assignable to type '() => Promise<void>'.
+  Type 'undefined' is not assignable to type '() => Promise<void>'.
+[ELIFECYCLE] Command failed with exit code 2.

@@ -1,0 +1,18 @@
+
+/home/sz/code/skill-driven-agent-runtime/packages/application/src/task-business-commands.ts
+  423:14  error  Returning an awaited promise is required in this context  @typescript-eslint/return-await
+  443:14  error  Returning an awaited promise is required in this context  @typescript-eslint/return-await
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/src/governed-control-authority-repository.ts
+  1442:14  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/src/task-business-command-repository.ts
+  411:7   error  Prefer using an optional chain expression instead, as it's more concise and easier to read          @typescript-eslint/prefer-optional-chain
+  448:9   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  448:21  error  Unnecessary optional chain on a non-nullish value                                                   @typescript-eslint/no-unnecessary-condition
+  511:9   error  Prefer using an optional chain expression instead, as it's more concise and easier to read          @typescript-eslint/prefer-optional-chain
+  537:9   error  Prefer using an optional chain expression instead, as it's more concise and easier to read          @typescript-eslint/prefer-optional-chain
+  578:9   error  Prefer using an optional chain expression instead, as it's more concise and easier to read          @typescript-eslint/prefer-optional-chain
+
+✖ 9 problems (9 errors, 0 warnings)
+

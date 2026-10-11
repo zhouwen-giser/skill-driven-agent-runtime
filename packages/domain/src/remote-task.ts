@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { snapshotRemoteTaskInputValue } from './remote-task-input.js';
 import { DomainError } from './errors.js';
 import type {
@@ -196,6 +197,38 @@ export interface RemoteTaskFailureSnapshot {
   readonly code: number;
   readonly message: string;
   readonly data?: unknown;
+}
+
+/** Native ownership and frozen dispatch authority survive poll-lease version changes. */
+export function sameRemoteTaskAdmission(a: RemoteTaskBinding, b: RemoteTaskBinding): boolean {
+  const keys = [
+    'bindingId',
+    'serverId',
+    'operationName',
+    'remoteTaskId',
+    'agentTaskId',
+    'contextId',
+    'goalId',
+    'goalVersion',
+    'workflowPlanId',
+    'workflowDefinitionId',
+    'workflowDefinitionVersion',
+    'workflowInstanceId',
+    'workflowNodeId',
+    'workflowNodeRunId',
+    'mcpInvocationId',
+    'protocolRevision',
+    'tasksSchemaRevision',
+    'credentialRevision',
+    'sessionRevision',
+  ] as const;
+  return (
+    keys.every((key) => a[key] === b[key]) &&
+    isDeepStrictEqual(a.authoritySnapshot, b.authoritySnapshot) &&
+    isDeepStrictEqual(a.protocolContract, b.protocolContract) &&
+    isDeepStrictEqual(a.executionContext, b.executionContext) &&
+    isDeepStrictEqual(a.deviceIdentity, b.deviceIdentity)
+  );
 }
 
 export interface RemoteTaskAdmission {
