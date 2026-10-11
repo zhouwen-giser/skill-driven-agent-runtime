@@ -17,6 +17,30 @@ import {
 import { recordedSkillValidationExecutor } from '../src/composition/skill-evolution.js';
 
 describe('recorded candidate validation through the real LangGraph executor', () => {
+  it.each(['adjust_plan', 'unachievable'] as const)(
+    'checks actual succeeded execution and output when Goal evaluation is %s',
+    async (goalDecision) => {
+      const fixture = setup({ goalDecision });
+      expect(fixture.experience.successful).toBe(false);
+      const result = await fixture.run();
+      expect(result.passed, JSON.stringify(result)).toBe(true);
+      expect(result.evidence).toMatchObject({
+        status: 'succeeded',
+        recordedInstanceStatus: 'succeeded',
+        invocationIds: ['call-1', 'call-2'],
+      });
+      expect(result.evidence.assertions).toContainEqual({
+        name: 'recorded_output_oracle',
+        passed: true,
+      });
+      const wrongOutput = await setup({ goalDecision, fault: 'output' }).run();
+      expect(wrongOutput.passed).toBe(false);
+      expect(wrongOutput.evidence.assertions).toContainEqual({
+        name: 'recorded_output_oracle',
+        passed: false,
+      });
+    },
+  );
   it('plans the unpublished candidate and executes every recorded call before comparing its output', async () => {
     const fixture = setup();
     const result = await fixture.run();
@@ -68,6 +92,7 @@ describe('recorded candidate validation through the real LangGraph executor', ()
 function setup(
   options: {
     failedSecond?: boolean;
+    goalDecision?: EvolutionExperience['evaluation']['decision'];
     omitSecond?: boolean;
     fault?: 'arguments' | 'output' | 'confirmation' | 'missing' | 'forbidden';
   } = {},
@@ -137,8 +162,9 @@ function setup(
     evaluation:
       options.failedSecond === true
         ? { decision: 'unachievable', summary: 'Device offline' }
-        : { decision: 'achieved', summary: 'Recorded status' },
-    successful: options.failedSecond !== true,
+        : { decision: options.goalDecision ?? 'achieved', summary: 'Recorded status' },
+    successful:
+      options.failedSecond !== true && (options.goalDecision ?? 'achieved') === 'achieved',
     durationMs: 10,
     createdAt: timestamp,
   };
@@ -165,7 +191,13 @@ function setup(
       },
     },
     executor: recordedSkillValidationExecutor,
-    recordings: { read: () => Promise.resolve(options.fault === 'missing' ? [] : recordings) },
+    recordings: {
+      read: () =>
+        Promise.resolve({
+          instanceStatus: options.failedSecond === true ? 'failed' : 'succeeded',
+          invocations: options.fault === 'missing' ? [] : recordings,
+        }),
+    },
     workflowSchema: { type: 'object' },
     clock: { now: () => timestamp },
     nextId: () => String(++sequence),

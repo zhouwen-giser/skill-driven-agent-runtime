@@ -105,13 +105,14 @@ export class VerifiedSkillEvolutionService {
             input: history.input,
             result: history.result,
             errors: history.errors,
+            evaluation: history.evaluation,
             successful: history.successful,
           })),
           priorCorrections:
             await this.dependencies.temporarySkills.listCorrectionExperiences(candidateId),
           budgetCeiling: this.dependencies.budgetCeiling,
           instruction:
-            'Propose complete native contracts. New Skills require explicit publicationPolicy within existing budgets and source Tool authority; no automatic confirmation. Existing Skills permit adaptive changes only. Supplemental inputs must match distinct retained inputs; boundary cases exercise an explicit Schema bound and exception cases need a recorded stable error. Model judgments cannot override deterministic validation.',
+            'Propose complete native contracts. New Skills require explicit publicationPolicy within existing budgets and source Tool authority; no automatic confirmation. Existing Skills permit adaptive changes only. Supplemental inputs must match distinct retained inputs; boundary cases exercise an explicit Schema bound and exception cases need a recorded stable execution error. The successful flag combines Workflow success and Goal achievement; an unmet Goal does not imply Workflow failure. Supplemental expectedOutcome describes Workflow execution. Model judgments cannot override deterministic validation.',
         }),
         responseSchema: inductionResponseSchema,
         correctionErrors: [],
@@ -367,6 +368,7 @@ export class VerifiedSkillEvolutionService {
         caseId: string,
         kind: SkillSimulationCaseResult['kind'],
         history: EvolutionExperience,
+        declaredOutcome?: SupplementalCase['expectedOutcome'],
       ) => {
         if (target === undefined)
           throw new SkillEvolutionValidationError('SKILL_EVOLUTION_TARGET_MISSING');
@@ -376,13 +378,21 @@ export class VerifiedSkillEvolutionService {
           experience: history,
           tools,
         });
+        const outcomeMatches =
+          declaredOutcome === undefined ||
+          validated.evidence.recordedInstanceStatus ===
+            (declaredOutcome === 'success' ? 'succeeded' : 'failed');
         cases.push({
           caseId,
           kind,
           input: isRecord(history.input) ? history.input : {},
-          expectedOutcome: history.successful ? 'success' : 'failure',
-          passed: validated.passed,
-          summary: validated.summary,
+          expectedOutcome:
+            declaredOutcome ??
+            (validated.evidence.recordedInstanceStatus === 'succeeded' ? 'success' : 'failure'),
+          passed: validated.passed && outcomeMatches,
+          summary: outcomeMatches
+            ? validated.summary
+            : 'Supplemental outcome differs from the authoritative recorded Workflow terminal status.',
         });
         executions.push(validated.evidence);
         for (const dependency of validated.dependencies) {
@@ -414,12 +424,18 @@ export class VerifiedSkillEvolutionService {
         const history = [...histories.values()].find(
           (entry) =>
             canonicalHash(entry.input) === canonicalHash(item.input) &&
-            entry.successful === (item.expectedOutcome === 'success'),
+            (item.kind !== 'normal' || entry.successful) &&
+            executions.find((execution) => execution.caseId === `history-${entry.experienceId}`)
+              ?.recordedInstanceStatus ===
+              (item.expectedOutcome === 'success' ? 'succeeded' : 'failed'),
         );
         if (
           history === undefined ||
           (item.kind === 'normal' && !history.successful) ||
-          (item.kind === 'exception' && history.successful) ||
+          (item.kind === 'exception' &&
+            (history.successful ||
+              item.expectedOutcome !== 'failure' ||
+              Object.keys(history.errors).length === 0)) ||
           (item.kind === 'boundary' && !isSchemaBoundary(proposed.inputSchema, item.input))
         )
           cases.push({
@@ -428,7 +444,7 @@ export class VerifiedSkillEvolutionService {
             summary:
               'Supplemental case lacks a distinct authoritative recording or the declared Schema boundary.',
           });
-        else await run(item.caseId, item.kind, history);
+        else await run(item.caseId, item.kind, history, item.expectedOutcome);
       }
       const allPassed =
         induction.consistent &&

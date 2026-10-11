@@ -32,7 +32,7 @@ export function verifiedEvolutionFixture(
   }>,
 ) {
   const fingerprint = input.candidate?.capabilityFingerprint ?? `evolution-${randomUUID()}`;
-  const sourceInputs = ['normal', 'another', 'a', 'offline'];
+  const sourceInputs = ['normal', 'another', 'a', 'offline', 'not-achieved'];
   const histories: EvolutionExperience[] = sourceInputs.map((id, index) => ({
     experienceId: `history-${String(index)}`,
     controlId: `control-${String(index)}`,
@@ -58,11 +58,19 @@ export function verifiedEvolutionFixture(
     evaluation:
       id === 'offline'
         ? { decision: 'unachievable', summary: 'Recorded failure' }
-        : { decision: 'achieved', summary: 'Recorded status' },
-    successful: id !== 'offline',
+        : id === 'not-achieved'
+          ? { decision: 'adjust_plan', summary: 'Execution succeeded but Goal needs another round' }
+          : { decision: 'achieved', summary: 'Recorded status' },
+    successful: id !== 'offline' && id !== 'not-achieved',
     durationMs: 10,
     createdAt: timestamp,
   }));
+  const recordedStatuses = new Map(
+    histories.map((history, index) => [
+      history.instanceId,
+      sourceInputs[index] === 'offline' ? ('failed' as const) : ('succeeded' as const),
+    ]),
+  );
   const sourceExperiences = histories
     .filter((history) => history.successful)
     .map((history, index) => ({
@@ -115,6 +123,7 @@ export function verifiedEvolutionFixture(
   };
   const commits: Parameters<SkillEvolutionCommitPort['commit']>[0][] = [];
   let wrongResult = false;
+  let exceptionInput = 'offline';
   const inductionInputs: string[] = [];
   let modelCalls = 0;
   let candidateCalls = 0;
@@ -159,7 +168,7 @@ export function verifiedEvolutionFixture(
               {
                 caseId: 'exception',
                 kind: 'exception',
-                input: { id: 'offline' },
+                input: { id: exceptionInput },
                 expectedOutcome: 'failure',
               },
             ],
@@ -200,8 +209,11 @@ export function verifiedEvolutionFixture(
           (history) => history.experienceId === experience.experienceId,
         );
         if (retained === undefined) throw new Error('Fixture missing');
-        return Promise.resolve(
-          [1, 2].map((index): McpInvocation => ({
+        const instanceStatus = recordedStatuses.get(retained.instanceId);
+        if (instanceStatus === undefined) throw new Error('Fixture instance status missing');
+        return Promise.resolve({
+          instanceStatus,
+          invocations: [1, 2].map((index): McpInvocation => ({
             invocationId: `${experience.experienceId}-call-${String(index)}`,
             serverId: input.tool.serverId,
             toolName: input.tool.toolName,
@@ -209,8 +221,8 @@ export function verifiedEvolutionFixture(
             executionMode: 'live',
             executionSemantics: input.tool.executionSemantics,
             arguments: z.record(z.string(), z.unknown()).parse(retained.input),
-            status: index === 2 && !retained.successful ? 'failed' : 'succeeded',
-            ...(index === 2 && !retained.successful
+            status: index === 2 && instanceStatus === 'failed' ? 'failed' : 'succeeded',
+            ...(index === 2 && instanceStatus === 'failed'
               ? { errorCode: 'DEVICE_OFFLINE', errorMessage: 'Recorded failure' }
               : {
                   result: { content: [], structuredContent: { status: 'online' }, isError: false },
@@ -219,7 +231,7 @@ export function verifiedEvolutionFixture(
             completedAt: timestamp,
             durationMs: 0,
           })),
-        );
+        });
       },
     },
     workflowSchema: { type: 'object' },
@@ -271,6 +283,9 @@ export function verifiedEvolutionFixture(
     candidateCalls: () => candidateCalls,
     setWrongResult: (value: boolean) => {
       wrongResult = value;
+    },
+    setExceptionInput: (value: string) => {
+      exceptionInput = value;
     },
     proposed,
     histories,

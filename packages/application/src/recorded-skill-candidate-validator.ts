@@ -57,7 +57,12 @@ export interface SkillValidationExecutorFactory {
 
 export interface SkillCandidateRecordingReader {
   /** Must prove that every invocation belongs to this exact historical instance/time range. */
-  read(experience: EvolutionExperience): Promise<readonly McpInvocation[]>;
+  read(experience: EvolutionExperience): Promise<
+    Readonly<{
+      instanceStatus: 'succeeded' | 'failed';
+      invocations: readonly McpInvocation[];
+    }>
+  >;
 }
 
 const InternalResultSchema = z
@@ -113,6 +118,7 @@ export class RecordedSkillCandidateValidator {
     const violations: string[] = [];
     const dependencies = new Map<string, SkillVersion>();
     let recordings: readonly McpInvocation[] = [];
+    let recordedInstanceStatus: 'succeeded' | 'failed' | undefined;
     let definition: SkillCandidateExecutionEvidence['definition'];
     let result: Awaited<ReturnType<WorkflowExecutor['execute']>> | undefined;
     let recordedFailure: RecordedInvocationFailure | undefined;
@@ -143,7 +149,9 @@ export class RecordedSkillCandidateValidator {
           : sourceInput;
       if (!this.dependencies.schemas.validate(target.inputSchema, candidateInput).valid)
         rejectUnsupported('candidate_input_schema_invalid');
-      recordings = await this.dependencies.recordings.read(experience);
+      const retained = await this.dependencies.recordings.read(experience);
+      recordings = retained.invocations;
+      recordedInstanceStatus = retained.instanceStatus;
       if (recordings.length === 0) rejectUnsupported('source_has_no_tool_recording');
       for (const invocation of recordings) {
         if (invocation.status === 'canceled') rejectUnsupported('canceled_recording');
@@ -341,13 +349,13 @@ export class RecordedSkillCandidateValidator {
         name: 'terminal_outcome',
         passed:
           (result?.status ?? (recordedFailure === undefined ? 'not_executed' : 'failed')) ===
-          (experience.successful ? 'succeeded' : 'failed'),
+          recordedInstanceStatus,
       });
       assertions.push({
         name: 'all_recorded_calls_consumed',
         passed: used.size === recordings.length,
       });
-      if (experience.successful) {
+      if (recordedInstanceStatus === 'succeeded') {
         assertions.push({
           name: 'recorded_output_oracle',
           passed:
@@ -401,6 +409,8 @@ export class RecordedSkillCandidateValidator {
           result: experience.result,
           errors: experience.errors,
           successful: experience.successful,
+          evaluation: experience.evaluation,
+          recordedInstanceStatus,
         }),
         planId,
         instanceId,
@@ -408,6 +418,7 @@ export class RecordedSkillCandidateValidator {
         planningAttempts: attempts,
         ...(definition === undefined ? {} : { definition }),
         status: result?.status ?? (recordedFailure === undefined ? 'not_executed' : 'failed'),
+        ...(recordedInstanceStatus === undefined ? {} : { recordedInstanceStatus }),
         ...(result?.result === undefined ? {} : { actualResultHash: canonicalHash(result.result) }),
         errorCodes: [
           ...Object.values(result?.errors ?? {}).map((item) => item.code),
