@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "primaryPullRequest": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/36",
+  "primaryHeadSha": "09ae8fc8bc2496e0cc8ace4ee1b26f1015e99d01",
+  "primaryMergeSha": "1607e0631dfe542b8604c6731c3cee57f936b3cc",
+  "mergedAt": "2026-10-11T12:19:19Z",
+  "mergeMethod": "merge",
+  "ciRunId": 38138496184,
+  "ciUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/actions/runs/38138496184",
+  "actualCiCheckout": "cfe5058d966e8855ee373347bb051ad6bdc7d13a",
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "testedSourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "ciAndMergedSourceMatchFrozenRuntime": true,
+  "sourceIdentity": "publication/primary-merge-source-identity.json",
+  "ciValidation": "publication/primary-ci/VALIDATION.json",
+  "site": "NOT_RUN",
+  "physicalProvider": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "wholeProjectReleaseReadiness": "NOT_CLAIMED",
+  "evidenceCloseout": "This status/evidence-only follow-up records the actual primary merge; no runtime input is changed."
+}

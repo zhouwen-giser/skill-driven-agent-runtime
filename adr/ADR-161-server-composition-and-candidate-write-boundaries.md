@@ -1,6 +1,6 @@
 # ADR-161: Server composition and candidate write boundaries
 
-Status: Accepted; post-review local implementation verified (explicit user-approved plan, 2026-10-11). Git publication pending.
+Status: Accepted; post-review local implementation verified (explicit user-approved plan, 2026-10-11). Published through PR36 normal merge `1607e0631dfe542b8604c6731c3cee57f936b3cc` after passing same-source CI.
 
 ## Context
 
@@ -28,7 +28,7 @@ The pre-refactor frozen source reproduces the current host performance failure. 
 
 Pre-review version: full M1–M4 isolated gates pass all 30 stages each. Final fresh frozen install and runtime input `65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5` match runtime commit `870e94b6`; 2650 unit, 552 contract, 270 integration and 77 E2E tests pass. Same frozen local inputs pass eight restricted-role GOWM steps, two formal E2E cases and 26 native boundary scenarios. Case results, unchanged baseline/protocol/dependency checks, original logs and failed attempts are retained in `reports/server-composition-planning-boundaries/20261011-local/`. Site/deployment are NOT_RUN; original project-level upstream gaps remain open.
 
-Post-review focused verification: 66 unit cases, typecheck, lint and eight architecture negative fixtures PASS; restricted-role PostgreSQL verifies four new formal-commit scenarios alongside the existing 26 native scenarios and two formal E2E cases. New final frozen validation passes all 30 stages on commit 6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766 / input 57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c; 2652 unit / 552 contract / 271 integration / 77 E2E. Same-source restricted-role GOWM passes two formal E2E / 30 native scenarios with unchanged inputs/baseline and cleanup 0. Publication is pending.
+Post-review focused verification: 66 unit cases, typecheck, lint and eight architecture negative fixtures PASS; restricted-role PostgreSQL verifies four new formal-commit scenarios alongside the existing 26 native scenarios and two formal E2E cases. New final frozen validation passes all 30 stages on commit 6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766 / input 57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c; 2652 unit / 552 contract / 271 integration / 77 E2E. Same-source restricted-role GOWM passes two formal E2E / 30 native scenarios with unchanged inputs/baseline and cleanup 0. Publication is verified in `publication/DELIVERY.json`.
 
 An existing P08 response-loss fixture intermittently expires its 120 ms lease before the intended explicit recovery transition. The same unchanged frozen test passes alone; the full-run failure and cleanup are retained. These recovery cases now use the existing default nominal test lease and check that `expireAction` updates exactly one pending row. Explicit SQL expiry still drives the tested stale/recovery path; production timing and state/no-replay assertions are unchanged. The new current-source complete frozen gate passes, retaining this failed attempt.
 

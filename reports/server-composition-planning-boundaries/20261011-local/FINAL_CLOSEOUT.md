@@ -1,6 +1,6 @@
 # Server composition and planning authority acceptance
 
-Status: **LOCAL_VERIFIED_PUBLICATION_PENDING**, 2026-10-11, Asia/Shanghai. This report certifies the user-approved local refactor scope. Git publication is authorized and follows successful CI; site/provider operations and deployment are **NOT_RUN**.
+Status: **COMPLETE**, 2026-10-11, Asia/Shanghai. This report certifies the user-approved local refactor scope. Code is committed, pushed and normally merged in [PR36](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/36); site/provider operations and deployment are **NOT_RUN**.
 
 The server now composes fifteen typed stages in dependency order, retains its original runtime exports, and cleans up partially acquired resources once. UGV admission/input/candidate/authorization/terminal-evidence policies live in the internal Profile package; the MCP adapter owns SMPP client construction. Generic Task, Remote Task and TaskBusiness lifecycle writers remain in the existing kernel.
 
@@ -29,7 +29,7 @@ M1–M3 command: `pnpm verify:isolated`. Final command: `pnpm verify:isolated --
 
 Each validation contains command, exit, runtime/baseline hashes, stage metrics, original log SHA-256 and archived raw path. Format, lint, typecheck, unit, contract, real PostgreSQL/Redis integration, E2E, build, migrations, official TCK, canonical evidence replay and all three smokes passed. The E2E driver runs complementary selections: 76 functional cases plus the unchanged single performance case; all 77 cases execute. Its summary counts eight suite executions because the performance file runs again with the complementary filter.
 
-Official TCK remains the existing `http_json` MUST profile: 74 passed, 161 skipped and 30 deselected. Other transports are not newly certified. [Case results](CASE_RESULTS.json) map seventeen local acceptance groups to actual tested files and hash-checked logs; Git delivery remains pending, and two site/deployment groups are NOT_RUN.
+Official TCK remains the existing `http_json` MUST profile: 74 passed, 161 skipped and 30 deselected. Other transports are not newly certified. [Case results](CASE_RESULTS.json) map eighteen local acceptance groups to actual tested files and hash-checked logs; Git delivery passes CI and normal merge, and two site/deployment groups are NOT_RUN.
 
 ## Same-frozen-source GOWM verification
 
@@ -56,4 +56,6 @@ The owned fixture records real database version, resolved Compose hash, immutabl
 
 ## Delivery
 
-Pending commit/push/PR CI/normal merge at this report revision. CI and merge must match the frozen runtime inputs. The ExecPlan records publication after it actually occurs; all site reads/writes, physical provider actions and deployment remain NOT_RUN.
+[PR36](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/36) is normally merged as `1607e0631dfe542b8604c6731c3cee57f936b3cc`, from reviewed head `09ae8fc8bc2496e0cc8ace4ee1b26f1015e99d01`. [Actual CI](https://github.com/zhouwen-giser/skill-driven-agent-runtime/actions/runs/38138496184) passes all compatibility guards, 148 planning tests and 103 adapter/registry tests; its checkout `cfe5058d966e8855ee373347bb051ad6bdc7d13a` and the actual merged source both match every frozen runtime input. [Delivery evidence](publication/DELIVERY.json) retains the GitHub records, original CI log hash and source certificates. All eighteen local acceptance groups PASS. This evidence-only follow-up records the actual primary merge without changing code/test/dependency/protocol inputs; it receives its own CI and normal merge.
+
+Site reads/writes, physical provider actions and deployment remain NOT_RUN. The original project-level GOWM contract gap remains open; whole-project release readiness is not claimed.

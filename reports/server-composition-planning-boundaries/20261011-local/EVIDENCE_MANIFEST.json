@@ -16,8 +16,8 @@
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/CASE_RESULTS.json",
-      "sha256": "3ac060c6de022887dc43e5f428e6629a757f6a08cb3b91286b8dc295a755e9aa",
-      "bytes": 22797
+      "sha256": "b2018778de089205419c92f061190091c53e542f2e0b950a31c0b4fb3bbcc4a8",
+      "bytes": 24374
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/FAILED_ATTEMPTS.md",
@@ -26,8 +26,8 @@
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/FINAL_CLOSEOUT.md",
-      "sha256": "3b8b43286bdc3d5c5c080d98623189c9030bc682d1241b6eed6318a266907e77",
-      "bytes": 9510
+      "sha256": "ced4a5b3808d609baeac3a13a7771c744245bb79228bffa3f9d55cc3d21cd287",
+      "bytes": 10326
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03/formal-vehicle_area_recon-11bec2fe-b02f-417e-b29c-fab8453e0943/evidence.json",
@@ -4068,6 +4068,86 @@
       "path": "reports/server-composition-planning-boundaries/20261011-local/pre-refactor-performance-runner.log",
       "sha256": "aa66e31c3eb21de0caf8745cf373700759579cdfcc2939cbcbd5c671a0eb9d9d",
       "bytes": 29868
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/DELIVERY.json",
+      "sha256": "9d274f370ff22bd04f88948667f1efabd68a33dc190e95f5f588364470fe61c5",
+      "bytes": 1115
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/final-primary-review-after.json",
+      "sha256": "147d3f5fcd814536e904bc6f2db489f90db6ca3596ceaa5f38cb5fc22e41ad29",
+      "bytes": 2593
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/final-primary-review-before.json",
+      "sha256": "9493bb29b6de00fd2d4ef7c46312e23bbb553172d823aecfeea28c1f77308e3e",
+      "bytes": 2595
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-ci/VALIDATION.json",
+      "sha256": "c04c9a5e4866c382ef2669a76bc4ae408e94593316ee746aba1453a3155bec58",
+      "bytes": 892
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-ci/checkout-source-identity.json",
+      "sha256": "ee5b821b5d01a042b9ce191dd2ee87e6b434b476517214bf1ceb3d44772102da",
+      "bytes": 707
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-ci/jobs.json",
+      "sha256": "a3586dbd08b2cb01f32b2daf1cb7a8030098f39ba528212ad0d93fada515b5eb",
+      "bytes": 6329
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-ci/raw.log",
+      "sha256": "a2b72dab016cb9b954438ef2d7d470d4f6cdd09fa9a44a65c1729a21037ca96d",
+      "bytes": 68515
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-ci/run.json",
+      "sha256": "4b23a86cfc444a83eaa015055eaf0ec27b2bb4aa2b3dfd5092b618a706e7da5c",
+      "bytes": 16347
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-head-baseline-compatibility.json",
+      "sha256": "0e7117ab121b0f7bfda4403d650aacee6f3b1e7af0b530b862fbbdf4e2d24b9b",
+      "bytes": 2143
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-head-source-identity.json",
+      "sha256": "f0a2ad8892cf8f948115564627f231ea2c03ba0e789ca356f90e1a3607f7249f",
+      "bytes": 707
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-merge-baseline-compatibility.json",
+      "sha256": "81529497cea7fe04322b1c6e628d1e91a087eaa312318e577f9cac9d9b67966c",
+      "bytes": 2143
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-merge-request.json",
+      "sha256": "b43412304a4ffc9d5d54223583a7c90a8009799dcc6bf90cc53d1348d6bb6d9b",
+      "bytes": 77
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-merge-result.json",
+      "sha256": "9787c438ed102fb42b930b02c65215679eafa6d2bbe65e2d06af99ef383e90d9",
+      "bytes": 109
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-merge-source-identity.json",
+      "sha256": "179b78628ffaa82cd57eb97c742515a2b83aa13444f6fd7857ba691142df8a9e",
+      "bytes": 707
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-pr-after-merge.json",
+      "sha256": "38b7f8abe81f36ca89a8008265dd0d6ef539b0440c9cf39992ef2b59d49c9650",
+      "bytes": 23522
+    },
+    {
+      "path": "reports/server-composition-planning-boundaries/20261011-local/publication/primary-pr-before-merge.json",
+      "sha256": "00a8817a2d5ad5c76a43ca42e070a67df8ee78fb073ea37961677834631d880b",
+      "bytes": 22500
     },
     {
       "path": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/43faa3a9-BASELINE_COMPATIBILITY.json",
