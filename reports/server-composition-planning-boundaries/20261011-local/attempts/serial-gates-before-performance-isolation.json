@@ -1,0 +1,13 @@
+[
+  {
+    "phase": "M1",
+    "cwd": "/tmp/sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d-zNKeEU/retry-source",
+    "command": [
+      "pnpm",
+      "verify:isolated"
+    ],
+    "exitCode": 1,
+    "durationSeconds": 1382.5470747947693,
+    "log": "/home/sz/code/skill-driven-agent-runtime/reports/server-composition-planning-boundaries/20261011-local/M1-serial-runner.log"
+  }
+]

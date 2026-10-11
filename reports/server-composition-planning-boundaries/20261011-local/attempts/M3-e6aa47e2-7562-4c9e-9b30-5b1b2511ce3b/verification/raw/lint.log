@@ -1,0 +1,12 @@
+$ eslint .
+
+/tmp/sdar-verify-e6aa47e2-7562-4c9e-9b30-5b1b2511ce3b-QXzlio/source/packages/application/test/user-goal-planning.unit.test.ts
+  50:28  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+/tmp/sdar-verify-e6aa47e2-7562-4c9e-9b30-5b1b2511ce3b-QXzlio/source/packages/application/test/workflow-planner.unit.test.ts
+  228:28  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+✖ 2 problems (2 errors, 0 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+
+[ELIFECYCLE] Command failed with exit code 1.

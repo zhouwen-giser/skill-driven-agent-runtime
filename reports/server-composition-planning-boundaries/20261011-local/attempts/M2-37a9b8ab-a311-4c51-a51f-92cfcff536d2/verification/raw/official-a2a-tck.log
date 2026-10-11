@@ -1,0 +1,22 @@
+$ node scripts/run-a2a-tck.mjs
+The virtual environment was not created successfully because ensurepip is not
+available.  On Debian/Ubuntu systems, you need to install the python3-venv
+package using the following command.
+
+    apt install python3.10-venv
+
+You may need to use sudo with that command.  After installing the python3-venv
+package, recreate your virtual environment.
+
+Failing command: /tmp/sdar-verify-37a9b8ab-a311-4c51-a51f-92cfcff536d2/uv-venv/bin/python3
+
+file:///tmp/sdar-verify-37a9b8ab-a311-4c51-a51f-92cfcff536d2-OnuN2G/source/scripts/run-a2a-tck.mjs:105
+  if (result.status !== 0) throw new Error(`COMMAND_FAILED: ${command} ${args.join(' ')}`);
+                                 ^
+
+Error: COMMAND_FAILED: python3 -m venv /tmp/sdar-verify-37a9b8ab-a311-4c51-a51f-92cfcff536d2/uv-venv
+    at run (file:///tmp/sdar-verify-37a9b8ab-a311-4c51-a51f-92cfcff536d2-OnuN2G/source/scripts/run-a2a-tck.mjs:105:34)
+    at file:///tmp/sdar-verify-37a9b8ab-a311-4c51-a51f-92cfcff536d2-OnuN2G/source/scripts/run-a2a-tck.mjs:34:43
+
+Node.js v22.23.2
+[ELIFECYCLE] Command failed with exit code 1.

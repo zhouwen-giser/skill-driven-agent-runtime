@@ -2,7 +2,9 @@
 
 ## 2026-10-11 — server composition and planning boundaries
 
-User-approved application/server refactor started from clean main a230bac9. Public protocols, Task semantics and safety authority are preserved. Implementation and validation are IN_PROGRESS; see `execplans/EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES.md` and ADR-161. Site and deployment are NOT_RUN; commit/push/merge are authorized.
+Split server composition into fifteen typed stages with owned startup-failure cleanup. Isolate UGV/SMPP policies across application/server and centralize SMPP transport construction. Immutable User Goal/Workflow generators now use read/model/audit ports; formal services own plan persistence, CAS, idempotence and failed-plan records. Initial Task evidence/automatic confirmation follows formal commit, preserving Capability binding before Task publication. Public contracts, Task semantics, safety defaults, migrations and runtime dependencies are preserved.
+
+M1–M4 each pass all 30 isolated gates; final fresh frozen install: 2650 unit, 552 contract, 270 integration and 77 E2E. Same-source restricted-role GOWM: eight steps, two formal E2E and 26 native scenarios PASS. Original performance limits pass with owned tmpfs PostgreSQL for the unchanged benchmark, separately from persistent-store gates; failure history is retained. Evidence: `reports/server-composition-planning-boundaries/20261011-local/`; ADR-161 and the ExecPlan. Git publication remains pending; site/deployment NOT_RUN.
 
 - 2026-10-11: SMPP v1.3 M3 passes the complete 30-stage isolated gate on unchanged input 5d63724f…; preserve every failed attempt. W4 adds native source Artifacts, geometry/outcome evidence and real Registry/Skill/Task navigation and RequiredInput E2E. Final W4/W5 gate and GOWM verification remain in progress.
 

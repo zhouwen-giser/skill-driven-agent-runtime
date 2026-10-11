@@ -1,8 +1,8 @@
 # Project Status
 
-## Server composition and planning boundaries (2026-10-11, in progress)
+## Server composition and planning boundaries (2026-10-11, locally verified; publication pending)
 
-User-approved application/server refactor started from clean main a230bac9. Public protocols, Task semantics and safety authority are preserved. Implementation and validation are IN_PROGRESS; see `execplans/EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES.md` and ADR-161. Site and deployment are NOT_RUN; commit/push/merge are authorized.
+The approved application/server refactor is locally verified: fifteen typed composition stages, internal UGV/SMPP policies and immutable candidate generators separated from formal commit authority. M1–M4 each pass all 30 isolated gates. Final fresh frozen install validates commit 870e94b6 / runtime input 65aa5c85… with 2650 unit, 552 contract, 270 integration and 77 E2E tests; runtime and baseline unchanged, cleanup 0. Same-source restricted-role GOWM passes eight steps, two formal E2E cases and 26 native scenarios. See `reports/server-composition-planning-boundaries/20261011-local/FINAL_CLOSEOUT.md`, the ExecPlan and ADR-161. CI/push/normal merge remain pending under existing authorization. Site and deployment are NOT_RUN; original project-level upstream gaps remain open.
 
 2026-10-11：SMPP v1.3 升级代码与证据已提交并推送，实施提交 `b2544c16`。PR34 已普通合并为 `8fa2afec`；用户已授权升级 [PR35](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/35) 普通合并，其最终 CI/合并状态以 GitHub 原记录为准。实际身份与复核命令见 `reports/sdar-smpp-v13-upgrade/20261010-local/publication-20261011/`。源码和基线与完整冻结门禁一致；现场和部署仍 NOT_RUN。
 

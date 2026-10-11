@@ -1,0 +1,1024 @@
+$ vitest run --project contract
+
+ RUN  v4.1.10 /tmp/sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d-zNKeEU/source
+
+ ✓ |contract| packages/json-schema-adapter/test/evidence-schema.contract.test.ts (11 tests) 5554ms
+     ✓ compiles and validates a concrete envelope for all 100 record types  1654ms
+     ✓ fails closed for unknown Phase 8 authority enum values  922ms
+     ✓ rejects zero for every Phase 8 positive-version payload field  521ms
+     ✓ compiles Batch, ACK, Manifest, Issue and ArtifactRef protocol schemas  1588ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-deployment.contract.test.ts (121 tests) 7255ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts (13 tests) 4704ms
+     ✓ crosses the real offline supervisor spawn, manifest, status, restart, and B02 capture boundary  3629ms
+ ✓ |contract| packages/json-schema-adapter/test/smpp-v13-frozen-contract.contract.test.ts (4 tests) 3198ms
+     ✓ AC-002 validates all upstream positive objects without opening their schemas  3046ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-debug-command.contract.test.ts (45 tests) 1855ms
+ ✓ |contract| apps/node-control-api/test/operation-conformance.contract.test.ts (6 tests) 1388ms
+     ✓ matches the complete frozen inventory to production routes, RBAC, and executed coverage  1383ms
+ ✓ |contract| packages/management-api/test/http-endpoint.contract.test.ts (85 tests) 1137ms
+ ✓ |contract| packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts (11 tests) 919ms
+ ✓ |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts (12 tests) 569ms
+ ✓ |contract| packages/skill-package-adapter/test/skill-package.contract.test.ts (10 tests) 456ms
+ ✓ |contract| apps/node-control-api/test/http-endpoint.contract.test.ts (8 tests) 551ms
+ ✓ |contract| packages/skill-package-adapter/test/formal-skill-packages.contract.test.ts (4 tests) 439ms
+ ✓ |contract| packages/mcp-adapter/test/business-events-provider-fixtures.contract.test.ts (2 tests) 358ms
+ ✓ |contract| packages/json-schema-adapter/test/cognitive-domain-schema.contract.test.ts (1 test) 349ms
+     ✓ accepts the golden fixture and rejects candidate-to-active schema drift  346ms
+ ✓ |contract| packages/json-schema-adapter/test/workflow-dsl-schema.contract.test.ts (4 tests) 342ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-protocol-package.contract.test.ts (1 test) 279ms
+ ✓ |contract| packages/json-schema-adapter/test/artifact-domain-schema.contract.test.ts (12 tests) 270ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts (7 tests) 426ms
+ ✓ |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts (5 tests) 137ms
+ ✓ |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts (5 tests) 74ms
+ ✓ |contract| packages/model-provider-adapter/test/anthropic-messages-adapter.contract.test.ts (2 tests) 49ms
+ ✓ |contract| packages/evidence-export-adapter/test/http-evidence-export-transport.contract.test.ts (8 tests) 37ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-http.contract.test.ts (14 tests) 38ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-task-subscriptions.contract.test.ts (8 tests) 44ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-registry.contract.test.ts (8 tests) 29ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-evidence.contract.test.ts (5 tests) 20ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-task-lifecycle.contract.test.ts (18 tests) 46ms
+ ✓ |contract| packages/a2a-adapter/test/a2a-compatibility.contract.test.ts (11 tests) 17ms
+ ✓ |contract| packages/mcp-adapter/test/frozen-v1-availability.contract.test.ts (6 tests) 26ms
+ ✓ |contract| packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts (3 tests) 13ms
+ ❯ |contract| packages/persistence-postgres/test/artifact-shadow-p06.contract.test.ts (7 tests | 1 failed) 21ms
+     ✓ keeps P02 core tables authoritative and makes Shadow a ValidationRun child projection 3ms
+     ✓ persists all P06 child projections and preserves exact approval/package bindings 2ms
+     ✓ uses PostgreSQL leases, stale terminalization, atomic pointer CAS and outbox events 1ms
+     ✓ derives promotion hashes from persisted P05/P06 evidence instead of caller summaries 0ms
+     ✓ uses no retrieval, fast-gateway or external execution capability 2ms
+     × exposes an explicit formal-runtime sidecar hook and reads current pins at worker start 10ms
+     ✓ has a P06-only rollback that does not delete P02 Artifact authority 1ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-p02.contract.test.ts (4 tests) 12ms
+ ✓ |contract| packages/application/test/case-model-runtime-p11.contract.test.ts (5 tests) 11ms
+ ✓ |contract| packages/application/test/decision-rule-runtime-p09.contract.test.ts (4 tests) 10ms
+ ✓ |contract| packages/application/test/fast-gateway-p10.contract.test.ts (5 tests) 11ms
+ ✓ |contract| apps/node-control-acceptance/test/ugv-agent-profile-b02-source-recovery-deployment.contract.test.ts (3 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/experience-p03.contract.test.ts (5 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/deterministic-capability-execution-action.contract.test.ts (5 tests) 9ms
+ ✓ |contract| packages/persistence-postgres/test/initial-model-prompts.contract.test.ts (4 tests) 13ms
+ ✓ |contract| packages/a2a-adapter/test/node-control-agent-card.contract.test.ts (4 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts (4 tests) 8ms
+ ✓ |contract| packages/application/test/artifact-retrieval.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/runtime-control-persistence-postgres/test/task-revision-authority.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-authority-snapshot.contract.test.ts (3 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-match-exact-version.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/initial-task-admission.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-cancellation-authority.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/mcp-task-consumer-sync-migration.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/runtime-redis/test/artifact-shadow-workers.contract.test.ts (2 tests) 7ms
+ ✓ |contract| apps/server/test/runtime-migration-selection.contract.test.ts (3 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/capability-attempt-evidence-lineage.contract.test.ts (2 tests) 8ms
+ ✓ |contract| packages/persistence-postgres/test/runtime-task-control-actions.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/mcp-execution-semantics-authority-repair.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-admission-recovery.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/model-operation-routes.contract.test.ts (2 tests) 7ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-dispatch-consumption.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-catalog-lineage.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-authority-kind.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/remote-task-accepted-substate.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/governed-control-confirmation.contract.test.ts (2 tests) 6ms
+ ✓ |contract| packages/persistence-postgres/test/artifact-replay-p05.contract.test.ts (6 tests) 10ms
+ ✓ |contract| packages/persistence-postgres/test/task-capability-initial-plan-binding.contract.test.ts (2 tests) 5ms
+ ✓ |contract| packages/domain/test/artifact-management-p12.contract.test.ts (2 tests) 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |contract| packages/persistence-postgres/test/artifact-shadow-p06.contract.test.ts > P06 PostgreSQL Shadow and promotion governance contract > exposes an explicit formal-runtime sidecar hook and reads current pins at worker start
+AssertionError: expected 'import type { WorkflowControlRecord a…' to contain 'enrollArtifactShadow'
+
+- Expected
++ Received
+
+- enrollArtifactShadow
++ import type { WorkflowControlRecord as CompositionWorkflowControlRecord } from './composition/../../../../packages/domain/src/workflow-control.js';
++ import { RuntimeCleanupScope } from './composition/runtime-cleanup-scope.js';
++ import type {
++   ArtifactOutboxConsumer,
++   ArtifactRegistryService,
++   InteractivePlanningSessionService,
++   PlanPreparationProcessor,
++   RemoteTaskInputService,
++   TaskService,
++   WorkflowControllerService,
++ } from '../../../packages/application/src/index.js';
++ import { type TaskAvailabilityBatchReader } from '../../../packages/application/src/index.js';
++ import { composeBackground } from './composition/background.js';
++ import { composeBusinessEvents } from './composition/business-events.js';
++ import { composeCognitive } from './composition/cognitive.js';
++ import type { ServerRuntimeHandle, ServerRuntimeOptions } from './composition/contracts.js';
++ import { composeController } from './composition/controller.js';
++ import { composeDeterministic } from './composition/deterministic.js';
++ import { composeEvidence } from './composition/evidence.js';
++ import { composeExecution } from './composition/execution.js';
++ import { composeHttp } from './composition/http.js';
++ import { composeInfrastructure } from './composition/infrastructure.js';
++ import { composeKnowledge } from './composition/knowledge.js';
++ import { composeMcp } from './composition/mcp.js';
++ import { composePlanning } from './composition/planning.js';
++ import { composePreparation } from './composition/preparation.js';
++ import { composeRemoteTasks } from './composition/remote-tasks.js';
++ import { RuntimeValueRef } from './composition/runtime-value-ref.js';
++ import { composeTasks } from './composition/tasks.js';
++ import type { UgvMoveTerminalOutcomeAuthority } from './ugv-move-terminal-outcome.js';
++ export type * from './composition/contracts.js';
++ export {
++   applyRuntimeMigrations,
++   createA2ACancelReconciliationHandler,
++   currentTaskProviderBindingContext,
++   planPostV122MigrationFiles,
++   requestContinuationActivationFailureCancellation,
++   requireHomeLabReadOnlyTerminalPreparation,
++   resolveSkillUsageSelectionId,
++   resumeTaskOwnedHumanConfirmation,
++ } from './composition/runtime-support.js';
++ export async function startServerRuntime(
++   options: ServerRuntimeOptions,
++ ): Promise<ServerRuntimeHandle> {
++   const cleanupScope = new RuntimeCleanupScope();
++   try {
++     const ugvAvailabilityTarget = new RuntimeValueRef<TaskAvailabilityBatchReader | undefined>(
++       'ugvAvailabilityTarget',
++     );
++     const interactivePlanningSessions = new RuntimeValueRef<InteractivePlanningSessionService>(
++       'interactivePlanningSessions',
++     );
++     const service = new RuntimeValueRef<TaskService>('service');
++     const remoteTaskInput = new RuntimeValueRef<RemoteTaskInputService | undefined>(
++       'remoteTaskInput',
++     );
++     const workflowController = new RuntimeValueRef<WorkflowControllerService>('workflowController');
++     const projectSkillExecutionControl = new RuntimeValueRef<
++       (
++         workflowPlanId: string,
++         control: Awaited<
++           ReturnType<(controlId: string) => Promise<CompositionWorkflowControlRecord>>
++         >,
++       ) => Promise<void>
++     >('projectSkillExecutionControl');
++     const ugvMoveTerminalOutcomeAuthority = new RuntimeValueRef<
++       UgvMoveTerminalOutcomeAuthority | undefined
++     >('ugvMoveTerminalOutcomeAuthority');
++     const processor = new RuntimeValueRef<PlanPreparationProcessor>('processor');
++     const artifactOutboxConsumer = new RuntimeValueRef<ArtifactOutboxConsumer | undefined>(
++       'artifactOutboxConsumer',
++     );
++     const artifactRegistry = new RuntimeValueRef<ArtifactRegistryService | undefined>(
++       'artifactRegistry',
++     );
++     const businessRefreshCompletion = new RuntimeValueRef<Promise<void> | undefined>(
++       'businessRefreshCompletion',
++     );
++     const evidenceExportInFlight = new RuntimeValueRef<Promise<void> | undefined>(
++       'evidenceExportInFlight',
++     );
++     const evidenceOperationsMaintenanceInFlight = new RuntimeValueRef<Promise<void> | undefined>(
++       'evidenceOperationsMaintenanceInFlight',
++     );
++     const runtimeCoreEvidenceProjection = new RuntimeValueRef<Promise<void> | undefined>(
++       'runtimeCoreEvidenceProjection',
++     );
++     const providerBindingReconciliationInFlight = new RuntimeValueRef<Promise<void> | undefined>(
++       'providerBindingReconciliationInFlight',
++     );
++     const {
++       pool,
++       clock,
++       deviceWorkScope,
++       profileSkills,
++       ugvAgentProfile,
++       evolutionExperienceRepository,
++       evolutionPolicyRepository,
++       publishTaskState,
++       taskInputs,
++       queue,
++       mcpRepository,
++       taskCommands,
++       secretCipher,
++       experienceCompilationReady,
++       artifactFlags,
++       candidateGenerationReady,
++       skills,
++       artifactReplayValidationReady,
++       artifactShadowGovernanceReady,
++       artifactManagementReady,
++       homeLabReadOnlyProfile,
++       homeLabGovernedLightProfile,
++       managedCapabilityProfile,
++       tasks,
++       skillGraphRepository,
++       skillDrafts,
++       frozenMcpClient,
++       skillSelectionRepository,
++       contextSerial,
++       ugvMovePositionPolicy,
++       resolveSkillUsageContext,
++       resolveSkillUsageSlotChoices,
++       goals,
++       contexts,
++       artifactAuthorityReady,
++       resolveDeviceOwnership,
++       events,
++       ids,
++       temporarySkillRepository,
++       mcpOutboundFetch,
++       queueName,
++       taskStateNotifier,
++     } = await composeInfrastructure({
++       cleanupScope,
++       options,
++       artifactOutboxConsumer,
++       artifactRegistry,
++     });
++     const {
++       evidenceExport,
++       evidenceOperations,
++       canonicalEvidenceProjectionPipeline,
++       evidenceQualityEvaluator,
++       episodeEvidenceCoverageProjectionPipeline,
++       evidenceInfrastructureProjectionPipeline,
++     } = composeEvidence({ cleanupScope, options, pool, clock, deviceWorkScope });
++     const {
++       schemaValidator,
++       ugvGovernedControlInvocationAuthorizer,
++       governedControlInvocationAuthorizer,
++       runtimeMcpBindingAuthority,
++       modelRuntime,
++       memories,
++       workflowValidator,
++       workflowSchema,
++       skillComposition,
++       workflowTemplates,
++       taskBusinessRepository,
++       governedControlConfirmationService,
++       taskCapabilities,
++       ugvMoveWorkflowAuthority,
++       governedControlAuthorityRepository,
++       recordSkillProjectionSafely,
++       skillExecutionRecording,
++       workflowCallCosts,
++       workflowBudgetDefaults,
++       skillExecutionRepository,
++       runtimeTerminalOutcomes,
++       planningKnowledge,
++       capabilitySummaries,
++       interactivePlanningRepository,
++       cognitiveModel,
++       planningCorrectionObserver,
++       interactiveGoalSessions,
++       fastGatewayRepository,
++       skillInputResolution,
++       taskCapabilityRepository,
++       skillInputResolutionRepository,
++       implicitFeedback,
++       ugvGovernedControlManagement,
++       emergencyControlManagement,
++       governedControlManagement,
++       weaponControlManagement,
++       resultProcessor,
++       evolutionExperiences,
++       resultProcessing,
++       taskQuality,
++       planningCorrections,
++       profileSkillInputResolver,
++       goalInputInference,
++       cognitiveEntryRouter,
++       taskUnderstanding,
++       taskWaitTimeouts,
++       taskAttemptDispatch,
++       refreshCapabilityCatalog,
++       experienceOutboxDispatcher,
++       experienceReconciler,
++       observationReconciler,
++       reflectionReconciler,
++       experienceCompilation,
++       artifactShadowRuntime,
++       requeueArtifactRevalidations,
++       knowledgePromotion,
++       experienceWorker,
++       observationWorker,
++       reflectionWorker,
++       skillGraph,
++       capabilityCards,
++       taskUnderstandings,
++       deletionPropagation,
++       experienceManagement,
++       taskTypeInduction,
++       configuredTaskTypes,
++       capabilityPatternInduction,
++       cognitiveManagementActionRepository,
++       artifactPromotionGovernance,
++       evaluationInfluences,
++       evaluationAnalytics,
++       caseModelRuntimeRepository,
++       memoryRetention,
++       skillRegistry,
++       skillAuthoring,
++       prompts,
++       skillQuality,
++       evolutionPolicy,
++       cognitiveManagementActions,
++       artifactManagement,
++       governedControlConfirmationQuery,
++       runtimeSkillGovernance,
++       interactiveGoalMetadata,
++       a2aArtifactProjection,
++       managedAgentCards,
++       experienceQueue,
++       observationQueue,
++       reflectionQueue,
++     } = await composeKnowledge({
++       cleanupScope,
++       options,
++       pool,
++       clock,
++       profileSkills,
++       ugvAgentProfile,
++       evolutionExperienceRepository,
++       evolutionPolicyRepository,
++       publishTaskState,
++       deviceWorkScope,
++       taskInputs,
++       queue,
++       mcpRepository,
++       taskCommands,
++       secretCipher,
++       experienceCompilationReady,
++       artifactFlags,
++       candidateGenerationReady,
++       skills,
++       artifactReplayValidationReady,
++       artifactShadowGovernanceReady,
++       artifactManagementReady,
++       homeLabReadOnlyProfile,
++       homeLabGovernedLightProfile,
++       managedCapabilityProfile,
++       tasks,
++       skillGraphRepository,
++       skillDrafts,
++       ugvAvailabilityTarget,
++       interactivePlanningSessions,
++     });
++     const {
++       taskReadiness,
++       mcpRegistry,
++       skillUsage,
++       skillSelection,
++       ugvMoveBindingResolver,
++       frozenMcpRegistry,
++       createDeterministicSkillSelection,
++       mcpProtocolOperations,
++       taskAvailabilityEvidence,
++       ugvSimulationQualification,
++     } = composeMcp({
++       cleanupScope,
++       options,
++       mcpRepository,
++       secretCipher,
++       schemaValidator,
++       frozenMcpClient,
++       clock,
++       ugvAgentProfile,
++       ugvGovernedControlInvocationAuthorizer,
++       governedControlInvocationAuthorizer,
++       tasks,
++       runtimeMcpBindingAuthority,
++       ugvAvailabilityTarget,
++       pool,
++       modelRuntime,
++       profileSkills,
++       skills,
++       skillGraphRepository,
++       skillSelectionRepository,
++       memories,
++       managedCapabilityProfile,
++       homeLabReadOnlyProfile,
++       homeLabGovernedLightProfile,
++     });
++     const { workflowPlanner, ugvWorkflowCandidateGuard } = composePlanning({
++       cleanupScope,
++       options,
++       modelRuntime,
++       workflowValidator,
++       pool,
++       taskCommands,
++       deviceWorkScope,
++       workflowSchema,
++       clock,
++       skillComposition,
++       workflowTemplates,
++       memories,
++       homeLabReadOnlyProfile,
++       homeLabGovernedLightProfile,
++       ugvAgentProfile,
++       taskReadiness,
++     });
++     const {
++       workflowTaskAuthority,
++       deterministicCapabilityLease,
++       workflowPlans,
++       skillCallWorkflows,
++       remoteTaskAdmission,
++       remoteTaskAdmissionIntents,
++       remoteTaskReconciliationAttempts,
++       ugvRemoteTaskLifecycle,
++       remoteTaskRepository,
++       skillCallAncestry,
++       workflowAncestry,
++       executionExceptionDecider,
++       remoteTaskProviderExecutionLinks,
++       remoteTaskCancellation,
++       remoteTaskQueue,
++       remoteTaskContinuationQueue,
++       taskBusinessCommands,
++       remoteTaskReconciler,
++       taskBusinessSync,
++       remoteTaskPolling,
++       remoteTaskContinuationQueueName,
++       remoteTaskCancellationProcessor,
++       remoteTaskCancellationQueueName,
++       remoteTaskCancellationReconciler,
++       frozenTaskNotifications,
++       remoteTaskCancellationQueue,
++     } = composeRemoteTasks({
++       cleanupScope,
++       options,
++       pool,
++       deviceWorkScope,
++       mcpRepository,
++       secretCipher,
++       clock,
++       frozenMcpClient,
++       schemaValidator,
++       contextSerial,
++       taskBusinessRepository,
++       mcpRegistry,
++       governedControlConfirmationService,
++       runtimeMcpBindingAuthority,
++       taskCommands,
++       modelRuntime,
++       memories,
++       ugvAgentProfile,
++       remoteTaskInput,
++     });
++     const {
++       workflowInstances,
++       workflowExecution,
++       skillCallWorkflowService,
++       workflowRevision,
++       workflowContinuations,
++       skillConfirmation,
++       workflowChildCalls,
++     } = composeExecution({
++       cleanupScope,
++       options,
++       tasks,
++       workflowTaskAuthority,
++       modelRuntime,
++       deterministicCapabilityLease,
++       workflowPlans,
++       skillCallWorkflows,
++       mcpRepository,
++       taskReadiness,
++       taskCapabilities,
++       ugvAgentProfile,
++       ugvMoveWorkflowAuthority,
++       remoteTaskAdmission,
++       remoteTaskAdmissionIntents,
++       clock,
++       mcpRegistry,
++       remoteTaskReconciliationAttempts,
++       ugvRemoteTaskLifecycle,
++       ugvMovePositionPolicy,
++       governedControlAuthorityRepository,
++       remoteTaskRepository,
++       recordSkillProjectionSafely,
++       skillExecutionRecording,
++       skillCallAncestry,
++       workflowAncestry,
++       executionExceptionDecider,
++       workflowCallCosts,
++       pool,
++       taskCommands,
++       deviceWorkScope,
++       workflowValidator,
++       remoteTaskProviderExecutionLinks,
++       remoteTaskCancellation,
++       skills,
++       workflowBudgetDefaults,
++       skillGraphRepository,
++       workflowPlanner,
++       schemaValidator,
++       resolveSkillUsageContext,
++       skillUsage,
++       skillComposition,
++       resolveSkillUsageSlotChoices,
++       skillExecutionRepository,
++     });
++     const {
++       goalPatches,
++       userGoalPlanController,
++       goalCancellations,
++       userGoalRecovery,
++       goalService,
++       userGoalPlanning,
++       ugvInitialAdmission,
++       userGoalRuntimeRepository,
++       interactiveActions,
++       fastGateway,
++       fastGatewayContexts,
++       templateRuntime,
++     } = composeCognitive({
++       cleanupScope,
++       options,
++       goals,
++       contexts,
++       clock,
++       pool,
++       deviceWorkScope,
++       ugvAgentProfile,
++       taskCapabilities,
++       profileSkills,
++       skills,
++       publishTaskState,
++       taskCommands,
++       runtimeTerminalOutcomes,
++       modelRuntime,
++       managedCapabilityProfile,
++       homeLabGovernedLightProfile,
++       homeLabReadOnlyProfile,
++       planningKnowledge,
++       capabilitySummaries,
++       interactivePlanningSessions,
++       interactivePlanningRepository,
++       cognitiveModel,
++       planningCorrectionObserver,
++       interactiveGoalSessions,
++       artifactAuthorityReady,
++       artifactFlags,
++       fastGatewayRepository,
++       workflowInstances,
++       workflowExecution,
++       workflowPlans,
++       workflowPlanner,
++       service,
++       skillInputResolution,
++       taskInputs,
++     });
++     const {
++       remoteTaskAdmissionRecovery,
++       backgroundExecutions,
++       backgroundExecutionErrors,
++       resolveTaskWorkflowControlId,
++     } = await composeTasks({
++       cleanupScope,
++       options,
++       resolveDeviceOwnership,
++       contexts,
++       tasks,
++       events,
++       skillDrafts,
++       taskInputs,
++       taskCapabilities,
++       taskCapabilityRepository,
++       ugvAgentProfile,
++       homeLabReadOnlyProfile,
++       homeLabGovernedLightProfile,
++       cognitiveModel,
++       schemaValidator,
++       clock,
++       remoteTaskInput,
++       skillInputResolutionRepository,
++       queue,
++       ids,
++       memories,
++       implicitFeedback,
++       ugvGovernedControlManagement,
++       emergencyControlManagement,
++       governedControlManagement,
++       weaponControlManagement,
++       skillCallWorkflowService,
++       workflowExecution,
++       recordSkillProjectionSafely,
++       skillExecutionRecording,
++       workflowController,
++       projectSkillExecutionControl,
++       workflowRevision,
++       goalPatches,
++       taskCommands,
++       workflowInstances,
++       userGoalPlanController,
++       goalCancellations,
++       remoteTaskAdmissionIntents,
++       remoteTaskAdmission,
++       remoteTaskRepository,
++       workflowContinuations,
++       remoteTaskReconciliationAttempts,
++       remoteTaskProviderExecutionLinks,
++       mcpRegistry,
++       ugvMoveWorkflowAuthority,
++       ugvRemoteTaskLifecycle,
++       ugvMovePositionPolicy,
++       skills,
++       mcpRepository,
++       governedControlAuthorityRepository,
++       resultProcessor,
++       service,
++       ugvMoveTerminalOutcomeAuthority,
++       processor,
++     });
++     const {
++       skillGoalSelectionRecords,
++       temporarySkillResolver,
++       remoteTaskContinuation,
++       remoteTaskContinuationReconciler,
++       temporarySkillOperations,
++       skillEvolution,
++     } = composeController({
++       cleanupScope,
++       options,
++       pool,
++       workflowPlans,
++       goals,
++       skillConfirmation,
++       workflowPlanner,
++       workflowExecution,
++       ugvMoveTerminalOutcomeAuthority,
++       modelRuntime,
++       memories,
++       userGoalRecovery,
++       taskCapabilities,
++       evolutionExperiences,
++       service,
++       skillSelection,
++       resolveSkillUsageContext,
++       skills,
++       processor,
++       ugvAgentProfile,
++       homeLabGovernedLightProfile,
++       homeLabReadOnlyProfile,
++       temporarySkillRepository,
++       resultProcessing,
++       mcpRepository,
++       resultProcessor,
++       taskBusinessRepository,
++       taskQuality,
++       userGoalPlanController,
++       skillExecutionRecording,
++       planningCorrections,
++       clock,
++       skillCallWorkflows,
++       workflowChildCalls,
++       skillCallWorkflowService,
++       workflowContinuations,
++       recordSkillProjectionSafely,
++       remoteTaskRepository,
++       remoteTaskQueue,
++       remoteTaskContinuationQueue,
++       remoteTaskInput,
++       deviceWorkScope,
++       tasks,
++       events,
++       mcpRegistry,
++       schemaValidator,
++       contextSerial,
++       publishTaskState,
++       taskBusinessCommands,
++       evolutionPolicyRepository,
++       skillExecutionRepository,
++       workflowController,
++       projectSkillExecutionControl,
++     });
++     composePreparation({
++       cleanupScope,
++       options,
++       processor,
++       tasks,
++       events,
++       clock,
++       ids,
++       taskCapabilities,
++       modelRuntime,
++       memories,
++       goalService,
++       skills,
++       profileSkillInputResolver,
++       userGoalPlanning,
++       ugvInitialAdmission,
++       userGoalRuntimeRepository,
++       goals,
++       profileSkills,
++       managedCapabilityProfile,
++       ugvAgentProfile,
++       resolveSkillUsageContext,
++       skillSelection,
++       skillGoalSelectionRecords,
++       temporarySkillResolver,
++       goalInputInference,
++       taskInputs,
++       cognitiveEntryRouter,
++       taskUnderstanding,
++       interactiveGoalSessions,
++       interactivePlanningSessions,
++       interactiveActions,
++       fastGateway,
++       fastGatewayContexts,
++       service,
++       workflowController,
++       remoteTaskInput,
++       workflowPlans,
++       temporarySkillRepository,
++       skillSelectionRepository,
++       skillComposition,
++       resolveSkillUsageSlotChoices,
++       ugvMoveBindingResolver,
++       skillInputResolutionRepository,
++       mcpRepository,
++       workflowPlanner,
++       ugvWorkflowCandidateGuard,
++       skillConfirmation,
++       skillExecutionRecording,
++       ugvMoveWorkflowAuthority,
++       workflowExecution,
++       recordSkillProjectionSafely,
++       projectSkillExecutionControl,
++       resolveTaskWorkflowControlId,
++     });
++     const { businessEventCoordinator, startBusinessEventsProvider, businessEventIngressTimer } =
++       await composeBusinessEvents({
++         cleanupScope,
++         options,
++         userGoalRuntimeRepository,
++         mcpOutboundFetch,
++         clock,
++         remoteTaskReconciler,
++         workflowExecution,
++         tasks,
++         service,
++         remoteTaskRepository,
++         mcpRepository,
++         secretCipher,
++         taskBusinessSync,
++         taskBusinessRepository,
++       });
++     const {
++       foregroundActivity,
++       waitSweepTimer,
++       attemptDispatchTimer,
++       capabilityCatalogRefreshTimer,
++       providerBindingReconciliationTimer,
++       experienceDispatchTimer,
++       evidenceExportTimer,
++       evidenceOperationsMaintenanceTimer,
++       runtimeCoreEvidenceProjectionTimer,
++       remoteTaskReconcileTimer,
++       remoteTaskContinuationReconcileTimer,
++       remoteTaskCancellationReconcileTimer,
++       businessRefreshTimer,
++       remoteTaskWorker,
++       remoteTaskContinuationWorker,
++       remoteTaskCancellationWorker,
++       worker,
++     } = await composeBackground({
++       cleanupScope,
++       options,
++       taskWaitTimeouts,
++       service,
++       taskAttemptDispatch,
++       refreshCapabilityCatalog,
++       mcpRepository,
++       frozenMcpRegistry,
++       experienceOutboxDispatcher,
++       experienceReconciler,
++       clock,
++       observationReconciler,
++       reflectionReconciler,
++       experienceCompilation,
++       artifactShadowRuntime,
++       requeueArtifactRevalidations,
++       artifactOutboxConsumer,
++       pool,
++       evidenceExport,
++       evidenceOperations,
++       deviceWorkScope,
++       canonicalEvidenceProjectionPipeline,
++       evidenceQualityEvaluator,
++       episodeEvidenceCoverageProjectionPipeline,
++       evidenceInfrastructureProjectionPipeline,
++       queueName,
++       processor,
++       contextSerial,
++       remoteTaskPolling,
++       remoteTaskContinuation,
++       remoteTaskContinuationQueueName,
++       remoteTaskCancellationProcessor,
++       remoteTaskCancellationQueueName,
++       taskBusinessSync,
++       taskBusinessCommands,
++       remoteTaskReconciler,
++       remoteTaskAdmissionRecovery,
++       remoteTaskContinuationReconciler,
++       remoteTaskCancellationReconciler,
++       knowledgePromotion,
++       experienceWorker,
++       observationWorker,
++       reflectionWorker,
++       businessRefreshCompletion,
++       evidenceExportInFlight,
++       evidenceOperationsMaintenanceInFlight,
++       runtimeCoreEvidenceProjection,
++       providerBindingReconciliationInFlight,
++     });
++     const { deterministicCapabilityExecutions } = composeDeterministic({
++       cleanupScope,
++       options,
++       skillExecutionRecording,
++       tasks,
++       workflowExecution,
++       skillExecutionRepository,
++       skills,
++       mcpRegistry,
++       workflowBudgetDefaults,
++       workflowCallCosts,
++       service,
++       resultProcessor,
++       deterministicCapabilityLease,
++       managedCapabilityProfile,
++       mcpRepository,
++       clock,
++       goalService,
++       createDeterministicSkillSelection,
++       skillInputResolution,
++       skillComposition,
++       workflowPlanner,
++       recordSkillProjectionSafely,
++     });
++     return await composeHttp({
++       cleanupScope,
++       options,
++       pool,
++       skillGraph,
++       capabilitySummaries,
++       capabilityCards,
++       taskUnderstandings,
++       interactiveGoalSessions,
++       processor,
++       interactivePlanningSessions,
++       planningCorrections,
++       deletionPropagation,
++       experienceManagement,
++       taskTypeInduction,
++       configuredTaskTypes,
++       capabilityPatternInduction,
++       knowledgePromotion,
++       cognitiveManagementActionRepository,
++       artifactPromotionGovernance,
++       goalService,
++       goalPatches,
++       goalCancellations,
++       service,
++       taskWaitTimeouts,
++       resultProcessing,
++       taskQuality,
++       implicitFeedback,
++       evaluationInfluences,
++       evaluationAnalytics,
++       events,
++       fastGatewayRepository,
++       caseModelRuntimeRepository,
++       skillExecutionRepository,
++       runtimeTerminalOutcomes,
++       memories,
++       memoryRetention,
++       goalInputInference,
++       skillInputResolution,
++       mcpRegistry,
++       mcpProtocolOperations,
++       frozenMcpRegistry,
++       businessEventCoordinator,
++       startBusinessEventsProvider,
++       frozenTaskNotifications,
++       userGoalRuntimeRepository,
++       skillRegistry,
++       skillAuthoring,
++       modelRuntime,
++       prompts,
++       goals,
++       skillSelection,
++       resolveSkillUsageContext,
++       skillQuality,
++       workflowTemplates,
++       temporarySkillOperations,
++       skillEvolution,
++       evolutionExperiences,
++       evolutionPolicy,
++       workflowValidator,
++       workflowPlanner,
++       workflowExecution,
++       tasks,
++       workflowController,
++       workflowRevision,
++       taskAvailabilityEvidence,
++       deviceWorkScope,
++       remoteTaskPolling,
++       remoteTaskCancellation,
++       taskBusinessCommands,
++       taskBusinessRepository,
++       cognitiveManagementActions,
++       deterministicCapabilityExecutions,
++       artifactManagement,
++       governedControlManagement,
++       governedControlConfirmationQuery,
++       ugvAgentProfile,
++       emergencyControlManagement,
++       weaponControlManagement,
++       runtimeSkillGovernance,
++       clock,
++       evidenceExport,
++       evidenceOperations,
++       taskCommands,
++       ugvSimulationQualification,
++       foregroundActivity,
++       interactiveGoalMetadata,
++       taskStateNotifier,
++       profileSkills,
++       a2aArtifactProjection,
++       taskCapabilities,
++       managedAgentCards,
++       planningKnowledge,
++       artifactRegistry,
++       templateRuntime,
++       fastGateway,
++       artifactShadowRuntime,
++       skillDrafts,
++       skills,
++       resultProcessor,
++       skillCallWorkflows,
++       workflowInstances,
++       waitSweepTimer,
++       attemptDispatchTimer,
++       capabilityCatalogRefreshTimer,
++       providerBindingReconciliationTimer,
++       experienceDispatchTimer,
++       evidenceExportTimer,
++       evidenceOperationsMaintenanceTimer,
++       runtimeCoreEvidenceProjectionTimer,
++       remoteTaskReconcileTimer,
++       remoteTaskContinuationReconcileTimer,
++       remoteTaskCancellationReconcileTimer,
++       businessEventIngressTimer,
++       businessRefreshTimer,
++       taskBusinessSync,
++       businessRefreshCompletion,
++       remoteTaskWorker,
++       remoteTaskContinuationWorker,
++       remoteTaskCancellationWorker,
++       experienceWorker,
++       observationWorker,
++       reflectionWorker,
++       experienceCompilation,
++       worker,
++       remoteTaskQueue,
++       remoteTaskContinuationQueue,
++       remoteTaskCancellationQueue,
++       experienceQueue,
++       observationQueue,
++       reflectionQueue,
++       queue,
++       backgroundExecutions,
++       evidenceExportInFlight,
++       evidenceOperationsMaintenanceInFlight,
++       runtimeCoreEvidenceProjection,
++       providerBindingReconciliationInFlight,
++       backgroundExecutionErrors,
++       resolveTaskWorkflowControlId,
++     });
++   } catch (error: unknown) {
++     try {
++       await cleanupScope.dispose();
++     } catch (cleanupError: unknown) {
++       throw new AggregateError([error, cleanupError], 'Runtime assembly and cleanup failed.', {
++         cause: cleanupError,
++       });
++     }
++     throw error;
++   }
++ }
++
+
+ ❯ packages/persistence-postgres/test/artifact-shadow-p06.contract.test.ts:90:21
+     88|     expect(application).toContain('await currentState.readEnrollmentCu…
+     89|     expect(application).toContain('await currentState.readCurrent({ ru…
+     90|     expect(runtime).toContain('enrollArtifactShadow');
+       |                     ^
+     91|     expect(runtime).toContain('artifactShadowRuntime?.service.enroll(i…
+     92|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 62 passed (63)
+      Tests  1 failed | 551 passed (552)
+   Start at  11:59:16
+   Duration  35.37s (transform 6.32s, setup 0ms, import 28.86s, tests 30.85s, environment 8ms)
+
+[ELIFECYCLE] Command failed with exit code 1.

@@ -1,0 +1,8 @@
+$ eslint .
+
+/tmp/sdar-verify-8a7208ca-412e-4f0c-bec8-62822a43edaa-VS8B3h/source/scripts/check-planning-boundaries.mjs
+  47:1  error  'console' is not defined  no-undef
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

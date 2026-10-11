@@ -1,0 +1,2 @@
+$ node scripts/verify-project-license.mjs
+Project Apache-2.0 license, NOTICE, metadata, and README verified.

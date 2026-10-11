@@ -1,0 +1,46 @@
+{
+  "capturedAt": "2026-10-11T07:31:11.704310+00:00",
+  "sourceRuntimeCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+  "os": "Linux 6.8.0-124-generic x86_64 GNU/Linux",
+  "node": "v22.23.2",
+  "pnpm": "11.25.0",
+  "python": "3.12.14",
+  "pythonPathPrefix": "/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin",
+  "dockerClient": "29.3.0",
+  "dockerServer": "29.3.0",
+  "pnpm_config_verify_deps_before_run": "false",
+  "versionCommands": [
+    [
+      "uname",
+      "-srmo"
+    ],
+    [
+      "node",
+      "--version"
+    ],
+    [
+      "pnpm",
+      "--version"
+    ],
+    [
+      "/home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "--version"
+    ],
+    [
+      "docker",
+      "version",
+      "--format",
+      "{{.Client.Version}}/{{.Server.Version}}"
+    ]
+  ],
+  "versionCommandsExitCode": 0,
+  "performanceEnvironmentNote": "The unchanged historical performance test JSON includes a literal Windows environment label. The actual current run is Linux as captured here and in the owned PostgreSQL/Docker fixture; original test output is preserved without rewriting. It is a local relative regression benchmark, not a production SLO.",
+  "classification": {
+    "database": "REAL_OWNED_LOOPBACK",
+    "model": "SIMULATED_LOOPBACK",
+    "mcp": "SIMULATED_LOOPBACK",
+    "site": "NOT_RUN",
+    "physicalProvider": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  }
+}

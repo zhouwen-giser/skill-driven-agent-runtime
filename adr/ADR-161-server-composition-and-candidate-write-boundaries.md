@@ -1,6 +1,6 @@
 # ADR-161: Server composition and candidate write boundaries
 
-Status: Accepted for implementation (explicit user-approved plan, 2026-10-11). Verification pending.
+Status: Accepted; local implementation verified (explicit user-approved plan, 2026-10-11). Git publication pending.
 
 ## Context
 
@@ -23,3 +23,5 @@ TaskBusiness operation support is an explicit application port supplied by the i
 Negative architecture fixtures, candidate/commit regressions, existing ordinary/UGV/SMPP/GOWM contract and E2E paths, full isolated milestone gates and a final frozen install plus restricted-role GOWM run. Exact run identities are recorded in the ExecPlan and traceability matrix when actually run.
 
 The pre-refactor frozen source reproduces the current host performance failure. Following the existing accepted `reports/resource-identity-20260909/performance-isolated.json` practice, the isolated test driver uses a separate owned real PostgreSQL tmpfs data directory and the same pinned Redis for the unchanged relative performance case. Functional, integration, migration and recovery tests keep persistent volumes. Sample design and all three numerical limits are unchanged; the fixture records resolved Compose hash, image IDs, ownership and cleanup, and outer cleanup covers a killed child. This changes only local verification infrastructure, with no production configuration, dependency or schema change.
+
+Full M1–M4 isolated gates pass all 30 stages each. Final fresh frozen install and runtime input `65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5` match runtime commit `870e94b6`; 2650 unit, 552 contract, 270 integration and 77 E2E tests pass. Same frozen local inputs pass eight restricted-role GOWM steps, two formal E2E cases and 26 native boundary scenarios. Case results, unchanged baseline/protocol/dependency checks, original logs and failed attempts are retained in `reports/server-composition-planning-boundaries/20261011-local/`. Site/deployment are NOT_RUN; original project-level upstream gaps remain open.

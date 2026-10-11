@@ -1,6 +1,6 @@
 # EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES
 
-Status: IN_PROGRESS (2026-10-11, Asia/Shanghai). Base: a230bac9b61e6cf901a91c094dbfe63704717fce. Publication is authorized; site operations and deployment are NOT_RUN.
+Status: LOCAL_VERIFIED_PUBLICATION_PENDING (2026-10-11, Asia/Shanghai). Base: a230bac9b61e6cf901a91c094dbfe63704717fce. Publication is authorized; site operations and deployment are NOT_RUN.
 
 ## 1. Purpose / Outcome
 
@@ -21,10 +21,10 @@ Explicit typed composition stages retain construction/recovery order and one ins
 ## 5. Progress
 
 - [x] 2026-10-11 Base verified clean and implementation branch created.
-- [ ] M1: 15 typed composition stages and resource cleanup implemented; focused lifecycle/processor PASS. Full gate retries pending (obsolete source-layout assertion repaired; later transient projection read failed E2E).
-- [ ] M2: internal UGV profile, shared confirmation ports, separate PostgreSQL reader and MCP transport factory implemented; 173 focused tests PASS. Full gate passed through E2E, then failed because system Python lacks ensurepip. Retry uses bundled Python; product code is unchanged.
-- [ ] M3: User Goal/Workflow generators and commit services, candidate-only interactive/experience injection, formal initial-task orchestration implemented; 85 planning/audit and 57 TaskBusiness/profile focused tests PASS; isolated gate and restricted-role GOWM check running.
-- [ ] M4: final frozen-install gate, restricted-role GOWM verification and publication.
+- [x] M1: 15 typed composition stages and resource cleanup verified. Full isolated `sdar-verify-8e80b7f4-b164-4987-aa1f-361a129a99b5` PASS, all 30 stages; 2633 unit / 552 contract / 270 integration / 77 E2E. Runtime inputs and baseline unchanged, cleanup 0. Raw logs/hash manifest in M1_VALIDATION.json. Earlier contract/projection/host performance failures preserved.
+- [x] M2: internal UGV profile, shared confirmation ports, separate PostgreSQL reader and MCP transport factory verified. Full isolated `sdar-verify-e035b76b-81fd-4413-834a-06a939bec908` PASS, all 30 stages; 2633 unit / 552 contract / 270 integration / 77 E2E. Runtime inputs and baseline unchanged, cleanup 0. Raw logs/hash manifest in M2_VALIDATION.json. Prior lint/TCK/image failures retained.
+- [x] M3: User Goal/Workflow generators and commit services, candidate-only interactive/experience injection and formal initial-task orchestration verified. Full isolated `sdar-verify-53662b2d-8114-4df1-8c51-889c8d1d7898` PASS, all 30 stages; 2650 unit / 552 contract / 270 integration / 77 E2E. Runtime inputs and baseline unchanged, cleanup 0. All 2024 local runtime inputs and six external verification inputs match commit 870e94b6; M3_VALIDATION.json and M3_SOURCE_IDENTITY.json retain exact identities.
+- [ ] M4: final `pnpm verify:isolated -- --frozen` PASS (`sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b`), all 30 stages, 2650 unit / 552 contract / 270 integration / 77 E2E, frozen install 0, cleanup 0 and unchanged inputs/baseline. Restricted-role GOWM `sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8` PASS on the same local frozen inputs: 8 steps, 2 formal E2E cases, 26 native boundary scenarios; consumer DDL/private SMPP update denied, two owned containers cleaned up. M4_VALIDATION.json and GOWM_VALIDATION.json retain raw evidence. Git publication/CI/normal merge remains pending.
 
 ## 6. Discoveries and Surprises
 
@@ -67,4 +67,4 @@ Evidence root: `reports/server-composition-planning-boundaries/20261011-local`. 
 
 ## 12. Outcomes and Retrospective
 
-IN_PROGRESS. No implementation or acceptance claim yet. Final outcomes must identify actual boundary changes, test counts, limitations and merged revision.
+Local refactor acceptance is verified: 15 typed composition stages, internal UGV/SMPP policy boundaries and writer-free User Goal/Workflow generators with formal submission services. Four complete 30-stage gates PASS; final runtime input 65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5 matches commit 870e94b6. Sixteen local acceptance groups PASS, Git delivery remains pending, and site/deployment remain NOT_RUN. Same-source restricted-role GOWM passes; original project-level upstream gaps remain open. Nine failed full-gate attempts and diagnostics are preserved. Publication is recorded only after actual CI and merge.

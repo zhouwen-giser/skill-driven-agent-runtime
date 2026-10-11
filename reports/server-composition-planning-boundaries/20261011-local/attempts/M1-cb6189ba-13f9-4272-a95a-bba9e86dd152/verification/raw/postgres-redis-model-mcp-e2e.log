@@ -1,0 +1,333 @@
+$ node scripts/test-e2e.mjs
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 807B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.pgvector-hardened
+#2 transferring dockerfile: 48B
+#2 transferring dockerfile: 2.40kB 0.3s done
+#2 DONE 0.3s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#3 DONE 0.3s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#4 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#5 DONE 0.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 132B done
+#6 DONE 0.1s
+
+#7 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#7 DONE 0.0s
+
+#8 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#8 DONE 0.0s
+
+#9 [1/4] FROM docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+#9 resolve docker.io/library/postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4 0.0s done
+#9 DONE 0.0s
+
+#10 [2/4] ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44   https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz   /tmp/pgvector.tar.gz
+#10 CACHED
+
+#11 [3/4] ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644   https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE   /usr/share/doc/su-exec/LICENSE
+#11 CACHED
+
+#12 [4/4] RUN set -eux;     test "0" = "0";     test "0.8.5" = "0.8.5";     test "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44";     test "0.5-r3" = "0.5-r3";     test "0.3-r0" = "0.3-r0";     apk add --no-cache --virtual .pgvector-build-deps "build-base=0.5-r3";     mkdir /tmp/pgvector;     tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector;     make -C /tmp/pgvector clean;     make -C /tmp/pgvector OPTFLAGS="" with_llvm=no;     make -C /tmp/pgvector install with_llvm=no;     mkdir -p /usr/share/doc/pgvector;     cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/;     rm -rf /tmp/pgvector /tmp/pgvector.tar.gz;     apk del .pgvector-build-deps;     apk add --no-cache "su-exec=0.3-r0";     sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh;     rm /usr/local/bin/gosu
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:7f6404676b6a2c03b1bc76df58091360dd5847f277d0d3ecd39d0977a57596c1 done
+#13 exporting config sha256:72e64370196bf189252b5c2b33703af3a420f1016618d6bed9258d6692b62025 done
+#13 naming to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 done
+#13 unpacking to docker.io/sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 0.0s done
+#13 DONE 0.0s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image sdar/postgres-pgvector:17.10-0.8.5-alpine3.23 Built 
+ Network sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152_sdar-local Creating 
+ Network sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152_sdar-local Created 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Creating 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Creating 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Created 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Created 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Starting 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Starting 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Started 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Started 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Waiting 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Waiting 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Healthy 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Healthy 
+
+ RUN  v4.1.10 /tmp/sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-go7Exy/source
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"3d496915-43c9-46d3-9c72-6d503e14037d","workflowPlanId":"plan-task-3d496915-43c9-46d3-9c72-6d503e14037d-9ca3e8ef-6ecf-4e81-8a3e-ec44bbe7a876","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":2,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"7f20dc1f-856f-420b-9938-316f94ccf115","workflowPlanId":"plan-task-7f20dc1f-856f-420b-9938-316f94ccf115-3645bb1f-03ca-4bd8-8f47-59e04291c34e","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"693aeb77-71d2-4702-ab2e-c251df0fdcf6","workflowPlanId":"plan-task-693aeb77-71d2-4702-ab2e-c251df0fdcf6-134b0148-2d8d-4d1c-ace2-6696d3fc4435","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"e701bc68-d5c3-47ce-ac00-04007c0baf70","workflowPlanId":"plan-task-e701bc68-d5c3-47ce-ac00-04007c0baf70-418b16a3-ee6d-4f94-8b2b-fd3a4ffc475f","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"7c58a96f-c02e-45ce-8771-eb91d5499356","workflowPlanId":"plan-task-7c58a96f-c02e-45ce-8771-eb91d5499356-a547bc65-d78e-4f0d-884a-ee26c60d3ccb","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"257da941-4d6c-4f9f-b0e9-95ef540afd24","workflowPlanId":"plan-task-257da941-4d6c-4f9f-b0e9-95ef540afd24-a2dc93c6-563d-42d1-bed0-49a7818a9904","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"48980c7d-3c54-4bad-b97f-852b4a59c8ea","workflowPlanId":"plan-task-48980c7d-3c54-4bad-b97f-852b4a59c8ea-48307ed5-072f-4854-affd-7af07a0cfb3c","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"a01c97e5-b154-43e9-b971-887a124c3ce1","workflowPlanId":"plan-task-a01c97e5-b154-43e9-b971-887a124c3ce1-1646c896-3865-45c2-8fdf-de539f00befe","errorCode":"RESULT_SCHEMA_MISMATCH","errorSummary":"Structured result does not conform to the Skill output schema."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":48,"reconciled":44,"alreadyConverged":2,"nonTerminal":2,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-11T05:02:29.105Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+ ✓ |e2e| packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts (64 tests | 1 skipped) 41208ms
+     ✓ routes an ambiguous prompt-injection attempt through persisted Task Understanding  1134ms
+     ✓ uses real pgvector scores as candidate context while the decider makes the final selection  336ms
+     ✓ induces a frequent successful Workflow Template and tracks adjusted reuse effects  1936ms
+     ✓ requires an independent child Skill confirmation before the parent Task can continue  2159ms
+     ✓ retrieves the same globally shared formal Skill for different user_id values  536ms
+     ✓ executes a simulated 'document_normalize' business through default Skill selection and A2A artifacts  447ms
+     ✓ executes a simulated 'data_aggregate' business through default Skill selection and A2A artifacts  551ms
+     ✓ binds prioritized A2A structured Skill input into real MCP arguments  476ms
+     ✓ continues the same Task after a top-level Skill input-required checkpoint  347ms
+     ✓ rejects a generated Task plan when the selected Skill required Tool is missing  528ms
+     ✓ replaces a failed selected Skill only through an alternative plan and fresh confirmation  633ms
+     ✓ pauses before the next real MCP node and resumes without replay  822ms
+     ✓ runs a confirmed Skill through availability, LangGraph, a remote MCP Task, continuation, evaluation, and A2A completion  1044ms
+     ✓ rejects ungoverned embodied.move_to in guidance mode with immediate_success before the Provider boundary  481ms
+     ✓ rejects ungoverned embodied.move_to in template mode with remote_success before the Provider boundary  2839ms
+     ✓ rejects ungoverned embodied.move_to in template mode with remote_notification_success before the Provider boundary  2339ms
+     ✓ rejects ungoverned embodied.move_to in procedure mode with remote_success before the Provider boundary  473ms
+     ✓ rejects ungoverned embodied.move_to in template mode with remote_missing_evidence before the Provider boundary  459ms
+     ✓ rejects ungoverned recursive embodied.area_patrol with remote_success before the Provider boundary  855ms
+     ✓ rejects ungoverned recursive embodied.area_patrol with remote_degraded before the Provider boundary  675ms
+     ✓ blocks embodied.move_to for forbidden area permission before any Provider side effect  478ms
+     ✓ preserves embodied.move_to restricted availability windows for procedure-mode rescheduling  348ms
+     ✓ invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation  443ms
+     ✓ evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds  875ms
+     ✓ projects a Goal-evaluation capability gap onto the persisted A2A Task  926ms
+     ✓ stores source-linked memory and retrieves it globally across user identities  605ms
+     ✓ infers missing Goal input from global memory before asking an explicit question  860ms
+     ✓ continues a Goal-evaluation input request with a new plan and real MCP argument  416ms
+     ✓ configures Memory retention fields while V1 keeps automatic cleanup disabled  319ms
+     ✓ retains repeated Temporary Skill experience while both evolution publication entries remain deferred  778ms
+     ✓ resolves a capability gap into a confirmed task-scoped Temporary Skill execution  306ms
+     ✓ submits, streams, persists, lists, and cancels at the plan-confirmation boundary  669ms
+     ✓ automatically cancels a confirmation wait using the managed unified timeout  1983ms
+     ✓ uses one authoritative Task path for management confirm, reject, and plan revision  977ms
+     ✓ reuses one active Goal across multiple A2A Tasks in the same context  338ms
+     ✓ cancels an active Goal without rewriting an already-terminal sibling Task  443ms
+     ✓ stores create/update Skill requests as drafts without exposing them in Agent Card  431ms
+     ✓ returns schema-validated natural-language and structured final output  1771ms
+     ✓ returns the A2A terminal result even when post-commit Memory enhancement fails  456ms
+     ✓ routes a low-quality report into Skill evidence and an inactive Prompt candidate  531ms
+     ✓ auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results  1356ms
+     ✓ retains Prompt corrections, failure reasons and evaluations without deferred Skill correction publication  438ms
+     ✓ continues after stream disconnect and supports polling plus standard resubscribe  432ms
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-11T05:02:51.478Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-e96bfe04-73cb-4021-8aef-f3d10c3ec23f","errorCode":"FROZEN_MCP_TRANSPORT_FAILED"}]}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":5,"failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MEMORY_DURABILITY_NOT_ADMITTED","message":"Only durable knowledge enters long-term Memory: Synthetic observation is not durable world truth","occurredAt":"2026-10-11T05:03:24.761Z"}
+ ✓ |e2e| apps/server/test/smpp-task-business.e2e.test.ts (2 tests) 50732ms
+     ✓ AC-042/038 vehicle_navigate uses genuine authority, returns complete artifacts and judges the original Task after one dispatch  32356ms
+     ✓ AC-043/038 vehicle_area_recon uses genuine authority, returns complete artifacts and judges the original Task after one dispatch  18374ms
+ ✓ |e2e| apps/server/test/artifact-operational-flags-p13.e2e.test.ts (5 tests) 3756ms
+     ✓ starts every additive Artifact path off by default  1722ms
+     ✓ gates bearer-backed approval and activation while preserving the explicitly enabled path  490ms
+ ✓ |e2e| packages/a2a-adapter/test/fast-gateway-p10.e2e.test.ts (1 test) 5186ms
+ ✓ |e2e| apps/server/test/artifact-management-p12.e2e.test.ts (3 tests) 3054ms
+ ✓ |e2e| apps/server/test/business-events-runtime.e2e.test.ts (1 test) 2837ms
+ ✓ |e2e| packages/persistence-postgres/test/case-model-runtime-p11.e2e.test.ts (1 test) 2113ms
+
+ Test Files  7 passed (7)
+      Tests  76 passed | 1 skipped (77)
+   Start at  13:01:44
+   Duration  128.20s (transform 4.94s, setup 0ms, import 18.11s, tests 108.89s, environment 1ms)
+
+
+ RUN  v4.1.10 /tmp/sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-go7Exy/source
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"phase13.performance.append_raw_metrics","appendP95RawMs":3.190676000000167,"appendSamplesMs":[2.7302719999988767,2.3442660000000615,2.4267109999982495,2.302734999999302,2.325816999999006,2.460478000000876,2.5614910000003874,2.3022320000000036,2.983009999999922,2.5648519999995187,2.7886669999988953,2.4276069999996253,2.401288000000932,2.2895709999993414,2.3260989999998856,2.306120999999621,2.3683169999985694,2.4778910000004544,2.5303660000008676,2.5922480000008363,2.6395830000001297,2.323134000000209,2.4915710000004765,2.3475539999999455,2.4739119999994728,3.028872999999294,2.6151149999986956,2.442711000001509,2.801679999998669,2.627893999999287,2.8159820000000764,2.4787449999985256,2.3085120000014285,2.2857509999994363,2.259184999998979,2.352394000001368,2.37568999999894,2.340124000000287,2.7713800000001356,2.477311999999074,2.585424000000785,2.3171629999997094,2.3964059999998426,2.300982999999178,2.5208830000010494,10.803409000000102,2.4445289999985107,2.3050419999999576,2.4390870000006544,2.8916300000000774,2.294637999999395,2.2073810000001686,2.202627000000575,2.413187000000107,2.3108590000010736,3.8733220000012807,2.768008999999438,3.190676000000167,2.994208999998591,5.326391999999032,2.3891599999988102,2.2720589999989897,2.31221000000005,2.423807000001034,2.379075999999259,2.3964110000015353,2.583056999999826,2.405334999999468,2.494724000000133,2.5662669999983336,2.308336000000054,2.3992439999983617,2.3701290000008157,2.425057000000379,2.962666999999783,2.401914999998553,2.2445999999999913,2.316171000000395,7.921309999999721,9.731486999999106,2.3878999999997177,2.2878030000010767,2.750921999999264,2.620025000000169,2.195985999998811,2.169159999999465,2.2379799999998795,2.3570159999999305,2.2804940000005445,2.448417999999947,2.35490099999879,2.205690999999206,2.1237140000012005,2.115637999999308,2.2236160000011296,2.210468999999648,2.2437559999998484,2.341011000000435,2.2262769999997545,2.1586700000007113],"appendTailMs":[2.962666999999783,2.983009999999922,2.994208999998591,3.028872999999294,3.190676000000167,3.8733220000012807,5.326391999999032,7.921309999999721,9.731486999999106,10.803409000000102],"evidenceOutboxRowCount":"110","forwardReferencePlan":[{"Plan":{"Node Type":"Seq Scan","Parallel Aware":false,"Async Capable":false,"Relation Name":"evidence_outbox","Alias":"evidence_outbox","Startup Cost":0,"Total Cost":13.81,"Plan Rows":1,"Plan Width":32,"Actual Startup Time":0.045,"Actual Total Time":0.046,"Actual Rows":0,"Actual Loops":1,"Filter":"(evidence_refs ? 'phase13-diagnostic-record-id'::text)","Rows Removed by Filter":110,"Shared Hit Blocks":13,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning":{"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.036,"Triggers":[],"Execution Time":0.05}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":76,"reconciled":75,"alreadyConverged":0,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":120,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":123,"reconciled":47,"alreadyConverged":75,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":200,"reconciled":77,"alreadyConverged":122,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"phase13.performance.raw_metrics","baselineP95RawMs":762.3408190000046,"evidenceEnabledP95RawMs":470.61546200000157,"regressionRawPercent":-38.267051918152795,"baselineWindowMediansRawMs":[309.18346050000036,360.4628800000064,403.8511920000019],"baselineMedianDriftRawPercent":26.55347286925897,"appendP95RawMs":3.190676000000167,"appendSamplesMs":[2.7302719999988767,2.3442660000000615,2.4267109999982495,2.302734999999302,2.325816999999006,2.460478000000876,2.5614910000003874,2.3022320000000036,2.983009999999922,2.5648519999995187,2.7886669999988953,2.4276069999996253,2.401288000000932,2.2895709999993414,2.3260989999998856,2.306120999999621,2.3683169999985694,2.4778910000004544,2.5303660000008676,2.5922480000008363,2.6395830000001297,2.323134000000209,2.4915710000004765,2.3475539999999455,2.4739119999994728,3.028872999999294,2.6151149999986956,2.442711000001509,2.801679999998669,2.627893999999287,2.8159820000000764,2.4787449999985256,2.3085120000014285,2.2857509999994363,2.259184999998979,2.352394000001368,2.37568999999894,2.340124000000287,2.7713800000001356,2.477311999999074,2.585424000000785,2.3171629999997094,2.3964059999998426,2.300982999999178,2.5208830000010494,10.803409000000102,2.4445289999985107,2.3050419999999576,2.4390870000006544,2.8916300000000774,2.294637999999395,2.2073810000001686,2.202627000000575,2.413187000000107,2.3108590000010736,3.8733220000012807,2.768008999999438,3.190676000000167,2.994208999998591,5.326391999999032,2.3891599999988102,2.2720589999989897,2.31221000000005,2.423807000001034,2.379075999999259,2.3964110000015353,2.583056999999826,2.405334999999468,2.494724000000133,2.5662669999983336,2.308336000000054,2.3992439999983617,2.3701290000008157,2.425057000000379,2.962666999999783,2.401914999998553,2.2445999999999913,2.316171000000395,7.921309999999721,9.731486999999106,2.3878999999997177,2.2878030000010767,2.750921999999264,2.620025000000169,2.195985999998811,2.169159999999465,2.2379799999998795,2.3570159999999305,2.2804940000005445,2.448417999999947,2.35490099999879,2.205690999999206,2.1237140000012005,2.115637999999308,2.2236160000011296,2.210468999999648,2.2437559999998484,2.341011000000435,2.2262769999997545,2.1586700000007113],"appendTailMs":[2.962666999999783,2.983009999999922,2.994208999998591,3.028872999999294,3.190676000000167,3.8733220000012807,5.326391999999032,7.921309999999721,9.731486999999106,10.803409000000102]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":240,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+ ❯ |e2e| packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts (64 tests | 1 failed | 63 skipped) 141928ms
+     ↓ routes an ambiguous prompt-injection attempt through persisted Task Understanding
+     ↓ registers, persists, discovers, and calls a remote MCP Tool without restart
+     ↓ refreshes the public Agent Card when enabled skills change
+     ↓ rebuilds and serves the deterministic Capability Summary after Skill catalog changes
+     ↓ publishes an allowlisted Public Capability Card and serves A2A only from its active snapshot
+     ↓ validates, imports, reads, filters and lifecycle-versions a formal Skill Package
+     ↓ registers model-authored valid Schemas through the management boundary
+     ↓ routes an other-vendor Provider through the non-OpenAI Messages adapter
+     ↓ keeps automatic Prompt candidates inactive until publish and links new calls to the published version
+     ↓ fails the stage without fallback and audits the configured upstream failure
+     ↓ uses real pgvector scores as candidate context while the decider makes the final selection
+     ↓ raises a low-quality warning without disabling or repairing the enabled Skill
+     ↓ induces a frequent successful Workflow Template and tracks adjusted reuse effects
+     ↓ creates, lists, and deletes persisted Skill Graph relations through management HTTP
+     ↓ validates Workflow DSL against current PostgreSQL Skill and MCP Tool definitions
+     ↓ executes skill_call as an independent LangGraph child Workflow using the current Skill version
+     ↓ requires an independent child Skill confirmation before the parent Task can continue
+     ↓ retrieves the same globally shared formal Skill for different user_id values
+     ↓ executes a simulated 'document_normalize' business through default Skill selection and A2A artifacts
+     ↓ executes a simulated 'data_aggregate' business through default Skill selection and A2A artifacts
+     ↓ binds prioritized A2A structured Skill input into real MCP arguments
+     ↓ continues the same Task after a top-level Skill input-required checkpoint
+     ↓ rejects a generated Task plan when the selected Skill required Tool is missing
+     ↓ replaces a failed selected Skill only through an alternative plan and fresh confirmation
+     ↓ pauses before the next real MCP node and resumes without replay
+     ↓ feeds invalid Workflow DSL back to the same model and persists the corrected plan
+     ↓ validates an admin DAG edit, revokes the old confirmation, then confirms and executes the revision
+     ↓ binds Workflow input into a real MCP call only after plan confirmation
+     ↓ runs a confirmed Skill through availability, LangGraph, a remote MCP Task, continuation, evaluation, and A2A completion
+     ↓ rejects ungoverned embodied.move_to in guidance mode with immediate_success before the Provider boundary
+     ↓ rejects ungoverned embodied.move_to in template mode with remote_success before the Provider boundary
+     ↓ rejects ungoverned embodied.move_to in template mode with remote_notification_success before the Provider boundary
+     ↓ rejects ungoverned embodied.move_to in procedure mode with remote_success before the Provider boundary
+     ↓ rejects ungoverned embodied.move_to in template mode with remote_missing_evidence before the Provider boundary
+     ↓ rejects ungoverned recursive embodied.area_patrol with remote_success before the Provider boundary
+     ↓ rejects ungoverned recursive embodied.area_patrol with remote_degraded before the Provider boundary
+     ↓ blocks embodied.move_to for missing target position before any Provider side effect
+     ↓ blocks embodied.move_to for forbidden area permission before any Provider side effect
+     ↓ preserves embodied.move_to restricted availability windows for procedure-mode rescheduling
+     ↓ persists a standalone LangGraph human interrupt and rejects continuation without Task authority
+     ↓ uses the fixed LLM stage for the final execution-exception decision
+     ↓ invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation
+     ↓ evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds
+     ↓ projects a Goal-evaluation capability gap onto the persisted A2A Task
+     ↓ stores source-linked memory and retrieves it globally across user identities
+     ↓ infers missing Goal input from global memory before asking an explicit question
+     ↓ continues a Goal-evaluation input request with a new plan and real MCP argument
+     ↓ configures Memory retention fields while V1 keeps automatic cleanup disabled
+     ↓ retains repeated Temporary Skill experience while both evolution publication entries remain deferred
+     ↓ resolves a capability gap into a confirmed task-scoped Temporary Skill execution
+     ↓ runs the documented example A2A client through plan confirmation and Mock MCP
+     ↓ submits, streams, persists, lists, and cancels at the plan-confirmation boundary
+     ↓ automatically cancels a confirmation wait using the managed unified timeout
+     ↓ uses one authoritative Task path for management confirm, reject, and plan revision
+     ↓ reuses one active Goal across multiple A2A Tasks in the same context
+     ↓ cancels an active Goal without rewriting an already-terminal sibling Task
+     ↓ stores create/update Skill requests as drafts without exposing them in Agent Card
+     ↓ returns schema-validated natural-language and structured final output
+     ↓ returns the A2A terminal result even when post-commit Memory enhancement fails
+     ↓ routes a low-quality report into Skill evidence and an inactive Prompt candidate
+     ↓ auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results
+     × keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds 108886ms
+     ↓ retains Prompt corrections, failure reasons and evaluations without deferred Skill correction publication
+     ↓ continues after stream disconnect and supports polling plus standard resubscribe
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |e2e| packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts > A2A TaskService endpoint with real PostgreSQL and Redis > keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds
+AssertionError: expected 26.55347286925897 to be less than or equal to 15
+ ❯ packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts:6853:47
+    6851|         }
+    6852|         expect(receivedRecords).toBeGreaterThan(0);
+    6853|         expect(baselineMedianDriftRawPercent).toBeLessThanOrEqual(15);
+       |                                               ^
+    6854|         expect(regressionRawPercent).toBeLessThanOrEqual(10);
+    6855|         expect(appendP95RawMs).toBeLessThanOrEqual(20);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 63 skipped (64)
+   Start at  13:03:53
+   Duration  148.80s (transform 4.69s, setup 0ms, import 6.69s, tests 141.93s, environment 0ms)
+
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Stopping 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Stopping 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Stopped 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Removing 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Stopped 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Removing 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-redis-1 Removed 
+ Container sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-postgres-1 Removed 
+ Network sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152_sdar-local Removing 
+ Network sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152_sdar-local Removed 
+file:///tmp/sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-go7Exy/source/scripts/test-e2e.mjs:77
+  if (result.status !== 0) throw new Error(`E2E_COMMAND_FAILED: ${command} ${args.join(' ')}`);
+                                 ^
+
+Error: E2E_COMMAND_FAILED: /home/sz/.nvm/versions/node/v22.23.2/bin/node node_modules/vitest/vitest.mjs run --project e2e packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds
+    at run (file:///tmp/sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-go7Exy/source/scripts/test-e2e.mjs:77:34)
+    at file:///tmp/sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152-go7Exy/source/scripts/test-e2e.mjs:48:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.23.2
+[ELIFECYCLE] Command failed with exit code 1.

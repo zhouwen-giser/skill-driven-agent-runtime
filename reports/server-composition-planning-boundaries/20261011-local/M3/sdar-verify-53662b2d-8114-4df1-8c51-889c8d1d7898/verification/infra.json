@@ -1,0 +1,21 @@
+{
+  "name": "infra",
+  "command": "pnpm verify:infra",
+  "status": "passed",
+  "startedAt": "2026-10-11T07:44:15.082Z",
+  "finishedAt": "2026-10-11T07:44:23.139Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/infra.log",
+  "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 8057,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 8,
+    "peakRssBytes": 169226240,
+    "peakProcesses": 1
+  },
+  "cleanupErrors": []
+}
