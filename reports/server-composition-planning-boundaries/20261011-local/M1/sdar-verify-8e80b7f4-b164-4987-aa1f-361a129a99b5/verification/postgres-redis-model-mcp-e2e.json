@@ -1,0 +1,24 @@
+{
+  "name": "postgres-redis-model-mcp-e2e",
+  "command": "pnpm test:e2e",
+  "status": "passed",
+  "startedAt": "2026-10-11T06:43:56.430Z",
+  "finishedAt": "2026-10-11T06:49:06.618Z",
+  "timeoutMs": 360000,
+  "logPath": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+  "outputSha256": "a3763e640f545d3ba216285d730fc59ccac14f29b044d59b8dd0eb816488ca6a",
+  "metrics": {
+    "testFiles": 8,
+    "tests": 77
+  },
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 310188,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 310,
+    "peakRssBytes": 2451013632,
+    "peakProcesses": 7
+  },
+  "cleanupErrors": []
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "FAIL",
+  "runId": "sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "failedStage": "postgres-redis-model-mcp-e2e",
+  "cause": "Unchanged P13 benchmark baseline window drift 18.242244529999986% exceeds unchanged 15% limit. Runtime regression 4.653735600306576%, append P95 2.4594209999995655 ms.",
+  "integrationTestsPassed": 271,
+  "functionalE2ePassed": 76,
+  "performanceCase": "FAIL",
+  "performanceResultFile": "Inherited historical JSON is not current evidence: assertion fails before result write. Actual raw metrics and failed assertion are preserved in the current stage log.",
+  "restrictedRoleGowm": "PASS, two formal E2E / 30 native scenarios on exact same local frozen inputs",
+  "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

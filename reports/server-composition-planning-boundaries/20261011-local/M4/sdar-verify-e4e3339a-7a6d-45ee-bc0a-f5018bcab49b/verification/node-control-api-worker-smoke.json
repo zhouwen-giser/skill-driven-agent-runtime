@@ -1,0 +1,21 @@
+{
+  "name": "node-control-api-worker-smoke",
+  "command": "pnpm smoke:node-control",
+  "status": "passed",
+  "startedAt": "2026-10-11T08:44:03.387Z",
+  "finishedAt": "2026-10-11T08:45:45.909Z",
+  "timeoutMs": 300000,
+  "logPath": "reports/verification/raw/node-control-api-worker-smoke.log",
+  "outputSha256": "4c1876f38a51815b38207cb843e13eb7d4d517106a80007e31e9da1ae6621baa",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 102522,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 103,
+    "peakRssBytes": 2087878656,
+    "peakProcesses": 12
+  },
+  "cleanupErrors": []
+}

@@ -7,7 +7,7 @@ import {
   type UserGoalCompletionContract,
   type UserGoalPlan,
 } from '../../../domain/src/index.js';
-import type { UserGoalPlanningService } from '../user-goal-planning.js';
+import type { UserGoalCandidateGenerator } from '../user-goal-candidate-generator.js';
 import type { PlanningExperienceContext } from './planning-experience-context-builder.js';
 
 export type ExperienceFallbackReason =
@@ -53,7 +53,7 @@ export class BasePlannerFallbackPolicy {
 }
 
 export class ExperienceEnrichedUserGoalPlanningService {
-  readonly #base: Pick<UserGoalPlanningService, 'generateCandidate'>;
+  readonly #base: Pick<UserGoalCandidateGenerator, 'generateCandidate'>;
   readonly #contexts: Readonly<{
     build(input: ExperiencePlanningInput): Promise<PlanningExperienceContext>;
   }>;
@@ -62,7 +62,7 @@ export class ExperienceEnrichedUserGoalPlanningService {
 
   constructor(
     dependencies: Readonly<{
-      base: Pick<UserGoalPlanningService, 'generateCandidate'>;
+      base: Pick<UserGoalCandidateGenerator, 'generateCandidate'>;
       contexts: Readonly<{
         build(input: ExperiencePlanningInput): Promise<PlanningExperienceContext>;
       }>;
@@ -157,7 +157,7 @@ export class ExperienceEnrichedUserGoalPlanningService {
   }
 
   #baseResult(
-    generated: Awaited<ReturnType<UserGoalPlanningService['generateCandidate']>>,
+    generated: Awaited<ReturnType<UserGoalCandidateGenerator['generateCandidate']>>,
     mode: CognitiveInjectionMode,
     fallbackReason?: ExperienceFallbackReason,
     context?: PlanningExperienceContext,
@@ -179,7 +179,7 @@ export class ExperienceEnrichedUserGoalPlanningService {
 
   #generateBase(
     input: ExperiencePlanningInput,
-  ): ReturnType<UserGoalPlanningService['generateCandidate']> {
+  ): ReturnType<UserGoalCandidateGenerator['generateCandidate']> {
     return this.#base.generateCandidate({ goal: input.goal, taskId: input.taskId });
   }
 }

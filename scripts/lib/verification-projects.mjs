@@ -5,5 +5,6 @@ export function verificationProjects(runId) {
     { name: runId, file: 'compose.yaml' },
     { name: `${runId}-control-smoke`, file: 'compose.node-control.yaml' },
     { name: `${runId}-runtime-smoke`, file: 'compose.yaml' },
+    { name: `${runId}-e2e-performance`, file: 'compose.verification-performance.yaml' },
   ];
 }

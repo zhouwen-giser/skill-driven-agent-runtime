@@ -1,0 +1,21 @@
+{
+  "name": "protocol",
+  "command": "pnpm verify:protocol",
+  "status": "passed",
+  "startedAt": "2026-10-11T09:36:56.518Z",
+  "finishedAt": "2026-10-11T09:37:04.316Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/protocol.log",
+  "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 7798,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 8,
+    "peakRssBytes": 266493952,
+    "peakProcesses": 2
+  },
+  "cleanupErrors": []
+}

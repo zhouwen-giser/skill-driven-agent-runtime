@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "currentFrozenRun": "sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433",
+  "testedGowmRun": "sdar-smpp-gowm-5542f350-6926-4f09-a400-ffba1a6b0e03",
+  "testedGowmFrozenRun": "sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "classes": {
+    "runtime": {
+      "files": 2031,
+      "sha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+      "status": "IDENTICAL"
+    },
+    "baseline": {
+      "files": 845,
+      "sha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+      "status": "IDENTICAL"
+    }
+  },
+  "sameLocalFrozenRuntimeAndBaselineInputs": true,
+  "localFiles": 2870,
+  "localRuntimeInputSha256": "0c0c1cc40da0c8870da363816814240703cee7bb0fec305326751388cde7cdab",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "note": "The passing restricted-role run uses an earlier byte-identical frozen snapshot. Complete runtime and baseline manifests agree, including all local GOWM inputs and six external verification inputs. Progress reports have separate classification; no retest of identical passing role scenarios is needed."
+}

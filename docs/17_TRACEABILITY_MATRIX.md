@@ -1601,3 +1601,25 @@ Canonical source Artifacts preserve all retained bytes, while published trajecto
 absence and event history gaps remain explicit. Receipt acceptance is separate from observed
 application; protocol completed alone cannot satisfy a Skill success policy. Original GOWM
 auxiliary-link and temporary-Skill upstream gaps elsewhere in this document remain open.
+
+
+## Server composition and planning authority refactor (2026-10-11)
+
+Scoped implementation plan: `execplans/EP-SERVER-COMPOSITION-PLANNING-BOUNDARIES.md`; decision: ADR-161.
+Current post-review local validation is **VERIFIED**. [Case results](../reports/server-composition-planning-boundaries/20261011-local/CASE_RESULTS.json) map seventeen local acceptance groups to actual tests, commands and log hashes. Original M1/M2/M3 and new final M4 pass all 30 stages; frozen commit 6b3fc0e2 / input 57f82abc… verifies 2652 unit / 552 contract / 271 integration / 77 E2E. Same-source restricted-role GOWM passes eight steps, two formal E2E and 30 native scenarios. Old accepted versions and failures remain preserved. Git CI/publication is pending.
+
+| Baseline requirement | Current implementation | Regression and acceptance evidence |
+| --- | --- | --- |
+| NFR-MNT-001 | `apps/server/src/composition/`; stable `runtime.ts` facade; `packages/ugv-profile/src/`; `mcp-adapter/src/smpp-task-business-transport.ts` | `server-composition-lifecycle.unit`; `check-planning-boundaries.mjs` (8 rejected architecture fixtures); RF-01/02/15/16, M1–M4_VALIDATION.json |
+| FR-EXE-001/002 | User Goal/Workflow candidate generators and formal commit services; `application/src/task-plan-preparation.ts` | `workflow-planner.unit` (candidate success/failure/late/tamper/idempotence and evidence-before-confirmation); `user-goal-planning.unit`; `interactive-planning.unit`; `experience-enriched-planning.unit`; existing ordinary/automatic-confirmation E2E; RF-03–09, M4_VALIDATION.json |
+| FR-EXE-003/007 | Existing Task/Goal/Workflow lifecycle writers; Profile admission/guard/evidence policies | `plan-preparation-processor.unit` (Capability binding before Task publication); `ugv-agent-profile-execution.integration`; existing Goal Patch/revision CAS/terminal E2E; RF-05/06/08/12 |
+| FR-EXE-006/008/009 | Existing Remote Task, TaskBusiness and continuation kernel; exact Profile authorization | `ugv-move-workflow-continuation.integration`; `smpp-task-business.e2e`; `task-business-operation-profile.unit`; existing permissions/parameter/input/cancel/recovery/no-replay tests; RF-10–12 |
+| FR-EXE-001/002, GOWM device ownership | `PostgresWorkflowPlanRepository.saveCandidateAttempt`; formal ordered audit commit; read-only planning readiness | `workflow-candidate-audit.unit` (actual Pool, zero candidate SQL); `workflow-planner.unit` deferred audit sequence; restricted-role GOWM runtime driver; RF-13, GOWM_VALIDATION.json |
+
+No migrations, runtime dependencies or protocol pins are changed. Site reads/writes and deployment remain `NOT_RUN`; Git commit/push/merge are separately authorized by the user.
+
+PR36 review fixes: `PostgresWorkflowPlanRepository.savePlanWithAudits` groups deferred audit/root, readiness, source CAS and final submission in one transaction; plan/confirmed-definition reads reload durable planning readiness. `workflow-plan-commit.postgres-cases.ts` is executed by the existing real PostgreSQL integration suite and the restricted-role GOWM driver. Its four scenarios PASS in the current-source full integration gate and same-source restricted-role GOWM; RF-18, M4_VALIDATION.json and GOWM_VALIDATION.json contain exact evidence. Git publication is pending. Evidence: `reports/server-composition-planning-boundaries/20261011-local/review-fixes/focused/`. FR-EXE-001/002/007 and GOWM ownership remain affected.
+
+Verification reliability: P08 `task-revision-authority.integration` controls expiry through a checked `expireAction` SQL transition while keeping the existing nominal test lease alive through unrelated I/O. Three response-loss/partial-effect cases retain all assertions; production leases are unchanged. Failed post-review freeze and unchanged-source 10/10 focused pass are retained under `review-fixes/`. These exact assertions pass in the final complete frozen integration gate (M4_VALIDATION.json), alongside the new formal regressions; original failures remain preserved.
+
+The existing projection/takeover regression in `repositories.integration` observes real PostgreSQL lease expiry and the takeover connection blocked on a Lock. It retains the original owner/attempt/order assertions and 30-second timeout and fails promptly on early projection errors. Focused case and final complete frozen integration gate PASS; the second post-review failed freeze remains preserved with its original source/logs in `review-fixes/failed-full/`.

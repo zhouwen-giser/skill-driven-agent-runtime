@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-11 — server composition and planning boundaries
+
+PR36 review fixes: retain authoritative planning readiness on idempotent/confirmed-definition reads, and atomically persist deferred GOWM attempts/root, readiness, source CAS and final plan. Four real PostgreSQL regressions run through ordinary integration and restricted-role GOWM. Final frozen gate `sdar-verify-5db2a153-cc6d-4e7d-b9dd-ddbb7f4b5433` passes all 30 stages on runtime commit `6b3fc0e2` / input `57f82abc…`: 2652 unit, 552 contract, 271 integration and 77 E2E; fresh install and cleanup exit 0. Byte-identical frozen inputs pass two formal GOWM E2E and 30 native scenarios. All thirteen failed full attempts remain failures with raw evidence retained. Git publication is pending; site/deployment NOT_RUN.
+
+Split server composition into fifteen typed stages with owned startup-failure cleanup. Isolate UGV/SMPP policies across application/server and centralize SMPP transport construction. Immutable User Goal/Workflow generators now use read/model/audit ports; formal services own plan persistence, CAS, idempotence and failed-plan records. Initial Task evidence/automatic confirmation follows formal commit, preserving Capability binding before Task publication. Public contracts, Task semantics, safety defaults, migrations and runtime dependencies are preserved.
+
+Pre-review version: M1–M4 each pass all 30 isolated gates; final fresh frozen install: 2650 unit, 552 contract, 270 integration and 77 E2E. Same-source restricted-role GOWM: eight steps, two formal E2E and 26 native scenarios PASS. Original performance limits pass with owned tmpfs PostgreSQL for the unchanged benchmark, separately from persistent-store gates; failure history is retained. Evidence: `reports/server-composition-planning-boundaries/20261011-local/`; ADR-161 and the ExecPlan. Git publication remains pending; site/deployment NOT_RUN.
+
 - 2026-10-11: SMPP v1.3 M3 passes the complete 30-stage isolated gate on unchanged input 5d63724f…; preserve every failed attempt. W4 adds native source Artifacts, geometry/outcome evidence and real Registry/Skill/Task navigation and RequiredInput E2E. Final W4/W5 gate and GOWM verification remain in progress.
 
 ## 2026-10-10 — SMPP v1.3 upgrade in progress

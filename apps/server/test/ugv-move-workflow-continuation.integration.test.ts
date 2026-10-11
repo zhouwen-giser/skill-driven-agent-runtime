@@ -7,7 +7,6 @@ import {
   WorkflowValidator,
   canonicalHash,
   createMcpProviderDispatchHash,
-  ugvGovernedControlConfirmationId,
   type Clock,
   type ContextSerialGate,
   type GovernedControlConfirmation,
@@ -20,6 +19,7 @@ import {
   type WorkflowExecutionRepository,
   type WorkflowPlanRepository,
 } from '../../../packages/application/src/index.js';
+import { ugvGovernedControlConfirmationId } from '../../../packages/ugv-profile/src/index.js';
 import {
   createRemoteTaskBinding,
   transitionWorkflowContinuationLifecycle,

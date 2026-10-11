@@ -10,6 +10,7 @@ import { verifyGowmPlanningCorrectionCases } from '../packages/persistence-postg
 import { verifyGowmRecoveryCases } from '../packages/persistence-postgres/test/gowm-recovery.postgres-cases.js';
 import { verifyGowmRemoteCases } from '../packages/persistence-postgres/test/gowm-remote.postgres-cases.js';
 import { verifyGowmTargetCases } from '../packages/persistence-postgres/test/gowm-targets.postgres-cases.js';
+import { verifyWorkflowPlanCommitCases } from '../packages/persistence-postgres/test/workflow-plan-commit.postgres-cases.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -250,6 +251,14 @@ if (!url || !consumerUrl || !peerUrl || process.env['GOWM_BUSINESS_SMOKE_ENABLE'
     for (const scenario of await verifyGowmProjectionCases(pool, scope, run))
       results.push({ scenario, status: 'PASS' });
     for (const scenario of await verifyGowmPlanningCorrectionCases(pool, scope, run))
+      results.push({ scenario, status: 'PASS' });
+    for (const scenario of await verifyWorkflowPlanCommitCases(
+      pool,
+      `${run}-workflow-commit`,
+      goalContract,
+      scope,
+      `${run}-task-0`,
+    ))
       results.push({ scenario, status: 'PASS' });
     for (const scenario of await verifyGowmEvidenceCases(pool, scope, run))
       results.push({ scenario, status: 'PASS' });

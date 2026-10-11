@@ -1,0 +1,19 @@
+{
+  "project": "sdar-verify-focused-revision-30e10fa8-0b4f-402c-ba39-6a3134b27a98",
+  "source": "/tmp/sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848-i6mWRV/source",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "sourceOverlay": [],
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+  "command": [
+    "pnpm",
+    "test:integration",
+    "--",
+    "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"
+  ],
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "scope": "focused_task_revision_on_fresh_owned_loopback_postgres",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

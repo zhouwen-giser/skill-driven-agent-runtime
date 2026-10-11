@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 import {
-  resolveUgvProfileProviderSuccessOutputSchema,
   SkillPackageImporter,
   SkillPackageValidator,
 } from '../../../packages/application/src/index.js';
+import { resolveUgvProfileProviderSuccessOutputSchema } from '../../../packages/ugv-profile/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
   MCP_UNAUTHENTICATED_CREDENTIAL_REF,

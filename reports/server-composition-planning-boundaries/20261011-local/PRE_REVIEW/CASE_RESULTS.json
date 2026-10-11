@@ -1,0 +1,524 @@
+{
+  "schemaVersion": 1,
+  "scope": "server_composition_planning_authority_refactor",
+  "status": "LOCAL_VERIFIED_PUBLICATION_PENDING",
+  "sourceCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+  "runtimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
+  "baselineSha256": "a2eb495293ef1fab9cb7ef457c22627d220cda59541cb5d5303b67a36c4fbf8d",
+  "cases": [
+    {
+      "id": "RF-01",
+      "status": "PASS",
+      "claim": "Owned partial startup cleanup, fail-closed late ports and normal runtime shutdown",
+      "requirements": [
+        "NFR-MNT-001"
+      ],
+      "tests": [
+        "apps/server/test/server-composition-lifecycle.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        },
+        {
+          "stage": "infrastructure-smoke",
+          "command": "pnpm smoke:infra",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/infrastructure-smoke.log",
+          "rawLogSha256": "3c4c528fa9e52a4b0e1f13ce9789a91c261390b3401f9e6f482c9d417428460e"
+        },
+        {
+          "stage": "server-console-smoke",
+          "command": "pnpm smoke:server",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/server-console-smoke.log",
+          "rawLogSha256": "f125b7a39a2f2802738c783119e8f6962e52c88c53d905043d82d82da20653a7"
+        },
+        {
+          "stage": "node-control-api-worker-smoke",
+          "command": "pnpm smoke:node-control",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/node-control-api-worker-smoke.log",
+          "rawLogSha256": "4c1876f38a51815b38207cb843e13eb7d4d517106a80007e31e9da1ae6621baa"
+        }
+      ]
+    },
+    {
+      "id": "RF-02",
+      "status": "PASS",
+      "claim": "Generic core reverse dependency, Profile terminal/adapter/SDK dependency and candidate writer negative fixtures are rejected",
+      "requirements": [
+        "NFR-MNT-001"
+      ],
+      "tests": [],
+      "evidence": [
+        {
+          "stage": "architecture",
+          "command": "pnpm verify:architecture",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/architecture.log",
+          "rawLogSha256": "fb27c46406b5d10e0696b4147c907ef96aeb8d233dfb5a07e3f99182a66cc436"
+        }
+      ]
+    },
+    {
+      "id": "RF-03",
+      "status": "PASS",
+      "claim": "User Goal success, failure and late candidates have no formal write port and remain immutable",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002"
+      ],
+      "tests": [
+        "packages/application/test/user-goal-planning.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        }
+      ]
+    },
+    {
+      "id": "RF-04",
+      "status": "PASS",
+      "claim": "Workflow success, failure, late and tampered candidates cannot publish formal plans",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002"
+      ],
+      "tests": [
+        "packages/application/test/workflow-planner.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        }
+      ]
+    },
+    {
+      "id": "RF-05",
+      "status": "PASS",
+      "claim": "Formal failure persistence, source CAS, inherited confirmation and confirmed-plan idempotence remain authoritative",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002",
+        "FR-EXE-007"
+      ],
+      "tests": [
+        "packages/application/test/workflow-planner.unit.test.ts",
+        "packages/application/test/user-goal-planning.unit.test.ts",
+        "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        },
+        {
+          "stage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-integration.log",
+          "rawLogSha256": "ce0096e83c11225bce28d37179519ddd4c42d67a13667d7c9ff3a60f430e2923"
+        }
+      ]
+    },
+    {
+      "id": "RF-06",
+      "status": "PASS",
+      "claim": "Initial formal plan/evidence precede confirmation, and native Capability binding precedes Task plan publication",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002",
+        "FR-EXE-003"
+      ],
+      "tests": [
+        "packages/application/test/workflow-planner.unit.test.ts",
+        "packages/application/test/plan-preparation-processor.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        }
+      ]
+    },
+    {
+      "id": "RF-07",
+      "status": "PASS",
+      "claim": "Interactive and experience paths use candidate generation without formal submission",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002"
+      ],
+      "tests": [
+        "packages/application/test/interactive-planning.unit.test.ts",
+        "packages/application/test/experience-enriched-planning.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        }
+      ]
+    },
+    {
+      "id": "RF-08",
+      "status": "PASS",
+      "claim": "Goal Patch, revision, replan and child workflow retain original invalidation and immutable execution authority",
+      "requirements": [
+        "FR-EXE-007",
+        "FR-EXE-008",
+        "FR-EXE-009"
+      ],
+      "tests": [
+        "packages/application/test/goal-patch-service.unit.test.ts",
+        "packages/application/test/workflow-revision.unit.test.ts",
+        "packages/application/test/subworkflow-execution.unit.test.ts",
+        "packages/application/test/skill-call-workflow.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        }
+      ]
+    },
+    {
+      "id": "RF-09",
+      "status": "PASS",
+      "claim": "Ordinary and UGV manual/automatic confirmation paths retain confirmation-before-dispatch safety",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002"
+      ],
+      "tests": [
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+        "apps/server/test/ugv-agent-profile-execution.integration.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "rawLogSha256": "d7b0f4e002df96b2716853cead72de67f73f9442f30c5a9efb621e7a6c18a1ac"
+        },
+        {
+          "stage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-integration.log",
+          "rawLogSha256": "ce0096e83c11225bce28d37179519ddd4c42d67a13667d7c9ff3a60f430e2923"
+        }
+      ]
+    },
+    {
+      "id": "RF-10",
+      "status": "PASS",
+      "claim": "Exact Profile authority, parameter/permission drift rejection and one-time confirmation remain enforced",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002"
+      ],
+      "tests": [
+        "packages/application/test/governed-control-authority.unit.test.ts",
+        "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+        "apps/server/test/task-business-operation-profile.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        }
+      ]
+    },
+    {
+      "id": "RF-11",
+      "status": "PASS",
+      "claim": "Input, cancellation, remote wait restoration and continuation do not authorize replay",
+      "requirements": [
+        "FR-EXE-006",
+        "FR-EXE-008",
+        "FR-EXE-009"
+      ],
+      "tests": [
+        "packages/application/test/remote-task-input.unit.test.ts",
+        "packages/application/test/remote-task-cancellation.unit.test.ts",
+        "packages/application/test/remote-task-continuation.unit.test.ts",
+        "apps/server/test/ugv-move-workflow-continuation.integration.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        },
+        {
+          "stage": "postgres-redis-integration",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-integration.log",
+          "rawLogSha256": "ce0096e83c11225bce28d37179519ddd4c42d67a13667d7c9ff3a60f430e2923"
+        }
+      ]
+    },
+    {
+      "id": "RF-12",
+      "status": "PASS",
+      "claim": "Frozen SMPP TaskBusiness navigation/recon execution, source evidence and original Task outcomes remain compatible",
+      "requirements": [
+        "FR-EXE-003",
+        "NFR-MNT-001"
+      ],
+      "tests": [
+        "apps/server/test/smpp-task-business.e2e.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "contract",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/contract.log",
+          "rawLogSha256": "8a242dad0af8f86e22e70f87c389ff66eda1c73e490f0fd00cdcd9c8c09c5f8d"
+        },
+        {
+          "stage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "rawLogSha256": "d7b0f4e002df96b2716853cead72de67f73f9442f30c5a9efb621e7a6c18a1ac"
+        }
+      ]
+    },
+    {
+      "id": "RF-13",
+      "status": "PASS",
+      "claim": "GOWM candidate audit issues zero SQL; final frozen runtime passes two restricted-role formal cases and 26 native boundary scenarios without consumer DDL/private SMPP updates",
+      "requirements": [
+        "FR-EXE-001",
+        "FR-EXE-002",
+        "FR-EXE-003"
+      ],
+      "tests": [
+        "packages/persistence-postgres/test/workflow-candidate-audit.unit.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "unit",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/unit.log",
+          "rawLogSha256": "79f3f0381e19517e592aecdf98504ab2d4582f5e53b80b2185203879b5c20817"
+        },
+        {
+          "validation": "reports/server-composition-planning-boundaries/20261011-local/GOWM_VALIDATION.json",
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/raw/runner.log",
+          "rawLogSha256": "7019f5d85c9d5cd300b2dab2428363fc46584bb3a627108844eb0bfaf247c459",
+          "command": [
+            "node",
+            "scripts/sdar-smpp-v13/verify-gowm.mjs"
+          ],
+          "exitCode": 0,
+          "formalCases": [
+            {
+              "operation": "vehicle_area_recon",
+              "taskId": "62295b00-e7fa-4a9b-8b2a-549c980d47b1",
+              "deviceId": "business-device-a5dc17e9-3b49-4b75-b82c-02bf6a2e1cc3",
+              "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/formal-vehicle_area_recon-a5dc17e9-3b49-4b75-b82c-02bf6a2e1cc3/evidence.json"
+            },
+            {
+              "operation": "vehicle_navigate",
+              "taskId": "9a839045-9033-48ae-b119-8e1f3070e160",
+              "deviceId": "business-device-9c45517c-c13a-4952-bf4c-a8f816203420",
+              "evidence": "reports/server-composition-planning-boundaries/20261011-local/GOWM/sdar-smpp-gowm-d30c19aa-7c08-4828-a288-ad0f2bd409f8/formal-vehicle_navigate-9c45517c-c13a-4952-bf4c-a8f816203420/evidence.json"
+            }
+          ],
+          "nativeScenarioCount": 26
+        }
+      ]
+    },
+    {
+      "id": "RF-14",
+      "status": "PASS",
+      "claim": "No dependency, migration, schema/protocol pin or authoritative requirement baseline change",
+      "requirements": [
+        "NFR-MNT-001"
+      ],
+      "tests": [],
+      "evidence": [
+        {
+          "validation": "reports/server-composition-planning-boundaries/20261011-local/BASELINE_COMPATIBILITY.json",
+          "command": [
+            "git",
+            "diff",
+            "--exit-code",
+            "a230bac9b61e6cf901a91c094dbfe63704717fce..870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+            "--",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml",
+            ":(glob)**/package.json",
+            "infra",
+            "protocol",
+            "contracts",
+            "schemas",
+            "third_party"
+          ],
+          "exitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "RF-15",
+      "status": "PASS",
+      "claim": "Every formal milestone passes the complete 30-stage isolated gate; final dependencies install from the frozen lockfile",
+      "requirements": [],
+      "planCheck": "User-approved milestone and frozen-install acceptance",
+      "tests": [],
+      "evidence": [
+        {
+          "milestone": "M1",
+          "validation": "reports/server-composition-planning-boundaries/20261011-local/M1_VALIDATION.json",
+          "command": [
+            "pnpm",
+            "verify:isolated"
+          ],
+          "exitCode": 0,
+          "runtimeInputSha256": "c7fcdc39a5a677e652c7ca9365b95565829a1feed555c8b8742d6c9231c224c6",
+          "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+          "cleanupExitCode": 0
+        },
+        {
+          "milestone": "M2",
+          "validation": "reports/server-composition-planning-boundaries/20261011-local/M2_VALIDATION.json",
+          "command": [
+            "pnpm",
+            "verify:isolated"
+          ],
+          "exitCode": 0,
+          "runtimeInputSha256": "1e11cda1342b72f425a79d272c48e705f955930dd5fcd0e3f6ac3c5c41ef49ac",
+          "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+          "cleanupExitCode": 0
+        },
+        {
+          "milestone": "M3",
+          "validation": "reports/server-composition-planning-boundaries/20261011-local/M3_VALIDATION.json",
+          "command": [
+            "pnpm",
+            "verify:isolated"
+          ],
+          "exitCode": 0,
+          "runtimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
+          "sourceCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+          "cleanupExitCode": 0
+        },
+        {
+          "milestone": "M4",
+          "validation": "reports/server-composition-planning-boundaries/20261011-local/M4_VALIDATION.json",
+          "command": [
+            "pnpm",
+            "verify:isolated",
+            "--",
+            "--frozen"
+          ],
+          "exitCode": 0,
+          "runtimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
+          "sourceCommit": "870e94b6bfa9ba4889e28c90abd2caf2258420e6",
+          "cleanupExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "RF-16",
+      "status": "PASS",
+      "claim": "Unchanged performance regression case passes original limits on owned tmpfs PostgreSQL, separately from durable-store gates",
+      "requirements": [],
+      "tests": [
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+      ],
+      "evidence": [
+        {
+          "stage": "postgres-redis-model-mcp-e2e",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "rawLog": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "rawLogSha256": "d7b0f4e002df96b2716853cead72de67f73f9442f30c5a9efb621e7a6c18a1ac"
+        },
+        {
+          "performanceResult": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/performance-result.json",
+          "fixture": "reports/server-composition-planning-boundaries/20261011-local/M4/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b/verification/performance-fixture.json",
+          "actualEnvironment": "reports/server-composition-planning-boundaries/20261011-local/verification-environment.json"
+        }
+      ]
+    },
+    {
+      "id": "RF-17",
+      "status": "PENDING_PUBLICATION",
+      "claim": "GitHub CI and merge must use the tested runtime inputs",
+      "requirements": [],
+      "planCheck": "User-authorized Git delivery",
+      "tests": [],
+      "evidence": []
+    },
+    {
+      "id": "RF-SITE",
+      "status": "NOT_RUN",
+      "claim": "Site reads, provider actions and physical device operations",
+      "requirements": [],
+      "planCheck": "User-defined execution safety boundary",
+      "tests": [],
+      "evidence": [],
+      "reason": "Not authorized in this refactor scope."
+    },
+    {
+      "id": "RF-DEPLOY",
+      "status": "NOT_RUN",
+      "claim": "Deployment",
+      "requirements": [],
+      "planCheck": "User-defined execution safety boundary",
+      "tests": [],
+      "evidence": [],
+      "reason": "Not authorized in this refactor scope."
+    }
+  ],
+  "limitations": {
+    "modelsAndMcp": "SIMULATED_LOOPBACK",
+    "databases": "REAL_OWNED_LOOPBACK",
+    "a2aTck": "Existing http_json MUST profile; other transports/tests remain deselected/skipped as before.",
+    "gowmProjectAcceptance": "INCOMPLETE",
+    "knownUpstreamGaps": [
+      "auxiliary-link-contract-gap.json"
+    ],
+    "wholeProjectReleaseReadiness": "NOT_CLAIMED"
+  }
+}

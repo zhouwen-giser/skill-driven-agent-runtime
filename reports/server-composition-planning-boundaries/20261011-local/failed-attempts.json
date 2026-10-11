@@ -1,0 +1,1666 @@
+{
+  "scope": "owned_isolated_local_validation",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "attempts": [
+    {
+      "milestone": "M1",
+      "runId": "sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d",
+      "originalReportDirectory": "/home/sz/code/skill-driven-agent-runtime/reports/runtime-semantic-closure/sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "715c995e471503beae37b0340b241eee4691046c191c5a25cbbd33aa3d33a73f",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "contract"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-7a85074a-52d6-4fdd-894a-588583cd950d/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-7a85074a-52d6-4fdd-894a-588583cd950d/verification/raw/verification-runner-contract.log",
+          "outputSha256": "ccfe85d542a3e19210a640f3205bf760ed541e09f4e48de6338d229945fb572a"
+        },
+        {
+          "name": "lint",
+          "status": "passed",
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-7a85074a-52d6-4fdd-894a-588583cd950d/verification/raw/lint.log",
+          "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+        },
+        {
+          "name": "typecheck",
+          "status": "passed",
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-7a85074a-52d6-4fdd-894a-588583cd950d/verification/raw/typecheck.log",
+          "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+        },
+        {
+          "name": "unit",
+          "status": "passed",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-7a85074a-52d6-4fdd-894a-588583cd950d/verification/raw/unit.log",
+          "outputSha256": "9236eee950bb87fd09f774f648499dec64391029ed4003c166abc18e1ce1a590"
+        },
+        {
+          "name": "contract",
+          "status": "failed",
+          "command": "pnpm test:contract",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-7a85074a-52d6-4fdd-894a-588583cd950d/verification/raw/contract.log",
+          "outputSha256": "28168228dd0dc4f1a5fdf00a05ee527a6ca4b684437692dd209571161a56d068"
+        }
+      ]
+    },
+    {
+      "milestone": "M1",
+      "runId": "sdar-verify-f98ab0a9-b25c-46e0-8090-4e61c62d32ef",
+      "originalReportDirectory": "/tmp/sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d-zNKeEU/retry-source/reports/runtime-semantic-closure/sdar-verify-f98ab0a9-b25c-46e0-8090-4e61c62d32ef",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "ad2e8e97732c40ffc442a735aa2cf1e170eed36b9a95760d866caf39eeb57dc3",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "postgres-redis-model-mcp-e2e"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/verification-runner-contract.log",
+          "outputSha256": "413421cc16902b1ad1523d51b7f366a75645b1b709de6b85f101af60e7f890e1"
+        },
+        {
+          "name": "lint",
+          "status": "passed",
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/lint.log",
+          "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+        },
+        {
+          "name": "typecheck",
+          "status": "passed",
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/typecheck.log",
+          "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+        },
+        {
+          "name": "unit",
+          "status": "passed",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/unit.log",
+          "outputSha256": "bc7b122d991894d7a203e2021df1cd7926d780ffdd38ef587b0a88149a048c58"
+        },
+        {
+          "name": "contract",
+          "status": "passed",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/contract.log",
+          "outputSha256": "5f3657880430ad5aa785e263afcb09bfde5e8c660f8d941f4183fa4b172f1cbb"
+        },
+        {
+          "name": "evidence-contract",
+          "status": "passed",
+          "command": "pnpm verify:evidence-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/evidence-contract.log",
+          "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+        },
+        {
+          "name": "evidence-coverage",
+          "status": "passed",
+          "command": "pnpm verify:evidence-coverage",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/evidence-coverage.log",
+          "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+        },
+        {
+          "name": "architecture",
+          "status": "passed",
+          "command": "pnpm verify:architecture",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/architecture.log",
+          "outputSha256": "b33f05b11900d0ef3ad84d871c1a3b1f84a3733914e4a41983549c714ca4b985"
+        },
+        {
+          "name": "a2a-baseline",
+          "status": "passed",
+          "command": "pnpm verify:a2a-baseline",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/a2a-baseline.log",
+          "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+        },
+        {
+          "name": "management-openapi",
+          "status": "passed",
+          "command": "pnpm verify:management-openapi",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/management-openapi.log",
+          "outputSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+        },
+        {
+          "name": "node-control-contract",
+          "status": "passed",
+          "command": "pnpm verify:node-control-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/node-control-contract.log",
+          "outputSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+        },
+        {
+          "name": "node-control-implementation-conformance",
+          "status": "passed",
+          "command": "pnpm verify:node-control-implementation-conformance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/node-control-implementation-conformance.log",
+          "outputSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+        },
+        {
+          "name": "smpp-registry-projection",
+          "status": "passed",
+          "command": "pnpm verify:smpp-registry-projection",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/smpp-registry-projection.log",
+          "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+        },
+        {
+          "name": "acceptance",
+          "status": "passed",
+          "command": "pnpm verify:acceptance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/acceptance.log",
+          "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+        },
+        {
+          "name": "sources",
+          "status": "passed",
+          "command": "pnpm verify:sources",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/sources.log",
+          "outputSha256": "afc76a78fae858c36a152e810dd22eb4343e71c01783d7d75d091bfe4fed646c"
+        },
+        {
+          "name": "protocol",
+          "status": "passed",
+          "command": "pnpm verify:protocol",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/protocol.log",
+          "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+        },
+        {
+          "name": "infra",
+          "status": "passed",
+          "command": "pnpm verify:infra",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/infra.log",
+          "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+        },
+        {
+          "name": "project-license",
+          "status": "passed",
+          "command": "pnpm verify:project-license",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/project-license.log",
+          "outputSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+        },
+        {
+          "name": "licenses",
+          "status": "passed",
+          "command": "pnpm verify:licenses",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/licenses.log",
+          "outputSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+        },
+        {
+          "name": "build",
+          "status": "passed",
+          "command": "pnpm build",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/build.log",
+          "outputSha256": "eedbb1743147d7e95ac5ef16eabb696e75c0c7c83a0edcf065fe0e1dec49f2b0"
+        },
+        {
+          "name": "cognitive-replay-no-physical-provider",
+          "status": "passed",
+          "command": "pnpm verify:cognitive-replay",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/cognitive-replay-no-physical-provider.log",
+          "outputSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2"
+        },
+        {
+          "name": "clean-baseline-reset-seed",
+          "status": "passed",
+          "command": "pnpm verify:migrations",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/clean-baseline-reset-seed.log",
+          "outputSha256": "29e3666c03e79953f0837e727715fb173f7b72599d3daa6bad463c8d77d89916"
+        },
+        {
+          "name": "postgres-redis-integration",
+          "status": "passed",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/postgres-redis-integration.log",
+          "outputSha256": "53e98779aa8237c270e9654385c4fcd0ec6e3aefb23bd070106bbdaa51ed9941"
+        },
+        {
+          "name": "postgres-redis-model-mcp-e2e",
+          "status": "failed",
+          "command": "pnpm test:e2e",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-f98ab0a9-b25c-46e0-8090-4e61c62d32ef/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "outputSha256": "6d12b6585f78a822d3024f8f3412b507e31b6276d06745a1bafc00b6fa46d167"
+        }
+      ]
+    },
+    {
+      "milestone": "M1",
+      "runId": "sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152",
+      "originalReportDirectory": "/tmp/sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d-zNKeEU/retry-source/reports/runtime-semantic-closure/sdar-verify-cb6189ba-13f9-4272-a95a-bba9e86dd152",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "ad2e8e97732c40ffc442a735aa2cf1e170eed36b9a95760d866caf39eeb57dc3",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "postgres-redis-model-mcp-e2e"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/verification-runner-contract.log",
+          "outputSha256": "4c606f25ca1a4e3e8b30f4692d9bd794272be7cba062fe509b9e5b37a749955b"
+        },
+        {
+          "name": "lint",
+          "status": "passed",
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/lint.log",
+          "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+        },
+        {
+          "name": "typecheck",
+          "status": "passed",
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/typecheck.log",
+          "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+        },
+        {
+          "name": "unit",
+          "status": "passed",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/unit.log",
+          "outputSha256": "c44b1414c3780b0ff7e4f5696ec26183567c15b28fc30c252d69827709f86699"
+        },
+        {
+          "name": "contract",
+          "status": "passed",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/contract.log",
+          "outputSha256": "2cd59154508ff4939586fcb1948de41e0c720a2da6b43bed290f1a77392db93c"
+        },
+        {
+          "name": "evidence-contract",
+          "status": "passed",
+          "command": "pnpm verify:evidence-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/evidence-contract.log",
+          "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+        },
+        {
+          "name": "evidence-coverage",
+          "status": "passed",
+          "command": "pnpm verify:evidence-coverage",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/evidence-coverage.log",
+          "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+        },
+        {
+          "name": "architecture",
+          "status": "passed",
+          "command": "pnpm verify:architecture",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/architecture.log",
+          "outputSha256": "b33f05b11900d0ef3ad84d871c1a3b1f84a3733914e4a41983549c714ca4b985"
+        },
+        {
+          "name": "a2a-baseline",
+          "status": "passed",
+          "command": "pnpm verify:a2a-baseline",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/a2a-baseline.log",
+          "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+        },
+        {
+          "name": "management-openapi",
+          "status": "passed",
+          "command": "pnpm verify:management-openapi",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/management-openapi.log",
+          "outputSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+        },
+        {
+          "name": "node-control-contract",
+          "status": "passed",
+          "command": "pnpm verify:node-control-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/node-control-contract.log",
+          "outputSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+        },
+        {
+          "name": "node-control-implementation-conformance",
+          "status": "passed",
+          "command": "pnpm verify:node-control-implementation-conformance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/node-control-implementation-conformance.log",
+          "outputSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+        },
+        {
+          "name": "smpp-registry-projection",
+          "status": "passed",
+          "command": "pnpm verify:smpp-registry-projection",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/smpp-registry-projection.log",
+          "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+        },
+        {
+          "name": "acceptance",
+          "status": "passed",
+          "command": "pnpm verify:acceptance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/acceptance.log",
+          "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+        },
+        {
+          "name": "sources",
+          "status": "passed",
+          "command": "pnpm verify:sources",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/sources.log",
+          "outputSha256": "afc76a78fae858c36a152e810dd22eb4343e71c01783d7d75d091bfe4fed646c"
+        },
+        {
+          "name": "protocol",
+          "status": "passed",
+          "command": "pnpm verify:protocol",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/protocol.log",
+          "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+        },
+        {
+          "name": "infra",
+          "status": "passed",
+          "command": "pnpm verify:infra",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/infra.log",
+          "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+        },
+        {
+          "name": "project-license",
+          "status": "passed",
+          "command": "pnpm verify:project-license",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/project-license.log",
+          "outputSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+        },
+        {
+          "name": "licenses",
+          "status": "passed",
+          "command": "pnpm verify:licenses",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/licenses.log",
+          "outputSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+        },
+        {
+          "name": "build",
+          "status": "passed",
+          "command": "pnpm build",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/build.log",
+          "outputSha256": "14da61abf3f0a04f8b3d6385579f2619b557ee60248e4646c199c86dfa371cc7"
+        },
+        {
+          "name": "cognitive-replay-no-physical-provider",
+          "status": "passed",
+          "command": "pnpm verify:cognitive-replay",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/cognitive-replay-no-physical-provider.log",
+          "outputSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2"
+        },
+        {
+          "name": "clean-baseline-reset-seed",
+          "status": "passed",
+          "command": "pnpm verify:migrations",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/clean-baseline-reset-seed.log",
+          "outputSha256": "5ada2bae645b7345bdffb47278f65aff3340d20b63b0520b129a5a6c1b2ca4d7"
+        },
+        {
+          "name": "postgres-redis-integration",
+          "status": "passed",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/postgres-redis-integration.log",
+          "outputSha256": "bab1688b86cfc2a0c86496346220dab05f532cced2e0182eacb07c09ca48c0ad"
+        },
+        {
+          "name": "postgres-redis-model-mcp-e2e",
+          "status": "failed",
+          "command": "pnpm test:e2e",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-cb6189ba-13f9-4272-a95a-bba9e86dd152/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "outputSha256": "7c81481825ea73334549a9028f8be02bc74ecd3de95ce38ba2af00f085fa085c"
+        }
+      ]
+    },
+    {
+      "milestone": "M1",
+      "runId": "sdar-verify-ab03019d-e27b-4eba-95b6-8c7b4a9d265f",
+      "originalReportDirectory": "/tmp/sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d-zNKeEU/retry-source/reports/runtime-semantic-closure/sdar-verify-ab03019d-e27b-4eba-95b6-8c7b4a9d265f",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "ad2e8e97732c40ffc442a735aa2cf1e170eed36b9a95760d866caf39eeb57dc3",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "postgres-redis-model-mcp-e2e"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/verification-runner-contract.log",
+          "outputSha256": "ee39f60ba2c4dfbfc178fa27f2ab25d066828b432ada5f3661816401fb13cbf5"
+        },
+        {
+          "name": "lint",
+          "status": "passed",
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/lint.log",
+          "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+        },
+        {
+          "name": "typecheck",
+          "status": "passed",
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/typecheck.log",
+          "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+        },
+        {
+          "name": "unit",
+          "status": "passed",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/unit.log",
+          "outputSha256": "b5247412d3ba29c696e6eb7fac0045dda1c20f3bbd29fc29a93d2fcf25aae78d"
+        },
+        {
+          "name": "contract",
+          "status": "passed",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/contract.log",
+          "outputSha256": "46992572f8165d80e935dcadd9b5cd8b2e7443beb3943d264e30f8c4fc3b356b"
+        },
+        {
+          "name": "evidence-contract",
+          "status": "passed",
+          "command": "pnpm verify:evidence-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/evidence-contract.log",
+          "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+        },
+        {
+          "name": "evidence-coverage",
+          "status": "passed",
+          "command": "pnpm verify:evidence-coverage",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/evidence-coverage.log",
+          "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+        },
+        {
+          "name": "architecture",
+          "status": "passed",
+          "command": "pnpm verify:architecture",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/architecture.log",
+          "outputSha256": "b33f05b11900d0ef3ad84d871c1a3b1f84a3733914e4a41983549c714ca4b985"
+        },
+        {
+          "name": "a2a-baseline",
+          "status": "passed",
+          "command": "pnpm verify:a2a-baseline",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/a2a-baseline.log",
+          "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+        },
+        {
+          "name": "management-openapi",
+          "status": "passed",
+          "command": "pnpm verify:management-openapi",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/management-openapi.log",
+          "outputSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+        },
+        {
+          "name": "node-control-contract",
+          "status": "passed",
+          "command": "pnpm verify:node-control-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/node-control-contract.log",
+          "outputSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+        },
+        {
+          "name": "node-control-implementation-conformance",
+          "status": "passed",
+          "command": "pnpm verify:node-control-implementation-conformance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/node-control-implementation-conformance.log",
+          "outputSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+        },
+        {
+          "name": "smpp-registry-projection",
+          "status": "passed",
+          "command": "pnpm verify:smpp-registry-projection",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/smpp-registry-projection.log",
+          "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+        },
+        {
+          "name": "acceptance",
+          "status": "passed",
+          "command": "pnpm verify:acceptance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/acceptance.log",
+          "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+        },
+        {
+          "name": "sources",
+          "status": "passed",
+          "command": "pnpm verify:sources",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/sources.log",
+          "outputSha256": "afc76a78fae858c36a152e810dd22eb4343e71c01783d7d75d091bfe4fed646c"
+        },
+        {
+          "name": "protocol",
+          "status": "passed",
+          "command": "pnpm verify:protocol",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/protocol.log",
+          "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+        },
+        {
+          "name": "infra",
+          "status": "passed",
+          "command": "pnpm verify:infra",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/infra.log",
+          "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+        },
+        {
+          "name": "project-license",
+          "status": "passed",
+          "command": "pnpm verify:project-license",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/project-license.log",
+          "outputSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+        },
+        {
+          "name": "licenses",
+          "status": "passed",
+          "command": "pnpm verify:licenses",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/licenses.log",
+          "outputSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+        },
+        {
+          "name": "build",
+          "status": "passed",
+          "command": "pnpm build",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/build.log",
+          "outputSha256": "02e7a73692d62000e41f66f5c5412e3e71d14c39828e8e46d60fe40ffcac40ad"
+        },
+        {
+          "name": "cognitive-replay-no-physical-provider",
+          "status": "passed",
+          "command": "pnpm verify:cognitive-replay",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/cognitive-replay-no-physical-provider.log",
+          "outputSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2"
+        },
+        {
+          "name": "clean-baseline-reset-seed",
+          "status": "passed",
+          "command": "pnpm verify:migrations",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/clean-baseline-reset-seed.log",
+          "outputSha256": "52c8ad0222f8305e14138fbde9befea56194596be439aa00a4e7956204438068"
+        },
+        {
+          "name": "postgres-redis-integration",
+          "status": "passed",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/postgres-redis-integration.log",
+          "outputSha256": "235a08b82f0a6fa571946184eb773234cc1ba2ea751e213783b3d4f0c4be16c3"
+        },
+        {
+          "name": "postgres-redis-model-mcp-e2e",
+          "status": "failed",
+          "command": "pnpm test:e2e",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M1-ab03019d-e27b-4eba-95b6-8c7b4a9d265f/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "outputSha256": "31e4f58769f111226d57cb363d9f1084075f4ecacb1160f17fd5a25c08ea722b"
+        }
+      ]
+    },
+    {
+      "milestone": "M2",
+      "runId": "sdar-verify-8a7208ca-412e-4f0c-bec8-62822a43edaa",
+      "originalReportDirectory": "/home/sz/code/skill-driven-agent-runtime/reports/runtime-semantic-closure/sdar-verify-8a7208ca-412e-4f0c-bec8-62822a43edaa",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "27b4d4e6e66d7fc436b88d27bf7a546e8fdf3379201cc7b815874bd9075c1911",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "lint"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-8a7208ca-412e-4f0c-bec8-62822a43edaa/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-8a7208ca-412e-4f0c-bec8-62822a43edaa/verification/raw/verification-runner-contract.log",
+          "outputSha256": "0170557f30758b6caf12a247c29e58f39fada7b86e7308dd6800b84d5e2a8179"
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "command": "pnpm lint",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-8a7208ca-412e-4f0c-bec8-62822a43edaa/verification/raw/lint.log",
+          "outputSha256": "e8c8463763bcad1e797da576c162b56d7bdb72eb93deb0b4e3564fb4fb0b61aa"
+        }
+      ]
+    },
+    {
+      "milestone": "M2",
+      "runId": "sdar-verify-37a9b8ab-a311-4c51-a51f-92cfcff536d2",
+      "originalReportDirectory": "/tmp/sdar-verify-8a7208ca-412e-4f0c-bec8-62822a43edaa-VS8B3h/retry-source/reports/runtime-semantic-closure/sdar-verify-37a9b8ab-a311-4c51-a51f-92cfcff536d2",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "2b0c94d7f7403d07d18ec9c3219b20ce620c2452f92edf748719727d051e910d",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "official-a2a-tck"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/verification-runner-contract.log",
+          "outputSha256": "cb9335e6812ec35e9bea0786c410c0dad2a0c44cb90fa853294123e84ff801b6"
+        },
+        {
+          "name": "lint",
+          "status": "passed",
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/lint.log",
+          "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+        },
+        {
+          "name": "typecheck",
+          "status": "passed",
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/typecheck.log",
+          "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+        },
+        {
+          "name": "unit",
+          "status": "passed",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/unit.log",
+          "outputSha256": "486c78e6d13e97674f1757072dea8b6ca84b79d81e4ef465ab00c8fa345366c7"
+        },
+        {
+          "name": "contract",
+          "status": "passed",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/contract.log",
+          "outputSha256": "d0fd48285faae5a75860ab519bc01b237939933c4d3afb072f3de4969e564a65"
+        },
+        {
+          "name": "evidence-contract",
+          "status": "passed",
+          "command": "pnpm verify:evidence-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/evidence-contract.log",
+          "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+        },
+        {
+          "name": "evidence-coverage",
+          "status": "passed",
+          "command": "pnpm verify:evidence-coverage",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/evidence-coverage.log",
+          "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+        },
+        {
+          "name": "architecture",
+          "status": "passed",
+          "command": "pnpm verify:architecture",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/architecture.log",
+          "outputSha256": "a9244ad6560ade4c2ff23912174b65d50d8c7e9f29b36d281752982778cd2d71"
+        },
+        {
+          "name": "a2a-baseline",
+          "status": "passed",
+          "command": "pnpm verify:a2a-baseline",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/a2a-baseline.log",
+          "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+        },
+        {
+          "name": "management-openapi",
+          "status": "passed",
+          "command": "pnpm verify:management-openapi",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/management-openapi.log",
+          "outputSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+        },
+        {
+          "name": "node-control-contract",
+          "status": "passed",
+          "command": "pnpm verify:node-control-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/node-control-contract.log",
+          "outputSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+        },
+        {
+          "name": "node-control-implementation-conformance",
+          "status": "passed",
+          "command": "pnpm verify:node-control-implementation-conformance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/node-control-implementation-conformance.log",
+          "outputSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+        },
+        {
+          "name": "smpp-registry-projection",
+          "status": "passed",
+          "command": "pnpm verify:smpp-registry-projection",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/smpp-registry-projection.log",
+          "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+        },
+        {
+          "name": "acceptance",
+          "status": "passed",
+          "command": "pnpm verify:acceptance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/acceptance.log",
+          "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+        },
+        {
+          "name": "sources",
+          "status": "passed",
+          "command": "pnpm verify:sources",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/sources.log",
+          "outputSha256": "afc76a78fae858c36a152e810dd22eb4343e71c01783d7d75d091bfe4fed646c"
+        },
+        {
+          "name": "protocol",
+          "status": "passed",
+          "command": "pnpm verify:protocol",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/protocol.log",
+          "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+        },
+        {
+          "name": "infra",
+          "status": "passed",
+          "command": "pnpm verify:infra",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/infra.log",
+          "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+        },
+        {
+          "name": "project-license",
+          "status": "passed",
+          "command": "pnpm verify:project-license",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/project-license.log",
+          "outputSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+        },
+        {
+          "name": "licenses",
+          "status": "passed",
+          "command": "pnpm verify:licenses",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/licenses.log",
+          "outputSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+        },
+        {
+          "name": "build",
+          "status": "passed",
+          "command": "pnpm build",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/build.log",
+          "outputSha256": "9bf1ccc730d026be65687726f6eed43cbe7d5aaadb4308b20387f800b1aa5c10"
+        },
+        {
+          "name": "cognitive-replay-no-physical-provider",
+          "status": "passed",
+          "command": "pnpm verify:cognitive-replay",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/cognitive-replay-no-physical-provider.log",
+          "outputSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2"
+        },
+        {
+          "name": "clean-baseline-reset-seed",
+          "status": "passed",
+          "command": "pnpm verify:migrations",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/clean-baseline-reset-seed.log",
+          "outputSha256": "aa54902421b4d2fbccc4ef8821e84917335e1fc7218f48382248ff56a6f7306d"
+        },
+        {
+          "name": "postgres-redis-integration",
+          "status": "passed",
+          "command": "pnpm test:integration",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/postgres-redis-integration.log",
+          "outputSha256": "6953b3557ffb4c3bd0e8efc0e88e3500e9ccfaec3ffd8bf48d1c81c48b2e9ec2"
+        },
+        {
+          "name": "postgres-redis-model-mcp-e2e",
+          "status": "passed",
+          "command": "pnpm test:e2e",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/postgres-redis-model-mcp-e2e.log",
+          "outputSha256": "279d3a9e12c4e59ebc126f5501db2f2fdc39b15d593a2661f5719718bdf3980a"
+        },
+        {
+          "name": "official-a2a-tck",
+          "status": "failed",
+          "command": "pnpm test:a2a-tck",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-37a9b8ab-a311-4c51-a51f-92cfcff536d2/verification/raw/official-a2a-tck.log",
+          "outputSha256": "a192d3995e4e286d36ca2923d5ea33e6520b77d4e4991b780d5bea386c39c625"
+        }
+      ]
+    },
+    {
+      "milestone": "M2",
+      "runId": "sdar-verify-bb47ef7e-6864-4318-904c-6b8d9817e36c",
+      "originalReportDirectory": "/tmp/sdar-verify-8a7208ca-412e-4f0c-bec8-62822a43edaa-VS8B3h/retry-source/reports/runtime-semantic-closure/sdar-verify-bb47ef7e-6864-4318-904c-6b8d9817e36c",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "2b0c94d7f7403d07d18ec9c3219b20ce620c2452f92edf748719727d051e910d",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "clean-baseline-reset-seed"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/verification-runner-contract.log",
+          "outputSha256": "fa1f023b2ac2d17524c6f25cade31157628a97fac9dbaa839170fbb8077cfb93"
+        },
+        {
+          "name": "lint",
+          "status": "passed",
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/lint.log",
+          "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+        },
+        {
+          "name": "typecheck",
+          "status": "passed",
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/typecheck.log",
+          "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+        },
+        {
+          "name": "unit",
+          "status": "passed",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/unit.log",
+          "outputSha256": "34744b8fb2f7e3c61525120cdd6028aa75d47ace31f1609cff3003cebc1c69d5"
+        },
+        {
+          "name": "contract",
+          "status": "passed",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/contract.log",
+          "outputSha256": "37a4aff266d71d5bcdd9d3a8ea0b75903d4b5abeeea05b6d1bfb1c472eb40ec7"
+        },
+        {
+          "name": "evidence-contract",
+          "status": "passed",
+          "command": "pnpm verify:evidence-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/evidence-contract.log",
+          "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+        },
+        {
+          "name": "evidence-coverage",
+          "status": "passed",
+          "command": "pnpm verify:evidence-coverage",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/evidence-coverage.log",
+          "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+        },
+        {
+          "name": "architecture",
+          "status": "passed",
+          "command": "pnpm verify:architecture",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/architecture.log",
+          "outputSha256": "a9244ad6560ade4c2ff23912174b65d50d8c7e9f29b36d281752982778cd2d71"
+        },
+        {
+          "name": "a2a-baseline",
+          "status": "passed",
+          "command": "pnpm verify:a2a-baseline",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/a2a-baseline.log",
+          "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+        },
+        {
+          "name": "management-openapi",
+          "status": "passed",
+          "command": "pnpm verify:management-openapi",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/management-openapi.log",
+          "outputSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+        },
+        {
+          "name": "node-control-contract",
+          "status": "passed",
+          "command": "pnpm verify:node-control-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/node-control-contract.log",
+          "outputSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+        },
+        {
+          "name": "node-control-implementation-conformance",
+          "status": "passed",
+          "command": "pnpm verify:node-control-implementation-conformance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/node-control-implementation-conformance.log",
+          "outputSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+        },
+        {
+          "name": "smpp-registry-projection",
+          "status": "passed",
+          "command": "pnpm verify:smpp-registry-projection",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/smpp-registry-projection.log",
+          "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+        },
+        {
+          "name": "acceptance",
+          "status": "passed",
+          "command": "pnpm verify:acceptance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/acceptance.log",
+          "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+        },
+        {
+          "name": "sources",
+          "status": "passed",
+          "command": "pnpm verify:sources",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/sources.log",
+          "outputSha256": "afc76a78fae858c36a152e810dd22eb4343e71c01783d7d75d091bfe4fed646c"
+        },
+        {
+          "name": "protocol",
+          "status": "passed",
+          "command": "pnpm verify:protocol",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/protocol.log",
+          "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+        },
+        {
+          "name": "infra",
+          "status": "passed",
+          "command": "pnpm verify:infra",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/infra.log",
+          "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+        },
+        {
+          "name": "project-license",
+          "status": "passed",
+          "command": "pnpm verify:project-license",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/project-license.log",
+          "outputSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+        },
+        {
+          "name": "licenses",
+          "status": "passed",
+          "command": "pnpm verify:licenses",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/licenses.log",
+          "outputSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+        },
+        {
+          "name": "build",
+          "status": "passed",
+          "command": "pnpm build",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/build.log",
+          "outputSha256": "50428ab4891ee92308a571b9a91437eeca9790239d624fcacc652bd8fc87d2f8"
+        },
+        {
+          "name": "cognitive-replay-no-physical-provider",
+          "status": "passed",
+          "command": "pnpm verify:cognitive-replay",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/cognitive-replay-no-physical-provider.log",
+          "outputSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2"
+        },
+        {
+          "name": "clean-baseline-reset-seed",
+          "status": "failed",
+          "command": "pnpm verify:migrations",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M2-bb47ef7e-6864-4318-904c-6b8d9817e36c/verification/raw/clean-baseline-reset-seed.log",
+          "outputSha256": "5e4cf730c2a6b4d3516a9ab55363d4e98ecd570206147075b100ef1983a37dc3"
+        }
+      ]
+    },
+    {
+      "milestone": "M3",
+      "runId": "sdar-verify-e6aa47e2-7562-4c9e-9b30-5b1b2511ce3b",
+      "originalReportDirectory": "/home/sz/code/skill-driven-agent-runtime/reports/runtime-semantic-closure/sdar-verify-e6aa47e2-7562-4c9e-9b30-5b1b2511ce3b",
+      "sourceCommit": "a230bac9b61e6cf901a91c094dbfe63704717fce",
+      "inputSha256": "cb5df18a0957a0366927ead6eab64a67ce3c7cf97bdcadd299594f1b17bb7b51",
+      "baselineSha256": "a404bfa007b72707e3431056587b77442ccde1878a24ee2f38d69119f55d4eda",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "lint"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-e6aa47e2-7562-4c9e-9b30-5b1b2511ce3b/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-e6aa47e2-7562-4c9e-9b30-5b1b2511ce3b/verification/raw/verification-runner-contract.log",
+          "outputSha256": "26f4d5bec4616b2029589302f08a328a4e5c2de1d4f053a261e2b0d7b01b194e"
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "command": "pnpm lint",
+          "exitCode": 1,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-e6aa47e2-7562-4c9e-9b30-5b1b2511ce3b/verification/raw/lint.log",
+          "outputSha256": "4d74bad50f4254b387ff4d21a6849528040fee3d3d5343a8e7faa2a094dfebb4"
+        }
+      ]
+    },
+    {
+      "milestone": "M3",
+      "runId": "sdar-verify-83a73cc8-01bc-424a-87c9-dd42614985d9",
+      "originalReportDirectory": "/home/sz/code/skill-driven-agent-runtime/reports/runtime-semantic-closure/sdar-verify-83a73cc8-01bc-424a-87c9-dd42614985d9",
+      "sourceCommit": "7b763ae711ae5cab9c8063ab245ee531db5f4a1c",
+      "inputSha256": "25ba33676d4bb704196c70716b28c391ac71852ce5e126e79dab26c5968b5207",
+      "baselineSha256": "3dabfb24f27fcbe866488d94f16ca2cc0cf7b9b3d3d24f4a18e528f1c79d0cec",
+      "dependencyMode": "reuse",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failed": [
+        "cognitive-replay-no-physical-provider"
+      ],
+      "steps": [
+        {
+          "name": "format",
+          "status": "passed",
+          "command": "pnpm format:check",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/format.log",
+          "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+        },
+        {
+          "name": "verification-runner-contract",
+          "status": "passed",
+          "command": "pnpm test:verification",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/verification-runner-contract.log",
+          "outputSha256": "4da5cfa55bc5d2c0598e0eb79be9c65fa06e2e5c79cada371183acfc16cd0c87"
+        },
+        {
+          "name": "lint",
+          "status": "passed",
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/lint.log",
+          "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+        },
+        {
+          "name": "typecheck",
+          "status": "passed",
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/typecheck.log",
+          "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+        },
+        {
+          "name": "unit",
+          "status": "passed",
+          "command": "pnpm test:unit",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/unit.log",
+          "outputSha256": "1956040e2f60976f378c680c6306e6fb2f93fd5cef6703d1cc9e1e55cc28da7b"
+        },
+        {
+          "name": "contract",
+          "status": "passed",
+          "command": "pnpm test:contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/contract.log",
+          "outputSha256": "b83175047545cc3c0b9db5a86497619dc69baca5c12becf3e0dc81c8f17b5f0d"
+        },
+        {
+          "name": "evidence-contract",
+          "status": "passed",
+          "command": "pnpm verify:evidence-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/evidence-contract.log",
+          "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4"
+        },
+        {
+          "name": "evidence-coverage",
+          "status": "passed",
+          "command": "pnpm verify:evidence-coverage",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/evidence-coverage.log",
+          "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634"
+        },
+        {
+          "name": "architecture",
+          "status": "passed",
+          "command": "pnpm verify:architecture",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/architecture.log",
+          "outputSha256": "fb27c46406b5d10e0696b4147c907ef96aeb8d233dfb5a07e3f99182a66cc436"
+        },
+        {
+          "name": "a2a-baseline",
+          "status": "passed",
+          "command": "pnpm verify:a2a-baseline",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/a2a-baseline.log",
+          "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f"
+        },
+        {
+          "name": "management-openapi",
+          "status": "passed",
+          "command": "pnpm verify:management-openapi",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/management-openapi.log",
+          "outputSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a"
+        },
+        {
+          "name": "node-control-contract",
+          "status": "passed",
+          "command": "pnpm verify:node-control-contract",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/node-control-contract.log",
+          "outputSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab"
+        },
+        {
+          "name": "node-control-implementation-conformance",
+          "status": "passed",
+          "command": "pnpm verify:node-control-implementation-conformance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/node-control-implementation-conformance.log",
+          "outputSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b"
+        },
+        {
+          "name": "smpp-registry-projection",
+          "status": "passed",
+          "command": "pnpm verify:smpp-registry-projection",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/smpp-registry-projection.log",
+          "outputSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab"
+        },
+        {
+          "name": "acceptance",
+          "status": "passed",
+          "command": "pnpm verify:acceptance",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/acceptance.log",
+          "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+        },
+        {
+          "name": "sources",
+          "status": "passed",
+          "command": "pnpm verify:sources",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/sources.log",
+          "outputSha256": "afc76a78fae858c36a152e810dd22eb4343e71c01783d7d75d091bfe4fed646c"
+        },
+        {
+          "name": "protocol",
+          "status": "passed",
+          "command": "pnpm verify:protocol",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/protocol.log",
+          "outputSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27"
+        },
+        {
+          "name": "infra",
+          "status": "passed",
+          "command": "pnpm verify:infra",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/infra.log",
+          "outputSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d"
+        },
+        {
+          "name": "project-license",
+          "status": "passed",
+          "command": "pnpm verify:project-license",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/project-license.log",
+          "outputSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861"
+        },
+        {
+          "name": "licenses",
+          "status": "passed",
+          "command": "pnpm verify:licenses",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/licenses.log",
+          "outputSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c"
+        },
+        {
+          "name": "build",
+          "status": "passed",
+          "command": "pnpm build",
+          "exitCode": 0,
+          "signal": null,
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/build.log",
+          "outputSha256": "793c6bd68da2b61e5d8f8ed5a755876efe3294767b1f065a46f42e7c8bcb4773"
+        },
+        {
+          "name": "cognitive-replay-no-physical-provider",
+          "status": "failed",
+          "command": "pnpm verify:cognitive-replay",
+          "exitCode": null,
+          "signal": "SIGTERM",
+          "log": "reports/server-composition-planning-boundaries/20261011-local/attempts/M3-83a73cc8-01bc-424a-87c9-dd42614985d9/verification/raw/cognitive-replay-no-physical-provider.log",
+          "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "milestone": "M4 post-review",
+      "runId": "sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563",
+      "sourceCommit": "59def84c97043481b3a5a9e026479c6a5c724bd9",
+      "inputSha256": "be698c00d6e29d540a6e2dcbcc08e04a45dd5803dbd2c5ca675f9406561912d0",
+      "baselineSha256": "3dac5970f980c200ee68cd901e553ffcecbab517c540783d309ac91bb802bcfa",
+      "dependencyMode": "frozen",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-ff0fb504-cfab-4e57-a259-b702df3e0563",
+      "failure": "P08 existing 120 ms Cognitive action lease expires before explicit response-loss reconciliation; expected RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING, actual COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST. New formal Workflow PostgreSQL regression passes.",
+      "focusedUnchanged": "review-fixes/unchanged-task-revision.json",
+      "focusedControlled": "review-fixes/controlled-task-revision.json",
+      "focusedCanonicalIdentity": "review-fixes/CONTROLLED_TASK_REVISION_SOURCE_IDENTITY.json"
+    },
+    {
+      "milestone": "M4 post-review",
+      "runId": "sdar-verify-f6caff6a-e6d1-4fa5-bbf0-caf84887f334",
+      "sourceCommit": "43faa3a9cb88160153c0fc4b7e4ff4fc5f7663bd",
+      "inputSha256": "70c73ae08370d855fe0d1b7dcabb82cfbd0b55abb8a9bb04dcb155517804dac8",
+      "baselineSha256": "385d1b59aee8fc3b1b1d87226236de0a7545edeba10cc163029a1c2ac061f64d",
+      "dependencyMode": "frozen",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-f6caff6a-e6d1-4fa5-bbf0-caf84887f334",
+      "failure": "Existing 50 ms projection-fence lease expires before entry, causing COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT and an unresolved entry barrier timeout. Workflow formal commit regression and all ten P08 recovery tests PASS.",
+      "focusedControlled": "review-fixes/controlled-projection-fence.json"
+    },
+    {
+      "schemaVersion": 1,
+      "status": "FAIL",
+      "runId": "sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848",
+      "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+      "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+      "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failedStage": "postgres-redis-integration",
+      "cause": "Existing unchanged P07 active retrieval P95 284.5644519999996 ms exceeded its unchanged 100 ms limit. The other 248 initial integration cases passed; the final 22 cases did not run.",
+      "currentFormalWorkflowRegression": "PASS",
+      "correctedProjectionFenceRegression": "PASS",
+      "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848",
+      "classification": {
+        "site": "NOT_RUN",
+        "deployment": "NOT_RUN"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "status": "FAIL",
+      "runId": "sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71",
+      "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+      "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+      "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+      "exitCode": 1,
+      "cleanupExitCode": 0,
+      "inputUnchanged": true,
+      "baselineUnchanged": true,
+      "failedStage": "postgres-redis-model-mcp-e2e",
+      "cause": "Unchanged P13 benchmark baseline window drift 18.242244529999986% exceeds unchanged 15% limit. Runtime regression 4.653735600306576%, append P95 2.4594209999995655 ms.",
+      "integrationTestsPassed": 271,
+      "functionalE2ePassed": 76,
+      "performanceCase": "FAIL",
+      "performanceResultFile": "Inherited historical JSON is not current evidence: assertion fails before result write. Actual raw metrics and failed assertion are preserved in the current stage log.",
+      "restrictedRoleGowm": "PASS, two formal E2E / 30 native scenarios on exact same local frozen inputs",
+      "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71",
+      "site": "NOT_RUN",
+      "deployment": "NOT_RUN"
+    }
+  ]
+}

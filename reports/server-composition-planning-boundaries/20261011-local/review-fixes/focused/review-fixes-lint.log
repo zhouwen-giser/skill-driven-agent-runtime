@@ -1,0 +1,14 @@
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/test/gowm-workflow-ownership.unit.test.ts
+  71:12  error  A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.
+Consider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. 
+If a function does not access `this`, it can be annotated with `this: void`  @typescript-eslint/unbound-method
+
+/home/sz/code/skill-driven-agent-runtime/packages/persistence-postgres/test/workflow-plan-commit.postgres-cases.ts
+   24:74  error  Unsafe argument of type error typed assigned to a parameter of type `DeviceWorkScope | undefined`                   @typescript-eslint/no-unsafe-argument
+  128:24  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  134:76  error  Unsafe argument of type error typed assigned to a parameter of type `DeviceWorkScope | undefined`                   @typescript-eslint/no-unsafe-argument
+
+✖ 4 problems (4 errors, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

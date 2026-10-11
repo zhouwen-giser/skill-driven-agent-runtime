@@ -1121,6 +1121,20 @@ export interface StructuredModelProvider {
 }
 
 export interface WorkflowPlanRepository {
+  /** Formal persistence groups deferred audits and source CAS in one transaction. */
+  savePlanWithAudits?(
+    plan: WorkflowPlanRecord,
+    audits: Readonly<{
+      attempts: readonly WorkflowPlanAttempt[];
+      readiness: readonly Readonly<{
+        readiness: DslExecutionReadiness;
+        snapshots: readonly TaskAvailabilitySnapshot[];
+      }>[];
+      supersedeSourcePlanId?: string;
+    }>,
+  ): Promise<void>;
+  /** Append-only candidate audit; false defers to formal commit where a GOWM root is required. */
+  saveCandidateAttempt?(attempt: WorkflowPlanAttempt): Promise<boolean>;
   findPlan(planId: string): Promise<WorkflowPlanRecord | undefined>;
   findConfirmedDefinition(
     workflowDefinitionId: string,

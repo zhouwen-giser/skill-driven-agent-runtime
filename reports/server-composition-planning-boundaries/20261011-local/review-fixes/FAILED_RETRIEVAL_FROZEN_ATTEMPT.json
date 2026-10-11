@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "status": "FAIL",
+  "runId": "sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "baselineSha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "failedStage": "postgres-redis-integration",
+  "cause": "Existing unchanged P07 active retrieval P95 284.5644519999996 ms exceeded its unchanged 100 ms limit. The other 248 initial integration cases passed; the final 22 cases did not run.",
+  "currentFormalWorkflowRegression": "PASS",
+  "correctedProjectionFenceRegression": "PASS",
+  "archivedReportDirectory": "reports/server-composition-planning-boundaries/20261011-local/review-fixes/failed-full/sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848",
+  "classification": {
+    "site": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  }
+}

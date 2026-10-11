@@ -1,0 +1,75 @@
+$ node scripts/run-a2a-tck.mjs
+Collecting uv==0.11.28
+  Using cached uv-0.11.28-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)
+Using cached uv-0.11.28-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (27.1 MB)
+Installing collected packages: uv
+Successfully installed uv-0.11.28
+Cloning into '/tmp/sdar-verify-8e80b7f4-b164-4987-aa1f-361a129a99b5/a2a-tck'...
+HEAD is now at 5996b79 fix: skip CARD-EXT-002 when extended card is configured (#186)
+Using CPython 3.12.14 interpreter at: /home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
+Creating virtual environment at: .venv
+   Building a2a-tck @ file:///tmp/sdar-verify-8e80b7f4-b164-4987-aa1f-361a129a99b5/a2a-tck
+      Built a2a-tck @ file:///tmp/sdar-verify-8e80b7f4-b164-4987-aa1f-361a129a99b5/a2a-tck
+Prepared 1 package in 7.45s
+Installed 27 packages in 11ms
+ + a2a-tck==1.0.0 (from file:///tmp/sdar-verify-8e80b7f4-b164-4987-aa1f-361a129a99b5/a2a-tck)
+ + anyio==4.12.1
+ + attrs==25.4.0
+ + certifi==2026.1.4
+ + gherkin-official==39.0.0
+ + googleapis-common-protos==1.72.0
+ + grpcio==1.78.0
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpx==0.28.1
+ + idna==3.11
+ + iniconfig==2.3.0
+ + jinja2==3.1.6
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + markupsafe==3.0.3
+ + packaging==26.0
+ + pluggy==1.6.0
+ + protobuf==6.33.5
+ + pygments==2.19.2
+ + pytest==9.0.2
+ + pytest-asyncio==1.3.0
+ + pytest-html==4.2.0
+ + pytest-metadata==3.1.1
+ + referencing==0.37.0
+ + rpds-py==0.30.0
+ + typing-extensions==4.15.0
+{"event":"tck-sut.ready","a2aUrl":"http://127.0.0.1:35833"}
+......ss.ss.ss.ss.ss.....s.s.s.ssssssss.sssss..sss.ss.ss.sssssssssssssss [ 30%]
+sssssssssssssssss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss. [ 61%]
+sssss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.ss.......sssssssssssssss..s......... [ 91%]
+..sssssssssssssssss                                                      [100%]
+═══════════════════════════════════════════════════════
+             A2A TCK Compatibility Report              
+═══════════════════════════════════════════════════════
+SUT: http://127.0.0.1:35833
+Timestamp: 2026-10-11T06:50:46.940762+00:00
+
+OVERALL COMPATIBILITY: 100.0%
+
+┌─────────────┬────────┬────────┬─────────┬───────┐
+│ Level       │ Passed │ Failed │ Skipped │ Total │
+├─────────────┼────────┼────────┼─────────┼───────┤
+│ MUST        │     62 │     23 │      29 │   114 │
+│ SHOULD      │      0 │     11 │       0 │    11 │
+│ MAY         │      0 │      4 │       0 │     4 │
+└─────────────┴────────┴────────┴─────────┴───────┘
+
+BY TRANSPORT:
+  agent_card:    6/6 ✓
+  grpc:          0/65 (65 skipped) ✓
+  jsonrpc:       1/81 (80 skipped) ✓
+  http_json:     74/88 (14 skipped) ✓
+
+═══════════════════════════════════════════════════════
+
+
+- Generated html report: file:///tmp/sdar-verify-8e80b7f4-b164-4987-aa1f-361a129a99b5/a2a-tck/reports/tck_report.html -
+74 passed, 161 skipped, 30 deselected in 31.61s
+Command: /tmp/sdar-verify-8e80b7f4-b164-4987-aa1f-361a129a99b5/a2a-tck/.venv/bin/python -m pytest tests/compatibility/ --sut-host=http://127.0.0.1:35833 --tb=short --transport=http_json -m must -q --compatibility-report=reports/compatibility --html=reports/tck_report.html --self-contained-html --junitxml=reports/junitreport.xml
+

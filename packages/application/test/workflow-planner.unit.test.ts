@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   snapshotSkillVersion,
+  createAgentTask,
   snapshotSkillUsageCompositionPlan,
   type SkillCompositionContext,
   type SkillUsagePlanPolicy,
@@ -12,6 +13,7 @@ import {
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
   WorkflowPlannerService,
+  FormalTaskPlanPreparationService,
   WorkflowValidator,
   type SkillRepository,
   type StructuredModelProvider,
@@ -21,6 +23,266 @@ import {
 } from '../src/index.js';
 
 describe('WorkflowPlannerService', () => {
+  it('uses the atomic formal writer instead of independently flushing deferred audits', async () => {
+    const repository = Object.assign(new MemoryPlanRepository(), {
+      saveCandidateAttempt: () => Promise.resolve(false),
+      savePlanWithAudits: vi.fn(() => Promise.resolve()),
+    });
+    const legacyAttempt = vi.spyOn(repository, 'saveAttempt');
+    const legacyPlan = vi.spyOn(repository, 'savePlan');
+    const formal = planner(repository, new SequenceModel([validDefinition()]));
+    const candidate = await formal.candidates.generate(input());
+    expect(repository.savePlanWithAudits).not.toHaveBeenCalled();
+    await formal.commits.commit(candidate, input());
+    expect(repository.savePlanWithAudits).toHaveBeenCalledExactlyOnceWith(candidate.plan, {
+      attempts: candidate.planningAudits.flatMap((audit) =>
+        audit.kind === 'attempt' ? [audit.attempt] : [],
+      ),
+      readiness: [],
+    });
+    expect(legacyAttempt).not.toHaveBeenCalled();
+    expect(legacyPlan).not.toHaveBeenCalled();
+  });
+  it('carries GOWM audit data without creating a planning root and flushes it only on formal commit', async () => {
+    const repository = Object.assign(new MemoryPlanRepository(), {
+      saveCandidateAttempt: () => Promise.resolve(false),
+    });
+    const sequence: string[] = [];
+    const saveAttempt = repository.saveAttempt.bind(repository);
+    repository.saveAttempt = async (attempt) => {
+      sequence.push('root_and_attempt');
+      await saveAttempt(attempt);
+    };
+    const savePlan = repository.savePlan.bind(repository);
+    repository.savePlan = async (plan) => {
+      sequence.push('plan');
+      await savePlan(plan);
+    };
+    const readiness = readinessRecord('ready');
+    const formal = new WorkflowPlannerService({
+      model: new SequenceModel([validDefinition()]),
+      repository,
+      workflowSchema: { type: 'object' },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      maxAttempts: 1,
+      validator: new WorkflowValidator({
+        tools: {
+          exists: () => Promise.resolve(false),
+          getInputSchema: () => Promise.resolve(undefined),
+        },
+        skills: emptySkills(),
+        schemas: new AjvJsonSchemaValidator(),
+      }),
+      readiness: {
+        assess: () =>
+          Promise.resolve({
+            accepted: true,
+            readiness,
+            planningAudits: [{ readiness, snapshots: [] }],
+          }),
+      },
+      planningAuditCommit: {
+        persistPlanningAudit: () => {
+          sequence.push('readiness');
+          return Promise.resolve();
+        },
+      },
+    });
+    const candidate = await formal.candidates.generate(input());
+    expect(repository.attempts).toHaveLength(0);
+    expect(repository.plans.size).toBe(0);
+    expect(sequence).toEqual([]);
+    expect(candidate.planningAudits.map((audit) => audit.kind)).toEqual(['attempt', 'readiness']);
+    await formal.commits.commit(candidate, input());
+    expect(sequence).toEqual(['root_and_attempt', 'readiness', 'plan']);
+    expect(repository.attempts).toHaveLength(1);
+    expect(repository.plans.get(candidate.plan.planId)?.confirmationStatus).toBe(
+      'awaiting_confirmation',
+    );
+  });
+
+  it.each([true, false])(
+    'commits initial Task plans and evidence before optional automatic confirmation (%s)',
+    async (autoConfirm) => {
+      const repository = new MemoryPlanRepository();
+      const formal = planner(repository, new SequenceModel([validDefinition()]));
+      const sequence: string[] = [];
+      const taskInput = {
+        task: createAgentTask({
+          taskId: 'task-initial',
+          contextId: 'context-initial',
+          userId: 'operator',
+          requestText: 'Inspect device',
+          requestMetadata: {},
+          timestamp: '2026-07-12T00:00:00.000Z',
+        }),
+        goalId: goalContract.goalId,
+        goalVersion: goalContract.version,
+        goalDescription: goalContract.description,
+        goalContract,
+      };
+      const request = { ...input(), taskId: taskInput.task.taskId };
+      const preparation = new FormalTaskPlanPreparationService({
+        candidates: {
+          async generate() {
+            const workflow = await formal.candidates.generate(request);
+            expect(repository.plans.size).toBe(0);
+            sequence.push('candidate');
+            return { request, workflow, data: { evidence: 'selected-skill' } };
+          },
+        },
+        commits: {
+          async commit(candidate, identity) {
+            sequence.push('commit');
+            return formal.commits.commit(candidate, identity);
+          },
+        },
+        afterCommit(_input, candidate, plan) {
+          expect(repository.plans.has(plan.planId)).toBe(true);
+          expect(candidate.data.evidence).toBe('selected-skill');
+          sequence.push('evidence');
+          return Promise.resolve({ autoConfirmed: autoConfirm });
+        },
+        confirm(planId) {
+          sequence.push('confirm');
+          return repository.confirmPlan(planId);
+        },
+      });
+      await expect(preparation.prepare(taskInput)).resolves.toEqual({
+        planId: request.planId,
+        autoConfirmed: autoConfirm,
+      });
+      expect(sequence).toEqual(
+        autoConfirm
+          ? ['candidate', 'commit', 'evidence', 'confirm']
+          : ['candidate', 'commit', 'evidence'],
+      );
+      expect(repository.plans.get(request.planId)?.confirmationStatus).toBe(
+        autoConfirm ? 'confirmed' : 'awaiting_confirmation',
+      );
+    },
+  );
+
+  it('does not confirm an initial plan when its formal evidence projection fails', async () => {
+    const repository = new MemoryPlanRepository();
+    const formal = planner(repository, new SequenceModel([validDefinition()]));
+    const task = createAgentTask({
+      taskId: 'task-initial',
+      contextId: 'context-initial',
+      userId: 'operator',
+      requestText: 'Inspect device',
+      requestMetadata: {},
+      timestamp: '2026-07-12T00:00:00.000Z',
+    });
+    const request = { ...input(), taskId: task.taskId };
+    const confirm = vi.fn(() => Promise.resolve());
+    const preparation = new FormalTaskPlanPreparationService({
+      candidates: {
+        async generate() {
+          return { request, workflow: await formal.candidates.generate(request), data: {} };
+        },
+      },
+      commits: formal.commits,
+      afterCommit: () => Promise.reject(new Error('EVIDENCE_PROJECTION_FAILED')),
+      confirm,
+    });
+    await expect(
+      preparation.prepare({
+        task,
+        goalId: goalContract.goalId,
+        goalVersion: goalContract.version,
+        goalDescription: goalContract.description,
+        goalContract,
+      }),
+    ).rejects.toThrow('EVIDENCE_PROJECTION_FAILED');
+    expect(repository.plans.get(request.planId)?.confirmationStatus).toBe('awaiting_confirmation');
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('generates an immutable Workflow candidate without formal plan, template-use or confirmation writes', async () => {
+    const repository = new MemoryPlanRepository();
+    const save = vi.spyOn(repository, 'savePlan');
+    const confirm = vi.spyOn(repository, 'confirmPlan');
+    const formal = planner(repository, new SequenceModel([validDefinition()]));
+    const candidate = await formal.candidates.generate(input());
+    expect(candidate.outcome).toBe('ready');
+    expect(repository.plans.size).toBe(0);
+    expect(repository.attempts).toHaveLength(1);
+    expect(save).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(Object.isFrozen(candidate)).toBe(true);
+    expect(Object.isFrozen(candidate.plan.definition?.nodes)).toBe(true);
+    expect('commits' in formal.candidates).toBe(false);
+    await formal.commits.commit(candidate, input());
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('keeps failed generation candidate-only and persists failure only through formal commit', async () => {
+    const repository = new MemoryPlanRepository();
+    const formal = planner(repository, new SequenceModel([{ invalid: true }, { invalid: true }]));
+    const candidate = await formal.candidates.generate(input());
+    expect(candidate.outcome).toBe('failed');
+    expect(repository.plans.size).toBe(0);
+    expect(repository.attempts).toHaveLength(2);
+    await expect(formal.commits.commit(candidate, input())).rejects.toMatchObject({
+      code: 'WORKFLOW_PLANNING_FAILED',
+    });
+    expect(repository.plans.get('plan-1')?.confirmationStatus).toBe('failed');
+  });
+
+  it('does not publish a late Workflow candidate and rejects stale inherited confirmation', async () => {
+    const repository = new MemoryPlanRepository();
+    const source = await planner(repository, new SequenceModel([validDefinition()])).plan(input());
+    repository.plans.set(source.planId, { ...source, confirmationStatus: 'confirmed' });
+    let release: ((value: unknown) => void) | undefined;
+    const model: StructuredModelProvider = {
+      generateStructured: () =>
+        new Promise<unknown>((resolve) => {
+          release = resolve;
+        }),
+    };
+    const formal = planner(repository, model);
+    const request = { ...input(), planId: 'late-plan', sourceConfirmedPlanId: source.planId };
+    const pending = formal.candidates.generate(request);
+    await vi.waitFor(() => {
+      expect(release).toBeDefined();
+    });
+    repository.plans.set(source.planId, { ...source, confirmationStatus: 'superseded' });
+    if (release === undefined) throw new Error('TEST_MODEL_RELEASE_REQUIRED');
+    release(validDefinition());
+    const candidate = await pending;
+    expect(repository.plans.has('late-plan')).toBe(false);
+    await expect(formal.commits.commit(candidate, request)).rejects.toMatchObject({
+      code: 'WORKFLOW_REPAIR_SOURCE_NOT_CONFIRMED',
+    });
+    expect(repository.plans.has('late-plan')).toBe(false);
+    expect(repository.plans.get(source.planId)?.confirmationStatus).toBe('superseded');
+  });
+
+  it('makes candidate commit idempotent without resetting an already confirmed plan', async () => {
+    const repository = new MemoryPlanRepository();
+    const save = vi.spyOn(repository, 'savePlan');
+    const formal = planner(repository, new SequenceModel([validDefinition()]));
+    const candidate = await formal.candidates.generate(input());
+    await formal.commits.commit(candidate, input());
+    await repository.confirmPlan(candidate.plan.planId);
+    await expect(formal.commits.commit(candidate, input())).resolves.toMatchObject({
+      confirmationStatus: 'confirmed',
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects tampered candidate identity before any formal write', async () => {
+    const repository = new MemoryPlanRepository();
+    const formal = planner(repository, new SequenceModel([validDefinition()]));
+    const candidate = await formal.candidates.generate(input());
+    await expect(
+      formal.commits.commit({ ...candidate, plan: { ...candidate.plan, goalVersion: 2 } }, input()),
+    ).rejects.toThrow('WORKFLOW_PLAN_CANDIDATE_HASH_MISMATCH');
+    expect(repository.plans.size).toBe(0);
+  });
+
   it('carries the execution Task through every attempt and the final plan', async () => {
     const repository = new MemoryPlanRepository();
     const result = await planner(repository, new SequenceModel([validDefinition()])).plan({

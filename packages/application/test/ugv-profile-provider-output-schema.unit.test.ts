@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveUgvProfileProviderSuccessOutputSchema } from '../src/ugv-profile-provider-output-schema.js';
+import { resolveUgvProfileProviderSuccessOutputSchema } from '../../ugv-profile/src/ugv-profile-provider-output-schema.js';
 
 describe('UGV Profile Provider output Schema authority', () => {
   it.each([false, true])(

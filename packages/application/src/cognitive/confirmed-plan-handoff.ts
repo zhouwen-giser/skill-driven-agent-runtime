@@ -4,18 +4,18 @@ import {
   type UserGoalPlan,
   type UserGoalPlanCandidateSnapshot,
 } from '../../../domain/src/index.js';
-import type { UserGoalPlanningService } from '../user-goal-planning.js';
+import type { UserGoalPlanCommitService } from '../user-goal-plan-commit.js';
 import type { GoalVersionLock } from './ports.js';
 
 /** The only boundary allowed to promote an interactive plan candidate into v1.2.2 authority. */
 export class ConfirmedPlanHandoff {
   readonly #lock: GoalVersionLock;
-  readonly #planner: Pick<UserGoalPlanningService, 'commitCandidate'>;
+  readonly #planner: Pick<UserGoalPlanCommitService, 'commitCandidate'>;
 
   constructor(
     dependencies: Readonly<{
       lock: GoalVersionLock;
-      planner: Pick<UserGoalPlanningService, 'commitCandidate'>;
+      planner: Pick<UserGoalPlanCommitService, 'commitCandidate'>;
     }>,
   ) {
     this.#lock = dependencies.lock;

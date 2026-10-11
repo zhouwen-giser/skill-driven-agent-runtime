@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
 
 import type {
-  OutcomeDecision,
   GoalCancellationRecord,
+  OutcomeDecision,
   RuntimeAchievedOutcomeInput,
   RuntimeCanceledOutcomeInput,
   RuntimeEnhancementWarning,
+  RuntimeLayeredOutcomeCommit,
   RuntimeTerminalOutcomeRecord,
   RuntimeUnachievableOutcomeInput,
   SkillAttempt,
@@ -14,16 +15,14 @@ import type {
   UserGoalCompletionContract,
   UserGoalPlan,
   WorkflowExecutionOutcome,
-  RuntimeLayeredOutcomeCommit,
 } from '../../domain/src/index.js';
 import {
   createCompletedEffect,
   USER_GOAL_PLAN_TERMINAL_AUTHORITY,
 } from '../../domain/src/index.js';
 
-import type { RuntimeTerminalOutcomeRepository } from './ports.js';
-import type { GoalCancellationRepository } from './ports.js';
 import { SkillGoalJudge, TaskGoalJudge, UserGoalJudge } from './outcome-judges.js';
+import type { GoalCancellationRepository, RuntimeTerminalOutcomeRepository } from './ports.js';
 
 export interface UserGoalOutcomeContext {
   readonly executionTaskId?: string;

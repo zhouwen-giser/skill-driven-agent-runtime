@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   canonicalHash,
   createMcpProviderDispatchHash,
-  ugvGovernedControlConfirmationId,
   type GovernedControlConfirmation,
   type RemoteTaskLifecycleEvidence,
-  type UgvGovernedControlConfirmationIssueInput,
 } from '../../../packages/application/src/index.js';
+import {
+  ugvGovernedControlConfirmationId,
+  type UgvGovernedControlConfirmationIssueInput,
+} from '../../../packages/ugv-profile/src/index.js';
 import {
   createSelectedTaskOperation,
   type InternalToolResult,

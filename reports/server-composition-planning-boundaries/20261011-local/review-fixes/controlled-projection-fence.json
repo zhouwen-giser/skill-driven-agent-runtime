@@ -1,0 +1,27 @@
+{
+  "project": "sdar-verify-focused-revision-494c4234-7818-4890-af45-7c4c149fda4a",
+  "source": "/tmp/sdar-verify-projection-focused-MQK1Ak/source",
+  "sourceCommit": "43faa3a9cb88160153c0fc4b7e4ff4fc5f7663bd",
+  "sourceOverlay": [
+    {
+      "path": "packages/persistence-postgres/test/repositories.integration.test.ts",
+      "beforeSha256": "44d1c9925846c072efe7cc435f1bf387f5f4f833a27e74267505a78edf7b00c1",
+      "afterSha256": "91bb3d0a3493cf737df017e38b029eb186ab9254763c7e2ffc2b0bc4bc8e6b88"
+    }
+  ],
+  "runtimeInputSha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c",
+  "baselineSha256": "385d1b59aee8fc3b1b1d87226236de0a7545edeba10cc163029a1c2ac061f64d",
+  "command": [
+    "pnpm",
+    "test:integration",
+    "--",
+    "packages/persistence-postgres/test/repositories.integration.test.ts",
+    "--testNamePattern",
+    "holds the action row fence"
+  ],
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "scope": "focused_task_revision_on_fresh_owned_loopback_postgres",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

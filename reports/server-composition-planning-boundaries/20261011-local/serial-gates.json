@@ -1,0 +1,48 @@
+[
+  {
+    "phase": "M1",
+    "cwd": "/tmp/sdar-verify-7a85074a-52d6-4fdd-894a-588583cd950d-zNKeEU/retry-source",
+    "command": [
+      "pnpm",
+      "verify:isolated"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 2058.1847217082977,
+    "log": "/home/sz/code/skill-driven-agent-runtime/reports/server-composition-planning-boundaries/20261011-local/M1-serial-runner.log"
+  },
+  {
+    "phase": "M2",
+    "cwd": "/tmp/sdar-verify-8a7208ca-412e-4f0c-bec8-62822a43edaa-VS8B3h/retry-source",
+    "command": [
+      "pnpm",
+      "verify:isolated"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 2117.2353286743164,
+    "log": "/home/sz/code/skill-driven-agent-runtime/reports/server-composition-planning-boundaries/20261011-local/M2-serial-runner.log"
+  },
+  {
+    "phase": "M3",
+    "cwd": "/home/sz/code/skill-driven-agent-runtime",
+    "command": [
+      "pnpm",
+      "verify:isolated"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 2050.9430632591248,
+    "log": "/home/sz/code/skill-driven-agent-runtime/reports/server-composition-planning-boundaries/20261011-local/M3-serial-runner.log"
+  },
+  {
+    "phase": "M4",
+    "cwd": "/home/sz/code/skill-driven-agent-runtime",
+    "command": [
+      "pnpm",
+      "verify:isolated",
+      "--",
+      "--frozen"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 2151.190631866455,
+    "log": "/home/sz/code/skill-driven-agent-runtime/reports/server-composition-planning-boundaries/20261011-local/M4-runner.log"
+  }
+]

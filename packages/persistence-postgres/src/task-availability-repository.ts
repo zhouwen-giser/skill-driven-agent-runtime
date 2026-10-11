@@ -1,4 +1,4 @@
-import type { Pool, QueryResultRow } from 'pg';
+import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
 import type {
@@ -128,65 +128,11 @@ export class PostgresTaskAvailabilityEvidenceRepository implements TaskAvailabil
     readiness: DslExecutionReadiness,
     snapshots: readonly TaskAvailabilitySnapshot[],
   ): Promise<void> {
-    if (snapshots.some((snapshot) => snapshot.readinessId !== readiness.readinessId))
-      throw new TaskAvailabilityPersistenceError(
-        'TASK_READINESS_EVIDENCE_MISMATCH',
-        'Every snapshot must belong to the saved readiness.',
-      );
+    assertSnapshotReadiness(readiness, snapshots);
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
-        `INSERT INTO task_execution_readiness
-           (readiness_id,workflow_plan_id,plan_attempt,check_phase,workflow_instance_id,
-            workflow_node_run_id,dsl_hash,disposition,permitted_actions_json,
-            model_decision_json,guard_action,guard_reason_codes_json,confirmation_required,created_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13,$14)`,
-        [
-          readiness.readinessId,
-          readiness.workflowPlanId,
-          readiness.planAttempt,
-          readiness.checkPhase,
-          readiness.workflowInstanceId ?? null,
-          readiness.workflowNodeRunId ?? null,
-          readiness.dslHash,
-          readiness.disposition,
-          JSON.stringify(readiness.permittedActions),
-          readiness.modelDecision === undefined ? null : JSON.stringify(readiness.modelDecision),
-          readiness.guardAction,
-          JSON.stringify(readiness.guardReasonCodes),
-          readiness.confirmationRequired,
-          readiness.createdAt,
-        ],
-      );
-      for (const snapshot of snapshots)
-        await client.query(
-          `INSERT INTO task_availability_snapshot
-             (snapshot_id,readiness_id,node_id,server_id,operation_name,arguments_snapshot_json,
-              arguments_hash,timing_snapshot_json,result_json,availability,risk_level,
-              reservation_mode,reservation_ref,valid_until,source_revision,checked_at,
-              normalization_reason_codes_json)
-           VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17::jsonb)`,
-          [
-            snapshot.snapshotId,
-            snapshot.readinessId,
-            snapshot.nodeId,
-            snapshot.serverId,
-            snapshot.operationName,
-            JSON.stringify(snapshot.arguments),
-            snapshot.argumentsHash,
-            snapshot.timing === undefined ? null : JSON.stringify(snapshot.timing),
-            JSON.stringify(snapshot.result),
-            snapshot.result.availability,
-            snapshot.result.riskLevel,
-            snapshot.result.reservationMode,
-            snapshot.result.reservationRef ?? null,
-            snapshot.result.validUntil ?? null,
-            snapshot.sourceRevision,
-            snapshot.checkedAt,
-            JSON.stringify(snapshot.normalizationReasonCodes),
-          ],
-        );
+      await saveTaskAvailabilityEvaluation(client, readiness, snapshots);
       await client.query('COMMIT');
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -240,6 +186,86 @@ export class PostgresTaskAvailabilityEvidenceRepository implements TaskAvailabil
   async findLatestPlanning(planId: string) {
     return (await this.listByPlan(planId, { phase: 'planning', limit: 1 }))[0];
   }
+}
+
+/** Uses the caller's transaction; plan commits must not open a separate evidence transaction. */
+export async function saveTaskAvailabilityEvaluation(
+  client: PoolClient,
+  readiness: DslExecutionReadiness,
+  snapshots: readonly TaskAvailabilitySnapshot[],
+): Promise<void> {
+  assertSnapshotReadiness(readiness, snapshots);
+  try {
+    await client.query(
+      `INSERT INTO task_execution_readiness
+           (readiness_id,workflow_plan_id,plan_attempt,check_phase,workflow_instance_id,
+            workflow_node_run_id,dsl_hash,disposition,permitted_actions_json,
+            model_decision_json,guard_action,guard_reason_codes_json,confirmation_required,created_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13,$14)`,
+      [
+        readiness.readinessId,
+        readiness.workflowPlanId,
+        readiness.planAttempt,
+        readiness.checkPhase,
+        readiness.workflowInstanceId ?? null,
+        readiness.workflowNodeRunId ?? null,
+        readiness.dslHash,
+        readiness.disposition,
+        JSON.stringify(readiness.permittedActions),
+        readiness.modelDecision === undefined ? null : JSON.stringify(readiness.modelDecision),
+        readiness.guardAction,
+        JSON.stringify(readiness.guardReasonCodes),
+        readiness.confirmationRequired,
+        readiness.createdAt,
+      ],
+    );
+    for (const snapshot of snapshots)
+      await client.query(
+        `INSERT INTO task_availability_snapshot
+             (snapshot_id,readiness_id,node_id,server_id,operation_name,arguments_snapshot_json,
+              arguments_hash,timing_snapshot_json,result_json,availability,risk_level,
+              reservation_mode,reservation_ref,valid_until,source_revision,checked_at,
+              normalization_reason_codes_json)
+           VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17::jsonb)`,
+        [
+          snapshot.snapshotId,
+          snapshot.readinessId,
+          snapshot.nodeId,
+          snapshot.serverId,
+          snapshot.operationName,
+          JSON.stringify(snapshot.arguments),
+          snapshot.argumentsHash,
+          snapshot.timing === undefined ? null : JSON.stringify(snapshot.timing),
+          JSON.stringify(snapshot.result),
+          snapshot.result.availability,
+          snapshot.result.riskLevel,
+          snapshot.result.reservationMode,
+          snapshot.result.reservationRef ?? null,
+          snapshot.result.validUntil ?? null,
+          snapshot.sourceRevision,
+          snapshot.checkedAt,
+          JSON.stringify(snapshot.normalizationReasonCodes),
+        ],
+      );
+  } catch (error: unknown) {
+    if (isPgUniqueViolation(error))
+      throw new TaskAvailabilityPersistenceError(
+        'TASK_READINESS_EVIDENCE_CONFLICT',
+        'Readiness evidence is append-only and the supplied identity already exists.',
+      );
+    throw error;
+  }
+}
+
+function assertSnapshotReadiness(
+  readiness: DslExecutionReadiness,
+  snapshots: readonly TaskAvailabilitySnapshot[],
+): void {
+  if (snapshots.some((snapshot) => snapshot.readinessId !== readiness.readinessId))
+    throw new TaskAvailabilityPersistenceError(
+      'TASK_READINESS_EVIDENCE_MISMATCH',
+      'Every snapshot must belong to the saved readiness.',
+    );
 }
 
 function mapReadiness(row: ReadinessRow): DslExecutionReadiness {

@@ -16,3 +16,4 @@ export * from './smpp-task-business-client.js';
 export * from './frozen-business-events-mock-provider.js';
 export * from './business-events-runtime-adapter.js';
 export * from './outbound-endpoint-policy.js';
+export * from './smpp-task-business-transport.js';

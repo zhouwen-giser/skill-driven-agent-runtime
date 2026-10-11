@@ -1,0 +1,2 @@
+$ node scripts/check-sources-lock.mjs
+Verified 37 OSS source pins; no UNPINNED entries.

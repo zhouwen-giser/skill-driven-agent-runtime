@@ -1,0 +1,21 @@
+{
+  "runId": "sdar-verify-refactor-perf-1c020268-2548-442c-9948-30235fda0662",
+  "source": "/tmp/sdar-verify-80dc2518-c4ae-47d4-b2ac-ac58d2d85506-gL7S4I/source",
+  "sourceCommit": "52f54a11a40380f7c73bd9da277d640e49bdfbf7",
+  "inputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
+  "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
+  "command": [
+    "pnpm",
+    "test:e2e",
+    "--",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "--testNamePattern",
+    "keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds"
+  ],
+  "scope": "focused_unchanged_performance_test_on_owned_loopback_infrastructure",
+  "ownedCpuSetContainers": [],
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

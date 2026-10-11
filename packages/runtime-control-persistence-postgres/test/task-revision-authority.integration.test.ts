@@ -199,7 +199,7 @@ describe('P08 durable per-Task revision authority', { concurrent: false }, () =>
         }
       },
     });
-    const gate = createGate('claim-response-lost', pool, 120);
+    const gate = createGate('claim-response-lost');
     const operation = vi.fn(() => Promise.resolve(auditResult('claim-response-lost')));
 
     await expect(
@@ -240,7 +240,7 @@ describe('P08 durable per-Task revision authority', { concurrent: false }, () =>
       },
     });
     const tasks = new PostgresAgentTaskRepository(pool, undefined, commands);
-    const gate = createGate('release-response-lost', pool, 120);
+    const gate = createGate('release-response-lost');
     const operation = vi.fn(async () => {
       const task = await requiredTask(tasks, taskId);
       await tasks.save({ ...task, phaseMessage: 'Applied exactly once.', updatedAt: fixedNow });
@@ -336,7 +336,7 @@ describe('P08 durable per-Task revision authority', { concurrent: false }, () =>
   it('keeps a dispatch-started partial effect indeterminate and fenced', async () => {
     const commands = new PostgresAgentTaskCommandContext().bindPool(pool);
     const authority = new PostgresRuntimeTaskRevisionAuthority(pool, commands);
-    const gate = createGate('partial-pause', pool, 120);
+    const gate = createGate('partial-pause');
     const operation = vi.fn(async () => {
       await commands.recordEffect('workflow_paused', 'instance-missing', {
         instanceId: 'instance-missing',
@@ -364,6 +364,7 @@ describe('P08 durable per-Task revision authority', { concurrent: false }, () =>
 });
 
 function createGate(owner: string, sourcePool = pool, leaseDurationMs = 10_000) {
+  // Recovery cases expire the lease explicitly; nominal I/O must finish before that transition.
   return new CognitiveManagementActionGate({
     repository: new PostgresCognitiveManagementActionRepository(sourcePool),
     clock: { now: () => fixedNow },
@@ -520,12 +521,13 @@ async function seedWorkflowAndAttempt(id: string): Promise<void> {
 }
 
 async function expireAction(key: string): Promise<void> {
-  await pool.query(
+  const result = await pool.query(
     `UPDATE cognitive_management_action
         SET lease_expires_at=clock_timestamp()-interval '1 second'
       WHERE idempotency_key=$1 AND status='pending'`,
     [key],
   );
+  expect(result.rowCount).toBe(1);
 }
 
 async function revision(id: string): Promise<number> {

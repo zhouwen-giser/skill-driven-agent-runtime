@@ -1,0 +1,110 @@
+{
+  "project": "sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance",
+  "composeFile": "compose.verification-performance.yaml",
+  "scope": "owned_loopback_performance_fixture",
+  "postgresStorage": "tmpfs_2_GiB",
+  "durabilityVerification": "separate persistent-volume migration/integration/functional gates",
+  "postgresPort": 38531,
+  "redisPort": 35859,
+  "testLogicChanged": false,
+  "thresholdsChanged": false,
+  "commands": [
+    {
+      "args": [
+        "docker",
+        "compose",
+        "--env-file",
+        "/tmp/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance-lcYpw6/empty.env",
+        "--project-name",
+        "sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance",
+        "-f",
+        "compose.verification-performance.yaml",
+        "config"
+      ],
+      "exitCode": 0
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "--env-file",
+        "/tmp/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance-lcYpw6/empty.env",
+        "--project-name",
+        "sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance",
+        "-f",
+        "compose.verification-performance.yaml",
+        "up",
+        "-d",
+        "--wait",
+        "postgres",
+        "redis"
+      ],
+      "exitCode": 0
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "--env-file",
+        "/tmp/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance-lcYpw6/empty.env",
+        "--project-name",
+        "sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance",
+        "-f",
+        "compose.verification-performance.yaml",
+        "ps",
+        "-q",
+        "postgres"
+      ],
+      "exitCode": 0
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "--env-file",
+        "/tmp/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance-lcYpw6/empty.env",
+        "--project-name",
+        "sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance",
+        "-f",
+        "compose.verification-performance.yaml",
+        "ps",
+        "-q",
+        "redis"
+      ],
+      "exitCode": 0
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "--env-file",
+        "/tmp/sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance-lcYpw6/empty.env",
+        "--project-name",
+        "sdar-verify-e4e3339a-7a6d-45ee-bc0a-f5018bcab49b-e2e-performance",
+        "-f",
+        "compose.verification-performance.yaml",
+        "down",
+        "--volumes",
+        "--remove-orphans"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "containers": [
+    {
+      "service": "postgres",
+      "id": "8d830189c3cefcdfbbe223b2250b02e8d59013a4e9edb9a7744ae2ebe48c8c18",
+      "imageId": "sha256:23cee8f8b03ba9d7b061aef00770e38dcda6bae0bb1079c6500d6b868c8f3ef2",
+      "ownershipChecked": true
+    },
+    {
+      "service": "redis",
+      "id": "0e7275d8afbb78fd1519a8a43cd4126cad110d0fa57b42e0f1436336707c06dd",
+      "imageId": "sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+      "ownershipChecked": true
+    }
+  ],
+  "resolvedComposeSha256": "bb6e2f9c6edac8e109bd85f0d78cb4d176213cb6fa9d9b5efc3535cd6f8d55dd",
+  "postgresVersion": "PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "cleanupExitCode": 0
+}

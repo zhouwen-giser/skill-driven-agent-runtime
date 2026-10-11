@@ -1,0 +1,142 @@
+{
+  "status": "PASS",
+  "scope": "Acceptance mapping preflight only; does not certify M4",
+  "sourceRuntimeInputSha256": "65aa5c85b5c13b3b5ace87ebb8f426365fa6976a61b7adcb0fe0e38764a0dbe5",
+  "evidenceMilestone": "M3",
+  "targetCount": 22,
+  "targets": [
+    {
+      "test": "apps/server/test/server-composition-lifecycle.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "apps/server/test/smpp-task-business.e2e.test.ts",
+      "executedStages": [
+        "postgres-redis-model-mcp-e2e"
+      ]
+    },
+    {
+      "test": "apps/server/test/task-business-operation-profile.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "apps/server/test/ugv-agent-profile-execution.integration.test.ts",
+      "executedStages": [
+        "postgres-redis-integration"
+      ]
+    },
+    {
+      "test": "apps/server/test/ugv-move-workflow-continuation.integration.test.ts",
+      "executedStages": [
+        "postgres-redis-integration"
+      ]
+    },
+    {
+      "test": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+      "executedStages": [
+        "postgres-redis-model-mcp-e2e"
+      ]
+    },
+    {
+      "test": "packages/application/test/experience-enriched-planning.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/goal-patch-service.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/governed-control-authority.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/interactive-planning.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/plan-preparation-processor.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/remote-task-cancellation.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/remote-task-continuation.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/remote-task-input.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/skill-call-workflow.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/subworkflow-execution.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/user-goal-planning.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/workflow-planner.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/application/test/workflow-revision.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    },
+    {
+      "test": "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts",
+      "executedStages": [
+        "postgres-redis-integration"
+      ]
+    },
+    {
+      "test": "packages/persistence-postgres/test/workflow-candidate-audit.unit.test.ts",
+      "executedStages": [
+        "unit"
+      ]
+    }
+  ],
+  "missing": []
+}

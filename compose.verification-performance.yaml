@@ -1,0 +1,22 @@
+services:
+  postgres:
+    extends:
+      file: compose.yaml
+      service: postgres
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+        tmpfs:
+          size: 2147483648
+  redis:
+    extends:
+      file: compose.yaml
+      service: redis
+
+networks:
+  sdar-local:
+    driver: bridge
+
+volumes:
+  sdar-postgres-data:
+  sdar-redis-data:

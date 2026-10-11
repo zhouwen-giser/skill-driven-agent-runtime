@@ -1,0 +1,57 @@
+[
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/ci-architecture.log",
+    "sha256": "fb27c46406b5d10e0696b4147c907ef96aeb8d233dfb5a07e3f99182a66cc436",
+    "bytes": 479
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/ci-lint.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/ci-planning-local.log",
+    "sha256": "78abe83b8ee9896b5a1e035a9fa8760fca409d10c72a6c3a361c8b7ef1baf901",
+    "bytes": 233
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/focused-performance-runner.log",
+    "sha256": "dcb19ea5253e6daf17cac4525fa0d2fecd760913a6781ab332bf11a8919a910d",
+    "bytes": 31195
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/m3-code-final-focused.log",
+    "sha256": "65a5b40de96bd156b3c684ab4cc1cc51ae94cb688b321aea03c7aa6005e7c126",
+    "bytes": 228
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/m3-code-final-typecheck.log",
+    "sha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+    "bytes": 32
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/m3-cognitive-timeout-diagnosis.log",
+    "sha256": "3b6ac8c0655446632ee57791e0431ffa89ab24740058944d3a29281ad0aa4bd8",
+    "bytes": 335
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/performance-final-lint.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/performance-verification-contract.log",
+    "sha256": "3fcae9adf62e224301566630e3f8efab057cc336c84489162490389d60c8c9eb",
+    "bytes": 4973
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/pre-refactor-performance-runner.log",
+    "sha256": "aa66e31c3eb21de0caf8745cf373700759579cdfcc2939cbcbd5c671a0eb9d9d",
+    "bytes": 29868
+  },
+  {
+    "path": "reports/server-composition-planning-boundaries/20261011-local/focused/raw/tmpfs-performance-runner.log",
+    "sha256": "419124981aa2ff1d9e68a9fe5d454c0c95651d981854aff95d14f4438c08089c",
+    "bytes": 15989
+  }
+]

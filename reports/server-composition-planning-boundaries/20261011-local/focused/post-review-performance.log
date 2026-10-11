@@ -1,0 +1,171 @@
+$ node scripts/test-e2e.mjs -- packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern 'keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds'
+name: sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance
+services:
+  postgres:
+    build:
+      context: /tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source
+      dockerfile: infra/postgres/Dockerfile.pgvector-hardened
+      args:
+        SOURCE_DATE_EPOCH: "0"
+      provenance: "false"
+      sbom: "false"
+    environment:
+      POSTGRES_DB: sdar
+      POSTGRES_PASSWORD: sdar_local_only
+      POSTGRES_USER: sdar
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      timeout: 3s
+      interval: 2s
+      retries: 30
+      start_period: 5s
+    image: sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+    networks:
+      sdar-local: null
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5432
+        published: "37729"
+        protocol: tcp
+    pull_policy: never
+    restart: "no"
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+        tmpfs:
+          size: "2147483648"
+      - type: bind
+        source: /tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source/infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql
+        target: /docker-entrypoint-initdb.d/0001_sdar_v1_2_2_baseline.sql
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source/infra/postgres/seed/0001_sdar_v1_2_2_minimal_seed.sql
+        target: /docker-entrypoint-initdb.d/0002_sdar_v1_2_2_minimal_seed.sql
+        read_only: true
+        bind: {}
+  redis:
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - "60"
+      - "1"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 3s
+      interval: 2s
+      retries: 30
+      start_period: 2s
+    image: redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
+    networks:
+      sdar-local: null
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 6379
+        published: "33069"
+        protocol: tcp
+    restart: "no"
+    volumes:
+      - type: volume
+        source: sdar-redis-data
+        target: /data
+        volume: {}
+networks:
+  sdar-local:
+    name: sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-local
+    driver: bridge
+volumes:
+  sdar-redis-data:
+    name: sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-redis-data
+ Network sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-local Creating 
+ Network sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-local Created 
+ Volume sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-redis-data Creating 
+ Volume sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-redis-data Created 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Creating 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Creating 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Created 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Created 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Starting 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Starting 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Started 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Started 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Waiting 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Waiting 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Healthy 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Healthy 
+10d19e2f029d0df7e5f3ca89f7106261def1bf0c493d13238b2f61a0dd91d25a
+16222a4448a993b72ab74003f1b3a431bb634166be745e1477e474acdb8bead1
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source[39m
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"phase13.performance.append_raw_metrics","appendP95RawMs":2.716807000000699,"appendSamplesMs":[2.416892999999618,2.2898669999995036,2.281005999999252,2.5454310000004625,2.7598980000002484,2.3593459999992774,2.296838000000207,2.34449400000085,2.416338999999425,2.303092000000106,2.256037999999535,2.307835999999952,2.4076209999984712,2.350446999998894,3.038706999999704,2.267254000000321,2.2536249999993743,2.2663439999996626,2.2870589999984077,2.3009600000004866,2.2415320000000065,2.2999669999990147,2.2880160000004253,2.262172000000646,2.453553000001193,2.716807000000699,2.6488829999998416,2.557746999998926,2.6440509999993083,2.5790499999984604,2.631971999999223,2.5539069999995263,2.586739000000307,2.5043619999996736,2.801700999998502,2.5141640000001644,2.535681999999724,2.4838030000009894,2.5205889999997453,2.56264100000044,2.548255000001518,2.4895999999989726,2.6093810000002122,2.559999000000971,2.960311000000729,2.4118749999997817,2.4367349999993166,2.415993000000526,2.118781000001036,2.195303000000422,2.0709229999993113,2.0610799999994924,2.050504999999248,2.130286999999953,2.0524349999996048,2.520034000001033,2.213187999999718,2.2076969999998255,2.0201129999986733,2.028866000000562,2.0155920000015612,2.128727000001163,2.093187999998918,2.0151089999999385,5.317385999998805,2.3542319999996835,2.1781059999993886,2.134989999998652,2.1429620000017167,2.2538839999997435,2.2162659999994503,2.1658580000002985,2.1180440000007366,2.009248000000298,2.069943999998941,2.0187320000004547,2.1703450000004523,2.1380129999997735,2.11333999999988,2.1222909999996773,2.1322779999991326,2.0345029999989492,2.028132999999798,2.0399600000000646,2.029534999999669,2.0844449999985954,2.1226320000005217,2.262666000000536,2.1863649999995687,2.347648000000845,2.0315319999990606,1.9896759999992355,1.967612000000372,2.107680999999502,2.14840600000025,2.1030730000002222,2.097292999998899,2.0960790000008274,2.1513899999990826,2.100908000000345],"appendTailMs":[2.6093810000002122,2.631971999999223,2.6440509999993083,2.6488829999998416,2.716807000000699,2.7598980000002484,2.801700999998502,2.960311000000729,3.038706999999704,5.317385999998805],"evidenceOutboxRowCount":"110","forwardReferencePlan":[{"Plan":{"Node Type":"Seq Scan","Parallel Aware":false,"Async Capable":false,"Relation Name":"evidence_outbox","Alias":"evidence_outbox","Startup Cost":0,"Total Cost":13.81,"Plan Rows":1,"Plan Width":32,"Actual Startup Time":0.046,"Actual Total Time":0.046,"Actual Rows":0,"Actual Loops":1,"Filter":"(evidence_refs ? 'phase13-diagnostic-record-id'::text)","Rows Removed by Filter":110,"Shared Hit Blocks":13,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning":{"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.036,"Triggers":[],"Execution Time":0.051}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":82,"reconciled":82,"alreadyConverged":0,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":120,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":153,"reconciled":71,"alreadyConverged":82,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"phase13.performance.raw_metrics","baselineP95RawMs":434.1618860000017,"evidenceEnabledP95RawMs":426.61409999999887,"regressionRawPercent":-1.7384727318055706,"baselineWindowMediansRawMs":[314.8953034999977,344.56887899999856,307.8981214999949],"baselineMedianDriftRawPercent":11.240647411103527,"appendP95RawMs":2.716807000000699,"appendSamplesMs":[2.416892999999618,2.2898669999995036,2.281005999999252,2.5454310000004625,2.7598980000002484,2.3593459999992774,2.296838000000207,2.34449400000085,2.416338999999425,2.303092000000106,2.256037999999535,2.307835999999952,2.4076209999984712,2.350446999998894,3.038706999999704,2.267254000000321,2.2536249999993743,2.2663439999996626,2.2870589999984077,2.3009600000004866,2.2415320000000065,2.2999669999990147,2.2880160000004253,2.262172000000646,2.453553000001193,2.716807000000699,2.6488829999998416,2.557746999998926,2.6440509999993083,2.5790499999984604,2.631971999999223,2.5539069999995263,2.586739000000307,2.5043619999996736,2.801700999998502,2.5141640000001644,2.535681999999724,2.4838030000009894,2.5205889999997453,2.56264100000044,2.548255000001518,2.4895999999989726,2.6093810000002122,2.559999000000971,2.960311000000729,2.4118749999997817,2.4367349999993166,2.415993000000526,2.118781000001036,2.195303000000422,2.0709229999993113,2.0610799999994924,2.050504999999248,2.130286999999953,2.0524349999996048,2.520034000001033,2.213187999999718,2.2076969999998255,2.0201129999986733,2.028866000000562,2.0155920000015612,2.128727000001163,2.093187999998918,2.0151089999999385,5.317385999998805,2.3542319999996835,2.1781059999993886,2.134989999998652,2.1429620000017167,2.2538839999997435,2.2162659999994503,2.1658580000002985,2.1180440000007366,2.009248000000298,2.069943999998941,2.0187320000004547,2.1703450000004523,2.1380129999997735,2.11333999999988,2.1222909999996773,2.1322779999991326,2.0345029999989492,2.028132999999798,2.0399600000000646,2.029534999999669,2.0844449999985954,2.1226320000005217,2.262666000000536,2.1863649999995687,2.347648000000845,2.0315319999990606,1.9896759999992355,1.967612000000372,2.107680999999502,2.14840600000025,2.1030730000002222,2.097292999998899,2.0960790000008274,2.1513899999990826,2.100908000000345],"appendTailMs":[2.6093810000002122,2.631971999999223,2.6440509999993083,2.6488829999998416,2.716807000000699,2.7598980000002484,2.801700999998502,2.960311000000729,3.038706999999704,5.317385999998805]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":240,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+ [32m✓[39m [30m[45m e2e [49m[39m packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts [2m([22m[2m64 tests[22m[2m | [22m[33m63 skipped[39m[2m)[22m[33m 135906[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds [33m 87107[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m63 skipped[39m[90m (64)[39m
+[2m   Start at [22m 19:18:10
+[2m   Duration [22m 143.43s[2m (transform 5.24s, setup 0ms, import 7.35s, tests 135.91s, environment 0ms)[22m
+
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Stopping 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Stopping 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Stopped 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Removing 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Stopped 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Removing 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-redis-1 Removed 
+ Container sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance-postgres-1 Removed 
+ Network sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-local Removing 
+ Volume sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-redis-data Removing 
+ Volume sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-redis-data Removed 
+ Network sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503-e2e-performance_sdar-local Removed 
+{"runId":"sdar-verify-refactor-perf-cd7381ac-4485-4ccc-9afd-525403488503","source":"/tmp/sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71-bVPMuD/source","sourceCommit":"6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766","inputSha256":"57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c","baselineSha256":"ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2","command":["pnpm","test:e2e","--","packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts","--testNamePattern","keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds"],"scope":"focused_unchanged_performance_test_on_owned_loopback_infrastructure","ownedCpuSetContainers":[],"exitCode":0,"cleanupExitCode":0,"site":"NOT_RUN","deployment":"NOT_RUN"}

@@ -12,6 +12,7 @@ import { runVerificationProcess, verificationProcessPassed } from './lib/verific
 import { bootstrapSteps, fullSteps } from './lib/verification-steps.mjs';
 import { bootstrapVerificationResult } from './lib/verification-summary.mjs';
 import { verificationProjects } from './lib/verification-projects.mjs';
+import { startIsolatedPerformanceInfrastructure } from './lib/performance-infrastructure.mjs';
 import {
   cleanupVerificationMigrations,
   migrationVerificationResources,
@@ -36,6 +37,20 @@ async function fixture(body) {
     await rm(directory, { recursive: true, force: true });
   }
 }
+
+test('performance fixtures reject non-isolated operation before Docker or port allocation', async () => {
+  const previous = process.env.SDAR_VERIFY_ISOLATED;
+  try {
+    process.env.SDAR_VERIFY_ISOLATED = 'false';
+    await assert.rejects(
+      startIsolatedPerformanceInfrastructure(),
+      /PERFORMANCE_INFRASTRUCTURE_ISOLATION_REQUIRED/u,
+    );
+  } finally {
+    if (previous === undefined) Reflect.deleteProperty(process.env, 'SDAR_VERIFY_ISOLATED');
+    else process.env.SDAR_VERIFY_ISOLATED = previous;
+  }
+});
 
 test('outer migration cleanup finds resources after a killed verifier and preserves removal errors', () =>
   fixture(async ({ cwd }) => {
@@ -314,6 +329,7 @@ test('nested smoke projects belong to the outer run cleanup allowlist', () => {
     { name: 'sdar-verify-contract', file: 'compose.yaml' },
     { name: 'sdar-verify-contract-control-smoke', file: 'compose.node-control.yaml' },
     { name: 'sdar-verify-contract-runtime-smoke', file: 'compose.yaml' },
+    { name: 'sdar-verify-contract-e2e-performance', file: 'compose.verification-performance.yaml' },
   ]);
   assert.throws(() => verificationProjects('sdar'), /PROJECT_ROOT_INVALID/u);
   assert.throws(() => verificationProjects('../sdar-verify-contract'), /PROJECT_ROOT_INVALID/u);

@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "beforeRun": "sdar-verify-fea9ae03-600f-42a7-87e3-6681f26a1848",
+  "currentRun": "sdar-verify-68be0fa9-e9be-4403-b3ce-a84d3010fc71",
+  "sourceCommit": "6b3fc0e2bda523b8dcd0aa9934ef41f3e1af3766",
+  "classifications": {
+    "runtime": {
+      "status": "IDENTICAL",
+      "files": 2031,
+      "sha256": "57f82abc90d87bda99fd285f06b9cc5b464cdeee38281c56b32d23b4502c161c"
+    },
+    "baseline": {
+      "status": "IDENTICAL",
+      "files": 845,
+      "sha256": "ac2207ecc7eb3ba741c263933755eb7ddb2a94ebd61c7dedd20b5b27cf416ab2"
+    }
+  },
+  "statusInputs": "Changed progress reports and raw output are separately classified; full-manifest equality is neither expected nor claimed.",
+  "runtimeChanges": [],
+  "baselineChanges": []
+}

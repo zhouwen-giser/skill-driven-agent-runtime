@@ -1,0 +1,527 @@
+compat	Set up job	﻿2026-10-11T09:28:04.3924786Z Current runner version: '2.337.0'
+compat	Set up job	2026-10-11T09:28:04.3960485Z ##[group]Runner Image Provisioner
+compat	Set up job	2026-10-11T09:28:04.3962012Z Hosted Compute Agent
+compat	Set up job	2026-10-11T09:28:04.3962974Z Version: 20261002.596
+compat	Set up job	2026-10-11T09:28:04.3963956Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+compat	Set up job	2026-10-11T09:28:04.3965344Z Build Date: 2026-10-02T22:28:27Z
+compat	Set up job	2026-10-11T09:28:04.3966485Z Worker ID: {6d41714d-240a-4937-8cb9-beb63abf9016}
+compat	Set up job	2026-10-11T09:28:04.3967770Z Region: eastus
+compat	Set up job	2026-10-11T09:28:04.3968737Z Cloud: Azure
+compat	Set up job	2026-10-11T09:28:04.3970084Z ##[endgroup]
+compat	Set up job	2026-10-11T09:28:04.3972596Z ##[group]Operating System
+compat	Set up job	2026-10-11T09:28:04.3973582Z Ubuntu
+compat	Set up job	2026-10-11T09:28:04.3974490Z 24.04.5
+compat	Set up job	2026-10-11T09:28:04.3975338Z LTS
+compat	Set up job	2026-10-11T09:28:04.3976248Z ##[endgroup]
+compat	Set up job	2026-10-11T09:28:04.3977202Z ##[group]Runner Image
+compat	Set up job	2026-10-11T09:28:04.3978150Z Image: ubuntu-24.04
+compat	Set up job	2026-10-11T09:28:04.3979221Z Version: 20261004.327.1
+compat	Set up job	2026-10-11T09:28:04.3981475Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+compat	Set up job	2026-10-11T09:28:04.3984508Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+compat	Set up job	2026-10-11T09:28:04.3986151Z ##[endgroup]
+compat	Set up job	2026-10-11T09:28:04.3988077Z ##[group]GITHUB_TOKEN Permissions
+compat	Set up job	2026-10-11T09:28:04.3991291Z Contents: read
+compat	Set up job	2026-10-11T09:28:04.3992444Z Metadata: read
+compat	Set up job	2026-10-11T09:28:04.3993357Z ##[endgroup]
+compat	Set up job	2026-10-11T09:28:04.3996558Z Secret source: Actions
+compat	Set up job	2026-10-11T09:28:04.3998061Z Cache mode: write
+compat	Set up job	2026-10-11T09:28:04.3999317Z Prepare workflow directory
+compat	Set up job	2026-10-11T09:28:04.4481840Z Prepare all required actions
+compat	Set up job	2026-10-11T09:28:04.4554068Z Getting action download info
+compat	Set up job	2026-10-11T09:28:04.6516146Z Download action repository 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+compat	Set up job	2026-10-11T09:28:04.7605990Z Download action repository 'pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1' (SHA:b906affcce14559ad1aafd4ab0e942779e9f58b1)
+compat	Set up job	2026-10-11T09:28:04.9382857Z Download action repository 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+compat	Set up job	2026-10-11T09:28:05.1278722Z Complete job name: compat
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	﻿2026-10-11T09:28:05.2135597Z ##[group]Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2136830Z with:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2137587Z   repository: zhouwen-giser/skill-driven-agent-runtime
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2141912Z   token: ***
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2142584Z   ssh-strict: true
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2143126Z   ssh-user: git
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2143657Z   persist-credentials: true
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2144314Z   clean: true
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2144894Z   sparse-checkout-cone-mode: true
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2145545Z   fetch-depth: 1
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2146087Z   fetch-tags: false
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2146624Z   show-progress: true
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2147217Z   lfs: false
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2147759Z   submodules: false
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2148373Z   set-safe-directory: true
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2148991Z   allow-unsafe-pr-checkout: false
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.2150252Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3177827Z Syncing repository: zhouwen-giser/skill-driven-agent-runtime
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3181257Z ##[group]Getting Git version info
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3183235Z Working directory is '/home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime'
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3185682Z [command]/usr/bin/git version
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3262868Z git version 2.55.0
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3290785Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3311722Z Temporarily overriding HOME='/home/runner/work/_temp/32315ca1-f024-4396-b80b-4419cbb0385b' before making global git config changes
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3314284Z Adding repository directory to the temporary git global config as a safe directory
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3318634Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3381367Z Deleting the contents of '/home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime'
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3385329Z ##[group]Initializing the repository
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3391030Z [command]/usr/bin/git init /home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3545903Z hint: Using 'master' as the name for the initial branch. This default branch name
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3550497Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3553069Z hint: to use in all of your new repositories, which will suppress this warning,
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3556969Z hint: call:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3558227Z hint:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3559263Z hint: 	git config --global init.defaultBranch <name>
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3560783Z hint:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3562225Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3564114Z hint: 'development'. The just-created branch can be renamed via this command:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3566050Z hint:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3567043Z hint: 	git branch -m <name>
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3568121Z hint:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3569725Z hint: Disable this message with "git config set advice.defaultBranchName false"
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3572063Z Initialized empty Git repository in /home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime/.git/
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3576362Z [command]/usr/bin/git remote add origin https://github.com/zhouwen-giser/skill-driven-agent-runtime
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3627357Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3629071Z ##[group]Disabling automatic garbage collection
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3632149Z [command]/usr/bin/git config --local gc.auto 0
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3669820Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3671503Z ##[group]Setting up auth
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3676832Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.3741275Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4264827Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4306867Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4577812Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4621272Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4881560Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4940346Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4955420Z ##[group]Fetching the repository
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:05.4957590Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1376435d7039f54a51815bdd627842ae7a719422:refs/remotes/pull/36/merge
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1791642Z From https://github.com/zhouwen-giser/skill-driven-agent-runtime
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1793929Z  * [new ref]         1376435d7039f54a51815bdd627842ae7a719422 -> pull/36/merge
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1798194Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1800263Z ##[group]Determining the checkout info
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1801954Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1805356Z [command]/usr/bin/git sparse-checkout disable
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1864324Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1901965Z ##[group]Checking out the ref
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:07.1906111Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/36/merge
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.2376173Z Updating files:  58% (17656/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.2492191Z Updating files:  59% (17930/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.2635113Z Updating files:  60% (18234/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.2811846Z Updating files:  61% (18538/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.3035695Z Updating files:  62% (18842/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.3154515Z Updating files:  63% (19146/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.3293657Z Updating files:  64% (19449/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.3453856Z Updating files:  65% (19753/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.3636098Z Updating files:  66% (20057/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.3848919Z Updating files:  67% (20361/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.3957447Z Updating files:  68% (20665/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.4086999Z Updating files:  69% (20969/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.4242578Z Updating files:  70% (21273/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.4413825Z Updating files:  71% (21577/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.4624641Z Updating files:  72% (21881/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.4731767Z Updating files:  73% (22184/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.4861680Z Updating files:  74% (22488/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.5023634Z Updating files:  75% (22792/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.5190443Z Updating files:  76% (23096/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.5421603Z Updating files:  77% (23400/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.5563746Z Updating files:  78% (23704/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.5697358Z Updating files:  79% (24008/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.5852488Z Updating files:  80% (24312/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.6053902Z Updating files:  81% (24616/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.6264141Z Updating files:  82% (24919/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.6370131Z Updating files:  83% (25223/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.6505820Z Updating files:  84% (25527/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.6676891Z Updating files:  85% (25831/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.6826043Z Updating files:  86% (26135/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.7022208Z Updating files:  87% (26439/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.7139475Z Updating files:  88% (26743/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.7282045Z Updating files:  89% (27047/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.7440069Z Updating files:  90% (27351/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.7872266Z Updating files:  91% (27654/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.8225652Z Updating files:  92% (27958/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.8544511Z Updating files:  93% (28262/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.8723017Z Updating files:  94% (28566/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.8884920Z Updating files:  95% (28870/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.9046032Z Updating files:  96% (29174/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.9183399Z Updating files:  97% (29478/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.9340909Z Updating files:  98% (29782/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.9633589Z Updating files:  99% (30086/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.9634800Z Updating files: 100% (30389/30389)
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:08.9635651Z Updating files: 100% (30389/30389), done.
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1043637Z Note: switching to 'refs/remotes/pull/36/merge'.
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1044445Z 
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1044750Z You are in 'detached HEAD' state. You can look around, make experimental
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1045488Z changes and commit them, and you can discard any commits you make in this
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1046197Z state without impacting any branches by switching back to a branch.
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1046608Z 
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1046877Z If you want to create a new branch to retain commits you create, you may
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1047587Z do so (now or later) by using -c with the switch command. Example:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1047958Z 
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1048148Z   git switch -c <new-branch-name>
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1048434Z 
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1048596Z Or undo this operation with:
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1048853Z 
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1048984Z   git switch -
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1049182Z 
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1049828Z Turn off this advice by setting config variable advice.detachedHead to false
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1050412Z 
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1050992Z HEAD is now at 1376435 Merge 59def84c97043481b3a5a9e026479c6a5c724bd9 into a230bac9b61e6cf901a91c094dbfe63704717fce
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.1683669Z ##[endgroup]
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.2145582Z [command]/usr/bin/git log -1 --format=%H
+compat	Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:28:09.2153810Z 1376435d7039f54a51815bdd627842ae7a719422
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	﻿2026-10-11T09:28:09.2598457Z ##[group]Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2599117Z with:
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2599335Z   version: 11.7.0
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2599869Z   dest: ~/setup-pnpm
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2600125Z   run_install: null
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2600384Z   cache: false
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2600635Z   cache_dependency_path: pnpm-lock.yaml
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2600967Z   package_json_file: package.json
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2601259Z   standalone: false
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.2601489Z ##[endgroup]
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.4130665Z ##[group]Running self-installer...
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.8643970Z (node:2297) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:09.8645944Z (Use `node --trace-deprecation ...` to show where the warning was created)
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.0570697Z Progress: resolved 1, reused 0, downloaded 0, added 0
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.0685457Z Packages: +1
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.0685937Z +
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.3707905Z Progress: resolved 1, reused 0, downloaded 1, added 1, done
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.3992141Z 
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.3992610Z dependencies:
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.3993244Z + pnpm 11.7.0 (12.11.2 is available)
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.3993599Z 
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.4163221Z Done in 813ms
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.4331441Z ##[endgroup]
+compat	Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:28:10.4332234Z Installation Completed!
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	﻿2026-10-11T09:28:10.4539397Z ##[group]Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4540195Z with:
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4540403Z   node-version: 22
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4540616Z   cache: pnpm
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4540824Z   always-auth: false
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4541041Z   check-latest: false
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4543295Z   token: ***
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4543496Z env:
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4543764Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.4544089Z ##[endgroup]
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.6000539Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.6005899Z (node:2311) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.6007701Z (Use `node --trace-deprecation ...` to show where the warning was created)
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:10.6009146Z ##[group]Environment details
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.0161068Z node: v22.23.3
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.0161853Z npm: 10.9.9
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.0162435Z yarn: 1.22.22
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.0163497Z ##[endgroup]
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.0191437Z [command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.6247623Z /home/runner/setup-pnpm/node_modules/.bin/store/v11
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.7132022Z Cache hit for: node-cache-Linux-x64-pnpm-be1a00b1d427f8fefdc6dd42f1b7a7deb07a329cf4a1411559bfe045bb5d05e5
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:11.7236567Z (node:2311) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:12.1280338Z Received 55182868 of 55182868 (100.0%), 174.3 MBs/sec
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:12.1281606Z Cache Size: ~53 MB (55182868 B)
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:12.1311996Z [command]/usr/bin/tar -xf /home/runner/work/_temp/18a49e7f-8b4e-4d5d-8b4e-128161949fe2/cache.tzst -P -C /home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime --use-compress-program unzstd
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:12.7594939Z Cache restored successfully
+compat	Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:28:12.7624387Z Cache restored from key: node-cache-Linux-x64-pnpm-be1a00b1d427f8fefdc6dd42f1b7a7deb07a329cf4a1411559bfe045bb5d05e5
+compat	Run pnpm install --frozen-lockfile	﻿2026-10-11T09:28:12.7833117Z ##[group]Run pnpm install --frozen-lockfile
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:12.7833660Z [36;1mpnpm install --frozen-lockfile[0m
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:12.8111835Z shell: /usr/bin/bash -e {0}
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:12.8112271Z env:
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:12.8112672Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:12.8113189Z ##[endgroup]
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:13.2714766Z Scope: all 2 workspace projects
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:13.3556429Z ? Verifying lockfile against supply-chain policies (350 entries)...
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:13.3634595Z Lockfile is up to date, resolution step is skipped
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:13.4679065Z Progress: resolved 1, reused 0, downloaded 0, added 0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:13.5285658Z Packages: +290
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:13.5291490Z ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:14.4690725Z Progress: resolved 290, reused 290, downloaded 0, added 27
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:14.9191582Z Progress: resolved 290, reused 290, downloaded 0, added 290, done
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2151202Z ✓ Lockfile passes supply-chain policies (350 entries in 2.8s)
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2732612Z 
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2733338Z dependencies:
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2733998Z + @a2a-js/sdk 1.0.0-beta.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2734523Z + @langchain/core 1.2.2
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2735042Z + @langchain/langgraph 1.4.7
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2735707Z + @modelcontextprotocol/client 2.0.0-beta.4
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2736424Z + @modelcontextprotocol/sdk 1.29.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2736991Z + ajv 8.20.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2737399Z + bullmq 5.80.1
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2737820Z + express 5.2.1
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2738259Z + pg 8.22.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2738672Z + zod 4.4.3
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2738897Z 
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2739085Z devDependencies:
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2739747Z + @eslint/js 10.0.1
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2740238Z + @types/express 5.0.6
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2740717Z + @types/node 26.1.1
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2741217Z + @types/pg 8.20.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2741649Z + eslint 10.7.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2742112Z + prettier 3.9.5
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2742566Z + tsx 4.23.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2743030Z + typescript 6.0.3
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2743497Z + typescript-eslint 8.63.0
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2743930Z + vitest 4.1.10
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.2744158Z 
+compat	Run pnpm install --frozen-lockfile	2026-10-11T09:28:16.3141461Z Done in 3.4s using pnpm v11.7.0
+compat	Run pnpm format:check	﻿2026-10-11T09:28:16.3563904Z ##[group]Run pnpm format:check
+compat	Run pnpm format:check	2026-10-11T09:28:16.3564287Z [36;1mpnpm format:check[0m
+compat	Run pnpm format:check	2026-10-11T09:28:16.3566138Z [36;1mpnpm exec prettier --check packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts docs/SDAR_SMPP_UGV_V13_ADAPTER.md .github/workflows/smpp-v13-adapter.yml[0m
+compat	Run pnpm format:check	2026-10-11T09:28:16.3633399Z shell: /usr/bin/bash -e {0}
+compat	Run pnpm format:check	2026-10-11T09:28:16.3633761Z env:
+compat	Run pnpm format:check	2026-10-11T09:28:16.3634080Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run pnpm format:check	2026-10-11T09:28:16.3634500Z ##[endgroup]
+compat	Run pnpm format:check	2026-10-11T09:28:16.8143065Z $ prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json "apps/**/*.{ts,tsx,json}" "packages/**/*.{ts,tsx,json}" "infra/**/*.{ts,tsx,json}"
+compat	Run pnpm format:check	2026-10-11T09:28:16.9259858Z Checking formatting...
+compat	Run pnpm format:check	2026-10-11T09:28:43.1775556Z All matched files use Prettier code style!
+compat	Run pnpm format:check	2026-10-11T09:28:43.7536799Z Checking formatting...
+compat	Run pnpm format:check	2026-10-11T09:28:44.7767813Z All matched files use Prettier code style!
+compat	Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts	﻿2026-10-11T09:28:44.8338246Z ##[group]Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts
+compat	Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts	2026-10-11T09:28:44.8340969Z [36;1mpnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts[0m
+compat	Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts	2026-10-11T09:28:44.8406941Z shell: /usr/bin/bash -e {0}
+compat	Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts	2026-10-11T09:28:44.8407218Z env:
+compat	Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts	2026-10-11T09:28:44.8407491Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts	2026-10-11T09:28:44.8408038Z ##[endgroup]
+compat	Run pnpm typecheck	﻿2026-10-11T09:28:55.6300436Z ##[group]Run pnpm typecheck
+compat	Run pnpm typecheck	2026-10-11T09:28:55.6300793Z [36;1mpnpm typecheck[0m
+compat	Run pnpm typecheck	2026-10-11T09:28:55.6365629Z shell: /usr/bin/bash -e {0}
+compat	Run pnpm typecheck	2026-10-11T09:28:55.6365960Z env:
+compat	Run pnpm typecheck	2026-10-11T09:28:55.6366288Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run pnpm typecheck	2026-10-11T09:28:55.6366703Z ##[endgroup]
+compat	Run pnpm typecheck	2026-10-11T09:28:56.0918164Z $ tsc -p tsconfig.json --noEmit
+compat	Run pnpm verify:architecture	﻿2026-10-11T09:29:27.0997965Z ##[group]Run pnpm verify:architecture
+compat	Run pnpm verify:architecture	2026-10-11T09:29:27.0998340Z [36;1mpnpm verify:architecture[0m
+compat	Run pnpm verify:architecture	2026-10-11T09:29:27.1062497Z shell: /usr/bin/bash -e {0}
+compat	Run pnpm verify:architecture	2026-10-11T09:29:27.1062787Z env:
+compat	Run pnpm verify:architecture	2026-10-11T09:29:27.1063091Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run pnpm verify:architecture	2026-10-11T09:29:27.1063452Z ##[endgroup]
+compat	Run pnpm verify:architecture	2026-10-11T09:29:27.5622875Z $ node scripts/check-architecture.mjs
+compat	Run pnpm verify:architecture	2026-10-11T09:29:28.3647054Z Cognitive architecture verified: 6 v1.2.2 authorities, 20 Domain files, 63 Application files, no Python product runtime.
+compat	Run pnpm verify:architecture	2026-10-11T09:29:28.5926147Z Artifact architecture verified: 16 Domain files, 2 schema files, compiler/PostgreSQL projections, explicit P12 transport consumers, and the single authorized Server composition root.
+compat	Run pnpm verify:architecture	2026-10-11T09:29:28.6747456Z Planning/profile boundaries: PASS (8 forbidden fixtures rejected).
+compat	Run pnpm verify:architecture	2026-10-11T09:29:28.9192664Z Architecture boundaries verified across 1060 TypeScript source files.
+compat	Run pnpm test:verification	﻿2026-10-11T09:29:28.9631245Z ##[group]Run pnpm test:verification
+compat	Run pnpm test:verification	2026-10-11T09:29:28.9631875Z [36;1mpnpm test:verification[0m
+compat	Run pnpm test:verification	2026-10-11T09:29:28.9636880Z [36;1mpnpm exec vitest run --project unit packages/application/test/workflow-planner.unit.test.ts packages/application/test/user-goal-planning.unit.test.ts packages/application/test/plan-preparation-processor.unit.test.ts packages/application/test/interactive-planning.unit.test.ts packages/application/test/experience-enriched-planning.unit.test.ts packages/application/test/task-business-commands.unit.test.ts packages/application/test/task-capability.unit.test.ts packages/persistence-postgres/test/workflow-candidate-audit.unit.test.ts packages/persistence-postgres/test/gowm-workflow-ownership.unit.test.ts apps/server/test/server-composition-lifecycle.unit.test.ts apps/server/test/task-business-operation-profile.unit.test.ts[0m
+compat	Run pnpm test:verification	2026-10-11T09:29:28.9723124Z shell: /usr/bin/bash -e {0}
+compat	Run pnpm test:verification	2026-10-11T09:29:28.9723406Z env:
+compat	Run pnpm test:verification	2026-10-11T09:29:28.9723683Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run pnpm test:verification	2026-10-11T09:29:28.9724169Z ##[endgroup]
+compat	Run pnpm test:verification	2026-10-11T09:29:29.4316269Z $ node scripts/test-verification-isolation.mjs && node scripts/test-verification-runner.mjs
+compat	Run pnpm test:verification	2026-10-11T09:29:29.4831812Z TAP version 13
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5047279Z {"event":"test.ready","a2aUrl":"http://127.0.0.1:12345"}
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5088102Z # Subtest: endpoint readiness comes from the started child, including split stdout records
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5093288Z ok 1 - endpoint readiness comes from the started child, including split stdout records
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5094680Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5095086Z   duration_ms: 27.348957
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5095542Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5095994Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5324615Z # Subtest: a child that exits before readiness cannot authorize an HTTP probe
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5325958Z ok 2 - a child that exits before readiness cannot authorize an HTTP probe
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5326831Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5327811Z   duration_ms: 24.031601
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5328305Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5328686Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:29.5549753Z {"event":"shutdown.ready"}
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6412408Z # Subtest: service shutdown waits for delayed cleanup before allowing database teardown
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6414243Z ok 3 - service shutdown waits for delayed cleanup before allowing database teardown
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6415162Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6415607Z   duration_ms: 108.687097
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6416192Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6416625Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6637202Z {"event":"shutdown.ready"}
+compat	Run pnpm test:verification	2026-10-11T09:29:29.6914953Z {"event":"shutdown.ready"}
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9447206Z # Subtest: service shutdown rejects nonzero exits and kills timed-out children
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9449242Z ok 4 - service shutdown rejects nonzero exits and kills timed-out children
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9450770Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9451410Z   duration_ms: 105.740724
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9452146Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9452782Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9454051Z # Subtest: isolated build/config/cleanup always name the owned project and ignore local dotenv
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9455521Z ok 5 - isolated build/config/cleanup always name the owned project and ignore local dotenv
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9456371Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9456759Z   duration_ms: 105.913019
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9457219Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9457615Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9458466Z # Subtest: isolated verification refuses the shared project before calling Docker
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9459952Z ok 6 - isolated verification refuses the shared project before calling Docker
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9460758Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9461154Z   duration_ms: 34.27425
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9461621Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9461987Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9462866Z # Subtest: a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9464173Z ok 7 - a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9465475Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9465865Z   duration_ms: 58.945128
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9466310Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9466681Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9470855Z 1..7
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9471345Z # tests 7
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9472074Z # suites 0
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9472523Z # pass 7
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9473140Z # fail 0
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9473649Z # cancelled 0
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9474249Z # skipped 0
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9474750Z # todo 0
+compat	Run pnpm test:verification	2026-10-11T09:29:29.9475369Z # duration_ms 472.016173
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0209861Z TAP version 13
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0227098Z # Subtest: performance fixtures reject non-isolated operation before Docker or port allocation
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0233181Z ok 1 - performance fixtures reject non-isolated operation before Docker or port allocation
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0234106Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0234498Z   duration_ms: 1.592248
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0234938Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0235330Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0287968Z # Subtest: outer migration cleanup finds resources after a killed verifier and preserves removal errors
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0290212Z ok 2 - outer migration cleanup finds resources after a killed verifier and preserves removal errors
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0291289Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0291610Z   duration_ms: 8.996569
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0291973Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0292284Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0318848Z # Subtest: migration cleanup never removes a resource outside its exact ownership set
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0321350Z ok 3 - migration cleanup never removes a resource outside its exact ownership set
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0322178Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0322577Z   duration_ms: 2.991997
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0323041Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:30.0323426Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:30.4693871Z # Subtest: stage output is persisted before exit; nonzero exit cannot pass
+compat	Run pnpm test:verification	2026-10-11T09:29:30.4695108Z ok 4 - stage output is persisted before exit; nonzero exit cannot pass
+compat	Run pnpm test:verification	2026-10-11T09:29:30.4695870Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:30.4696246Z   duration_ms: 437.313666
+compat	Run pnpm test:verification	2026-10-11T09:29:30.4696686Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:30.4697058Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:30.5318988Z descendant=2730
+compat	Run pnpm test:verification	2026-10-11T09:29:31.2776853Z # Subtest: timeout kills a SIGTERM-resistant descendant, records reason and never passes
+compat	Run pnpm test:verification	2026-10-11T09:29:31.2778215Z ok 5 - timeout kills a SIGTERM-resistant descendant, records reason and never passes
+compat	Run pnpm test:verification	2026-10-11T09:29:31.2778976Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.2779368Z   duration_ms: 808.285985
+compat	Run pnpm test:verification	2026-10-11T09:29:31.2780062Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.2780418Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.3121625Z # Subtest: successful leader cannot leak a background child or an inherited stdout pipe
+compat	Run pnpm test:verification	2026-10-11T09:29:31.3123479Z ok 6 - successful leader cannot leak a background child or an inherited stdout pipe
+compat	Run pnpm test:verification	2026-10-11T09:29:31.3124243Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.3124615Z   duration_ms: 34.38154
+compat	Run pnpm test:verification	2026-10-11T09:29:31.3125019Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.3125377Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8183593Z # Subtest: caller cancellation is retained even when the child exits with zero
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8184694Z ok 7 - caller cancellation is retained even when the child exits with zero
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8185493Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8186097Z   duration_ms: 506.063952
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8186576Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8186937Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8332877Z # Subtest: missing executable produces a failed stage report
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8333906Z ok 8 - missing executable produces a failed stage report
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8334518Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8334896Z   duration_ms: 4.144645
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8335326Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8335749Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8336658Z # Subtest: runtime identity ignores progress reports but binds code, tests, assets and lockfile
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8338015Z ok 9 - runtime identity ignores progress reports but binds code, tests, assets and lockfile
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8338860Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8339231Z   duration_ms: 9.113667
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8340382Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8340765Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8341684Z # Subtest: full gate includes every bootstrap stage with independent limits and no aggregate command
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8343017Z ok 10 - full gate includes every bootstrap stage with independent limits and no aggregate command
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8343789Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8344114Z   duration_ms: 0.654871
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8344475Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8344797Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8345624Z # Subtest: release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8346905Z ok 11 - release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8347660Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8347959Z   duration_ms: 0.896582
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8348308Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8348607Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8525200Z # Subtest: sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8526751Z ok 12 - sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8527616Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8527985Z   duration_ms: 18.957605
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8528412Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8528785Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8529800Z # Subtest: nested smoke projects belong to the outer run cleanup allowlist
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8530896Z ok 13 - nested smoke projects belong to the outer run cleanup allowlist
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8531605Z   ---
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8531990Z   duration_ms: 0.327641
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8532429Z   type: 'test'
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8532805Z   ...
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8534164Z 1..13
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8534762Z # tests 13
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8535231Z # suites 0
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8535755Z # pass 13
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8536197Z # fail 0
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8536732Z # cancelled 0
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8537206Z # skipped 0
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8538356Z # todo 0
+compat	Run pnpm test:verification	2026-10-11T09:29:31.8538810Z # duration_ms 1839.821415
+compat	Run pnpm test:verification	2026-10-11T09:29:32.6732933Z 
+compat	Run pnpm test:verification	2026-10-11T09:29:32.6737048Z [1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:32.6737725Z 
+compat	Run pnpm test:verification	2026-10-11T09:29:35.3049842Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/plan-preparation-processor.unit.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:35.6758749Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/workflow-planner.unit.test.ts [2m([22m[2m28 tests[22m[2m)[22m[33m 386[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:36.0448905Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/interactive-planning.unit.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:36.3340077Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/task-capability.unit.test.ts [2m([22m[2m49 tests[22m[2m)[22m[33m 1043[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:36.6742334Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/user-goal-planning.unit.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:36.8695213Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/task-business-commands.unit.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:37.1236247Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/experience-enriched-planning.unit.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:37.5222575Z  [32m✓[39m [30m[42m unit [49m[39m packages/persistence-postgres/test/gowm-workflow-ownership.unit.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:38.9914429Z  [32m✓[39m [30m[42m unit [49m[39m apps/server/test/task-business-operation-profile.unit.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:39.2799044Z  [32m✓[39m [30m[42m unit [49m[39m packages/persistence-postgres/test/workflow-candidate-audit.unit.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:40.5242782Z  [32m✓[39m [30m[42m unit [49m[39m apps/server/test/server-composition-lifecycle.unit.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:40.5270243Z 
+compat	Run pnpm test:verification	2026-10-11T09:29:40.5276343Z [2m Test Files [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:40.5277902Z [2m      Tests [22m [1m[32m148 passed[39m[22m[90m (148)[39m
+compat	Run pnpm test:verification	2026-10-11T09:29:40.5279106Z [2m   Start at [22m 09:29:32
+compat	Run pnpm test:verification	2026-10-11T09:29:40.5281003Z [2m   Duration [22m 7.80s[2m (transform 7.68s, setup 0ms, import 17.02s, tests 1.63s, environment 2ms)[22m
+compat	Run pnpm test:verification	2026-10-11T09:29:40.5282169Z 
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	﻿2026-10-11T09:29:40.6130641Z ##[group]Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:40.6132233Z [36;1mpnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts[0m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:40.6196106Z shell: /usr/bin/bash -e {0}
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:40.6196397Z env:
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:40.6196682Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:40.6197035Z ##[endgroup]
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:41.4598441Z 
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:41.4603753Z [1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime[39m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:41.4604721Z 
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:43.2052797Z  [32m✓[39m [30m[42m unit [49m[39m packages/application/test/mcp-registry.unit.test.ts [2m([22m[2m78 tests[22m[2m)[22m[32m 113[2mms[22m[39m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:44.9960622Z  [32m✓[39m [30m[42m contract [49m[39m packages/mcp-adapter/test/frozen-v1-http.contract.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:45.6665774Z  [32m✓[39m [30m[42m contract [49m[39m packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 709[2mms[22m[39m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:45.6690356Z 
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:45.6695919Z [2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:45.6697230Z [2m      Tests [22m [1m[32m103 passed[39m[22m[90m (103)[39m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:45.6699769Z [2m   Start at [22m 09:29:41
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:45.6702464Z [2m   Duration [22m 4.14s[2m (transform 5.14s, setup 0ms, import 7.84s, tests 859ms, environment 0ms)[22m
+compat	Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts	2026-10-11T09:29:45.6703963Z 
+compat	Require all compatibility checks	﻿2026-10-11T09:29:45.7404324Z ##[group]Run printf 'format=%s lint=%s typecheck=%s tests=%s architecture=%s planning=%s\n' "$FORMAT" "$LINT" "$TYPES" "$TESTS" "$ARCHITECTURE" "$PLANNING"
+compat	Require all compatibility checks	2026-10-11T09:29:45.7405366Z [36;1mprintf 'format=%s lint=%s typecheck=%s tests=%s architecture=%s planning=%s\n' "$FORMAT" "$LINT" "$TYPES" "$TESTS" "$ARCHITECTURE" "$PLANNING"[0m
+compat	Require all compatibility checks	2026-10-11T09:29:45.7405988Z [36;1mtest "$FORMAT" = success[0m
+compat	Require all compatibility checks	2026-10-11T09:29:45.7406268Z [36;1mtest "$LINT" = success[0m
+compat	Require all compatibility checks	2026-10-11T09:29:45.7406523Z [36;1mtest "$TYPES" = success[0m
+compat	Require all compatibility checks	2026-10-11T09:29:45.7406780Z [36;1mtest "$TESTS" = success[0m
+compat	Require all compatibility checks	2026-10-11T09:29:45.7407044Z [36;1mtest "$ARCHITECTURE" = success[0m
+compat	Require all compatibility checks	2026-10-11T09:29:45.7407328Z [36;1mtest "$PLANNING" = success[0m
+compat	Require all compatibility checks	2026-10-11T09:29:45.7471216Z shell: /usr/bin/bash -e {0}
+compat	Require all compatibility checks	2026-10-11T09:29:45.7471491Z env:
+compat	Require all compatibility checks	2026-10-11T09:29:45.7471762Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+compat	Require all compatibility checks	2026-10-11T09:29:45.7472128Z   FORMAT: success
+compat	Require all compatibility checks	2026-10-11T09:29:45.7472337Z   LINT: success
+compat	Require all compatibility checks	2026-10-11T09:29:45.7472568Z   TYPES: success
+compat	Require all compatibility checks	2026-10-11T09:29:45.7472758Z   TESTS: success
+compat	Require all compatibility checks	2026-10-11T09:29:45.7472955Z   ARCHITECTURE: success
+compat	Require all compatibility checks	2026-10-11T09:29:45.7473184Z   PLANNING: success
+compat	Require all compatibility checks	2026-10-11T09:29:45.7473390Z ##[endgroup]
+compat	Require all compatibility checks	2026-10-11T09:29:45.7559215Z format=success lint=success typecheck=success tests=success architecture=success planning=success
+compat	Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	﻿2026-10-11T09:29:45.7641184Z Post job cleanup.
+compat	Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:29:45.8938851Z (node:2946) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+compat	Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:29:45.8940620Z (Use `node --trace-deprecation ...` to show where the warning was created)
+compat	Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020	2026-10-11T09:29:45.8943481Z Cache hit occurred on the primary key node-cache-Linux-x64-pnpm-be1a00b1d427f8fefdc6dd42f1b7a7deb07a329cf4a1411559bfe045bb5d05e5, not saving cache.
+compat	Post Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	﻿2026-10-11T09:29:45.9063821Z Post job cleanup.
+compat	Post Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1	2026-10-11T09:29:46.0629115Z Pruning is unnecessary.
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	﻿2026-10-11T09:29:46.0826227Z Post job cleanup.
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.1862177Z [command]/usr/bin/git version
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.1926167Z git version 2.55.0
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.1973405Z Temporarily overriding HOME='/home/runner/work/_temp/15fc9a11-18ef-4483-9f83-78c80bc9489d' before making global git config changes
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.1977082Z Adding repository directory to the temporary git global config as a safe directory
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.1979802Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/skill-driven-agent-runtime/skill-driven-agent-runtime
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.2032863Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.2086855Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.2474587Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.2515133Z http.https://github.com/.extraheader
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.2526784Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.2586211Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.3002326Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+compat	Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262	2026-10-11T09:29:46.3063179Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+compat	Complete job	﻿2026-10-11T09:29:46.3536362Z Cleaning up orphan processes
+compat	Complete job	2026-10-11T09:29:46.3983729Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11d5960a326750d5838078e36cf38b85af677262, actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020, pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
