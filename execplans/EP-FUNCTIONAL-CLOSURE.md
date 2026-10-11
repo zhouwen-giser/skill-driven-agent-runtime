@@ -27,7 +27,7 @@ SDAR starts at main `2029f4b7fca908724e58b77f079fc893eff69cb4`. Fresh audit run 
 - [x] 2026-10-11 Implement Console node editing and draft confirmation guard; 43 focused tests and UI build pass. Browser acceptance passed with real API revision, confirmation, LangGraph execution and trace; full milestone gate pending.
 - [x] Implement ordinary recorded Skill candidate validation and atomic publication; focused tests pass. Full gate and remaining unsupported recording kinds are explicitly separate.
 - [x] 2026-10-12 Freeze final source, run all 30 isolated stages and same-source restricted-role GOWM verification.
-- [ ] Commit, push, check actual-head CI and merge SDAR delivery. GOWM PR23 is merged and post-merge CI passes.
+- [x] 2026-10-12 Commit/push `3dbe619b`; PR38 actual-head CI passes (automatic 38158146555 / manual 38158164375); merge `272be968`. All 2,888 frozen local runtime/baseline files match the merged source. GOWM PR23 is merged and post-merge CI passes.
 
 ## Discoveries and Surprises
 
@@ -62,7 +62,7 @@ Baseline: `reports/runtime-semantic-closure/sdar-verify-59d697db-893a-4815-9867-
 
 ## Outcomes and Retrospective
 
-LOCAL_COMPLETE for the scoped repair. All 30 final frozen stages pass; publication remains in progress. Full FR-EVO and whole-project acceptance remain OPEN. Field operations and deployment NOT_RUN. Patrol capability, per-sample trajectory clocks and production operational evidence remain open unless a real authoritative implementation/contract is supplied and verified.
+COMPLETE for the scoped repair. All 30 final frozen stages pass; SDAR PR38 and GOWM PR23 are merged with verified CI and source equality. Full FR-EVO and whole-project acceptance remain OPEN. Field operations and deployment NOT_RUN. Patrol capability, per-sample trajectory clocks and production operational evidence remain open unless a real authoritative implementation/contract is supplied and verified.
 
 ### Increment discoveries and validation
 

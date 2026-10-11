@@ -1,11 +1,13 @@
 # Changelog
 
-## 2026-10-12 — functional closure (local verification complete)
+## 2026-10-12 — functional closure (scoped repair merged)
 
 - Consume GOWM owner delivery `dca0fcd` forward repair for device-attributed Temporary Skill outcomes and binding-scoped auxiliary Provider links; preserve read-only consumer startup.
 - Add complete Workflow node parameter/type/add/remove editing with unchanged DSL fields, immutable revision versioning and draft confirmation guards; verify against the real browser/API/LangGraph path.
 - Replace ordinary runtime evolution deferral with recorded candidate execution, exact policy/oracle checks, durable correction feedback and atomic version/receipt/outbox publication. Restricted profiles and unsupported recording kinds still reject publication (ADR-163).
 - Preserve failed gate logs. Handle process disappearance during owned supervisor test cleanup without swallowing permission errors. Final frozen gate passes all 30 stages (2,683 unit / 553 contract / 272 integration / 77 E2E); same-source restricted GOWM passes 8 steps / 2 formal flows / 32 native scenarios. Exit/cleanup 0; unchanged inputs/baseline. TCK and owner opt-in skips remain explicitly outside acceptance. Field/deployment NOT_RUN.
+
+SDAR PR38 merges source `3dbe619b` as `272be968` after automatic/manual actual-head CI passes. All 2,888 frozen local runtime/baseline files match the merged source. GOWM PR23 is merged with actual merged-head qualification PASS. Commit author: zhouwen-giser <zhouwen.tm@gmail.com>. Publication evidence: `reports/functional-closure/publication/`.
 
 ## 2026-10-11 — server composition and planning boundaries
 

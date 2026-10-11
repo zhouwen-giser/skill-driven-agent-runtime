@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "commit": "3dbe619ba8f1cd376d4ab8118941b1afac872d7f",
+  "tree": "46cc1e643a6094aa2b2518ae03882d22cc002360",
+  "verifiedLocalNonstatusFiles": 2888,
+  "runtimeInputSha256": "d7b0a6d9fcdc000e9e9804c8b812972c2e496a0759bb3d48aa073c6ece8ff40b",
+  "baselineSha256": "77107c3ba2c1363bd0c8038a0941678354be8aaada2a222858d40eec5bbdbfd6",
+  "frozenRunId": "sdar-verify-db3f431f-8e48-4f7c-9d66-59a5df663e6f",
+  "method": "Git committed blob bytes SHA-256 compared to every frozen local runtime and baseline input",
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}
