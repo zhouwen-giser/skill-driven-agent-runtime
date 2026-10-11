@@ -11,7 +11,7 @@
   "deployment": "NOT_RUN",
   "runtimeInputSha256": "8e908f0f4ed0a632d67dc7c1d9e364f95b3a20ae2d650bc1167c1c0b1da5e1d0",
   "baselineSha256": "f5e3e050d640c81a84d8b87f662f7fd933db900f22e6a7680909c3ff5a35f16e",
-  "status": "PR34_MERGED_UPGRADE_PREPARED",
+  "status": "COMMITTED_AND_PUSHED",
   "originalPr": 34,
   "upgradeBranch": "codex/sdar-smpp-v13-business-closure",
   "mergeMethod": "merge",
@@ -19,6 +19,22 @@
   "originalPrMerge": {
     "sha": "8fa2afec379df1f2b96ebe458428dc5bd788e794",
     "merged": true,
-    "message": "Pull Request successfully merged"
+    "message": "Pull Request successfully merged",
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/34"
+  },
+  "implementationCommit": "b2544c16c4087f0c056a1e4e2f23698a1648bf7d",
+  "push": {
+    "status": "PASS",
+    "branch": "codex/sdar-smpp-v13-business-closure",
+    "remoteHead": "b2544c16c4087f0c056a1e4e2f23698a1648bf7d"
+  },
+  "upgradePr": {
+    "number": 35,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/35",
+    "base": "main",
+    "finalMergeStateSource": "GitHub pull request record; query GET /repos/zhouwen-giser/skill-driven-agent-runtime/pulls/35",
+    "mergeAuthorization": "GRANTED",
+    "mergeMethod": "merge",
+    "requireCiSuccess": true
   }
 }

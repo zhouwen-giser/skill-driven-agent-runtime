@@ -260,3 +260,9 @@ files from the passed frozen gate; only publication status and evidence packagin
 change. Site and deployment remain NOT_RUN. Progress, exact commit/remote/merge
 identities and GitHub CI are tracked in
 `reports/sdar-smpp-v13-upgrade/20261010-local/publication-20261011/`.
+
+Publication progress: original PR34 merged normally as 8fa2afec; implementation
+commit b2544c16 is pushed and upgrade PR35 exists. The original 2,807-file
+source/baseline match is verified against the index and committed as evidence.
+The final merge and CI record is https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/35;
+merge requires successful CI and uses no bypass. Site/deploy remains NOT_RUN.

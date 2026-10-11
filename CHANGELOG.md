@@ -2517,3 +2517,5 @@ Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
   upstream clock/history and preexisting project GOWM/release gaps remain explicit.
 
 2026-10-11：用户授权提交、推送和合并本次 SMPP v1.3 升级。保留原 PR34 与独立后续升级 PR，以及原门禁/失败证据。现场与部署未授权，保持 NOT_RUN。发布过程见 publication-20261011。
+
+2026-10-11 发布事实：实施提交 b2544c16 已推送；原 PR34 普通合并为 8fa2afec。升级 PR35 的 GitHub 原记录提供最终 CI 和合并身份；门禁/失败日志、逐项证据和原任务包已提交。未修改已验证源码/基线，现场和部署仍 NOT_RUN。

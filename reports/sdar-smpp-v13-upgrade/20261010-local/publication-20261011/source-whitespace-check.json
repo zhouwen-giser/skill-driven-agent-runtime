@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "command": [
+    "git",
+    "diff",
+    "52f54a11a40380f7c73bd9da277d640e49bdfbf7..HEAD",
+    "--check",
+    "--",
+    ".",
+    ":(exclude)reports/**"
+  ],
+  "exitCode": 0,
+  "immutableEvidenceNote": "Full staged git whitespace diagnostics also flag original Docker/raw logs and upstream generated HTML. Those original bytes are deliberately preserved because their recorded hashes are acceptance evidence; they are not reformatted. Source/document formatting checks passed."
+}
