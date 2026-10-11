@@ -14,6 +14,11 @@ on:
       - scripts/check-*-architecture.mjs
       - scripts/check-planning-boundaries.mjs
       - scripts/check-architecture.mjs
+      - scripts/test-e2e.mjs
+      - scripts/test-verification-*.mjs
+      - scripts/lib/verification-*.mjs
+      - scripts/lib/performance-infrastructure.mjs
+      - compose.verification-performance.yaml
       - .github/workflows/smpp-v13-adapter.yml
   workflow_dispatch:
 
@@ -56,7 +61,9 @@ jobs:
         run: pnpm verify:architecture
       - id: planning
         continue-on-error: true
-        run: pnpm exec vitest run --project unit packages/application/test/workflow-planner.unit.test.ts packages/application/test/user-goal-planning.unit.test.ts packages/application/test/plan-preparation-processor.unit.test.ts packages/application/test/interactive-planning.unit.test.ts packages/application/test/experience-enriched-planning.unit.test.ts packages/application/test/task-business-commands.unit.test.ts packages/application/test/task-capability.unit.test.ts packages/persistence-postgres/test/workflow-candidate-audit.unit.test.ts apps/server/test/server-composition-lifecycle.unit.test.ts apps/server/test/task-business-operation-profile.unit.test.ts
+        run: |
+          pnpm test:verification
+          pnpm exec vitest run --project unit packages/application/test/workflow-planner.unit.test.ts packages/application/test/user-goal-planning.unit.test.ts packages/application/test/plan-preparation-processor.unit.test.ts packages/application/test/interactive-planning.unit.test.ts packages/application/test/experience-enriched-planning.unit.test.ts packages/application/test/task-business-commands.unit.test.ts packages/application/test/task-capability.unit.test.ts packages/persistence-postgres/test/workflow-candidate-audit.unit.test.ts apps/server/test/server-composition-lifecycle.unit.test.ts apps/server/test/task-business-operation-profile.unit.test.ts
       - id: tests
         continue-on-error: true
         run: pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts

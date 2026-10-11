@@ -35,6 +35,7 @@ Explicit typed composition stages retain construction/recovery order and one ins
 - GOWM `saveAttempt` creates a formal planning root. Its candidate-only adapter now defers root-dependent audit records in immutable candidate data; formal commit flushes attempts/readiness before finalizing the plan. Native audit evidence is durable after formal submission; discarded candidates do not allocate execution authority. A process lost during candidate generation does not recover/replay it.
 - Workflow commit must compare the entry-time frozen Goal contract, rather than the mutable caller object after a model await. The existing mutation regression and new candidate regressions pass.
 - M1/M2 retries use independent copies of the original frozen snapshots and retain all failed run logs; active M3 work never contaminates earlier milestone inputs.
+- Performance failures also reproduce on the previously accepted pre-refactor frozen source (24.25% baseline drift, 15.48% P95 regression). CPU affinity did not resolve them. The repository already accepted real tmpfs PostgreSQL performance isolation in `reports/resource-identity-20260909/performance-isolated.json`. The isolated driver now uses a separately owned tmpfs PostgreSQL and the same pinned Redis/image/settings for only the unchanged performance test; functional/integration/migration durability gates retain persistent volumes. The outer cleanup includes this owned project even if its child is killed. No test threshold or product setting changes.
 
 ## 7. Decision Log
 
@@ -43,6 +44,7 @@ Explicit typed composition stages retain construction/recovery order and one ins
 - D3: Profile hooks return candidates/policies/evidence; existing application services commit official state.
 - D5: TaskBusiness operation support uses an explicit profile policy port with a frozen contract-data default for compatibility; generic lifecycle writers remain unchanged.
 - D4: Each formal milestone receives the full isolated gate. No external services or physical devices are used.
+- D6: Use the existing accepted tmpfs PostgreSQL performance practice in the isolated test driver; preserve the original 72/72 runtime samples, 100 append samples, 15% baseline drift, 10% P95 regression and 20 ms append limits. Record this fixture separately from persistent-store verification (ADR-161).
 
 ## 8. Implementation Steps
 

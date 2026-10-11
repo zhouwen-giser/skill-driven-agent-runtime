@@ -21,3 +21,5 @@ TaskBusiness operation support is an explicit application port supplied by the i
 ## Verification
 
 Negative architecture fixtures, candidate/commit regressions, existing ordinary/UGV/SMPP/GOWM contract and E2E paths, full isolated milestone gates and a final frozen install plus restricted-role GOWM run. Exact run identities are recorded in the ExecPlan and traceability matrix when actually run.
+
+The pre-refactor frozen source reproduces the current host performance failure. Following the existing accepted `reports/resource-identity-20260909/performance-isolated.json` practice, the isolated test driver uses a separate owned real PostgreSQL tmpfs data directory and the same pinned Redis for the unchanged relative performance case. Functional, integration, migration and recovery tests keep persistent volumes. Sample design and all three numerical limits are unchanged; the fixture records resolved Compose hash, image IDs, ownership and cleanup, and outer cleanup covers a killed child. This changes only local verification infrastructure, with no production configuration, dependency or schema change.
