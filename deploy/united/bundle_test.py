@@ -14,10 +14,10 @@ b = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(b)
 
 
-def union(files, dot_prefix=False):
+def union(files, dot_prefix=False, root='fixture'):
     files = dict(files)
     files['SHA256SUMS'] = ''.join(f'{b.digest(v)}  {"./" if dot_prefix else ""}{k}\n' for k, v in sorted(files.items())).encode()
-    return b.archive({'fixture/'+k: v for k, v in files.items()})
+    return b.archive({root+'/'+k: v for k, v in files.items()})
 
 
 def upstream():
@@ -34,13 +34,13 @@ def upstream():
                   'upstream/telemetry.tar.gz': source, 'sdar/schema.json': schema, 'sdar/schema-contract-release.jsonl': seed})
 
 
-def wsgs_upstream():
-    gowm = b.archive({'gowm/source.txt': b'GOWM source'})
+def wsgs_upstream(application_data=None, gowm_data=None):
+    gowm = gowm_data if gowm_data is not None else union({'source.txt': b'GOWM source'}, dot_prefix=True, root='gowm')
     gdps = union({'packages/gowm.tar.gz': gowm}, dot_prefix=True)
     analysis_source = b.encode({'packageName': 'gdps.tar.gz', 'sha256': b.digest(gdps),
                                'nestedGowm': {'packageName': 'gowm.tar.gz', 'sha256': b.digest(gowm)}})
     analysis = union({'deployment/SOURCE.json': analysis_source, 'packages/gdps.tar.gz': gdps}, dot_prefix=True)
-    application = b.archive({'wsgs/source.txt': b'WSGS source'})
+    application = application_data if application_data is not None else union({'source.txt': b'WSGS source'}, dot_prefix=True, root='wsgs')
     components = {'gsap': {'path': 'packages/analysis.tar.gz', 'root': 'fixture', 'sha256': b.digest(analysis)},
                   'wsgs': {'path': 'packages/wsgs.tar.gz', 'root': 'wsgs', 'sha256': b.digest(application)},
                   'gdps': {'packageName': 'gdps.tar.gz', 'sha256': b.digest(gdps)},
@@ -84,6 +84,20 @@ class BundleTests(unittest.TestCase):
 
     def test_wsgs_union_validates_every_nested_component(self):
         self.assertEqual(b.validate_upstream(wsgs_upstream())[0], 'fixture')
+
+    def test_deep_component_inventories_fail_with_consistent_outer_hashes(self):
+        for component, root in [('application_data', 'wsgs'), ('gowm_data', 'gowm')]:
+            original = b'component source'
+            cases = [
+                ({'source.txt': original}, 'MISSING_INVENTORY'),
+                ({'source.txt': b'changed', 'SHA256SUMS': f'{b.digest(original)}  ./source.txt\n'.encode()}, 'INVENTORY_MISMATCH'),
+                ({'source.txt': original, 'extra.txt': b'unlisted', 'SHA256SUMS': f'{b.digest(original)}  ./source.txt\n'.encode()}, 'INVENTORY_COVERAGE_MISMATCH'),
+            ]
+            for files, code in cases:
+                blob = b.archive({root+'/'+name: data for name, data in files.items()})
+                # Rebuild every enclosing descriptor/hash, so only the deepest inventory is invalid.
+                with self.subTest(component=component, code=code), self.assertRaisesRegex(ValueError, code):
+                    b.validate_upstream(wsgs_upstream(**{component: blob}))
 
     def test_wsgs_missing_or_changed_nested_archive(self):
         for operation, code in [(lambda f: f.pop('upstream/wsgs-united.tar.gz'), 'NESTED_MEMBER_MISSING'),
