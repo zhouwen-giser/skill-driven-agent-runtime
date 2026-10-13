@@ -109,6 +109,7 @@ def validate_wsgs_union(files, manifest):
             'WSGS_BASE_IDENTITY_MISMATCH')
     application_root, application = rooted(pinned_member(wsgs, components['wsgs']['path'], components['wsgs']['sha256']))
     require(application_root == components['wsgs']['root'] and bool(application), 'WSGS_APPLICATION_ROOT_MISMATCH')
+    inventory(application, allow_dot_prefix=True)
     analysis_root, analysis = rooted(pinned_member(wsgs, components['gsap']['path'], components['gsap']['sha256']))
     require(analysis_root == components['gsap']['root'] == manifest['baseRoot'], 'ANALYSIS_ROOT_MISMATCH')
     inventory(analysis, allow_dot_prefix=True)
@@ -122,8 +123,9 @@ def validate_wsgs_union(files, manifest):
     gdps_root, gdps = rooted(pinned_member(analysis, 'packages/' + analysis_spec['packageName'], components['gdps']['sha256']))
     require(gdps_root == analysis_spec.get('baseRoot', gdps_root), 'GDPS_ROOT_MISMATCH')
     inventory(gdps, allow_dot_prefix=True)
-    gowm_root, _ = rooted(pinned_member(gdps, 'packages/' + components['gowm']['packageName'], components['gowm']['sha256']))
+    gowm_root, gowm = rooted(pinned_member(gdps, 'packages/' + components['gowm']['packageName'], components['gowm']['sha256']))
     require(gowm_root == analysis_spec['nestedGowm'].get('expectedRoot', gowm_root), 'GOWM_ROOT_MISMATCH')
+    inventory(gowm, allow_dot_prefix=True)
 
 
 def validate_upstream(data):
