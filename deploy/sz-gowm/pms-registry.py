@@ -11,10 +11,14 @@ p.add_argument('site', type=Path)
 p.add_argument('--api-image', required=True)
 p.add_argument('--worker-image', required=True)
 p.add_argument('--postgres-image', required=True)
+p.add_argument('--runtime-container', default='smpp-gowm-runtime-1')
 a = p.parse_args()
 site = a.site.resolve()
 site.mkdir(parents=True, exist_ok=True, mode=0o700)
-runtime = json.loads(subprocess.check_output(['docker', 'inspect', 'smpp-gowm-runtime-1']))[0]
+runtime = json.loads(subprocess.check_output(['docker', 'inspect', a.runtime_container]))[0]
+if runtime['Config'].get('Labels', {}).get('com.docker.compose.service') != 'runtime':
+    raise ValueError('PMS_RUNTIME_CONTAINER_ROLE_MISMATCH')
+runtime_name = runtime['Name'].removeprefix('/')
 env = dict(s.split('=', 1) for s in runtime['Config']['Env'])
 for key in ['PROVIDER_ID', 'RUNTIME_DEPLOYMENT_ID', 'RUNTIME_INSTANCE_ID']:
     if not env.get(key):
@@ -71,7 +75,7 @@ config = site/'compose.json'
 if config.exists() and json.loads(config.read_text()) != compose:
     raise ValueError('PMS_COMPOSE_CHANGE_REQUIRES_REVIEW')
 config.write_text(json.dumps(compose, indent=2)+'\n'); config.chmod(0o600)
-identity = {'providerId': env['PROVIDER_ID'], 'deploymentId': env['RUNTIME_DEPLOYMENT_ID'], 'instanceId': env['RUNTIME_INSTANCE_ID'], 'environment': env.get('RUNTIME_ENV', 'development'), 'adapterEndpoint': env['ADAPTER_ENDPOINT'], 'controlEndpoint': 'http://smpp-gowm-runtime-1:8080', 'advertisedEndpoint': 'http://smpp-gowm-runtime-1:8080', 'resourceId': 'vehicle:ugv'}
+identity = {'providerId': env['PROVIDER_ID'], 'deploymentId': env['RUNTIME_DEPLOYMENT_ID'], 'instanceId': env['RUNTIME_INSTANCE_ID'], 'environment': env.get('RUNTIME_ENV', 'development'), 'adapterEndpoint': env['ADAPTER_ENDPOINT'], 'controlEndpoint': f'http://{runtime_name}:8080', 'advertisedEndpoint': f'http://{runtime_name}:8080', 'resourceId': 'vehicle:ugv'}
 if json.loads(private('identity.json', json.dumps(identity))) != identity:
     raise ValueError('PMS_RUNTIME_IDENTITY_DRIFT')
 print(json.dumps({'status': 'PMS_CONFIGURATION_PREPARED', 'identity': identity, 'deviceCalls': 0}))

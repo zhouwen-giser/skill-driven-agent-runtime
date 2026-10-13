@@ -31,6 +31,7 @@ Support both legacy SMPP union layout and the WSGS-aware version 2 layout. Valid
 - Historical SDAR network/image/database settings refer to a removed installation. Reuse keys/model settings privately, but reconcile actual current network and managed connection identity.
 - The local lint command encounters pre-existing ignored helper scripts under `.codex` and old untracked run captures. Preserve its failure log; use the complete strict frozen-source gate, which exports project inputs without private operational scripts, for current implementation acceptance. No lint rule or test assertion is weakened.
 - The database's physical size includes substantial live-update bloat. An actual full logical custom-format backup is being taken rather than interpreting allocated size as backup size. Preserve that private backup and global-role definitions before image/schema changes.
+- Final deployment preflight exposed the historical PMS helper's fixed container/DNS name. Add explicit `--runtime-container`, inspect the Runtime role and derive its actual DNS; default-name, current-name/idempotence and wrong-role tests pass. The first frozen run bcdc623f was intentionally canceled through owned cleanup so this fix is included in the final freeze; it is not acceptance.
 
 ## Decision Log
 
