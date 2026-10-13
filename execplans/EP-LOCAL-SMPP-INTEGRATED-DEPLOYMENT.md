@@ -20,6 +20,9 @@ Support both legacy SMPP union layout and the WSGS-aware version 2 layout. Valid
 
 - [x] 2026-10-13 Read current contracts, package identities and local container labels; reproduce new union rejection.
 - [x] Add compatible union validation; nine Python methods, six related deployment unit entries and actual source-union validation pass.
+- [x] Prepare owner-managed SDAR/Control storage and pgvector; restricted consumer contract validation passes; preserve PostgreSQL volume/environment and device binding history.
+- [x] Deploy official PMS against the actual Runtime identity and update Telemetry to package 13361e5b82c6acd7; APIs and processor are healthy after WAL recovery.
+- [x] Review the live 12-tool Catalog and add explicit 12/13 trajectory profiles; 28 focused tests pass with exact-set and zero-Tool-call assertions.
 - [ ] Freeze source and pass the complete isolated gate; build/reproduce/verify source package and image.
 - [ ] Back up local database/configuration, prepare owner-managed shared storage and official Registry, deploy SDAR from the verified package.
 - [ ] Verify APIs, Console, shared contract, public capability identity, upstream preservation and zero device actions; archive actual results and update status/traceability.
@@ -30,13 +33,17 @@ Support both legacy SMPP union layout and the WSGS-aware version 2 layout. Valid
 - Current upstream package includes older GOWM source 506315b. Current SDAR consumes the narrow owner repair dca0fcd; install its official forward overlays instead of consumer DDL or silently relaxing contract verification.
 - Historical SDAR network/image/database settings refer to a removed installation. Reuse keys/model settings privately, but reconcile actual current network and managed connection identity.
 - The local lint command encounters pre-existing ignored helper scripts under `.codex` and old untracked run captures. Preserve its failure log; use the complete strict frozen-source gate, which exports project inputs without private operational scripts, for current implementation acceptance. No lint rule or test assertion is weakened.
-- The database's physical size includes substantial live-update bloat. An actual full logical custom-format backup is being taken rather than interpreting allocated size as backup size. Preserve that private backup and global-role definitions before image/schema changes.
+- The database contains a 137 GB state snapshot history. Full dumps were canceled and retained as incomplete captures. Completed scoped backups cover all DDL/global roles, shared business data and affected installation/task histories; archive readability passes. Full restore qualification is NOT_RUN. The user's backup-scope reply excludes snapshot history; its original data stays in the existing volume.
 - Final deployment preflight exposed the historical PMS helper's fixed container/DNS name. Add explicit `--runtime-container`, inspect the Runtime role and derive its actual DNS; default-name, current-name/idempotence and wrong-role tests pass. The first frozen run bcdc623f was intentionally canceled through owned cleanup so this fix is included in the final freeze; it is not acceptance.
+- Frozen run 18205ad0 passed 23 stages, including 2692 unit and 553 contract tests, then timed out at the unchanged 660-second integration limit. Run d22ed916 was canceled to include the newly discovered trajectory Catalog compatibility change. Neither is acceptance.
+- Cold-start adapter discovery initially exposed five reads and caused protected manifest drift. Restart only the idle Runtime after adapter qualification and refresh SDAR discovery. Current authority is 12 tools (10 original plus two trajectory reads); the legacy profile correctly rejects this set. Add an explicit reviewed profile without weakening equality.
 
 ## Decision Log
 
 - 2026-10-13 User authorizes generating an integrated package and local deployment. This supersedes NOT_RUN for this local deployment only; real device actions and remote deployment remain outside this task.
 - ADR-164 records versioned nested-package validation and owner-managed local storage preparation. Preserve all existing data/credentials and keep recovery images and dumps outside archives.
+- 2026-10-13 Exclude snapshot history from the backup scope per the user's answer; preserve original live data. Scoped backup and original volume form the recovery basis.
+- 2026-10-13 Add explicit trajectory profiles while preserving external protocol, default profile, TaskBusiness authority, confirmation, side-effect and replay gates.
 
 ## Implementation Steps
 

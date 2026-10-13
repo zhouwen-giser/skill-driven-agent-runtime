@@ -3,6 +3,7 @@
 ## 2026-10-13 — local integrated deployment (in progress)
 
 - Validate WSGS-aware SMPP version-2 source unions recursively through GSAP/GDPS/GOWM; preserve the old format, original upstream bytes and strict inventory/source/secret checks.
+- Resolve the actual SMPP Runtime identity for PMS setup and review explicit 12/13-tool trajectory Catalog profiles. Preserve legacy profiles; classify the two history operations as synchronous read-only and reject missing/unreviewed tools before publication.
 - Prepare the user-authorized local SDAR deployment against existing SMPP/Telemetry, using owner-managed GOWM storage, independent Control storage and preserved private configuration. Full gate and deployment acceptance remain in progress; physical device actions are outside this task.
 
 ## 2026-10-12 — functional repairs and recording-status review fix
