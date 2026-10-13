@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-13 — local integrated deployment (in progress)
+
+- Validate WSGS-aware SMPP version-2 source unions recursively through GSAP/GDPS/GOWM; preserve the old format, original upstream bytes and strict inventory/source/secret checks.
+- Prepare the user-authorized local SDAR deployment against existing SMPP/Telemetry, using owner-managed GOWM storage, independent Control storage and preserved private configuration. Full gate and deployment acceptance remain in progress; physical device actions are outside this task.
+
 ## 2026-10-12 — functional repairs and recording-status review fix
 
 - Consume GOWM owner `dca0fcd` forward overlays for device-attributed terminal experience and binding-scoped auxiliary links; no consumer DDL. Owner PR23 is merged.

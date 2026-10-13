@@ -1,5 +1,9 @@
 # Project Status
 
+## Local SMPP integrated deployment (2026-10-13, IN_PROGRESS)
+
+The user authorizes a source package and local deployment against current SMPP cfda8c7f and its WSGS/Telemetry union. The packager now validates the version-2 nested identity chain while preserving legacy archives and every checksum/path check. Nine Python regressions and six related deployment unit tests pass; the actual selected archive validates. The current GOWM database lacks SDAR schema/Control storage/vector. Backup and exact-base pgvector preparation are underway; the full frozen gate and actual shared-storage/Registry/API deployment verification are required before completion. Private configuration, data and upstream containers are preserved; no device actions are authorized. ExecPlan: `execplans/EP-LOCAL-SMPP-INTEGRATED-DEPLOYMENT.md`; ADR-164; evidence: `reports/local-smpp-integrated-20261013/`.
+
 ## Functional closure (2026-10-12, COMPLETE scoped local implementation)
 
 GOWM terminal/device and auxiliary-link repairs, Console node editing and ordinary synchronous recorded Skill evolution pass the post-review 30-stage frozen gate `sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3`: 2,689 unit / 553 contract / 272 integration / 77 E2E, install/exit/cleanup 0. The review fix preserves the combined Goal-success flag while using native Workflow terminal status for replay and atomic publication. Same-source restricted GOWM passes eight steps, two formal flows and 32 native scenarios; fresh browser/API/LangGraph verification passes with zero model/MCP calls. Runtime `8ab70b92e5c5c28b19a293120e28ea86b2f3352c2c2b5d821a9a747db32037ee` is frozen. Only the traceability acceptance appendix is reconciled after verification, with an explicit baseline-delta receipt.

@@ -8,6 +8,8 @@ pnpm package:joint -- --upstream /absolute/path/smpp-gowm-gdps-gsap-telemetry-a2
 
 上游文件旁必须有同名 `.sha256`。默认输出 `artifacts/united/sdar-united-<内容摘要>/`，内含归档、SHA256、UNION.json、SHA256SUMS、delivery.json。自定义输出目录也会从源码输入中排除，不能将仓库根目录作为输出目录。相同输入重复生成复用完全一致的交付目录；发生冲突立即退出。源码包括 Git 枚举的有效未提交文件，身份由 revision 与逐文件 sourceHash 共同确定。
 
+同时支持原 SMPP 联合包与包含 WSGS 的 schemaVersion 2 联合包。新版逐层验证 Telemetry → SMPP → WSGS → GSAP → GDPS → GOWM 的完整清单、组件身份和摘要；WSGS 内层清单允许单个标准 `./` 前缀，拒绝规范化后重复路径及路径越界。上游归档整体保留原始字节，不替换其中组件。现场实际运行的上游镜像身份须另外核对，不能仅因原包存在而宣布现场版本一致。
+
 沿用 Development 的可信内网基线：管理接口不提供外部认证，不应暴露到公网。
 
 本入口只生成源码包，不执行部署，不复制模型密钥，不包含离线镜像。目标默认 linux/amd64；目标机需有依赖和镜像获取能力。SHA256 用于完整性核对，输入归档应来自可信交付渠道。

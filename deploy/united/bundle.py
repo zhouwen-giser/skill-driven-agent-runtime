@@ -63,13 +63,15 @@ def rooted(data):
     return root, {name[len(root)+1:]: value for name, value in files.items()}
 
 
-def inventory(files):
+def inventory(files, allow_dot_prefix=False):
     require('SHA256SUMS' in files, 'MISSING_INVENTORY')
     recorded = {}
     for line in files['SHA256SUMS'].decode().splitlines():
         match = re.fullmatch(r'([0-9a-f]{64})  (.+)', line)
         require(match is not None, 'INVALID_INVENTORY')
         h, name = match.groups()
+        if allow_dot_prefix and name.startswith('./'):
+            name = name[2:]
         require(name not in recorded and name in files and digest(files[name]) == h,
                 'INVENTORY_MISMATCH')
         recorded[name] = h
@@ -79,6 +81,49 @@ def inventory(files):
 def checksum_file(path, data):
     parts = Path(str(path)+'.sha256').read_text().split()
     require(parts == [digest(data), path.name], 'UPSTREAM_HASH_MISMATCH')
+
+
+def pinned_member(files, name, checksum):
+    require(isinstance(name, str) and name in files, 'NESTED_MEMBER_MISSING')
+    blob = files[name]
+    require(digest(blob) == checksum, 'NESTED_HASH_MISMATCH')
+    return blob
+
+
+def validate_wsgs_union(files, manifest):
+    descriptor = manifest['wsgsUnion']
+    require(manifest.get('schemaVersion') == 2
+            and descriptor.get('path') == 'upstream/wsgs-united.tar.gz', 'WSGS_UNION_FORMAT_MISMATCH')
+    root, wsgs = rooted(pinned_member(files, descriptor['path'], descriptor['sha256']))
+    require(root == descriptor['root'], 'WSGS_ROOT_MISMATCH')
+    inventory(wsgs, allow_dot_prefix=True)
+    source = pinned_member(wsgs, 'deployment/MANIFEST.json', descriptor['manifestSha256'])
+    specification = json.loads(source)
+    require(specification.get('schemaVersion') == 'gowm-gdps-gsap-wsgs-unified-deployment/1.0',
+            'WSGS_MANIFEST_FORMAT_MISMATCH')
+    components = specification['components']
+    require(all(manifest['components'].get(name) == components[name]
+                for name in ['gsap', 'wsgs', 'gdps', 'gowm']), 'WSGS_COMPONENT_IDENTITY_MISMATCH')
+    require(manifest['base']['sha256'] == components['gsap']['sha256']
+            and manifest['gowm']['sha256'] == components['gowm']['sha256'],
+            'WSGS_BASE_IDENTITY_MISMATCH')
+    application_root, application = rooted(pinned_member(wsgs, components['wsgs']['path'], components['wsgs']['sha256']))
+    require(application_root == components['wsgs']['root'] and bool(application), 'WSGS_APPLICATION_ROOT_MISMATCH')
+    analysis_root, analysis = rooted(pinned_member(wsgs, components['gsap']['path'], components['gsap']['sha256']))
+    require(analysis_root == components['gsap']['root'] == manifest['baseRoot'], 'ANALYSIS_ROOT_MISMATCH')
+    inventory(analysis, allow_dot_prefix=True)
+    analysis_source = pinned_member(analysis, 'deployment/SOURCE.json', manifest['baseSourceSha256'])
+    analysis_spec = json.loads(analysis_source)
+    require(analysis_spec['sha256'] == components['gdps']['sha256']
+            and analysis_spec['packageName'] == components['gdps']['packageName']
+            and analysis_spec['nestedGowm']['sha256'] == components['gowm']['sha256']
+            and analysis_spec['nestedGowm']['packageName'] == components['gowm']['packageName'],
+            'ANALYSIS_COMPONENT_IDENTITY_MISMATCH')
+    gdps_root, gdps = rooted(pinned_member(analysis, 'packages/' + analysis_spec['packageName'], components['gdps']['sha256']))
+    require(gdps_root == analysis_spec.get('baseRoot', gdps_root), 'GDPS_ROOT_MISMATCH')
+    inventory(gdps, allow_dot_prefix=True)
+    gowm_root, _ = rooted(pinned_member(gdps, 'packages/' + components['gowm']['packageName'], components['gowm']['sha256']))
+    require(gowm_root == analysis_spec['nestedGowm'].get('expectedRoot', gowm_root), 'GOWM_ROOT_MISMATCH')
 
 
 def validate_upstream(data):
@@ -101,10 +146,16 @@ def validate_upstream(data):
     smpp = json.loads(nested['UNION.json'])
     require(nested_root == manifest['upstream']['root'] and smpp['smpp']['revision'] == manifest['upstream']['smppRevision']
             and smpp['baseSourceSha256'] == manifest['upstream']['baseSourceSha256'], 'NESTED_IDENTITY_MISMATCH')
-    for name, descriptor in [('analysis', 'base'), ('gowm', 'gowm'), ('smpp', 'smpp')]:
-        blob = nested['upstream/'+name+'.tar.gz']
-        require(digest(blob) == smpp[descriptor]['sha256'], 'NESTED_HASH_MISMATCH')
-        members(blob)
+    if 'wsgsUnion' in smpp:
+        require(manifest['upstream'].get('wsgsUnion') == smpp['wsgsUnion']
+                and manifest['upstream'].get('components') == smpp['components'],
+                'NESTED_WSGS_IDENTITY_MISMATCH')
+        validate_wsgs_union(nested, smpp)
+        members(pinned_member(nested, 'upstream/smpp.tar.gz', smpp['smpp']['sha256']))
+    else:
+        require(smpp.get('schemaVersion') in [None, 1], 'NESTED_UNION_VERSION_UNSUPPORTED')
+        for name, descriptor in [('analysis', 'base'), ('gowm', 'gowm'), ('smpp', 'smpp')]:
+            members(pinned_member(nested, 'upstream/'+name+'.tar.gz', smpp[descriptor]['sha256']))
     members(files['upstream/telemetry.tar.gz'])
     return root, manifest
 
