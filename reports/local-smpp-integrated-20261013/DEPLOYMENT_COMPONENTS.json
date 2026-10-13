@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "components": [
+    {
+      "file": "sdar-united-fb0189654593f96c6681.tar.gz",
+      "bytes": 31269153,
+      "sha256": "f63a13bcd69188a12a60e32355107e84e3f0cb9c13478a40fe83fb4506410edb"
+    },
+    {
+      "file": "gowm-sdar-owner-installer-dca0fcdbbe35.tar.gz",
+      "bytes": 457405,
+      "sha256": "6cf77754f9830efc89630266ec9ba5bb0a7233a47968caac3a04cb3326ab6c0d"
+    },
+    {
+      "file": "smpp-pms-source-cfda8c7f.tar.gz",
+      "bytes": 18174994,
+      "sha256": "fc3c3bb4bdb5a65cef7caa064ecc7bb7903b8e692377420cf9342d1640f7a3c1"
+    }
+  ],
+  "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "sourceHash": "380c512cceec438f691289eb3564e28aa48b939c4b9bc375dac4cea342c38785",
+  "pmsCommit": "cfda8c7f2f651a2c81db3c0e5f169e09100a911f",
+  "ownerCommit": "dca0fcdbbe35f94ddaf968b6489decdbf228755a",
+  "credentialConfigIncluded": false,
+  "licensedOriginalSources": true,
+  "fullGate": "PENDING"
+}

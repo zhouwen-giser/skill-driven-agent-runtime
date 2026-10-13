@@ -1,0 +1,36 @@
+{
+  "status": "PASS_SCOPED_BACKUP",
+  "scope": "all database DDL/global roles; all gowm_device/task/execution/business_v1 objects/data; core and SMPP install/task/execution history",
+  "largeUnmodifiedSnapshotData": "retained in original volume, not fully backed up by this scoped set",
+  "partialFullDumps": "preserved but NOT complete backups",
+  "records": [
+    {
+      "file": "/mnt/data/sdar-local-integrated-20261013/backups/zstd-schema-check.dump",
+      "bytes": 2099578,
+      "sha256": "5f19f11873f38127051d4328e5474ca9d0eebd3a1b168b15d646c99e93673448",
+      "tocEntries": 2843,
+      "readabilityExitCode": 0
+    },
+    {
+      "file": "/mnt/data/sdar-local-integrated-20261013/backups/affected-shared-business.dump",
+      "bytes": 59282,
+      "sha256": "832e28f369cc442833473393972a4cc6f6d50fed22db5550356860877c9c474b",
+      "tocEntries": 101,
+      "readabilityExitCode": 0
+    },
+    {
+      "file": "/mnt/data/sdar-local-integrated-20261013/backups/affected-install-and-task-history.dump",
+      "bytes": 34689,
+      "sha256": "94e5f347f3da6987ae243c1fd4f68b740eafc6fb9bf98e434553ffa9f1a185fd",
+      "tocEntries": 45,
+      "readabilityExitCode": 0
+    },
+    {
+      "file": "/mnt/data/sdar-local-integrated-20261013/backups/gowm-globals.sql",
+      "bytes": 19076,
+      "sha256": "600b5154d7e9f599fdca7ba54ab9e3ca77dd060e6c245b7b4b19bfb88aa6c1f0",
+      "classification": "PRIVATE_ROLE_DEFINITIONS"
+    }
+  ],
+  "fullRestoreQualification": "NOT_RUN"
+}

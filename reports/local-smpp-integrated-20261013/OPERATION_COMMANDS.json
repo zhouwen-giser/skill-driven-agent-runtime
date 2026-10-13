@@ -1,0 +1,134 @@
+{
+  "records": [
+    {
+      "id": "history-profile-tests",
+      "command": "pnpm exec vitest run --project unit apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts apps/server/test/site-pms-configuration.unit.test.ts",
+      "exitCode": 0,
+      "rawLog": "raw-history-profile-tests.log.gz",
+      "rawLogSha256": "b5dc2b2c423e9c135361b5879c3ecd221e7bbaa1d539fa410282dfbf9dc4f505",
+      "compressedSha256": "9b01d793191e7f0d87f3212540a6cc8901cd0b70d51b086cc7cca985f1aee3a6"
+    },
+    {
+      "id": "history-profile-lint",
+      "command": "pnpm exec eslint apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts deploy/development/config.mjs",
+      "exitCode": 0,
+      "rawLog": "raw-history-profile-lint.log.gz",
+      "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+    },
+    {
+      "id": "history-profile-types",
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "rawLog": "raw-history-profile-types.log.gz",
+      "rawLogSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "compressedSha256": "5b091cfa84f153e454772c0c86ea561333701b98e8aa9ac99687a1b460087dea"
+    },
+    {
+      "id": "owner-prepare",
+      "command": "node --import tsx .codex/local-smpp-integrated-20261013/prepare-owner.mts",
+      "exitCode": 0,
+      "rawLog": "raw-owner-prepare.log.gz",
+      "rawLogSha256": "41cf42a13f751474317f123a9284c1615e211057b140e3833dc788382ad8bf84",
+      "compressedSha256": "89fbdb34afddeb8bba7ebda9f61acedbc2cf889a0b5e4fc627a0fb0c8970cbd0"
+    },
+    {
+      "id": "owner-idempotence",
+      "command": "node --import tsx .codex/local-smpp-integrated-20261013/prepare-owner.mts",
+      "exitCode": 0,
+      "rawLog": "raw-owner-idempotence.log.gz",
+      "rawLogSha256": "41cf42a13f751474317f123a9284c1615e211057b140e3833dc788382ad8bf84",
+      "compressedSha256": "89fbdb34afddeb8bba7ebda9f61acedbc2cf889a0b5e4fc627a0fb0c8970cbd0"
+    },
+    {
+      "id": "device-binding",
+      "command": "python3 /mnt/data/sdar-local-integrated-20261013/attach-current-device.py /mnt/data/sdar-local-integrated-20261013 --apply",
+      "exitCode": 0,
+      "rawLog": "raw-device-binding.log.gz",
+      "rawLogSha256": "3ad54abe8995feea232facd3bec171f02e6f1f19737a462ae9f50dd29ef0f714",
+      "compressedSha256": "ec8468259fcb7a61a7448a206be7dbbfdcec414d5f54c94d2455058ed788a208"
+    },
+    {
+      "id": "telemetry-up-first",
+      "command": "bash /mnt/data/sdar-local-integrated-20261013/release/smpp-gowm-gdps-gsap-wsgs-telemetry-13361e5b82c6acd7/deploy.sh up --runtime-container gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1 --state-root /mnt/data/smpp-telemetry-local-state",
+      "exitCode": 1,
+      "rawLog": "raw-telemetry-up-first.log.gz",
+      "rawLogSha256": "ada73cd71af853b590f07e42a302cfa73d8a7d5c4da1e1b217fd86d42f3c7afe",
+      "compressedSha256": "c0e7aeb4fe09d751be7202dbfb0df0a0353667a9978bade0656af75a988e7e28"
+    },
+    {
+      "id": "telemetry-up-final",
+      "command": "bash /mnt/data/sdar-local-integrated-20261013/release/smpp-gowm-gdps-gsap-wsgs-telemetry-13361e5b82c6acd7/deploy.sh up --prebuilt --runtime-container gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1 --state-root /mnt/data/smpp-telemetry-local-state",
+      "exitCode": 0,
+      "rawLog": "raw-telemetry-up-final.log.gz",
+      "rawLogSha256": "4429a70e5fa310e0f66506102e64582f98e27c9e6096d6223c71de738e357488",
+      "compressedSha256": "e116cd400b466bd39b4b6b6668a5fbb02a4c380cdf1b2fb0635757c156cf2beb"
+    },
+    {
+      "id": "runtime-up-final",
+      "command": "node /mnt/data/sdar-local-integrated-20261013/release/final/sdar/deploy/development/cli.mjs upgrade --env-file /mnt/data/sdar-local-integrated-20261013/config/.env",
+      "exitCode": 1,
+      "rawLog": "raw-runtime-up-final.log.gz",
+      "rawLogSha256": "bab4c946073f4a649df156bd24d763761cafa6012971fa5cbf5384f5d380fbeb",
+      "compressedSha256": "0353830a9679b4f54121cca4e30de32a2bd9645c35185a6008bdc65a1438753e"
+    },
+    {
+      "id": "actual-apis",
+      "command": "node .codex/local-smpp-integrated-20261013/verify-live-apis.mjs",
+      "exitCode": 0,
+      "rawLog": "raw-actual-apis.log.gz",
+      "rawLogSha256": "80d066baa3f57e5fd9ac16a7ae2d110fdf48f64641d55139b306c22a717ac84e",
+      "compressedSha256": "8c08ecaac539fc1ae99a72d702a4ccbfa7a3f84f458b366a645b747e56e4eff2"
+    },
+    {
+      "id": "restricted-live-storage",
+      "command": "node --import tsx .codex/local-smpp-integrated-20261013/verify-storage.mts",
+      "exitCode": 0,
+      "rawLog": "raw-restricted-live-storage.log.gz",
+      "rawLogSha256": "2d9c91c2696e46fac80dfbfd7c9844826354124082b19df1a5708145d177ab47",
+      "compressedSha256": "613211e8417c65e4d60127f2591f179e5b79bd69e6c9cb4014303c05836e5a09"
+    },
+    {
+      "id": "container-source",
+      "command": "python3 .codex/local-smpp-integrated-20261013/verify-container-source.py",
+      "exitCode": 0,
+      "rawLog": "raw-container-source.log.gz",
+      "rawLogSha256": "142d35ced75b231ebfd029bf99beba749472108af922d0f9bd0d6dadbe8f9878",
+      "compressedSha256": "948dcab69b3e959192c072c3cc49ea8c4014eac8017a5b72a39c45ad41f72a63"
+    },
+    {
+      "id": "source-package",
+      "command": "python3 deploy/united/bundle.py package --upstream /home/sz/code/smpp-telemetry-platform/artifacts/united-telemetry/smpp-gowm-gdps-gsap-wsgs-telemetry-13361e5b82c6acd7.tar.gz",
+      "exitCode": 0,
+      "rawLog": "raw-source-package.log.gz",
+      "rawLogSha256": "3e6060a96d08b0bf8f98b846318b14f73f59c3ff619694d3d1396be030670b31",
+      "compressedSha256": "979db7eff58ebdde5e7dd9f572b84847009559e657e3f17c9efdba94a00a0079"
+    },
+    {
+      "id": "package-repeat",
+      "command": "python3 deploy/united/bundle.py package --upstream /home/sz/code/smpp-telemetry-platform/artifacts/united-telemetry/smpp-gowm-gdps-gsap-wsgs-telemetry-13361e5b82c6acd7.tar.gz --output /mnt/data/sdar-local-integrated-20261013/final-reproducibility",
+      "exitCode": 0,
+      "rawLog": "raw-package-repeat.log.gz",
+      "rawLogSha256": "698bc57fa0a1f25c9e218b3fb0dd106125f7b59a966407a931ed3b997a76146a",
+      "compressedSha256": "b1caeb0a93e5e576423b8cf6dff3beb59e8e263c15a8e3770ac64de513f97f21"
+    },
+    {
+      "id": "delivery-verifier",
+      "command": "delivered bundle.py verify source union",
+      "exitCode": 0,
+      "rawLog": "raw-delivery-verifier.log.gz",
+      "rawLogSha256": "d37ad4c1fb8dc344a6edeb7053da3d1c56186f9f2e713dd03ab2e72632f8a265",
+      "compressedSha256": "24194b892283114b202254286d9c43956520f2fe734ece0e046f0e374482139e"
+    },
+    {
+      "id": "native-gowm",
+      "command": "node .codex/local-smpp-integrated-20261013/run-frozen-gowm.mjs /tmp/sdar-verify-cffe4b25-5fcc-423c-b669-3b7d4de9d999-wUM0nH/source reports/runtime-semantic-closure/sdar-verify-cffe4b25-5fcc-423c-b669-3b7d4de9d999/inputs.json",
+      "exitCode": 0,
+      "rawLog": "raw-native-gowm.log.gz",
+      "rawLogSha256": "3ee161d9e72e3546c936b2458c25c4446097c1b93ff6cf4c3e9f9174f372ea3b",
+      "compressedSha256": "73acde5907b8ea213288611fd41df4741cd38d73b33e6ce47f1adf4159bce79e"
+    }
+  ],
+  "privateInputs": "external; credentials excluded",
+  "fullFrozenGate": "pending"
+}

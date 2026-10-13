@@ -1,0 +1,8 @@
+{
+  "ownerCommit": "dca0fcdbbe35f94ddaf968b6489decdbf228755a",
+  "originalFilesUnmodified": true,
+  "scope": "GOWM official installer; deployment-admin only; not SDAR startup or domain code",
+  "license": "MIT",
+  "archive": "/mnt/data/sdar-local-integrated-20261013/release/gowm-sdar-owner-installer-dca0fcdbbe35.tar.gz",
+  "sha256": "6cf77754f9830efc89630266ec9ba5bb0a7233a47968caac3a04cb3326ab6c0d"
+}

@@ -23,9 +23,11 @@ Support both legacy SMPP union layout and the WSGS-aware version 2 layout. Valid
 - [x] Prepare owner-managed SDAR/Control storage and pgvector; restricted consumer contract validation passes; preserve PostgreSQL volume/environment and device binding history.
 - [x] Deploy official PMS against the actual Runtime identity and update Telemetry to package 13361e5b82c6acd7; APIs and processor are healthy after WAL recovery.
 - [x] Review the live 12-tool Catalog and add explicit 12/13 trajectory profiles; 28 focused tests pass with exact-set and zero-Tool-call assertions.
-- [ ] Freeze source and pass the complete isolated gate; build/reproduce/verify source package and image.
-- [ ] Back up local database/configuration, prepare owner-managed shared storage and official Registry, deploy SDAR from the verified package.
-- [ ] Verify APIs, Console, shared contract, public capability identity, upstream preservation and zero device actions; archive actual results and update status/traceability.
+- [x] Freeze source 4112a90b; pass 30 stages on the recorded owned test volume, supplement persistent storage checks, and verify reproducible package/image source.
+- [x] Complete the user-selected scoped backups, official owner storage/Registry preparation and actual packaged SDAR deployment.
+- [x] Verify actual APIs, Console, shared contract, 12 published capability identities, volume/identity preservation and zero device actions; archive logs and update traceability.
+- [ ] Complete the full 13-item site inventory after the owner supplies embodied.inspect_area; this dependency remains OPEN.
+- [ ] Complete authorized Git publication and exact CI closeout.
 
 ## Discoveries and Surprises
 
@@ -67,4 +69,6 @@ Selected upstream archives remain original. New package and SHA/manifest under `
 
 ## Outcomes and Retrospective
 
-IN_PROGRESS. Local integrated deployment has not yet been accepted. Whole-project acceptance and unsupported evolution/inspection/device-total-history guarantees remain open.
+LOCAL_DEPLOYED_WITH_CAPABILITY_GAP. Code/full isolation gate and local core deployment are verified. Full site bootstrap fails only the retained inspection dependency; patrol is not published. No physical task is run. All earlier failures, including P07 overrun and aggregate timeout, remain NOT_PASS. The isolated memory-backed test condition is explicit; persistent GOWM and all persistent integration cases have separate actual evidence. Whole-project/evolution/device-generation-history and production durability remain open.
+
+Final verification: run 7ba9d4f2 passes 30 stages (2695/553/272/77), input c7f7867c… and baseline 93014ef9…, fresh install/cleanup exit 0. Main fixture uses the owned 2GiB memory-backed PG volume; code/assertions/timeouts unchanged. Persistent GOWM 8/2/32 and persistent P07/final cross-service case supplement the preserved 271 passing persistent aggregate cases. Actual API/source/owner/storage evidence is linked by VALIDATION.json and DEPLOYMENT.json. Twelve unrelated container restarts are observed; identity/images and all original volumes are preserved.

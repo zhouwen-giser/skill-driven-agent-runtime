@@ -1,0 +1,235 @@
+[
+  {
+    "path": "/api/v1/mcp-provider-bindings/80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+    "status": 200,
+    "value": {
+      "bindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+      "localServerId": "smpp-sz-gowm",
+      "originType": "smpp_registry",
+      "smppSourceId": "sz-gowm-smpp",
+      "externalProviderId": "isr.vehicle.ugv.ugv",
+      "externalServerId": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "registryRevision": 4,
+      "registryChecksum": "2c7431c1ffcb7923bd05943f661740875da08365b098a3a4bb1e3807c25783b0",
+      "catalogRevision": "2.0.0-rc.1:1",
+      "catalogChecksum": "303d5a5113d4d5c1cf81eb263ac39632949a20f307670d0bdb68ad5862e6c953",
+      "endpointRef": "http://gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1:8080/mcp",
+      "status": "active",
+      "availabilityStatus": "available",
+      "revision": 1,
+      "availabilityValidUntil": "2026-10-13T16:17:13.652Z",
+      "catalogObservedAt": "2026-10-13T15:17:13.652Z",
+      "operationCount": 12
+    }
+  },
+  {
+    "path": "/api/v1/mcp/servers",
+    "status": 200,
+    "value": {
+      "items": [
+        {
+          "serverId": "smpp-sz-gowm",
+          "name": "Development UGV",
+          "endpoint": "http://gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1:8080/mcp",
+          "transport": "streamable_http",
+          "status": "enabled",
+          "toolRevision": 1,
+          "protocolMode": "frozen_v1",
+          "currentProtocolSnapshotId": "mcp-protocol-snapshot-ccac8c51-a639-4ca7-9d0d-d1b765a12788",
+          "createdAt": "2026-10-13T15:09:31.677Z",
+          "updatedAt": "2026-10-13T15:09:31.677Z",
+          "currentDiscovery": {
+            "snapshotId": "mcp-protocol-snapshot-ccac8c51-a639-4ca7-9d0d-d1b765a12788",
+            "serverId": "smpp-sz-gowm",
+            "protocolMode": "frozen_v1",
+            "protocolVersion": "2026-07-28",
+            "baselineSha256": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708",
+            "supportedVersions": [
+              "2026-07-28"
+            ],
+            "capabilities": {
+              "tools": {},
+              "extensions": {
+                "io.sdar/taskExecution": {
+                  "profileVersion": "1.0",
+                  "taskNotifications": true
+                },
+                "io.sdar/businessEvents": {
+                  "scopes": [
+                    "task",
+                    "resource"
+                  ],
+                  "sources": [
+                    {
+                      "sourceId": "vehicle.business",
+                      "deliverySemantics": "durable_at_least_once"
+                    },
+                    {
+                      "sourceId": "vehicle.execution",
+                      "deliverySemantics": "durable_at_least_once"
+                    },
+                    {
+                      "sourceId": "vehicle.health",
+                      "deliverySemantics": "durable_at_least_once"
+                    },
+                    {
+                      "sourceId": "vehicle.target",
+                      "deliverySemantics": "best_effort_live"
+                    }
+                  ],
+                  "delivery": "post_sse",
+                  "resumeMode": "stream_sequence",
+                  "retentionMs": 604800000,
+                  "profileVersion": "1.0",
+                  "continuityClass": "mixed",
+                  "relationOverflow": "paged_query",
+                  "maxRelatedTaskIds": 256,
+                  "authorizationModel": "subscription_snapshot_projection",
+                  "streamCancellation": "connection_close"
+                },
+                "io.sdar/providerCatalog": {
+                  "providerId": "isr.vehicle.ugv.ugv",
+                  "manifestHash": "c6bdc373754c827174f09c52ac82faaf8efdab5341599865cdf910d5b3f82cf9",
+                  "providerType": "isr.vehicle.ugv",
+                  "providerVersion": "1.0.0"
+                },
+                "io.modelcontextprotocol/tasks": {}
+              }
+            },
+            "serverInfo": {
+              "name": "sdar-mcp-tasks-provider-runtime",
+              "version": "2.0.0-rc.1"
+            },
+            "providerCatalog": {
+              "providerId": "isr.vehicle.ugv.ugv",
+              "providerType": "isr.vehicle.ugv",
+              "providerVersion": "1.0.0",
+              "manifestHash": "c6bdc373754c827174f09c52ac82faaf8efdab5341599865cdf910d5b3f82cf9"
+            },
+            "taskNotifications": true,
+            "discoveredAt": "2026-10-13T15:09:31.677Z",
+            "validUntil": "2026-10-13T16:09:31.677Z",
+            "toolRevision": 1
+          },
+          "supportedVersions": [
+            "2026-07-28"
+          ],
+          "baselineHash": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708",
+          "taskNotifications": true,
+          "taskBehavior": [
+            {
+              "toolName": "vehicle_get_payload_status",
+              "taskBehavior": "synchronous_only"
+            },
+            {
+              "toolName": "vehicle_get_state",
+              "taskBehavior": "synchronous_only"
+            },
+            {
+              "toolName": "vehicle_get_targets",
+              "taskBehavior": "synchronous_only"
+            },
+            {
+              "toolName": "vehicle_get_trajectory_evidence",
+              "taskBehavior": "synchronous_only"
+            },
+            {
+              "toolName": "vehicle_get_trajectory_history",
+              "taskBehavior": "synchronous_only"
+            }
+          ],
+          "outputSchemaHash": [
+            {
+              "toolName": "vehicle_get_payload_status",
+              "outputSchemaHash": "806fc6287b90cd0b2b7fcbdca479dac31cdcdcf09ea9504fe52c6d3ebf7ab307"
+            },
+            {
+              "toolName": "vehicle_get_state",
+              "outputSchemaHash": "657cf4c9e8e303f451498eb67b2c7b23a2f610617f5bfa190c0f12ffbc226e77"
+            },
+            {
+              "toolName": "vehicle_get_targets",
+              "outputSchemaHash": "e5ceb0a2697bb795afcb3de8f2547eb49aab99e71c827c6ddb454fb7d32c034a"
+            },
+            {
+              "toolName": "vehicle_get_trajectory_evidence",
+              "outputSchemaHash": "cb0d379c0cf096af3e9edd8b5808811a923a5be3a04b5b0c135263de5e9c2a1a"
+            },
+            {
+              "toolName": "vehicle_get_trajectory_history",
+              "outputSchemaHash": "0a21f174498c6922b75c9be6ab4424d3623755c8aea7b9c5e5c3c2df4d0e14ba"
+            }
+          ],
+          "notificationStatus": "streaming_supported",
+          "protocolWarnings": []
+        }
+      ]
+    }
+  },
+  {
+    "path": "/api/v1/mcp/servers/smpp-sz-gowm/tools",
+    "status": 200,
+    "value": [
+      {
+        "name": "vehicle_get_payload_status",
+        "effect": {
+          "effect": "read_only",
+          "execution": "synchronous",
+          "cancellation": "unsupported",
+          "idempotency": "server_managed",
+          "replay": "allowed",
+          "source": "admin_override"
+        },
+        "taskBehavior": "synchronous_only"
+      },
+      {
+        "name": "vehicle_get_state",
+        "effect": {
+          "effect": "read_only",
+          "execution": "synchronous",
+          "cancellation": "unsupported",
+          "idempotency": "server_managed",
+          "replay": "allowed",
+          "source": "admin_override"
+        },
+        "taskBehavior": "synchronous_only"
+      },
+      {
+        "name": "vehicle_get_targets",
+        "effect": {
+          "effect": "read_only",
+          "execution": "synchronous",
+          "cancellation": "unsupported",
+          "idempotency": "server_managed",
+          "replay": "allowed",
+          "source": "admin_override"
+        },
+        "taskBehavior": "synchronous_only"
+      },
+      {
+        "name": "vehicle_get_trajectory_evidence",
+        "effect": {
+          "effect": "read_only",
+          "execution": "synchronous",
+          "cancellation": "unsupported",
+          "idempotency": "server_managed",
+          "replay": "allowed",
+          "source": "admin_override"
+        },
+        "taskBehavior": "synchronous_only"
+      },
+      {
+        "name": "vehicle_get_trajectory_history",
+        "effect": {
+          "effect": "read_only",
+          "execution": "synchronous",
+          "cancellation": "unsupported",
+          "idempotency": "server_managed",
+          "replay": "allowed",
+          "source": "admin_override"
+        },
+        "taskBehavior": "synchronous_only"
+      }
+    ]
+  }
+]

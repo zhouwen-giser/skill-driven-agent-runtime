@@ -1,0 +1,14 @@
+{
+  "status": "NOT_PASS",
+  "runId": "sdar-verify-64805e20-80c9-47fc-9d1b-1a751a584640",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "runtimeInputSha256": "c7f7867c89b0808a7e7bb70f9925d18478e4819a065e1ed74bcf026cd4639bb4",
+  "baselineSha256": "93014ef97af0be1148fc693a2c63f1f24b38d5ce25694b6b32b9ddda0dca0c42",
+  "persistentMainIntegrationPassed": 250,
+  "persistentEvidenceStoragePassed": 21,
+  "P07P95Ms": 11.568618000000242,
+  "failure": "unchanged 660-second aggregate integration deadline during final cross-service case",
+  "fullGateReplacement": false,
+  "archive": "reports/local-smpp-integrated-20261013/failed-full/sdar-verify-64805e20-80c9-47fc-9d1b-1a751a584640"
+}

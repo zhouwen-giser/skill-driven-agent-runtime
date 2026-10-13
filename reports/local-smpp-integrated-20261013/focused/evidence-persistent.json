@@ -1,0 +1,19 @@
+{
+  "runId": "sdar-verify-refactor-perf-247e0114-5b51-4fb7-a7c0-bd9209b00030",
+  "source": "/tmp/sdar-verify-64805e20-80c9-47fc-9d1b-1a751a584640-m5hsFG/source",
+  "sourceCommit": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "inputSha256": "c7f7867c89b0808a7e7bb70f9925d18478e4819a065e1ed74bcf026cd4639bb4",
+  "baselineSha256": "93014ef97af0be1148fc693a2c63f1f24b38d5ce25694b6b32b9ddda0dca0c42",
+  "command": [
+    "pnpm",
+    "test:integration",
+    "--",
+    "apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts"
+  ],
+  "scope": "focused_unchanged_performance_test_on_owned_loopback_infrastructure",
+  "ownedCpuSetContainers": [],
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN"
+}

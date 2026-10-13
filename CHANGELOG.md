@@ -1,10 +1,11 @@
 # Changelog
 
-## 2026-10-13 — local integrated deployment (in progress)
+## 2026-10-14 — local integrated deployment with explicit capability gap
 
 - Validate WSGS-aware SMPP version-2 source unions recursively through GSAP/GDPS/GOWM; preserve the old format, original upstream bytes and strict inventory/source/secret checks.
 - Resolve the actual SMPP Runtime identity for PMS setup and review explicit 12/13-tool trajectory Catalog profiles. Preserve legacy profiles; classify the two history operations as synchronous read-only and reject missing/unreviewed tools before publication.
-- Prepare the user-authorized local SDAR deployment against existing SMPP/Telemetry, using owner-managed GOWM storage, independent Control storage and preserved private configuration. Full gate and deployment acceptance remain in progress; physical device actions are outside this task.
+- Freeze `4112a90b`: 30 gates pass (2695/553/272/77) on the documented owned test volume, with separate persistent GOWM 8/2/32 and persistent integration evidence. Preserve failed attempts. Actual three-container source hashes and 13 GET API checks pass; credentials stay outside the checksummed source delivery.
+- Prepare the user-authorized local SDAR deployment against existing SMPP/Telemetry, using owner-managed GOWM storage, independent Control storage and preserved private configuration. Core deployment and actual APIs pass; complete patrol bootstrap remains blocked by missing inspect_area. Physical device actions are outside this task.
 
 ## 2026-10-12 — functional repairs and recording-status review fix
 

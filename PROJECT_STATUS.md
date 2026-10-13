@@ -1,8 +1,12 @@
 # Project Status
 
-## Local SMPP integrated deployment (2026-10-13, IN_PROGRESS)
+## Local SMPP integrated deployment (2026-10-14, LOCAL_DEPLOYED_WITH_CAPABILITY_GAP)
 
-The user authorizes packaging and local deployment against SMPP cfda8c7f and its WSGS/Telemetry union. Version-2 package validation and actual Runtime PMS identity are implemented. Official GOWM owner storage/Control database and pinned pgvector are installed; restricted consumer read-only verification passes. Original database volume/environment, keys and binding history remain intact. Scoped backup excludes snapshot history per the user's answer; original live history is preserved. PMS and package 13361e5b82c6acd7 Telemetry are healthy. SDAR core services run locally; bootstrap exposed the new 12-tool trajectory Catalog, now addressed by explicit 12/13 reviewed profiles (28 focused tests plus nine Python methods). Fresh frozen full gate, final package/source comparison and capability publication acceptance remain pending. Failed/canceled runs stay failures. No device actions are authorized. ExecPlan: `execplans/EP-LOCAL-SMPP-INTEGRATED-DEPLOYMENT.md`; ADR-164; evidence: `reports/local-smpp-integrated-20261013/`.
+Source `4112a90b` is packaged reproducibly and deployed locally. Runtime/Control each match all 2,921 source-file hashes; official PMS and current Telemetry are healthy. Actual Registry/Control/Runtime APIs publish 12 Skills with the exact 12-tool Catalog, including two synchronous read-only trajectory operations. GOWM owner storage, separate Control database, original volumes, private keys and binding history are verified. Snapshot history is excluded from backup per the user; original live data is retained.
+
+Full frozen run `7ba9d4f2` passes all 30 stages: 2,695 unit / 553 contract / 272 integration / 77 E2E, with fresh installation and owned cleanup exit 0. Its main isolated PostgreSQL fixture uses a documented memory-backed volume; no code, assertion or timeout changes. Same-source persistent GOWM passes 8 steps / 2 formal flows / 32 native cases; all 272 persistent integration cases also pass across preserved aggregate and focused runs. Failed/canceled full runs remain NOT_PASS.
+
+Complete site bootstrap remains blocked by missing `embodied.inspect_area`; `embodied.area_patrol` is not published. Device-generation history, full evolution, production durability and physical operations remain unqualified. Local deployment is authorized; physical actions/remote deployment NOT_RUN. See `reports/local-smpp-integrated-20261013/VALIDATION.json`, `DEPLOYMENT.json`, the ExecPlan and ADR-164. Publication/CI closeout follows the user's existing commit/push/merge authorization.
 
 ## Functional closure (2026-10-12, COMPLETE scoped local implementation)
 
