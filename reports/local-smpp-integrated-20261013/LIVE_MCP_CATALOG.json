@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "method": "GET registered discovery",
+  "deviceCalls": 0,
+  "tools": [
+    {
+      "name": "vehicle_get_payload_status",
+      "taskBehavior": "synchronous_only",
+      "effect": "unknown"
+    },
+    {
+      "name": "vehicle_get_state",
+      "taskBehavior": "synchronous_only",
+      "effect": "unknown"
+    },
+    {
+      "name": "vehicle_get_targets",
+      "taskBehavior": "synchronous_only",
+      "effect": "unknown"
+    },
+    {
+      "name": "vehicle_get_trajectory_evidence",
+      "taskBehavior": "synchronous_only",
+      "effect": "unknown"
+    },
+    {
+      "name": "vehicle_get_trajectory_history",
+      "taskBehavior": "synchronous_only",
+      "effect": "unknown"
+    }
+  ]
+}

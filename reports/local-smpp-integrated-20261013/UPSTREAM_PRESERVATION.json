@@ -1,0 +1,212 @@
+{
+  "status": "PASS_IDENTITY_AND_VOLUME_PRESERVATION",
+  "baselineCount": 47,
+  "unrelatedContainerIdentityAndImagePreserved": [
+    "/gowm-analysis-dev-f3dc6f4b8e-wsgs-grounding-api-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-wsgs-grounding-worker-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-wsgs-signed-gateway-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-world-capability-gateway-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-map-matching-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-temporal-events-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-metric-ranking-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-gdps-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-ugv-mqtt-ingest-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-world-mcp-server-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-h3-interactive-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-h3-analysis-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-observation-ingest-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-operational-reality-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-world-evidence-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-gowm-situation-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-geometry-provider-bridge-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-platform-validation-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-route-planning-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-dataset-catalog-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-crs-provider-bridge-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-reference-catalog-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-world-api-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-road-coverage-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-network-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-spatial-provider-bridge-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-historical-trace-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-stas-provider-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-world-platform-projection-worker-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-projection-worker-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-stas-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-history-auto-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-wsgs-gateway-db-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-crs-upstream-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-geometry-upstream-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-wsgs-postgres-1",
+    "/gowm-analysis-dev-f3dc6f4b8e-mqtt-1",
+    "/gpustack-worker"
+  ],
+  "unrelatedRestartObservations": [
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-map-matching-provider-1",
+      "before": "2026-10-13T09:36:26.571435098Z",
+      "after": "2026-10-13T14:41:33.26458109Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-temporal-events-provider-1",
+      "before": "2026-10-13T09:36:26.556008762Z",
+      "after": "2026-10-13T14:41:33.260673632Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-metric-ranking-provider-1",
+      "before": "2026-10-13T09:36:26.572821011Z",
+      "after": "2026-10-13T14:41:33.265843608Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-ugv-mqtt-ingest-1",
+      "before": "2026-10-13T09:24:52.912899815Z",
+      "after": "2026-10-13T14:41:36.084018853Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 2,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-operational-reality-provider-1",
+      "before": "2026-10-13T09:24:54.627064517Z",
+      "after": "2026-10-13T14:41:33.242161453Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-route-planning-provider-1",
+      "before": "2026-10-13T09:24:56.560291152Z",
+      "after": "2026-10-13T14:41:33.247594992Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-road-coverage-provider-1",
+      "before": "2026-10-13T09:24:58.269114641Z",
+      "after": "2026-10-13T14:41:33.258771168Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-stas-provider-1",
+      "before": "2026-10-13T09:24:59.75846209Z",
+      "after": "2026-10-13T14:41:33.25650828Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-world-platform-projection-worker-1",
+      "before": "2026-10-13T09:25:00.277071543Z",
+      "after": "2026-10-13T14:41:36.150293422Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 3,
+      "state": "running",
+      "health": null
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-projection-worker-1",
+      "before": "2026-10-13T09:25:00.649683104Z",
+      "after": "2026-10-13T14:41:35.852167826Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 3,
+      "state": "running",
+      "health": null
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-stas-1",
+      "before": "2026-10-13T09:25:00.888879239Z",
+      "after": "2026-10-13T14:41:33.476235666Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-history-auto-1",
+      "before": "2026-10-13T09:25:01.268095666Z",
+      "after": "2026-10-13T14:41:31.829098662Z",
+      "restartCountBefore": 0,
+      "restartCountAfter": 1,
+      "state": "running",
+      "health": "healthy"
+    }
+  ],
+  "uninterruptedUptimeClaimed": false,
+  "authorizedUpdateScope": [
+    {
+      "name": "/smpp-telemetry-telemetry-processor-1",
+      "oldImage": "sha256:ce1de75bbed390d4269de817de9674d91888cfd73b91a52c831ddb1b3f97341a",
+      "newImage": "sha256:150005b82a35eb4932ae9559be0bd314c1708848f9dfd2f149b4c4e58ac3c540",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/smpp-telemetry-query-api-1",
+      "oldImage": "sha256:ce1de75bbed390d4269de817de9674d91888cfd73b91a52c831ddb1b3f97341a",
+      "newImage": "sha256:150005b82a35eb4932ae9559be0bd314c1708848f9dfd2f149b4c4e58ac3c540",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/smpp-telemetry-grafana-1",
+      "oldImage": "sha256:6ac590e7cabc2fbe8d7b8fc1ce9c9f0582177b334e0df9c927ebd9670469440f",
+      "newImage": "sha256:6ac590e7cabc2fbe8d7b8fc1ce9c9f0582177b334e0df9c927ebd9670469440f",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "oldImage": "sha256:2123e6a3e26bfa44f633c33b65a36142ab8a4b29843fc44257abcef92beb293a",
+      "newImage": "sha256:2123e6a3e26bfa44f633c33b65a36142ab8a4b29843fc44257abcef92beb293a",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/smpp-telemetry-otel-collector-1",
+      "oldImage": "sha256:f2f01157055a9b2aab9df7118e1f1c9abf345e99b23bc7a2bc791db374a7d0f6",
+      "newImage": "sha256:f2f01157055a9b2aab9df7118e1f1c9abf345e99b23bc7a2bc791db374a7d0f6",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/smpp-telemetry-clickhouse-1",
+      "oldImage": "sha256:b627d7a9bc0e0c1bac26cdbe9d2fc6316faa29c5d8a174f28f5abd57d0fa6ba2",
+      "newImage": "sha256:b627d7a9bc0e0c1bac26cdbe9d2fc6316faa29c5d8a174f28f5abd57d0fa6ba2",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/smpp-telemetry-sdar-clickhouse-1",
+      "oldImage": "sha256:b627d7a9bc0e0c1bac26cdbe9d2fc6316faa29c5d8a174f28f5abd57d0fa6ba2",
+      "newImage": "sha256:b627d7a9bc0e0c1bac26cdbe9d2fc6316faa29c5d8a174f28f5abd57d0fa6ba2",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-smpp-adapter-1",
+      "oldImage": "sha256:a8006b9813d771bd05e2b2ab0e636d874c2fabeaf7d6a0c65681af3ec8b55bab",
+      "newImage": "sha256:a8006b9813d771bd05e2b2ab0e636d874c2fabeaf7d6a0c65681af3ec8b55bab",
+      "volumeNamesPreserved": true
+    },
+    {
+      "name": "/gowm-analysis-dev-f3dc6f4b8e-postgres-1",
+      "oldImage": "sha256:20e7e39aa7638d0a0ac70df277a2b13c5d034cb5a91c1f74aa3f0a7c4fb7ec8f",
+      "newImage": "sha256:ef01d9cf5bb214fc223fb0b00cbaf5cb34415c8ae1d0d03a74b45ce49a2bcd11",
+      "volumeNamesPreserved": true
+    }
+  ],
+  "allOriginalVolumesPreserved": true
+}

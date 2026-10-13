@@ -1,0 +1,10 @@
+{
+  "status": "PASS_SAME_SOURCE",
+  "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "runtimeInputSha256": "c7f7867c89b0808a7e7bb70f9925d18478e4819a065e1ed74bcf026cd4639bb4",
+  "baselineSha256": "93014ef97af0be1148fc693a2c63f1f24b38d5ce25694b6b32b9ddda0dca0c42",
+  "currentRun": "sdar-verify-7ba9d4f2-c7cc-4e0a-b26f-89b0f14508e2",
+  "persistentGOWMRun": "sdar-smpp-gowm-c2380af6-0766-4b58-bf2c-32c223136d57",
+  "fullGateOutcome": "PASS",
+  "storageConditionChanged": "owned verification PostgreSQL only; recorded separately"
+}

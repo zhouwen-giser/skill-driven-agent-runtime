@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "readOnly": true,
+  "contract": "contracts/gowm-shared-storage/current",
+  "role": {
+    "name": "ugv_sdar_app",
+    "rolsuper": false,
+    "rolcreatedb": false,
+    "rolcreaterole": false
+  },
+  "vector": {
+    "extversion": "0.8.5"
+  },
+  "binding": [
+    {
+      "binding_id": "c6a0eef5-05a5-467b-8f0a-4ab10530cd19",
+      "valid_to": "2026-10-13T15:04:23.213Z",
+      "sdar_service_key": null,
+      "sdar_mcp_server_id": null
+    },
+    {
+      "binding_id": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+      "valid_to": null,
+      "sdar_service_key": "sdar-sz-gowm",
+      "sdar_mcp_server_id": "smpp-sz-gowm"
+    }
+  ],
+  "activeProviderTasks": 0
+}

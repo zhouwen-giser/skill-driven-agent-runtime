@@ -1,0 +1,52 @@
+{
+  "status": "PASS",
+  "command": "PATH=<bundled Python>:$PATH pnpm verify:isolated -- --frozen",
+  "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "runId": "sdar-verify-7ba9d4f2-c7cc-4e0a-b26f-89b0f14508e2",
+  "runtimeInputSha256": "c7f7867c89b0808a7e7bb70f9925d18478e4819a065e1ed74bcf026cd4639bb4",
+  "baselineSha256": "93014ef97af0be1148fc693a2c63f1f24b38d5ce25694b6b32b9ddda0dca0c42",
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "stageCount": 30,
+  "metrics": {
+    "unit": {
+      "testFiles": 310,
+      "tests": 2695
+    },
+    "contract": {
+      "testFiles": 63,
+      "tests": 553
+    },
+    "management-openapi": {
+      "openapiOperations": 186
+    },
+    "clean-baseline-reset-seed": {
+      "migrationCount": 77
+    },
+    "postgres-redis-integration": {
+      "testFiles": 44,
+      "tests": 272
+    },
+    "postgres-redis-model-mcp-e2e": {
+      "testFiles": 8,
+      "tests": 77
+    }
+  },
+  "evidence": "reports/local-smpp-integrated-20261013/final-full/sdar-verify-7ba9d4f2-c7cc-4e0a-b26f-89b0f14508e2",
+  "runJsonSha256": "bf79b0473661d4349a7a91cccf0ae127c4fb98416fce1660b2f4a05e501de6d8",
+  "storage": "documented owned memory-backed PostgreSQL main integration fixture; persistent native GOWM and all 272 integration cases separately verified",
+  "sourceUnion": "FINAL_PACKAGE.json",
+  "sourceContainerComparison": "CONTAINER_SOURCE.json",
+  "persistentVerification": [
+    "GOWM_VALIDATION.json",
+    "P07_FOCUSED.json",
+    "EVIDENCE_PERSISTENT_FOCUSED.json",
+    "failed-full/sdar-verify-64805e20-80c9-47fc-9d1b-1a751a584640/verification/raw/postgres-redis-integration.log"
+  ],
+  "fullSiteBootstrap": "BLOCKED_MISSING_EMBODIED_INSPECT_AREA",
+  "productionDurabilityQualification": "NOT_RUN",
+  "physicalDeviceActions": "NOT_RUN",
+  "wholeProjectAcceptance": "OPEN"
+}

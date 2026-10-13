@@ -1,0 +1,35 @@
+[
+  {
+    "runId": "sdar-verify-bcdc623f-d015-487a-9025-170c6dfea4cf",
+    "acceptance": "NOT_PASS",
+    "reason": "CANCELED_TO_INCLUDE_RUNTIME_PMS_IDENTITY_FIX",
+    "exitCode": 1,
+    "cleanupExitCode": 0,
+    "inputSha256": "3b73588c492bb9f468e06c52348b4c8418e51ef9e509558fa36c2ddd9622cc1f",
+    "baselineSha256": "d4bb9e42c45bcca2e20824d319bda1ff9ef6b45d30a11d6e6faba6eb9eeff421",
+    "originalEvidence": "reports/runtime-semantic-closure/sdar-verify-bcdc623f-d015-487a-9025-170c6dfea4cf",
+    "runJsonSha256": "749102c0b3a7c9b092358af8ff3a4c98fb530df2770e8fe09f0fe343d4fc0a0e"
+  },
+  {
+    "runId": "sdar-verify-18205ad0-9aa7-483a-aa59-408b03c31933",
+    "acceptance": "NOT_PASS",
+    "reason": "INTEGRATION_TIMEOUT_660_SECONDS",
+    "exitCode": 1,
+    "cleanupExitCode": 0,
+    "inputSha256": "3b5d50fcaffda4ce85312f1556abe712965bf39b903b4063fb7b1f2d526533f7",
+    "baselineSha256": "d4bb9e42c45bcca2e20824d319bda1ff9ef6b45d30a11d6e6faba6eb9eeff421",
+    "originalEvidence": "reports/runtime-semantic-closure/sdar-verify-18205ad0-9aa7-483a-aa59-408b03c31933",
+    "runJsonSha256": "434392eaed5c4a05e9ab4f6f6422d909288636556b59aefab3e54fabcf55b340"
+  },
+  {
+    "runId": "sdar-verify-d22ed916-d875-48d1-8226-cba33073a0d3",
+    "acceptance": "NOT_PASS",
+    "reason": "CANCELED_TO_INCLUDE_CURRENT_TRAJECTORY_CATALOG_COMPATIBILITY",
+    "exitCode": 1,
+    "cleanupExitCode": 0,
+    "inputSha256": "3b5d50fcaffda4ce85312f1556abe712965bf39b903b4063fb7b1f2d526533f7",
+    "baselineSha256": "d4bb9e42c45bcca2e20824d319bda1ff9ef6b45d30a11d6e6faba6eb9eeff421",
+    "originalEvidence": "reports/runtime-semantic-closure/sdar-verify-d22ed916-d875-48d1-8226-cba33073a0d3",
+    "runJsonSha256": "9a8f433ebc91e1f9e1efa0dd4e21711847cdb5c464340f802e2c89961b04e52b"
+  }
+]

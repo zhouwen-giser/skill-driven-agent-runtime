@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "sourceHash": "380c512cceec438f691289eb3564e28aa48b939c4b9bc375dac4cea342c38785",
+  "checks": [
+    {
+      "container": "sdar-sz-gowm-runtime-1",
+      "image": "sha256:be55783c936c6026c40ebea7779d322c4c006732a4d51d78b5c5b7ab00cb1485",
+      "imageRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+      "checked": 2921,
+      "mismatches": [],
+      "metadata": {
+        "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+        "sourceHash": "380c512cceec438f691289eb3564e28aa48b939c4b9bc375dac4cea342c38785"
+      }
+    },
+    {
+      "container": "sdar-sz-gowm-control-api-1",
+      "image": "sha256:be55783c936c6026c40ebea7779d322c4c006732a4d51d78b5c5b7ab00cb1485",
+      "imageRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+      "checked": 2921,
+      "mismatches": [],
+      "metadata": {
+        "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+        "sourceHash": "380c512cceec438f691289eb3564e28aa48b939c4b9bc375dac4cea342c38785"
+      }
+    },
+    {
+      "container": "sdar-sz-gowm-control-worker-1",
+      "image": "sha256:be55783c936c6026c40ebea7779d322c4c006732a4d51d78b5c5b7ab00cb1485",
+      "imageRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+      "checked": 2921,
+      "mismatches": [],
+      "metadata": {
+        "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+        "sourceHash": "380c512cceec438f691289eb3564e28aa48b939c4b9bc375dac4cea342c38785"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "status": "NOT_PASS",
+  "runId": "sdar-verify-cffe4b25-5fcc-423c-b669-3b7d4de9d999",
+  "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "inputSha256": "c7f7867c89b0808a7e7bb70f9925d18478e4819a065e1ed74bcf026cd4639bb4",
+  "baselineSha256": "93014ef97af0be1148fc693a2c63f1f24b38d5ce25694b6b32b9ddda0dca0c42",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "failure": "P07 retrieval P95 133.449237ms exceeds unchanged <100ms",
+  "passedStages": 23,
+  "mainIntegrationPassed": 249,
+  "mainIntegrationFailed": 1,
+  "archivedEvidence": "reports/local-smpp-integrated-20261013/failed-full/sdar-verify-cffe4b25-5fcc-423c-b669-3b7d4de9d999",
+  "remainingFullStages": "NOT_RUN"
+}

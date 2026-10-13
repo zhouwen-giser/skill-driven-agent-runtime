@@ -1,0 +1,42 @@
+{
+  "status": "PASS_STATUS_RECONCILIATION_ONLY",
+  "runtimeInputsUnchanged": true,
+  "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "frozenRuntimeInputSha256": "c7f7867c89b0808a7e7bb70f9925d18478e4819a065e1ed74bcf026cd4639bb4",
+  "frozenBaselineSha256": "93014ef97af0be1148fc693a2c63f1f24b38d5ce25694b6b32b9ddda0dca0c42",
+  "updatedBaselineSha256": "1f615c8f50683a81d819beef7c3c25e9ce462efed5620181d2608af6c906f8dc",
+  "changes": [
+    {
+      "path": "CHANGELOG.md",
+      "classification": "status",
+      "before": "fb514208a9888f591a33587a7a07013c2ff66ddc9297af1422ffb82d8678c08f",
+      "after": "d2404f94e948e1c988759bdd71937bee1ede16c97d1d62ea2cd60704d1bf9092"
+    },
+    {
+      "path": "PROJECT_STATUS.md",
+      "classification": "status",
+      "before": "aedd0278e4793bea58702b0f5319819e5b128462ebdcad5da5fddc179d095cf9",
+      "after": "a321be2eed3f63346a9f0f3f05155eaa0a68641bc493bc31d5ced7e72a7495d3"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "classification": "baseline",
+      "before": "7923345553805c0365ba5ec9ebdee2a44e369464a6f7b3a36aee60faf57d6a34",
+      "after": "71930752623cb37196687353be7771597d9486c4ba430320f2f7a6471da4ea54"
+    },
+    {
+      "path": "execplans/EP-LOCAL-SMPP-INTEGRATED-DEPLOYMENT.md",
+      "classification": "status",
+      "before": "6b5795dd488133cbb5bf3d04a8bd2736f5a591c0ca8eb437baa590f72eb270e7",
+      "after": "3a40b75f9e9b51c210f5d1d4678cee347c4fdd0ee5255f0c657fc31afd92dce2"
+    },
+    {
+      "path": "reports/local-smpp-integrated-20261013/SAME_FROZEN_SOURCE.json",
+      "classification": "status",
+      "before": "bc931b8732345b810b8b0ec03dbacdc1762a8722d8e7e903753eeff323dde60f",
+      "after": "697ab32ae2414cd2d9c34e4c56f56e19d20abb22197c61e71fc3c0808f0aec54"
+    }
+  ],
+  "baselineDeltaScope": "only new local-deployment validation/status section in traceability matrix; requirements, contract and ADR content unchanged",
+  "fullGateRerunRequiredForRuntime": false
+}

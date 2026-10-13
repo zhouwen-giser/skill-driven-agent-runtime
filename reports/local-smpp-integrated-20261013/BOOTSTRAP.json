@@ -1,0 +1,751 @@
+{
+  "status": "failed",
+  "completedStages": [
+    "source",
+    "provider",
+    "governance"
+  ],
+  "blocked": [
+    {
+      "skillId": "embodied.area_patrol",
+      "dependency": "embodied.inspect_area",
+      "reasonCode": "BUILTIN_CAPABILITY_DEPENDENCY_MISSING"
+    }
+  ],
+  "deviceCalls": 0,
+  "source": {
+    "schemaVersion": "sdar.ugv-smpp-source-bootstrap/v1",
+    "status": "passed",
+    "evidenceClass": "real_public_api",
+    "observedAt": "2026-10-13T15:29:29.826Z",
+    "sourceAction": "reused",
+    "sourceIdentitySha256": "ee849a323e66df0d3893d37f385e2ee6b60d0ef9dac7e4fccc196883b55f29fe",
+    "intendedTupleSha256": "e05a7fe2db60879cd0cca6235bee88439d1927c3b6b5196faf8cd23186e9182e",
+    "authenticationMode": "none",
+    "sourceSyncMode": "poll",
+    "sourceRevision": 1,
+    "snapshotRevision": 4,
+    "snapshotChecksum": "2c7431c1ffcb7923bd05943f661740875da08365b098a3a4bb1e3807c25783b0",
+    "snapshotValidUntil": "2026-10-13T15:34:30.012Z",
+    "nativeRegistryRevision": 4,
+    "nativeRegistryChecksum": "c4c2188e8b95a122455d8cfe06c5fed35255cc0d2c9aa8f7a1df4bcdc5d57f0b",
+    "registryProjectionContract": "sdar-registry-v1",
+    "candidateCount": 1,
+    "initialSyncOutcome": "not_modified",
+    "conditionalSyncOutcome": "not_modified",
+    "conditionalValidity": "extended",
+    "checks": [
+      "public_source_list_and_direct_read",
+      "immutable_source_configuration",
+      "source_active_current_pointer",
+      "sync_operation_succeeded",
+      "exact_ugv_only_candidate_tuple",
+      "projection_and_native_lineage_complete",
+      "persisted_snapshot_fresh",
+      "conditional_304_audit_outcome",
+      "conditional_revision_checksum_lineage_unchanged",
+      "conditional_validity_not_shortened"
+    ],
+    "redaction": {
+      "secretsIncluded": false,
+      "credentialReferencesIncluded": false,
+      "endpointsIncluded": false,
+      "entityIdsIncluded": false
+    }
+  },
+  "provider": {
+    "schemaVersion": "sdar.ugv-smpp-provider-materialization/v1",
+    "status": "passed",
+    "observedAt": "2026-10-13T15:29:30.050Z",
+    "provider": {
+      "providerKey": "ugv",
+      "bindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+      "action": "reconciled",
+      "runtimeAction": "reused",
+      "externalProviderId": "isr.vehicle.ugv.ugv",
+      "externalServerId": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "registryRevision": 4,
+      "registryChecksum": "2c7431c1ffcb7923bd05943f661740875da08365b098a3a4bb1e3807c25783b0",
+      "nativeRegistryRevision": 4,
+      "nativeRegistryChecksum": "c4c2188e8b95a122455d8cfe06c5fed35255cc0d2c9aa8f7a1df4bcdc5d57f0b",
+      "registryProjectionContract": "sdar-registry-v1",
+      "registryCatalogRevision": "1",
+      "bindingRevision": 2,
+      "catalogRevision": "2.0.0-rc.1:2",
+      "catalogChecksum": "bd8257d627435f6f16839234e7def3a6beff2599a213ac8f5bf665626a6c1aaa",
+      "endpointSha256": "bc1ecdaa9d99488e5f39fe495e214867fb699f71753b2f2b3cac2c1cb7a7d292",
+      "catalogObservedAt": "2026-10-13T15:29:30.238Z",
+      "availabilityValidUntil": "2026-10-13T16:29:30.238Z",
+      "runtimeToolRevision": 2,
+      "runtimeDiscoveredAt": "2026-10-13T15:19:56.480Z",
+      "runtimeValidUntil": "2026-10-13T16:19:56.480Z",
+      "credentialRotation": "not_applicable",
+      "tools": [
+        {
+          "toolName": "vehicle_area_recon",
+          "taskBehavior": "task_required",
+          "effect": "side_effecting",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "a91ebab4330bb2e377c4f9ed531e7587619c84ccb2dfdb79227607fbce0e92c0",
+          "outputSchemaSha256": "df26dfdbc01b5fdb442e202e41c2ea1a4867deedb1d129d01c9e52670d7d43b4"
+        },
+        {
+          "toolName": "vehicle_control_gimbal",
+          "taskBehavior": "task_required",
+          "effect": "side_effecting",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "217cf0cd90eeafd9ef35dded673e09bea0d02171397c04da37ea74c66559390c",
+          "outputSchemaSha256": "2e49c3e306d1432fadf5bf3cae8e21ec1e41306d660f38d0c2e9aa2e5a07e7c7"
+        },
+        {
+          "toolName": "vehicle_emergency_stop",
+          "taskBehavior": "task_required",
+          "effect": "side_effecting",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+          "outputSchemaSha256": "3ef2857de8184bac288d305d9e0dc920771c7fd60aacd8ac88049f3574f139a7"
+        },
+        {
+          "toolName": "vehicle_fire_weapon",
+          "taskBehavior": "task_required",
+          "effect": "side_effecting",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "37d58261c254c19ed8afa66ddfaf0f081ef2cc68a92f67933543c5f659cd4abb",
+          "outputSchemaSha256": "67e1baef19db6154f7307cb96ef89fea7435de82007a2ba1b896b384aa39a698"
+        },
+        {
+          "toolName": "vehicle_get_capabilities",
+          "taskBehavior": "synchronous_only",
+          "effect": "read_only",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+          "outputSchemaSha256": "b67cf58b77c25ef0a662d771307ca7796277dca06ef88746fb82404db1428750"
+        },
+        {
+          "toolName": "vehicle_get_payload_status",
+          "taskBehavior": "synchronous_only",
+          "effect": "read_only",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+          "outputSchemaSha256": "806fc6287b90cd0b2b7fcbdca479dac31cdcdcf09ea9504fe52c6d3ebf7ab307"
+        },
+        {
+          "toolName": "vehicle_get_state",
+          "taskBehavior": "synchronous_only",
+          "effect": "read_only",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "6b68d60fa52cb985d1591583ef5865b792c9b9ab12a035798e79bb6ccdeb03cf",
+          "outputSchemaSha256": "657cf4c9e8e303f451498eb67b2c7b23a2f610617f5bfa190c0f12ffbc226e77"
+        },
+        {
+          "toolName": "vehicle_get_targets",
+          "taskBehavior": "synchronous_only",
+          "effect": "read_only",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+          "outputSchemaSha256": "e5ceb0a2697bb795afcb3de8f2547eb49aab99e71c827c6ddb454fb7d32c034a"
+        },
+        {
+          "toolName": "vehicle_get_trajectory_evidence",
+          "taskBehavior": "synchronous_only",
+          "effect": "read_only",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "2a02b83fc1aa1101f6dd05020cebed6943371345657fe9fc0a097735774d8c6f",
+          "outputSchemaSha256": "cb0d379c0cf096af3e9edd8b5808811a923a5be3a04b5b0c135263de5e9c2a1a"
+        },
+        {
+          "toolName": "vehicle_get_trajectory_history",
+          "taskBehavior": "synchronous_only",
+          "effect": "read_only",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "c2ef149b445730cfad202256e7dfc87dfedf63910793f69e0b7ebba685fd018e",
+          "outputSchemaSha256": "0a21f174498c6922b75c9be6ab4424d3623755c8aea7b9c5e5c3c2df4d0e14ba"
+        },
+        {
+          "toolName": "vehicle_navigate",
+          "taskBehavior": "task_required",
+          "effect": "side_effecting",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "fc618aa6e61d15129aa16feb618ff24ccf384458dabde6a9e4fa3a550bb275f3",
+          "outputSchemaSha256": "59afa0121da4cf61aa2f3f2433795cc7c225a7f1328e0c462c8e340c35a258be"
+        },
+        {
+          "toolName": "vehicle_track_target",
+          "taskBehavior": "task_required",
+          "effect": "side_effecting",
+          "executionSemanticsSource": "admin_override",
+          "inputSchemaSha256": "01c0b12f2340a52e4ebdd77d9355fce578b0d8d22ee7034e664bfcba68faecf2",
+          "outputSchemaSha256": "b875ec1cf083f1ba8c513f0dcffd4a80feb2e46eeeacb9053e6feb3023f390d8"
+        }
+      ]
+    },
+    "catalog": {
+      "expectedToolCount": 12,
+      "materializedToolCount": 12,
+      "reviewedToolPolicy": true,
+      "allExecutionSemanticsExplicit": true,
+      "physicalToolInvocationCount": 0
+    },
+    "firePolicy": {
+      "toolName": "vehicle_fire_weapon",
+      "discoveredAndClassified": true,
+      "executionAuthorized": false,
+      "capabilityCreationAuthority": "none"
+    },
+    "authentication": {
+      "runtimeMode": "none",
+      "implicitFallback": false
+    },
+    "redaction": {
+      "secretsIncluded": false,
+      "credentialReferencesIncluded": false,
+      "endpointsIncluded": false,
+      "entityIdsIncluded": true
+    }
+  },
+  "governance": {
+    "schemaVersion": "sdar.ugv-smpp-capability-governance/v1",
+    "status": "passed",
+    "observedAt": "2026-10-13T15:29:35.254Z",
+    "binding": {
+      "bindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+      "localServerId": "smpp-sz-gowm",
+      "revision": 2,
+      "registryRevision": 4,
+      "registryChecksum": "2c7431c1ffcb7923bd05943f661740875da08365b098a3a4bb1e3807c25783b0",
+      "catalogRevision": "2.0.0-rc.1:2",
+      "catalogChecksum": "bd8257d627435f6f16839234e7def3a6beff2599a213ac8f5bf665626a6c1aaa",
+      "operationCount": 12,
+      "availabilityValidUntil": "2026-10-13T16:29:30.238Z"
+    },
+    "resourcePolicy": {
+      "identifierAuthority": "public_smpp_tool_schema",
+      "resourceId": "vehicle:ugv",
+      "selection": "explicit_configured_value"
+    },
+    "catalog": {
+      "discoveredToolCount": 12,
+      "governedToolCount": 11,
+      "stagedControlToolCount": 0,
+      "unmappedToolNames": [
+        "vehicle_get_trajectory_evidence",
+        "vehicle_get_trajectory_history"
+      ]
+    },
+    "firePolicy": {
+      "toolName": "vehicle_fire_weapon",
+      "discovered": true,
+      "lifecyclePublished": false,
+      "invocationReadiness": "restricted",
+      "restrictionReason": "STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED"
+    },
+    "navigateControl": {
+      "activated": true,
+      "mode": "coordinate_point",
+      "dispatchMaximum": 1,
+      "stopOnObstacleRequired": true
+    },
+    "skills": [
+      {
+        "skillId": "ugv.get-state",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.read-state",
+        "toolName": "vehicle_get_state",
+        "packageChecksum": "d30b1cd14b0bd496f2749b7baeaf7ccf2290f5cb794236116d54d67c3e67e75e",
+        "inputSchemaSha256": "6b68d60fa52cb985d1591583ef5865b792c9b9ab12a035798e79bb6ccdeb03cf",
+        "outputSchemaSha256": "657cf4c9e8e303f451498eb67b2c7b23a2f610617f5bfa190c0f12ffbc226e77",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.get-capabilities",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.read-capabilities",
+        "toolName": "vehicle_get_capabilities",
+        "packageChecksum": "c4381fe2664256b0dcf4e44a3f2fb85dc99a86a706311550575afdeae0e22535",
+        "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+        "outputSchemaSha256": "b67cf58b77c25ef0a662d771307ca7796277dca06ef88746fb82404db1428750",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.get-payload-status",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.read-payload",
+        "toolName": "vehicle_get_payload_status",
+        "packageChecksum": "a032a32835b158355768d4a481d2830be4e26554748d6561b64369a16cb0b88d",
+        "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+        "outputSchemaSha256": "806fc6287b90cd0b2b7fcbdca479dac31cdcdcf09ea9504fe52c6d3ebf7ab307",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.get-targets",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.read-targets",
+        "toolName": "vehicle_get_targets",
+        "packageChecksum": "82a7b35794a82432be00da0cc2d4dd14d82cf247e1b13e74ac3e416fd5a44b98",
+        "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+        "outputSchemaSha256": "e5ceb0a2697bb795afcb3de8f2547eb49aab99e71c827c6ddb454fb7d32c034a",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.navigate-route",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.navigate-route",
+        "toolName": "vehicle_navigate",
+        "packageChecksum": "ace0d2f1a4871d86c741be1a7052871f23c008f4206e543f3a7875f72cf0a32e",
+        "inputSchemaSha256": "fc618aa6e61d15129aa16feb618ff24ccf384458dabde6a9e4fa3a550bb275f3",
+        "outputSchemaSha256": "59afa0121da4cf61aa2f3f2433795cc7c225a7f1328e0c462c8e340c35a258be",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.navigate-distance",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.navigate-distance",
+        "toolName": "vehicle_navigate",
+        "packageChecksum": "7e5dcffe94617911b45032a5efb203d65b94e43442ea184b7b92a4ced8b6ab83",
+        "inputSchemaSha256": "fc618aa6e61d15129aa16feb618ff24ccf384458dabde6a9e4fa3a550bb275f3",
+        "outputSchemaSha256": "59afa0121da4cf61aa2f3f2433795cc7c225a7f1328e0c462c8e340c35a258be",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.return-home",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.return-home",
+        "toolName": "vehicle_navigate",
+        "packageChecksum": "1340dd7de8020aad47096543f12f9baed406d4ef69e8f7fd7f28b3d41cd05ac2",
+        "inputSchemaSha256": "fc618aa6e61d15129aa16feb618ff24ccf384458dabde6a9e4fa3a550bb275f3",
+        "outputSchemaSha256": "59afa0121da4cf61aa2f3f2433795cc7c225a7f1328e0c462c8e340c35a258be",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.area-recon",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.recon",
+        "toolName": "vehicle_area_recon",
+        "packageChecksum": "1e6c63016699d4141d5f4841cdf4dffc81a5dba83d4389b934ae116513a3187b",
+        "inputSchemaSha256": "a91ebab4330bb2e377c4f9ed531e7587619c84ccb2dfdb79227607fbce0e92c0",
+        "outputSchemaSha256": "df26dfdbc01b5fdb442e202e41c2ea1a4867deedb1d129d01c9e52670d7d43b4",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.track-target",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.track-target",
+        "toolName": "vehicle_track_target",
+        "packageChecksum": "51332ad5c497afebd6205ed23a4ad5413e6af95872767cbe94bb2bb4ba7d2489",
+        "inputSchemaSha256": "01c0b12f2340a52e4ebdd77d9355fce578b0d8d22ee7034e664bfcba68faecf2",
+        "outputSchemaSha256": "b875ec1cf083f1ba8c513f0dcffd4a80feb2e46eeeacb9053e6feb3023f390d8",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.control-gimbal",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.control-gimbal",
+        "toolName": "vehicle_control_gimbal",
+        "packageChecksum": "207c363bbbfd71c9156a5e2cd5b77925c6bd2af545a3bf6f767591fdc9a6742d",
+        "inputSchemaSha256": "217cf0cd90eeafd9ef35dded673e09bea0d02171397c04da37ea74c66559390c",
+        "outputSchemaSha256": "2e49c3e306d1432fadf5bf3cae8e21ec1e41306d660f38d0c2e9aa2e5a07e7c7",
+        "action": "imported",
+        "status": "published"
+      },
+      {
+        "skillId": "ugv.emergency-stop",
+        "skillVersion": 1,
+        "capabilityId": "vehicle.ugv.emergency-stop",
+        "toolName": "vehicle_emergency_stop",
+        "packageChecksum": "76112c596939f8385fe821ededd301348fc02375f1e7e8a031ec9ee93a768a9f",
+        "inputSchemaSha256": "6578dc11739f6abdbfd57abd9eeff40054dc1cca8f210f95a00e5bf274e511c0",
+        "outputSchemaSha256": "3ef2857de8184bac288d305d9e0dc920771c7fd60aacd8ac88049f3574f139a7",
+        "action": "imported",
+        "status": "published"
+      }
+    ],
+    "capabilities": [
+      {
+        "capabilityId": "vehicle.ugv.read-state",
+        "capabilityVersion": 1,
+        "definitionHash": "6d17cd3bd9e50a79c5d79990a4b25c1362cad20e4872cd571c1b0ba3da127739",
+        "implementationBindingId": "capability-binding-vehicle.ugv.read-state-v1",
+        "skillId": "ugv.get-state",
+        "skillVersion": 1,
+        "toolName": "vehicle_get_state",
+        "riskLevel": "low",
+        "confirmation": "not_required",
+        "remoteTerminalEvidenceRequired": false,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:34.867Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.read-capabilities",
+        "capabilityVersion": 1,
+        "definitionHash": "21f802417053994239e8ed1538a62ea6b0a780e5878c1ccdbfc19897e549ff5e",
+        "implementationBindingId": "capability-binding-vehicle.ugv.read-capabilities-v1",
+        "skillId": "ugv.get-capabilities",
+        "skillVersion": 1,
+        "toolName": "vehicle_get_capabilities",
+        "riskLevel": "low",
+        "confirmation": "not_required",
+        "remoteTerminalEvidenceRequired": false,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:34.906Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.read-payload",
+        "capabilityVersion": 1,
+        "definitionHash": "c071fcc435d33868704e13beba4d23e4e3fed02ebbb5a46af1c05b1b5ad706e5",
+        "implementationBindingId": "capability-binding-vehicle.ugv.read-payload-v1",
+        "skillId": "ugv.get-payload-status",
+        "skillVersion": 1,
+        "toolName": "vehicle_get_payload_status",
+        "riskLevel": "low",
+        "confirmation": "not_required",
+        "remoteTerminalEvidenceRequired": false,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:34.957Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.read-targets",
+        "capabilityVersion": 1,
+        "definitionHash": "cfaeb4053f18ae4d12a63225fc5c697ef19ee64d9c95088916770db2265b746b",
+        "implementationBindingId": "capability-binding-vehicle.ugv.read-targets-v1",
+        "skillId": "ugv.get-targets",
+        "skillVersion": 1,
+        "toolName": "vehicle_get_targets",
+        "riskLevel": "low",
+        "confirmation": "not_required",
+        "remoteTerminalEvidenceRequired": false,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:34.987Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.navigate-route",
+        "capabilityVersion": 1,
+        "definitionHash": "d5b61f9578682ca3a59a5e64b35ccc02fcfa9442c2250361880b5bf121d9e559",
+        "implementationBindingId": "capability-binding-vehicle.ugv.navigate-route-v1",
+        "skillId": "ugv.navigate-route",
+        "skillVersion": 1,
+        "toolName": "vehicle_navigate",
+        "riskLevel": "medium",
+        "confirmation": "required",
+        "remoteTerminalEvidenceRequired": true,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:35.027Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.navigate-distance",
+        "capabilityVersion": 1,
+        "definitionHash": "62b15885cbc833efc5b2314a86ff8f32ca9934a50b4480eb0e104d67da221cd8",
+        "implementationBindingId": "capability-binding-vehicle.ugv.navigate-distance-v1",
+        "skillId": "ugv.navigate-distance",
+        "skillVersion": 1,
+        "toolName": "vehicle_navigate",
+        "riskLevel": "medium",
+        "confirmation": "required",
+        "remoteTerminalEvidenceRequired": true,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:35.057Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.return-home",
+        "capabilityVersion": 1,
+        "definitionHash": "9e10a46cb9fe8232e3c12df3c2699ec3853b15702e7f2438658a96526cb75199",
+        "implementationBindingId": "capability-binding-vehicle.ugv.return-home-v1",
+        "skillId": "ugv.return-home",
+        "skillVersion": 1,
+        "toolName": "vehicle_navigate",
+        "riskLevel": "medium",
+        "confirmation": "required",
+        "remoteTerminalEvidenceRequired": true,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:35.083Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.recon",
+        "capabilityVersion": 1,
+        "definitionHash": "913d7f6fc288f01e9317d7b4a1919e5b37036521e59b806ddd0f89987156654a",
+        "implementationBindingId": "capability-binding-vehicle.ugv.recon-v1",
+        "skillId": "ugv.area-recon",
+        "skillVersion": 1,
+        "toolName": "vehicle_area_recon",
+        "riskLevel": "medium",
+        "confirmation": "required",
+        "remoteTerminalEvidenceRequired": true,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:35.130Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.track-target",
+        "capabilityVersion": 1,
+        "definitionHash": "c91d90beb70e49422379f82bbfe028f4f1053d73bd22561e9ad555e52496ab70",
+        "implementationBindingId": "capability-binding-vehicle.ugv.track-target-v1",
+        "skillId": "ugv.track-target",
+        "skillVersion": 1,
+        "toolName": "vehicle_track_target",
+        "riskLevel": "medium",
+        "confirmation": "required",
+        "remoteTerminalEvidenceRequired": true,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:35.166Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.control-gimbal",
+        "capabilityVersion": 1,
+        "definitionHash": "5f8ed1c1a917a9889417c17621a4ffef76e88c357a4df1bf29b86a3ef5d05e98",
+        "implementationBindingId": "capability-binding-vehicle.ugv.control-gimbal-v1",
+        "skillId": "ugv.control-gimbal",
+        "skillVersion": 1,
+        "toolName": "vehicle_control_gimbal",
+        "riskLevel": "medium",
+        "confirmation": "required",
+        "remoteTerminalEvidenceRequired": true,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:35.192Z"
+      },
+      {
+        "capabilityId": "vehicle.ugv.emergency-stop",
+        "capabilityVersion": 1,
+        "definitionHash": "f0465d3bed13d51e4a1409a38d542ae2b28741b61a5265d36e056bde0bf492e1",
+        "implementationBindingId": "capability-binding-vehicle.ugv.emergency-stop-v1",
+        "skillId": "ugv.emergency-stop",
+        "skillVersion": 1,
+        "toolName": "vehicle_emergency_stop",
+        "riskLevel": "high",
+        "confirmation": "required",
+        "remoteTerminalEvidenceRequired": true,
+        "readiness": "available",
+        "readinessValidUntil": "2026-10-13T15:30:35.230Z"
+      }
+    ],
+    "exposures": [
+      {
+        "exposureId": "a2a.vehicle.ugv.control-gimbal",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.control-gimbal",
+        "capabilityVersion": 1,
+        "exposureHash": "4d642d2611804fb2c6db4bdbc785688de29c1bcbe35b5638ae3dbf2399f43f7b",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.emergency-stop",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.emergency-stop",
+        "capabilityVersion": 1,
+        "exposureHash": "61bd82a9bb7fb44a91f04425afe218c3badc01fdf4c735039e5972f66fb8ad24",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.navigate-distance",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.navigate-distance",
+        "capabilityVersion": 1,
+        "exposureHash": "c86db139ab024fb9003ede16250d426b5a8299cd160b52bdeb99a383d319bf86",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.navigate-route",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.navigate-route",
+        "capabilityVersion": 1,
+        "exposureHash": "927da7eb4525aadc08534fc2403a4e4151707c5a780839e14efc9af2e88a8132",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.read-capabilities",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.read-capabilities",
+        "capabilityVersion": 1,
+        "exposureHash": "4776c8a136d9d38662e7939092515b177efd12ceb8254f2aa4797f94d5a3cefd",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.read-payload",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.read-payload",
+        "capabilityVersion": 1,
+        "exposureHash": "14eb1d5794a0b3dec76649cd447125f1810d6c850c533507c104c6adef3849c9",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.read-state",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.read-state",
+        "capabilityVersion": 1,
+        "exposureHash": "b807e4abb4178075343a6d341e9d715bf862b5c083f6c93da2298cd2f2f1b272",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.read-targets",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.read-targets",
+        "capabilityVersion": 1,
+        "exposureHash": "eead9119fefcf62b6b329368feb11b75bf83dffb59208ed1c1132e82b40426ef",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.recon",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.recon",
+        "capabilityVersion": 1,
+        "exposureHash": "9568ce1f9669fcc4ec57b3478b08a02641a8a456b7f98c50b2180ff6a0cb1be9",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.return-home",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.return-home",
+        "capabilityVersion": 1,
+        "exposureHash": "3ff8cfb81fcc521ebf23fa65801e013260fba8d5ecfee9f3ca4c9cfa35ddd5ea",
+        "status": "published"
+      },
+      {
+        "exposureId": "a2a.vehicle.ugv.track-target",
+        "exposureVersion": 1,
+        "capabilityId": "vehicle.ugv.track-target",
+        "capabilityVersion": 1,
+        "exposureHash": "dae0a73d0f0551849070d2cd71f555be0799a6e66292bdbe98f8be9a51291333",
+        "status": "published"
+      }
+    ],
+    "agentCard": {
+      "status": "active",
+      "exposureCount": 12
+    },
+    "preservedPointNavigation": {
+      "skillId": "embodied.move_to",
+      "skillVersion": 1,
+      "capabilityId": "embodied.move",
+      "capabilityVersion": 1,
+      "definitionHash": "583b0d43aa55dec7f9277732f8222b5f1af185ed2d6d93574b8880652894fdcf",
+      "exposureId": "a2a.embodied.move",
+      "exposureVersion": 1,
+      "exposureHash": "d9e91bf733ee3c65a3c7c3c8fd8b56e5bbf41d132595c3e0a9f17a985a254e50",
+      "action": "successor_created"
+    },
+    "stagedControls": [],
+    "redaction": {
+      "secretsIncluded": false,
+      "endpointsIncluded": false,
+      "downstreamDeviceIdsIncluded": false,
+      "mqttTopicsIncluded": false
+    }
+  },
+  "builtins": {
+    "blocked": [
+      {
+        "skillId": "embodied.area_patrol",
+        "dependency": "embodied.inspect_area",
+        "reasonCode": "BUILTIN_CAPABILITY_DEPENDENCY_MISSING"
+      }
+    ]
+  },
+  "reasonCode": "DEVELOPMENT_CAPABILITY_DEPENDENCIES_UNAVAILABLE",
+  "failedStage": "builtins",
+  "expected": {
+    "skills": [
+      "ugv.get-state",
+      "ugv.get-capabilities",
+      "ugv.get-payload-status",
+      "ugv.get-targets",
+      "ugv.navigate-route",
+      "ugv.navigate-distance",
+      "ugv.return-home",
+      "ugv.area-recon",
+      "ugv.track-target",
+      "ugv.control-gimbal",
+      "ugv.emergency-stop",
+      "embodied.move_to",
+      "embodied.area_patrol"
+    ],
+    "capabilities": [
+      "vehicle.ugv.read-state",
+      "vehicle.ugv.read-capabilities",
+      "vehicle.ugv.read-payload",
+      "vehicle.ugv.read-targets",
+      "vehicle.ugv.navigate-route",
+      "vehicle.ugv.navigate-distance",
+      "vehicle.ugv.return-home",
+      "vehicle.ugv.recon",
+      "vehicle.ugv.track-target",
+      "vehicle.ugv.control-gimbal",
+      "vehicle.ugv.emergency-stop",
+      "embodied.move",
+      "embodied.area_patrol"
+    ]
+  },
+  "inventory": {
+    "blocked": [
+      {
+        "skillId": "embodied.area_patrol",
+        "reasonCode": "SKILL_NOT_ENABLED"
+      },
+      {
+        "capabilityId": "embodied.area_patrol",
+        "reasonCode": "CAPABILITY_NOT_PUBLISHED"
+      }
+    ],
+    "expectedSkills": [
+      "ugv.get-state",
+      "ugv.get-capabilities",
+      "ugv.get-payload-status",
+      "ugv.get-targets",
+      "ugv.navigate-route",
+      "ugv.navigate-distance",
+      "ugv.return-home",
+      "ugv.area-recon",
+      "ugv.track-target",
+      "ugv.control-gimbal",
+      "ugv.emergency-stop",
+      "embodied.move_to",
+      "embodied.area_patrol"
+    ],
+    "publicSkillIds": [
+      "embodied.move_to",
+      "ugv.area-recon",
+      "ugv.control-gimbal",
+      "ugv.emergency-stop",
+      "ugv.get-capabilities",
+      "ugv.get-payload-status",
+      "ugv.get-state",
+      "ugv.get-targets",
+      "ugv.navigate-distance",
+      "ugv.navigate-route",
+      "ugv.return-home",
+      "ugv.track-target"
+    ],
+    "publicCapabilityIds": [
+      "embodied.move",
+      "vehicle.ugv.recon",
+      "vehicle.ugv.control-gimbal",
+      "vehicle.ugv.emergency-stop",
+      "vehicle.ugv.read-capabilities",
+      "vehicle.ugv.read-payload",
+      "vehicle.ugv.read-state",
+      "vehicle.ugv.read-targets",
+      "vehicle.ugv.navigate-distance",
+      "vehicle.ugv.navigate-route",
+      "vehicle.ugv.return-home",
+      "vehicle.ugv.track-target"
+    ],
+    "catalogVersion": "1.0",
+    "resourceIdentity": {
+      "status": "PASS",
+      "resourceId": "vehicle:ugv",
+      "providerId": "isr.vehicle.ugv.ugv",
+      "serverId": "smpp-sz-gowm",
+      "providerBindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+      "exposureId": "a2a.embodied.move",
+      "exposureVersion": 1,
+      "capabilityVersion": 1,
+      "deviceCalls": 0,
+      "persistedTasks": 0
+    }
+  }
+}
