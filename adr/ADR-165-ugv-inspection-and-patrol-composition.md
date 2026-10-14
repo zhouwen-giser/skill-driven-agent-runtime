@@ -29,3 +29,5 @@ UGV 原生子任务的输入绑定适配仅在 ugv-agent-profile 中运行。通
 ## Evidence
 
 EP-INSPECTION-AREA-V1 与 reports/inspection-area-v1 固定两仓库源码、原始命令、退出码和日志哈希。policy-02、原生可用性刷新单元回归、retention-02 和八场景 joint-60 验证上述边界。joint-60 同时验证治理重复发布、每次两个独立子 Task 与各自唯一远端接入、失败发现保留及取消轨迹。早期 debug 回执仅作为单场景诊断，不能替代完整联合验收。冻结资产 165 项哈希未变；全门禁、部署和现场状态以最终验收记录为准。
+
+本地原生升级发现既有 Binding 仅允许 Provider 身份变化的 CAS rebind，导致同一 Provider 的真实工具目录升级无法选取新的 Registry 谱系。现有命令与冻结 Schema 保持不变：先校验 expectedRevision 与精确当前 Candidate，再执行只读目录发现；同一 Provider 仅在目录 checksum 确实变化时创建后继绑定版本。只有观察计数或目录 revision 变化、checksum 不变时继续拒绝，不制造语义版本。反向用例使用真正未变的目录 checksum，保留无持久变更及旧绑定完整断言；正向用例验证身份、凭据引用、CAS 与新谱系。

@@ -371,8 +371,18 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
       serverEndpoint: current.binding.endpointRef,
     };
     const repository = new MemoryBindingRepository(current, observedCandidate, events);
+    const discover = vi.fn().mockResolvedValue({
+      ...discovery(),
+      catalogChecksum: current.binding.catalogChecksum,
+    });
+    const service = new NodeControlMcpProviderBindingService({
+      repository,
+      catalog: { discover },
+      clock: { now: () => NOW },
+      ids: { next: () => 'counter-only-rebind' },
+    });
     await expect(
-      createService(repository, events).rebind(
+      service.rebind(
         'binding-home-lab',
         {
           ...rebindRequest(),
@@ -384,7 +394,49 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
       ),
     ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
     expect(events).toEqual(['candidate']);
+    expect(discover).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ bindingRevision: 2, endpointRef: current.binding.endpointRef }),
+    );
     expect(repository.completed).toBeUndefined();
+    expect(repository.current).toEqual(current);
+  });
+
+  it('CAS-selects a changed Catalog on the same Provider while retaining binding identity', async () => {
+    const current = record();
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(
+      current,
+      {
+        ...candidate(),
+        externalServerId: 'server-v1',
+        serverEndpoint: current.binding.endpointRef,
+      },
+      events,
+    );
+    const operation = await createService(repository, events).rebind(
+      'binding-home-lab',
+      {
+        ...rebindRequest(),
+        externalServerId: 'server-v1',
+        endpointRef: current.binding.endpointRef,
+      },
+      'approve-same-provider-catalog-upgrade',
+      'Select the reviewed changed Catalog and exact current Registry lineage.',
+    );
+    expect(operation).toMatchObject({
+      status: 'succeeded',
+      result: { revision: 2, resultCode: 'rebound' },
+    });
+    expect(events).toEqual(['candidate', 'discover', 'complete']);
+    expect(repository.completed?.binding).toMatchObject({
+      ...current.binding,
+      revision: 2,
+      registryRevision: 2,
+      registryChecksum: NEW_CHECKSUM,
+      catalogRevision: discovery().catalogRevision,
+      catalogChecksum: CATALOG_CHECKSUM,
+    });
+    expect(repository.completed?.credentialRef).toBe(current.credentialRef);
   });
 
   it('suspends and removes registration without changing semantic revision or manufacturing health', async () => {

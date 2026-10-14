@@ -1664,3 +1664,5 @@ NFR-MNT-001 / NFR-SEC-001 / FR-ADM: frozen source `ac7838da`, run `38c4b6b9`, pa
 | INSPECT-04 完整性与轨迹证据   | server/patrol-evidence-reader；domain/area-patrol；TaskCapability 规范结果门禁                                             | 完整、降级、失败、取消汇总；摘要冲突、资源/区域、256 项与字节预算；不可由最终位置单独证明轨迹 |
 | INSPECT-05 治理、候选及组合   | ugv-area-patrol-governance-driver、Skill v2、SkillProviderDependencyPolicy、readiness repository                           | policy-01 的 7 个正反向用例；子依赖状态/期限用例；原生发布及组合验证                          |
 | INSPECT-06 门禁、包、本地发布 | scripts/inspection、deploy/development、双项目联合包                                                                       | FROZEN.json：165 项 SDAR/224 项 SMPP 字节未变；最终验收另记录命令、退出码、哈希及现场 NOT_RUN |
+
+INSPECT-05 原生升级补充：`mcp-provider-binding-service` 的既有 CAS rebind 在精确 Candidate 和新目录 checksum 变化时保留同一身份并生成后继版本；16 项绑定单元回归通过，实际新目录升级与完整门禁后继验收继续实施。冻结命令 Schema 未改。

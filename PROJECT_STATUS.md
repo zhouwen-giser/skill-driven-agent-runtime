@@ -1,8 +1,8 @@
 # Project Status
 
-## 区域检查与巡逻接入（2026-10-14，实施与隔离验收收尾）
+## 区域检查与巡逻接入（2026-10-14，原生目录升级验收）
 
-EP-INSPECTION-AREA-V1 已实现 SMPP vehicle_inspect_area、SDAR embodied.inspect_area 和巡逻 v2。原生独立子任务、资源及目录精确绑定、父期限适配、完整/降级/失败汇总已验证；单独取消场景保留轨迹并取消检查子任务。7 项治理正反向测试通过，冻结资产未变。最终全部联合场景、完整门禁、联合部署包和本地目录发布正在验收，尚未宣称交付完成。失败回执保留；现场设备执行 NOT_RUN。下述旧部署记录保留为历史。
+检查与巡逻核心八场景联合验证、SMPP 完整门禁及 SDAR gate-10 的 30 阶段均已通过，原始失败保留。本地五个容器已更新，19100 实际提供精确 13 工具；首次原生 bootstrap 因旧绑定的 Registry 谱系漂移安全停止，设备调用为 0。同一 Provider 真实目录升级的 CAS rebind 已补齐，16 项绑定回归通过；保持身份、凭据引用、冻结 Schema 与观察计数不制造语义版本。正在重新验证完整门禁、生成 SDAR 后继镜像并完成原生发布。整体交付仍未完成；现场执行 NOT_RUN。下文保留历史部署记录。
 
 ## Local SMPP integrated deployment (2026-10-14, LOCAL_DEPLOYED_WITH_CAPABILITY_GAP)
 
