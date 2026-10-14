@@ -1514,7 +1514,9 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
       const usageContext =
         authority === undefined
           ? await resolveSkillUsageContext(goalContract, task)
-          : isHistoricalUgvPointSkill(skill.skillId, skill.version) && binding !== undefined
+          : ugvAgentProfile &&
+              isHistoricalUgvPointSkill(skill.skillId, skill.version) &&
+              binding !== undefined
             ? resolveUgvMoveSkillUsageContext({ authority, binding })
             : authority.context;
       const candidate = await dependencies.profileSkillUsage.assess(
@@ -1542,7 +1544,7 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         candidate.modeDecision,
         composition,
       );
-      if (isHistoricalUgvPointSkill(skill.skillId, skill.version)) {
+      if (ugvAgentProfile && isHistoricalUgvPointSkill(skill.skillId, skill.version)) {
         if (!task || !dependencies.ugvMoveBindingResolver)
           throw Error('COMPOSED_MOVE_BINDING_REQUIRED');
         const resolution = await dependencies.skillInputResolutionRepository.findLatest(

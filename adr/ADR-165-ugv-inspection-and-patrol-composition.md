@@ -24,6 +24,8 @@ Provider 的一秒可用性期限保持原值。确认后临派发边界重新�
 
 原生子流程的报告完成与物理证据完整性分别记录。检查报告为 degraded 时，后续 SkillCall 完成回调继续记录 degraded，禁止把已有降级终态升级为完成。失败报告从精确 Task/Resource/operation 的当前业务投影中恢复，包括 plain 和历史兼容 wrapped JSON 形式；其他任务及历史投影拒绝。
 
+UGV 原生子任务的输入绑定适配仅在 ugv-agent-profile 中运行。通用运行模式沿用其既有 Skill 编译与 MCP 控制权限门禁，不能把同名 move_to@1 错当已治理 UGV 子任务；未授权物理调用仍以 MCP_CONTROL_AUTHORITY_REQUIRED 拒绝。全套和规范证据所选子集分别执行，避免全局 Skill 版本变化掩盖初始版本分支。
+
 ## Evidence
 
 EP-INSPECTION-AREA-V1 与 reports/inspection-area-v1 固定两仓库源码、原始命令、退出码和日志哈希。policy-02、原生可用性刷新单元回归、retention-02 和八场景 joint-60 验证上述边界。joint-60 同时验证治理重复发布、每次两个独立子 Task 与各自唯一远端接入、失败发现保留及取消轨迹。早期 debug 回执仅作为单场景诊断，不能替代完整联合验收。冻结资产 165 项哈希未变；全门禁、部署和现场状态以最终验收记录为准。
