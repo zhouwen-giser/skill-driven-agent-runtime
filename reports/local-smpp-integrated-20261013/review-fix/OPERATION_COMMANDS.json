@@ -1,0 +1,106 @@
+[
+  {
+    "commandDescription": "python3 -m unittest discover -s deploy/united -p bundle_test.py",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-python-final.log.gz",
+    "rawSha256": "67eb5ed41f4e3f68f04c9c935856ceee0351b6149fcb104e241373df07d77203",
+    "gzipSha256": "ff5cb25566503d328271037660ab2be97bca3747e49c77399f7f8a2dcf83ec36"
+  },
+  {
+    "commandDescription": "python3 deploy/united/bundle.py verify previously packaged upstream source union with new nested inventory checks",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-review-actual-union.log.gz",
+    "rawSha256": "d37ad4c1fb8dc344a6edeb7053da3d1c56186f9f2e713dd03ab2e72632f8a265",
+    "gzipSha256": "24194b892283114b202254286d9c43956520f2fe734ece0e046f0e374482139e"
+  },
+  {
+    "commandDescription": "python3 deploy/united/bundle.py package --upstream /home/sz/code/smpp-telemetry-platform/artifacts/united-telemetry/smpp-gowm-gdps-gsap-wsgs-telemetry-13361e5b82c6acd7.tar.gz --output artifacts/united",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-package.log.gz",
+    "rawSha256": "e80ffb9ed6a8bee9b90db177c91d1e8a24e015e69da5c4c558acccf480e83c0c",
+    "gzipSha256": "d6a56a1fd33c9d784d76aef9cb86653b9821c3a4939aff537e5bf817fb8e73a7"
+  },
+  {
+    "commandDescription": "python3 deploy/united/bundle.py package --upstream /home/sz/code/smpp-telemetry-platform/artifacts/united-telemetry/smpp-gowm-gdps-gsap-wsgs-telemetry-13361e5b82c6acd7.tar.gz --output /mnt/data/sdar-local-integrated-20261013/reviewed-reproducibility; compare source union byte-for-byte",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-package-repeat.log.gz",
+    "rawSha256": "18ac4d35c616235892013e7f792122d6b0fa0ee9eb83d79ce37b4a1a304f6447",
+    "gzipSha256": "9bf2ba85a2bf7d3814da14b0c18eee638683be32095b185490bea2aa751f740e"
+  },
+  {
+    "commandDescription": "official packaged development CLI upgrade; old generated image metadata observed",
+    "exitCode": 1,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-runtime-up.log.gz",
+    "rawSha256": "597953163e18199aedbf564d47b257bb42c85f36b8c2dbd8a61b076a7dc8f3be",
+    "gzipSha256": "633fe8591a3a3c9f6e6469443e80b3254d0eb768af12abebdec60369cce0c832"
+  },
+  {
+    "commandDescription": "initial 2921 source + metadata comparison; old generated metadata rejected",
+    "exitCode": 1,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-container-source.log.gz",
+    "rawSha256": "487feab63317c3cf9555d248bdc89c20cbb8ef868c88217a38cba53467ea21f8",
+    "gzipSha256": "b5eb9814d228f2df7445e2e5e64c6d724f7983f5d951c60c1923f8f1963976f3"
+  },
+  {
+    "commandDescription": "official packaged development CLI upgrade after generated metadata timestamp refresh",
+    "exitCode": 1,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-runtime-rebuild.log.gz",
+    "rawSha256": "951c4c5aa3b1fdf4b3d3518f2745a99e0ae2de0f9b434068257845cd23e73c0a",
+    "gzipSha256": "a7e5a6ff51a295c82b845eb47345a2b49af3a29c214dea1409006cd80483452f"
+  },
+  {
+    "commandDescription": "python3 private source checker: all 2921 files plus metadata and revision label in three containers",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-container-source-final.log.gz",
+    "rawSha256": "3cc71e767b8e13ec7af364bcc10e982d6e05a127c7b18cd2bf8622f95603ff84",
+    "gzipSha256": "06ccb8fbefd76e2f0387fc47e5bce274d90a17ccdc213d75887cb4df50a23228"
+  },
+  {
+    "commandDescription": "node private read-only live API checker: 13 GETs",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-live-apis.log.gz",
+    "rawSha256": "6520ec4cd2c33fe95a96d537cc5523f133f03f192f1204dd48eeae66a9ec9bd6",
+    "gzipSha256": "cea9630d01de4166311cbed14317cdaa4390dd191e373043bb7412c4cf41b8ff"
+  },
+  {
+    "commandDescription": "node --import tsx private read-only restricted storage contract checker",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-storage.log.gz",
+    "rawSha256": "2d9c91c2696e46fac80dfbfd7c9844826354124082b19df1a5708145d177ab47",
+    "gzipSha256": "613211e8417c65e4d60127f2591f179e5b79bd69e6c9cb4014303c05836e5a09"
+  },
+  {
+    "commandDescription": "pnpm verify:isolated -- --frozen; reviewed first run failed official TCK network clone",
+    "exitCode": 1,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-full.log.gz",
+    "rawSha256": "829a6a6faec7d5f78575914de6e69101652d137cfd8dc1e92cb8af8a8ea96b1f",
+    "gzipSha256": "1077f104c90962bcdbf86cd7c01c3ca3a27a5f6c9a47c08d3a88bb3a518a843a"
+  },
+  {
+    "commandDescription": "pnpm verify:isolated -- --frozen; reviewed retry",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-retry-full.log.gz",
+    "rawSha256": "d0c563b9a8dfdedbcf7c8062d2911a6c6f4586ceb83c1cb254633b57999923c6",
+    "gzipSha256": "bac5fdd4f7c0a8c5abd6106ed745a23efb731c110800bd4c83384bf3004b8f72"
+  },
+  {
+    "commandDescription": "same frozen source node scripts/sdar-smpp-v13/verify-gowm.mjs; 8 steps / 2 formal / 32 native",
+    "exitCode": 0,
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "rawLog": "reports/local-smpp-integrated-20261013/review-fix/raw/sdar-pr40-reviewed-gowm.log.gz",
+    "rawSha256": "1c85b2b9ca0bab886bd10ddea7adaa0bced364fdf5c8dff51ae90649651efeb3",
+    "gzipSha256": "08a6b91a3610ed581b8c82ab942a197715df5c416fb183800e05fc80df4ba59f"
+  }
+]

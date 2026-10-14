@@ -4,7 +4,7 @@
 
 - Validate WSGS-aware SMPP version-2 source unions recursively through GSAP/GDPS/GOWM; preserve the old format, original upstream bytes and strict inventory/source/secret checks.
 - Resolve the actual SMPP Runtime identity for PMS setup and review explicit 12/13-tool trajectory Catalog profiles. Preserve legacy profiles; classify the two history operations as synchronous read-only and reject missing/unreviewed tools before publication.
-- Freeze `4112a90b`: 30 gates pass (2695/553/272/77) on the documented owned test volume, with separate persistent GOWM 8/2/32 and persistent integration evidence. Preserve failed attempts. Actual three-container source hashes and 13 GET API checks pass; credentials stay outside the checksummed source delivery.
+- Post-review `ac7838da` / `38c4b6b9`: all 30 frozen stages pass (2695/553/272/77), with the recorded owned memory-backed fixture and identical-input persistent restricted GOWM 8/2/32. Ten Python methods reject absent/stale/incomplete deepest WSGS/GOWM inventories even with valid outer hashes. Three-container source/metadata labels and 13 GET checks pass. Preserve the official TCK clone timeout and historical PRE_REVIEW failures; credentials stay outside the reproducible delivery.
 - Prepare the user-authorized local SDAR deployment against existing SMPP/Telemetry, using owner-managed GOWM storage, independent Control storage and preserved private configuration. Core deployment and actual APIs pass; complete patrol bootstrap remains blocked by missing inspect_area. Physical device actions are outside this task.
 
 ## 2026-10-12 — functional repairs and recording-status review fix

@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+  "sourceHash": "066963ddfbd51194580f498c86103690775254afee0ff2b0856a243c12922072",
+  "checks": [
+    {
+      "container": "sdar-sz-gowm-runtime-1",
+      "image": "sha256:cd9b40b33e9fa5af22046ab4f231895c8d5a2628e57e37ecd7ef552495d3ab50",
+      "imageRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+      "checked": 2921,
+      "mismatches": [],
+      "metadata": {
+        "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+        "sourceHash": "066963ddfbd51194580f498c86103690775254afee0ff2b0856a243c12922072"
+      }
+    },
+    {
+      "container": "sdar-sz-gowm-control-api-1",
+      "image": "sha256:cd9b40b33e9fa5af22046ab4f231895c8d5a2628e57e37ecd7ef552495d3ab50",
+      "imageRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+      "checked": 2921,
+      "mismatches": [],
+      "metadata": {
+        "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+        "sourceHash": "066963ddfbd51194580f498c86103690775254afee0ff2b0856a243c12922072"
+      }
+    },
+    {
+      "container": "sdar-sz-gowm-control-worker-1",
+      "image": "sha256:cd9b40b33e9fa5af22046ab4f231895c8d5a2628e57e37ecd7ef552495d3ab50",
+      "imageRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+      "checked": 2921,
+      "mismatches": [],
+      "metadata": {
+        "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+        "sourceHash": "066963ddfbd51194580f498c86103690775254afee0ff2b0856a243c12922072"
+      }
+    }
+  ]
+}

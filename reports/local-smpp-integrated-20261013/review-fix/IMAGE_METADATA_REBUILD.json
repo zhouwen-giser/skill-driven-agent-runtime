@@ -1,0 +1,10 @@
+{
+  "status": "SOURCE_BYTES_UNCHANGED",
+  "file": "/mnt/data/sdar-local-integrated-20261013/release/reviewed/sdar/sdar-deployment-source.json",
+  "oldMtime": 0.0,
+  "newMtime": 1791935673.4432952,
+  "sha256": "80d5fd6d4996403c894ce3996ce36ef26bff04721c3c8420f12fd71e1ad41e32",
+  "action": "refresh generated metadata timestamp before official packaged image rebuild; no source/recipe change",
+  "observed": "all source files matched current archive; generated metadata alone retained previous same-size epoch-mtime value",
+  "inferredCause": "BuildKit local-context reuse of same-size epoch-mtime generated metadata"
+}

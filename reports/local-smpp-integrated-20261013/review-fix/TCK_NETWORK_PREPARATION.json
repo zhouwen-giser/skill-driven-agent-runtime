@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "clone",
+    "https://github.com/a2aproject/a2a-tck.git",
+    "/tmp/sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929/a2a-tck"
+  ],
+  "exitCode": 0,
+  "runId": "sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929",
+  "pin": "5996b79f9cefa6fc390980e383e358a66fb9e49e",
+  "purpose": "prepare official pinned tooling after observed network timeout; gate still verifies pin, clean worktree and frozen dependencies"
+}
