@@ -1,0 +1,107 @@
+{
+  "status": "PASS",
+  "runId": 38486905947,
+  "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/actions/runs/38486905947",
+  "conclusion": "success",
+  "headSha": "ac7838dae447955fb7410aaad705530077fc030a",
+  "actualCheckoutSha": "ded3efda133182edd0efb0952daa0af79566646a",
+  "actualCheckoutTree": "e1464f0bf15bdee3f0fb96d8ecdaa15a9409ebda",
+  "headTreeEqual": true,
+  "jobs": [
+    {
+      "id": 115602631667,
+      "name": "compat",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Run pnpm install --frozen-lockfile",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Run pnpm format:check",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Show exact formatter changes on failure",
+          "conclusion": "skipped",
+          "number": 7
+        },
+        {
+          "name": "Run pnpm exec eslint packages/mcp-adapter/src/frozen-v1-mcp-client.ts packages/mcp-adapter/src/smpp-task-business-client.ts packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/application/src/mcp-registry.ts packages/application/test/mcp-registry.unit.test.ts apps/server/src/runtime.ts",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Run pnpm typecheck",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Run pnpm verify:architecture",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Run pnpm test:verification",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Run pnpm exec vitest run packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/application/test/mcp-registry.unit.test.ts",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Require all compatibility checks",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success",
+          "number": 24
+        },
+        {
+          "name": "Post Run pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1",
+          "conclusion": "success",
+          "number": 25
+        },
+        {
+          "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "conclusion": "success",
+          "number": 26
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "number": 27
+        }
+      ]
+    }
+  ],
+  "rawLogArchive": "CI_LOGS.zip",
+  "rawLogArchiveSha256": "54b216aaae14d2b0ca0692698e5d6474213dec081c143284fc1484295fcf07b0",
+  "scope": "actual PR merge-ref compatibility CI; full local frozen gate separately required"
+}

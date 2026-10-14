@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "command": "pnpm verify:acceptance",
+  "exitCode": 0,
+  "scope": "18 historical acceptance mapping groups structurally verified; current behavior certified only by current actual frozen tests, not by this check",
+  "rawLog": "raw/sdar-pr40-reviewed-acceptance.log.gz",
+  "rawLogSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788"
+}

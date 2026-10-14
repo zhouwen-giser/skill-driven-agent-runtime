@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "scope": "local_deployment_source_restricted_role_gowm",
+  "command": [
+    "node",
+    "scripts/sdar-smpp-v13/verify-gowm.mjs"
+  ],
+  "cwd": "/tmp/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-Y60V8H/source",
+  "exitCode": 0,
+  "signal": null,
+  "runId": "sdar-smpp-gowm-b0d19438-6639-4c5d-ac6c-e01eab5a144e",
+  "frozenRunId": "sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e",
+  "sourceCommit": "ac7838dae447955fb7410aaad705530077fc030a",
+  "fullFrozenRuntimeInputSha256": "5979cc1859d9eebf321fb0a45fb3c777849347568bc5092949bda5adf8e9ad7b",
+  "localRuntimeInputSha256": "a014075d460b1af4660b78bc9838d037d85c43d2ece855e8176eb454db4966ad",
+  "localBaselineSha256": "1f615c8f50683a81d819beef7c3c25e9ce462efed5620181d2608af6c906f8dc",
+  "sameLocalFrozenInputs": true,
+  "externalVerificationInputs": [
+    {
+      "path": "../smpp-telemetry-platform/deploy/ugv-debug/collector.template.yaml",
+      "sha256": "cb4ef7f2fde22c8209ef05aaabb79d26103426f1678dda29f4419c825c7fc09e",
+      "classification": "runtime"
+    },
+    {
+      "path": "../smpp-telemetry-platform/deploy/ugv-debug/compose.yaml",
+      "sha256": "e9ab908e1f62a4fa3770ac8bace87dfdcbf199bba0d9774a8b9eb9474aca1ae3",
+      "classification": "runtime"
+    },
+    {
+      "path": "../smpp-telemetry-platform/config/projection-targets.example.json",
+      "sha256": "9794ab97238170727978d5ebf150343cbdf8825d11164a1ca72865e5d894fc9c",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-telemetry-platform/migrations/clickhouse/015_provider_closure_v2.sql",
+      "sha256": "dba7693c2ee3fe52bc4ea61182cce87244c6f83dbf2f5a94048da9fb9ed9740a",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-mcp-provider-platform/compose.yaml",
+      "sha256": "91842138fcfd447d20a6644e18a113094a4500bcc8a051ddc420003af4332e1e",
+      "classification": "runtime"
+    },
+    {
+      "path": "../sdar-mcp-provider-platform/compose.ugv-agent-profile-simulation.yaml",
+      "sha256": "377bdd1f2b1151c20c8f718c1de34b06ad4872f5dcad8f84303b4d2fc558e649",
+      "classification": "runtime"
+    }
+  ],
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "ownerCommit": "dca0fcdbbe35f94ddaf968b6489decdbf228755a",
+  "images": {
+    "postgresImage": "sha256:f8631c8babdbb9099cdfca09664e8454c06618c0b7ba5903ab246e781e470f11",
+    "redisImage": "sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+    "provenance": "captured_local_immutable_ids; owner source independently pinned"
+  },
+  "privileges": {
+    "native_ddl": false,
+    "private_write": false,
+    "native_observation_write": true
+  },
+  "driverSteps": [
+    {
+      "label": "owner-export",
+      "durationMs": 208,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-extract",
+      "durationMs": 142,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "postgres-start",
+      "durationMs": 387,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "redis-start",
+      "durationMs": 577,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-core-bootstrap",
+      "durationMs": 5062,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "owner-domain-install",
+      "durationMs": 5211,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "formal-navigation-recon-shared-storage",
+      "durationMs": 61948,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "label": "native-storage-boundaries",
+      "durationMs": 4960,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "formalCases": [
+    {
+      "operation": "vehicle_area_recon",
+      "taskId": "d9cdba8f-8053-4636-8e61-dd580c16c14e",
+      "deviceId": "business-device-8d134620-b9be-402c-8c58-6f8b8ca85e20",
+      "evidence": "reports/local-smpp-integrated-20261013/review-fix/GOWM/sdar-smpp-gowm-b0d19438-6639-4c5d-ac6c-e01eab5a144e/formal-vehicle_area_recon-8d134620-b9be-402c-8c58-6f8b8ca85e20/evidence.json"
+    },
+    {
+      "operation": "vehicle_navigate",
+      "taskId": "a63a5b29-a89b-4041-82a8-63984e0a3a29",
+      "deviceId": "business-device-f295f802-09f5-4974-a1eb-ac5378d900a1",
+      "evidence": "reports/local-smpp-integrated-20261013/review-fix/GOWM/sdar-smpp-gowm-b0d19438-6639-4c5d-ac6c-e01eab5a144e/formal-vehicle_navigate-f295f802-09f5-4974-a1eb-ac5378d900a1/evidence.json"
+    }
+  ],
+  "nativeScenarioCount": 32,
+  "nativeBoundarySuiteProjectAcceptance": "INCOMPLETE",
+  "knownContractGaps": [],
+  "cleanup": [
+    {
+      "id": "3c09c0706123e291988a88a705aa54d0eecc4359f796b793cd3bfd12a88cdede",
+      "ownershipChecked": true,
+      "exitCode": 0
+    },
+    {
+      "id": "8c4756518bffe0ab330d3db3ba34f7916b45ef240e8fdfd344cf6dfa4805e309",
+      "ownershipChecked": true,
+      "exitCode": 0
+    }
+  ],
+  "cleanupErrors": [],
+  "originalReportDirectory": "/tmp/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-Y60V8H/source/reports/sdar-smpp-v13-upgrade/20261010-local/sdar-smpp-gowm-b0d19438-6639-4c5d-ac6c-e01eab5a144e",
+  "archivedReportDirectory": "reports/local-smpp-integrated-20261013/review-fix/GOWM/sdar-smpp-gowm-b0d19438-6639-4c5d-ac6c-e01eab5a144e",
+  "runnerLog": "reports/local-smpp-integrated-20261013/review-fix/GOWM_RUNNER.log",
+  "archivedRawLog": "reports/local-smpp-integrated-20261013/review-fix/GOWM/sdar-smpp-gowm-b0d19438-6639-4c5d-ac6c-e01eab5a144e/raw/runner.log",
+  "rawLogSha256": "45109036a2f972fc1cad0f186aca13022e80ecdeeb6014cf9f2ea0052ec8e630",
+  "classification": {
+    "database": "REAL_OWNED_LOOPBACK_RESTRICTED_ROLES",
+    "model": "SIMULATED_LOOPBACK",
+    "mcp": "SIMULATED_LOOPBACK",
+    "physicalProvider": "NOT_RUN",
+    "site": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  },
+  "alsoVerifiedFrozenRunId": "sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929",
+  "alsoVerifiedInputSha256": "5979cc1859d9eebf321fb0a45fb3c777849347568bc5092949bda5adf8e9ad7b",
+  "alsoVerifiedAllNonStatusInputsEqual": true
+}

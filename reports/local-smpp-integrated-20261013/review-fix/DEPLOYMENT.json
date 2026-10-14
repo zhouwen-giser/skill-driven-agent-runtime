@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "status": "LOCAL_DEPLOYED_WITH_KNOWN_CAPABILITY_GAP",
+  "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+  "sourceHash": "066963ddfbd51194580f498c86103690775254afee0ff2b0856a243c12922072",
+  "sourceUnionSha256": "ab698966b3e37f54fc9fe342f4e8bb39b8834794c86a1abaca485cf90f80d2d5",
+  "deliveryKit": "reviewed 48e08 source union + pinned owner/PMS supplements; archive SHA recorded separately at delivery publication",
+  "actualLiveAcceptance": "PASS_CORE_AND_PUBLISHED_INVENTORY",
+  "publicSkillCount": 12,
+  "toolCount": 12,
+  "liveTaskCount": 0,
+  "modelProvider": [
+    {
+      "providerId": "ugv-real-model",
+      "enabled": true,
+      "model": "qwen3.8-max-0902"
+    }
+  ],
+  "modelRouteCount": 21,
+  "fullBootstrap": {
+    "status": "failed",
+    "completedStages": [
+      "source",
+      "provider",
+      "governance"
+    ],
+    "failedStage": "builtins",
+    "reasonCode": "DEVELOPMENT_CAPABILITY_DEPENDENCIES_UNAVAILABLE",
+    "blocked": [
+      {
+        "skillId": "embodied.area_patrol",
+        "dependency": "embodied.inspect_area",
+        "reasonCode": "BUILTIN_CAPABILITY_DEPENDENCY_MISSING"
+      }
+    ],
+    "deviceCalls": 0
+  },
+  "resourceIdentity": {
+    "status": "PASS",
+    "resourceId": "vehicle:ugv",
+    "providerId": "isr.vehicle.ugv.ugv",
+    "serverId": "smpp-sz-gowm",
+    "providerBindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+    "exposureId": "a2a.embodied.move",
+    "exposureVersion": 1,
+    "capabilityVersion": 1,
+    "deviceCalls": 0,
+    "persistedTasks": 0
+  },
+  "gowmRestrictedLiveContract": "PASS",
+  "postgresExtension": {
+    "extversion": "0.8.5"
+  },
+  "originalVolumesPreserved": true,
+  "unrelatedContainerIdsAndImagesPreserved": 38,
+  "unrelatedRestartsObserved": 12,
+  "uptimePreservationClaimed": false,
+  "backupScope": "all DDL/roles and affected shared/install/task history; snapshot data excluded per user; original live data retained",
+  "fullRestoreQualification": "NOT_RUN",
+  "verification": {
+    "fullFrozen": "PASS_30_ON_DOCUMENTED_OWNED_TEST_VOLUME",
+    "persistentGOWM": "PASS_SAME_CURRENT_FROZEN_INPUTS",
+    "nativeScenarios": 32,
+    "formalCases": 2,
+    "persistentWholeIntegration": "271 in strict full + final case focused; failed full remains NOT_PASS",
+    "physicalTaskExecution": "NOT_RUN",
+    "remoteDeployment": "NOT_RUN",
+    "fullProjectAcceptance": "OPEN",
+    "fullFrozenEvidence": "review-fix/VALIDATION.json"
+  },
+  "localConfiguration": "external private /mnt/data/sdar-local-integrated-20261013/config/.env",
+  "console": "http://127.0.0.1:10998/console/",
+  "agentCard": "http://127.0.0.1:10999/.well-known/agent-card.json",
+  "controlReady": "http://127.0.0.1:10091/health/ready",
+  "imageIdentity": "sha256:cd9b40b33e9fa5af22046ab4f231895c8d5a2628e57e37ecd7ef552495d3ab50",
+  "latestLiveApiCheckedAt": "2026-10-14T00:05:08.612Z"
+}
