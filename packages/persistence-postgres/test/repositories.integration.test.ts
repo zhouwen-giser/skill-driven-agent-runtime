@@ -1494,6 +1494,31 @@ describe('PostgreSQL protocol-domain repositories', () => {
         durationMs: 1000,
       }),
     ]);
+    const businessError = {
+      code: 'MCP_TASK_BUSINESS_FAILURE',
+      message: 'The scan failed after an observation.',
+      details: {
+        category: 'provider_business',
+        outcome: 'business_failure',
+        reasonCode: 'UGV_RECON_FAILED',
+        retryable: false,
+        classification: 'declared',
+        structuredEvidence: { anomalies: [{ targetId: 'observed-7' }] },
+      },
+    };
+    await executions.saveInstance({
+      ...running,
+      status: 'failed',
+      errors: { scan: businessError },
+      completedAt: '2026-07-12T00:01:02.500Z',
+    });
+    await expect(executions.findInstance('instance.db')).resolves.toMatchObject({
+      status: 'failed',
+      errors: { scan: businessError },
+    });
+    await expect(executions.findLatestByPlanId('plan.execution.db')).resolves.toMatchObject({
+      errors: { scan: businessError },
+    });
     await executions.saveInstance({
       ...running,
       status: 'succeeded',

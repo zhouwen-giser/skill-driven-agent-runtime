@@ -6,6 +6,7 @@ import type {
   SkillVersion,
   WorkflowInstance,
   WorkflowPlanRecord,
+  SelectedTaskOperation,
 } from '../../domain/src/index.js';
 
 import type { McpToolPlanningMetadata } from './mcp-tool-enhancer.js';
@@ -23,10 +24,14 @@ import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { WorkflowValidator } from './workflow-validator.js';
 import type { PreparedSkillUsagePlan } from './skill-usage-planning.js';
 import { canonicalHash } from './mcp-task-readiness.js';
+import type { GovernedChildTaskPort } from './governed-child-task.js';
+import type { TaskPlanConfirmationAuthority } from './task-service.js';
+import type { PlanWorkflowInput } from './workflow-planning-contracts.js';
 
 export interface PreparedChildSkillUsage {
   readonly prepared: PreparedSkillUsagePlan;
   readonly applicabilityStatus: SkillApplicabilityStatus;
+  readonly selectedTaskOperation?: SelectedTaskOperation;
 }
 
 export type ChildSkillExecutionStatus =
@@ -103,6 +108,13 @@ export class SkillCallWorkflowService {
     | undefined;
   readonly #clock: Clock;
   readonly #nextId: () => string;
+  readonly #governedChildren: GovernedChildTaskPort | undefined;
+  readonly #planUsage:
+    | ((
+        request: PlanWorkflowInput,
+        usage: PreparedChildSkillUsage | undefined,
+      ) => Promise<WorkflowPlanRecord>)
+    | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -148,6 +160,11 @@ export class SkillCallWorkflowService {
       ) => Promise<void>;
       clock: Clock;
       nextId: () => string;
+      governedChildren?: GovernedChildTaskPort;
+      planUsage?: (
+        request: PlanWorkflowInput,
+        usage: PreparedChildSkillUsage | undefined,
+      ) => Promise<WorkflowPlanRecord>;
     }>,
   ) {
     this.#skills = dependencies.skills;
@@ -164,6 +181,8 @@ export class SkillCallWorkflowService {
     this.#onExecutionStatus = dependencies.onExecutionStatus;
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
+    this.#governedChildren = dependencies.governedChildren;
+    this.#planUsage = dependencies.planUsage;
   }
 
   readonly #inFlight = new Map<string, Promise<SkillCallExecutionResult>>();
@@ -244,7 +263,11 @@ export class SkillCallWorkflowService {
     return this.#prepare(input, skill);
   }
 
-  async confirmPendingForParentPlan(parentPlanId: string, taskId?: string): Promise<boolean> {
+  async confirmPendingForParentPlan(
+    parentPlanId: string,
+    taskId?: string,
+    authority?: TaskPlanConfirmationAuthority,
+  ): Promise<boolean> {
     const parent = await this.#execution.findActiveByPlanId(parentPlanId);
     const pending = parent?.pendingConfirmation;
     if (
@@ -286,7 +309,8 @@ export class SkillCallWorkflowService {
       });
       return true;
     }
-    await this.#execution.confirm(record.childPlanId, taskId);
+    if (!(await this.#governedChildren?.confirm(record.childPlanId, authority)))
+      await this.#execution.confirm(record.childPlanId, taskId);
     await this.#records.save({
       ...record,
       confirmationStatus: 'confirmed',
@@ -372,6 +396,7 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_CONFIRMATION_STALE',
         'Child confirmation is no longer awaiting a decision.',
       );
+    await this.#governedChildren?.reject(record.childPlanId);
     await this.#records.save({
       ...record,
       confirmationStatus: 'rejected',
@@ -425,7 +450,7 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE',
         'Child Skill planning requires the immutable parent plan Goal contract.',
       );
-    const executionTaskId = parentPlan.executionTaskId ?? input.continuationAuthority?.agentTaskId;
+    let executionTaskId = parentPlan.executionTaskId ?? input.continuationAuthority?.agentTaskId;
     if (
       parentPlan.executionTaskId !== undefined &&
       input.continuationAuthority !== undefined &&
@@ -435,10 +460,23 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE',
         'Child Task authority differs from its parent plan.',
       );
+    const governed = await this.#governedChildren?.prepare({
+      callId,
+      childPlanId,
+      parentPlan,
+      parentInstanceId: input.parentInstanceId,
+      parentNodeId: input.parentNodeId,
+      parentNodeRunId: input.parentNodeRunId,
+      ...(executionTaskId === undefined ? {} : { parentTaskId: executionTaskId }),
+      skill,
+      value: input.value,
+    });
+    if (governed !== undefined) executionTaskId = governed.taskId;
+    const goalContract = governed?.goalContract ?? parentPlan.goalContract;
     const preparedUsage = await this.#prepareUsage?.({
       skill,
       value: input.value,
-      goalContract: parentPlan.goalContract,
+      goalContract,
       workflowDefinitionId: childWorkflowDefinitionId,
       ...(executionTaskId === undefined ? {} : { taskId: executionTaskId }),
     });
@@ -446,16 +484,19 @@ export class SkillCallWorkflowService {
       skill,
       preparedUsage?.prepared.policy.taskOperations ?? [],
     );
-    const plan = await this.#planner.plan({
+    const request: PlanWorkflowInput = {
       planId: childPlanId,
       workflowDefinitionId: childWorkflowDefinitionId,
       workflowVersion: skill.version,
-      goalId: input.parentGoalId,
-      goalVersion: input.parentGoalVersion,
-      goalContract: parentPlan.goalContract,
+      goalId: goalContract.goalId,
+      goalVersion: goalContract.version,
+      goalContract,
       ...(executionTaskId === undefined ? {} : { taskId: executionTaskId }),
       toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
       compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
+      ...(governed !== undefined && preparedUsage?.prepared.deterministicDefinition !== undefined
+        ? { deterministicOnly: true }
+        : {}),
       ...(preparedUsage === undefined
         ? {}
         : {
@@ -474,7 +515,8 @@ export class SkillCallWorkflowService {
           input.parentGoalId,
           input.parentGoalVersion,
         ),
-    });
+    };
+    const plan = await (this.#planUsage?.(request, preparedUsage) ?? this.#planner.plan(request));
     const definition = await this.#requireValidatedDefinition(plan);
     if (preparedUsage !== undefined)
       await this.#onUsagePlanPrepared?.({
@@ -483,6 +525,15 @@ export class SkillCallWorkflowService {
         preparedUsage,
         parentPlanId: input.parentPlanId,
       });
+    if (governed !== undefined) {
+      if (!this.#governedChildren) throw Error('GOVERNED_CHILD_PORT_REQUIRED');
+      await this.#governedChildren.attach({
+        taskId: governed.taskId,
+        plan,
+        skill,
+        value: input.value,
+      });
+    }
     const evaluation = await this.#confirmation.evaluate([skill.skillId], definition);
     let record: SkillCallWorkflowRecord = {
       callId,
@@ -545,14 +596,47 @@ export class SkillCallWorkflowService {
       );
     if (
       persistedChild !== undefined &&
-      canonicalHash(persistedChild.input) !== canonicalHash(input.value)
+      canonicalHash(
+        usesWrappedUsageInput(plan)
+          ? recordValue(persistedChild.input)?.['skillInput']
+          : persistedChild.input,
+      ) !== canonicalHash(input.value)
     )
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_INPUT_INVALID',
         'Child call input differs from its frozen node-run input.',
       );
+    const onStarted = async () => {
+      await this.#records.save({
+        ...record,
+        childInstanceId,
+        status: 'running',
+        evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is executing.`,
+      });
+      await this.#onExecutionStatus?.({
+        childPlanId: record.childPlanId,
+        childInstanceId,
+        status: 'executing',
+        summary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} started.`,
+      });
+    };
+    const governedExecution =
+      persistedChild === undefined
+        ? await this.#governedChildren?.execute({
+            childPlanId: record.childPlanId,
+            childInstanceId,
+            value: input.value,
+            skill,
+            onStarted,
+            ...(input.executionContext === undefined
+              ? {}
+              : { executionContext: input.executionContext }),
+            ...(input.signal === undefined ? {} : { signal: input.signal }),
+          })
+        : undefined;
     let child =
       persistedChild ??
+      governedExecution ??
       (await this.#execution.execute({
         instanceId: childInstanceId,
         planId: record.childPlanId,
@@ -564,20 +648,7 @@ export class SkillCallWorkflowService {
         ...(input.continuationAuthority === undefined
           ? {}
           : { continuationAuthority: input.continuationAuthority }),
-        onStarted: async () => {
-          await this.#records.save({
-            ...record,
-            childInstanceId,
-            status: 'running',
-            evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is executing.`,
-          });
-          await this.#onExecutionStatus?.({
-            childPlanId: record.childPlanId,
-            childInstanceId,
-            status: 'executing',
-            summary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} started.`,
-          });
-        },
+        onStarted,
         ...(input.signal === undefined ? {} : { signal: input.signal }),
       }));
     if (child.status === 'paused' && input.resumeChild !== undefined) {
@@ -651,7 +722,7 @@ export class SkillCallWorkflowService {
     }
 
     const resultSize = jsonSize(child.result);
-    if (resultSize > MAX_SKILL_CHILD_RESULT_CHARACTERS) {
+    if (resultSize > childResultLimit(skill)) {
       await this.#records.save({
         ...record,
         childInstanceId,
@@ -751,7 +822,7 @@ export class SkillCallWorkflowService {
       let outputFailure: Readonly<{ code: string; message: string }> | undefined;
       try {
         const resultSize = jsonSize(child.result);
-        if (resultSize > MAX_SKILL_CHILD_RESULT_CHARACTERS)
+        if (resultSize > childResultLimit(skill))
           outputFailure = {
             code: 'WORKFLOW_SKILL_OUTPUT_TOO_LARGE',
             message: `Child result exceeds the ${String(MAX_SKILL_CHILD_RESULT_CHARACTERS)} character limit.`,
@@ -1061,4 +1132,27 @@ export class SkillCallWorkflowError extends Error {
     this.name = 'SkillCallWorkflowError';
     this.code = code;
   }
+}
+
+function recordValue(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
+}
+
+function usesWrappedUsageInput(plan: WorkflowPlanRecord): boolean {
+  const policy = plan.definition?.skillUsagePolicy;
+  return (
+    policy !== undefined &&
+    (policy.requiredContextIds.length > 0 ||
+      policy.taskOperations.length > 0 ||
+      policy.childPolicies.length > 0 ||
+      policy.evidenceRequirements.length > 0)
+  );
+}
+
+function childResultLimit(skill: SkillVersion): number {
+  return skill.skillId === 'embodied.inspect_area' && skill.version === 1
+    ? 262_144
+    : MAX_SKILL_CHILD_RESULT_CHARACTERS;
 }

@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-typecheck-08",
+  "command": "pnpm",
+  "args": [
+    "typecheck"
+  ],
+  "startedAt": "2026-10-13T20:01:01.414Z",
+  "completedAt": "2026-10-13T20:01:48.431Z",
+  "exitCode": 2,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "5ed510a9691179c6f3220738b03b6ff8e94fd2e94f6ffff6d91297e541e41c98",
+  "sourceAfter": "5ed510a9691179c6f3220738b03b6ff8e94fd2e94f6ffff6d91297e541e41c98",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-typecheck-08.log",
+  "logSha256": "591a4fdf9bc4bdd8e0a364888c9a642aa3aeb4573e9c30f1e9795e5044905295"
+}

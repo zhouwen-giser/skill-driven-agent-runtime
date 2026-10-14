@@ -175,7 +175,14 @@ export function validateConfiguration(c) {
     throw new Error('DEVELOPMENT_MASTER_KEY_INVALID');
   for (const [key, choices] of Object.entries({
     SDAR_UGV_BOOTSTRAP_ENABLED: ['YES', 'NO'],
-    SDAR_UGV_CATALOG_PROFILE: ['ugv-v1-10', 'ugv-v1-11', 'ugv-v1-12', 'ugv-v1-13'],
+    SDAR_UGV_CATALOG_PROFILE: [
+      'ugv-v1-10',
+      'ugv-v1-11',
+      'ugv-v1-12',
+      'ugv-v1-13',
+      'ugv-inspect-v1-13',
+      'ugv-inspect-v1-14',
+    ],
     SDAR_UGV_EXECUTION_MODE: ['live', 'simulation'],
     SDAR_DEVELOPMENT_CONFIRMATION_POLICY: ['manual', 'auto_non_weapon'],
     SDAR_DEVELOPMENT_PUBLIC_ACCESS: ['open', 'off'],

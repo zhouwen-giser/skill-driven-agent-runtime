@@ -779,6 +779,27 @@ describe('UGV move governed Task binding', () => {
     );
   });
 
+  it('accepts a fresh explicitly qualified simulation while retaining replay prohibition', async () => {
+    const item = await fixture({
+      mutateNavigate: (tool) => ({
+        ...tool,
+        executionSemantics: { ...tool.executionSemantics, replay: 'forbidden' },
+      }),
+    });
+    await expect(item.resolver.resolve(request())).resolves.toMatchObject({
+      selected: {
+        execution: { mode: 'simulation', simulationId: 'sim-uap-b02' },
+        operation: { executionSemantics: { replay: 'forbidden' } },
+      },
+    });
+    await expect(
+      item.resolver.resolve({
+        ...request(),
+        executionContext: { mode: 'historical-replay', simulationId: 'sim-uap-b02' },
+      }),
+    ).rejects.toMatchObject({ code: 'UGV_PROFILE_EXECUTION_CONTEXT_REQUIRED' });
+  });
+
   it.each([
     {
       label: 'forbidden Provider policy',

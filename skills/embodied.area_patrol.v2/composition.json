@@ -1,0 +1,61 @@
+{
+  "maxDepth": 3,
+  "fixedDependencies": [
+    {
+      "dependencyId": "move-between-subregions",
+      "skillId": "embodied.move_to",
+      "failurePolicy": "recoverable",
+      "inputMappings": [
+        {
+          "sourcePath": "resourceId",
+          "targetPath": "resourceId"
+        },
+        {
+          "sourcePath": "target",
+          "targetPath": "target"
+        }
+      ],
+      "outputMappings": [
+        {
+          "sourcePath": "finalPosition",
+          "targetPath": "evidence.final-position"
+        }
+      ]
+    }
+  ],
+  "capabilitySlots": [
+    {
+      "slotId": "subregion-inspection",
+      "capability": "embodied.inspect_area",
+      "required": true,
+      "candidateSkillIds": [
+        "embodied.inspect_area"
+      ],
+      "failurePolicy": "degraded",
+      "inputMappings": [
+        {
+          "sourcePath": "resourceId",
+          "targetPath": "resourceId"
+        },
+        {
+          "sourcePath": "area",
+          "targetPath": "area"
+        },
+        {
+          "sourcePath": "timeWindow",
+          "targetPath": "timeWindow"
+        }
+      ],
+      "outputMappings": [
+        {
+          "sourcePath": "inspectionReport",
+          "targetPath": "evidence.coverage-report"
+        },
+        {
+          "sourcePath": "anomalies",
+          "targetPath": "evidence.anomaly-report"
+        }
+      ]
+    }
+  ]
+}

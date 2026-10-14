@@ -12,6 +12,9 @@ export interface RuntimeSkillProviderDependencyFacts {
   readonly toolPolicy: unknown;
   readonly runtimePolicy: unknown;
   readonly usageSpecification: unknown;
+  readonly inputSchema?: unknown;
+  readonly outputSchema?: unknown;
+  readonly outcomeSpecification?: unknown;
 }
 
 export interface RuntimeSkillProviderDependencyPolicyInput {
@@ -33,6 +36,12 @@ export interface RuntimeSkillProviderDependencyAuthorization {
   readonly requirements: readonly ExactMcpProviderBindingPolicy[];
   readonly expectedBindings: readonly RuntimeSkillProviderExpectedBindingAuthority[];
   readonly policyParts: readonly string[];
+  readonly childDependencies?: readonly Readonly<{
+    skillId: string;
+    skillVersion: number;
+    capabilityId: string;
+    capabilityVersion: number;
+  }>[];
 }
 
 export type RuntimeSkillProviderDependencyAssessment =
@@ -80,6 +89,11 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
     input: RuntimeSkillProviderDependencyPolicyInput,
   ): RuntimeSkillProviderDependencyAssessment {
     const implementation = input.implementation;
+    if (
+      input.definition.capabilityId === 'embodied.area_patrol' ||
+      implementation.implementationId === 'embodied.area_patrol'
+    )
+      return assessPatrol(input);
     const resourceId = record(
       record(record(input.definition.inputSchema)?.['properties'])?.['resourceId'],
     )?.['const'];
@@ -148,6 +162,213 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
       }),
     });
   }
+}
+
+/** Reviewed, model-free composition. Tool calls belong to its independently confirmed child Tasks. */
+function assessPatrol(
+  input: RuntimeSkillProviderDependencyPolicyInput,
+): RuntimeSkillProviderDependencyAssessment {
+  const definition = input.definition,
+    implementation = input.implementation;
+  const resourceId = record(
+    record(record(definition.inputSchema)?.['properties'])?.['resourceId'],
+  )?.['const'];
+  const skillVersion = Number(implementation.implementationVersion);
+  const constraints = definition.constraints ?? [];
+  const byType = new Map(constraints.map((value) => [value['type'], value]));
+  const types = [
+    'resource_policy',
+    'provider_binding_policy',
+    'exact_skill_version',
+    'confirmation_policy',
+    'composed_side_effect_policy',
+    'composition_authority_policy',
+    'runtime_execution_mode_policy',
+  ];
+  const provider = byType.get('provider_binding_policy');
+  const composition = byType.get('composition_authority_policy');
+  const parsed = parseMcpProviderBindingPolicyOverride(implementation.providerPolicyOverride);
+  const requirement = parsed.requirements[0];
+  const children = Array.isArray(composition?.['children'])
+    ? composition['children'].map(record)
+    : [];
+  const outcome = record(input.skill.outcomeSpecification);
+  if (
+    !nonEmpty(resourceId) ||
+    resourceId.length > 256 ||
+    definition.capabilityId !== 'embodied.area_patrol' ||
+    definition.status !== 'published' ||
+    !positiveInteger(definition.version) ||
+    (definition.version === 1
+      ? definition.previousVersion !== undefined
+      : definition.previousVersion !== definition.version - 1) ||
+    input.implementations.length !== 1 ||
+    !sameCanonical(input.implementations[0], implementation) ||
+    implementation.implementationType !== 'skill' ||
+    implementation.implementationId !== 'embodied.area_patrol' ||
+    !Number.isSafeInteger(skillVersion) ||
+    skillVersion < 2 ||
+    implementation.implementationVersion !== String(skillVersion) ||
+    implementation.capabilityId !== definition.capabilityId ||
+    implementation.capabilityVersion !== definition.version ||
+    implementation.status !== 'active' ||
+    implementation.role !== 'primary' ||
+    implementation.priority !== 0 ||
+    implementation.activationCondition !== undefined ||
+    !positiveInteger(implementation.revision) ||
+    !/^[a-f0-9]{64}$/u.test(input.skill.packageChecksum ?? '') ||
+    hashCanonical(input.skill.usageSpecification) !==
+      '93ca896c32320eab1a9e6871de8ac33274d418f7651358185577dc96dbf019c8' ||
+    hashCanonical(input.skill.runtimePolicy) !==
+      '386b83b2bdc6519130289f28ca50ccc12369c994b2aaa51a9be19c91de02213b' ||
+    !sameCanonical(input.skill.toolPolicy, { required: [], optional: [], forbidden: [] }) ||
+    resourceSchemaHash(input.skill.inputSchema) !==
+      '728ea3ae099be57c367b28508dd0629b9345846fc5fe7f9606a3597e835f4dc7' ||
+    resourceSchemaHash(input.skill.outputSchema) !==
+      'f4651ed5bbf1786de28b7faaf461942bbe030e3a2ed80edc10ee4267d8c2634b' ||
+    !sameCanonical(input.skill.inputSchema, definition.inputSchema) ||
+    !sameCanonical(input.skill.outputSchema, definition.outputSchema) ||
+    constraints.length !== types.length ||
+    byType.size !== types.length ||
+    types.some((type) => !byType.has(type)) ||
+    parsed.mode !== 'single' ||
+    requirement?.mcpToolName !== 'vehicle_inspect_area' ||
+    !provider ||
+    !exactProviderConstraint(provider, requirement, resourceId) ||
+    !sameCanonical(byType.get('resource_policy'), {
+      type: 'resource_policy',
+      identifierAuthority: 'public_smpp_tool_schema',
+      selection: 'exact_value',
+      allowedResourceIds: [resourceId],
+      downstreamResourceBinding: 'forbidden',
+    }) ||
+    !sameCanonical(byType.get('exact_skill_version'), {
+      type: 'exact_skill_version',
+      skillId: 'embodied.area_patrol',
+      skillVersion,
+      taskType: 'embodied.area_patrol',
+    }) ||
+    !sameCanonical(byType.get('confirmation_policy'), {
+      type: 'confirmation_policy',
+      required: true,
+      stage: 'before_execution',
+      autoConfirmPlan: false,
+    }) ||
+    !sameCanonical(byType.get('composed_side_effect_policy'), {
+      type: 'composed_side_effect_policy',
+      sideEffecting: true,
+      exactChildConfirmationRequired: true,
+      replay: 'forbidden',
+    }) ||
+    exactRuntimeMode(byType.get('runtime_execution_mode_policy')) === undefined ||
+    !sameCanonical(definition.supportedModes, ['plan_confirmed', 'composition']) ||
+    definition.riskLevel !== 'medium' ||
+    !sameCanonical(definition.effects, ['effect.patrol_reported']) ||
+    !sameCanonical(definition.artifacts, []) ||
+    !sameCanonical(definition.successCriteria, [
+      { type: 'output_schema_valid', required: true },
+      {
+        type: 'patrol_report_outcome',
+        required: true,
+        incompleteOutcome: 'degraded',
+        fullSuccessRequires: [
+          'native_child_tasks',
+          'scoped_inspection_report',
+          'actual_trajectory',
+        ],
+      },
+    ]) ||
+    !sameCanonical(definition.requiredEvidence, [
+      { type: 'native_patrol_child_reports', evidenceType: 'patrol.report', required: true },
+    ]) ||
+    composition?.['version'] !== 1 ||
+    composition['maximumSubregions'] !== 1 ||
+    composition['requiredTrajectory'] !== 'retained_actual_navigation' ||
+    children.length !== 2 ||
+    !exactPatrolChild(children[0], 'embodied.move_to', 'embodied.move', 'a2a.embodied.move') ||
+    !exactPatrolChild(
+      children[1],
+      'embodied.inspect_area',
+      'embodied.inspect_area',
+      'a2a.embodied.inspect_area',
+    ) ||
+    !outcome ||
+    !sameCanonical(outcome['effects'], ['effect.patrol_reported']) ||
+    !sameCanonical(outcome['evidence'], ['patrol.report']) ||
+    !sameCanonical(outcome['taskGoalPolicy'], {
+      requestedCapabilityId: 'embodied.area_patrol',
+      resourceId,
+      providerBinding: provider,
+      children: composition['children'],
+      subregions: 'one_legal_requested_region',
+      maximumInspectionElapsedMs: 300000,
+    })
+  )
+    return DENIED;
+  return {
+    decision: 'authorized',
+    authorization: {
+      requirements: [requirement],
+      expectedBindings: [
+        {
+          mcpProviderBindingId: requirement.mcpProviderBindingId,
+          localServerId: requirement.localServerId,
+          bindingRevision: provider['bindingRevision'] as number,
+          catalogRevision: provider['catalogRevision'] as string,
+          catalogChecksum: provider['catalogChecksum'] as string,
+        },
+      ],
+      policyParts: [
+        `patrol-package:${input.skill.packageChecksum ?? ''}`,
+        `patrol-composition:${hashCanonical({ constraints, usage: input.skill.usageSpecification })}`,
+      ],
+      childDependencies: children.map((child) => ({
+        skillId: String(child?.['skillId']),
+        skillVersion: Number(child?.['skillVersion']),
+        capabilityId: String(child?.['capabilityId']),
+        capabilityVersion: Number(child?.['capabilityVersion']),
+      })),
+    },
+  };
+}
+
+function exactPatrolChild(
+  value: Readonly<Record<string, unknown>> | undefined,
+  skillId: string,
+  capabilityId: string,
+  exposureId: string,
+): boolean {
+  return (
+    value !== undefined &&
+    hasExactKeys(value, [
+      'skillId',
+      'skillVersion',
+      'capabilityId',
+      'capabilityVersion',
+      'exposureId',
+      'exposureVersion',
+    ]) &&
+    value['skillId'] === skillId &&
+    value['capabilityId'] === capabilityId &&
+    value['exposureId'] === exposureId &&
+    positiveInteger(value['skillVersion']) &&
+    (skillId !== 'embodied.move_to' || value['skillVersion'] === 1) &&
+    positiveInteger(value['capabilityVersion']) &&
+    positiveInteger(value['exposureVersion'])
+  );
+}
+
+function resourceSchemaHash(value: unknown): string | undefined {
+  const schema = record(value);
+  const properties = record(schema?.['properties']);
+  if (!schema || !properties) return undefined;
+  return hashCanonical({
+    ...schema,
+    properties: {
+      ...properties,
+      resourceId: { type: 'string', const: '__RESOURCE_ID__' },
+    },
+  });
 }
 
 function exactUgvDefinitionPromises(

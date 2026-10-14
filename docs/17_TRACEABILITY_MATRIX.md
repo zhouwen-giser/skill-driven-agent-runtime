@@ -1644,3 +1644,16 @@ Successful execution with Goal adjustment/unachievability is retained as valid h
 NFR-MNT-001 / NFR-SEC-001 / FR-ADM: `deploy/united/bundle.py`, `deploy/sz-gowm/pms-registry.py` and the UGV materialization driver preserve legacy contracts, validate WSGS-aware unions, resolve real Runtime identity and review exact 12/13-tool Catalogs. Nine Python methods and 28 focused materialization/governance/PMS tests pass. Frozen `4112a90b`, run `7ba9d4f2`, passes all 30 stages: 2695 unit, 553 contract, 272 integration, 77 E2E; installation/cleanup exit 0 and runtime/baseline inputs unchanged. `reports/local-smpp-integrated-20261013/VALIDATION.json` links commands, hashes, raw logs and the memory-backed isolated PG fixture condition. Separate same-source persistent GOWM 8/2/32, persistent P07 and final evidence-case receipts preserve storage qualification limits and all failed full attempts.
 
 `FINAL_PACKAGE.json`, `CONTAINER_SOURCE.json`, `LIVE_APIS.json`, `LIVE_RESTRICTED_STORAGE.json`, `POSTGRES_PRESERVATION.json` and `UPSTREAM_PRESERVATION.json` link actual reproducible package, three-container source comparison (2921 files each), 13 GET API checks, restricted owner contract, original volume/environment/binary and container identity preservation. Twelve unrelated restarts are recorded; uninterrupted uptime is not claimed. Core services and 12 public Skills are verified. `BOOTSTRAP.json` remains failed for missing `embodied.inspect_area`; patrol is not published. `BACKUP.json` records the user's snapshot-excluding scope, archive readability and NOT_RUN full restore. Whole-project acceptance, physical operations, production durability and device-generation history remain OPEN/NOT_RUN. ADR-164 and the ExecPlan retain all authority/safety boundaries.
+
+## 用户授权扩展：区域检查及巡逻 v2（2026-10-14）
+
+该扩展依 ADR-165 和 EP-INSPECTION-AREA-V1 实施，不修改需求前缀或冻结迁移。当前实现和隔离用例已具备；最终全门禁、联合包及本地发布记录仍待封存，现场 NOT_RUN。
+
+| 扩展要求 | 实现 | 验证及证据 |
+| --- | --- | --- |
+| INSPECT-01 合同、坐标与期限 | domain/area-inspection、area-patrol；ugv-profile 精确 13/14 Catalog；MCP Task 适配 | area-inspection/area-patrol/materialization 单元和合同；reports/inspection-area-v1/raw |
+| INSPECT-02 原生执行与禁止重放 | application/governed-child-task、skill-call-workflow、task-service、workflow-execution；server/governed-patrol-child-tasks | 确定性接收、原生确认/continuation/取消；隔离 PostgreSQL/MQTT/Device MCP 联合场景 |
+| INSPECT-03 关联发现及事实保留 | SMPP inspection-report 与 JSONB 事实；SDAR TaskBusiness、错误 details、inspection result | 来源缺失、有效空报告、有发现、失败及截断；联合日志记录两仓库源码摘要 |
+| INSPECT-04 完整性与轨迹证据 | server/patrol-evidence-reader；domain/area-patrol；TaskCapability 规范结果门禁 | 完整、降级、失败、取消汇总；摘要冲突、资源/区域、256 项与字节预算；不可由最终位置单独证明轨迹 |
+| INSPECT-05 治理、候选及组合 | ugv-area-patrol-governance-driver、Skill v2、SkillProviderDependencyPolicy、readiness repository | policy-01 的 7 个正反向用例；子依赖状态/期限用例；原生发布及组合验证 |
+| INSPECT-06 门禁、包、本地发布 | scripts/inspection、deploy/development、双项目联合包 | FROZEN.json：165 项 SDAR/224 项 SMPP 字节未变；最终验收另记录命令、退出码、哈希及现场 NOT_RUN |

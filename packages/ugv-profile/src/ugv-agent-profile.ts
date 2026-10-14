@@ -147,7 +147,9 @@ export function projectUgvAgentProfileEnabledSkills(
   const projected = enabledSkills.filter((skill) => {
     if (
       skill.status !== 'enabled' ||
-      (scope === 'profile_reviewed' && !UGV_PUBLIC_SKILL_IDS.includes(skill.skillId))
+      (scope === 'profile_reviewed' &&
+        (!UGV_PUBLIC_SKILL_IDS.includes(skill.skillId) ||
+          (skill.skillId === 'embodied.area_patrol' && skill.version < 2)))
     )
       return false;
     if (scope === 'profile_reviewed' && skill.skillId === UGV_AGENT_PROFILE_SKILL_ID)
@@ -190,7 +192,13 @@ export class UgvAgentProfileSkillRepositoryView implements SkillRepository {
   async findCurrentVersion(skillId: string) {
     if (!this.#includes(skillId)) return undefined;
     const skill = await this.#source.findCurrentVersion(skillId);
-    if (skill?.status !== 'enabled') return undefined;
+    if (
+      skill?.status !== 'enabled' ||
+      (this.#scope === 'profile_reviewed' &&
+        skill.skillId === 'embodied.area_patrol' &&
+        skill.version < 2)
+    )
+      return undefined;
     if (
       this.#scope === 'profile_reviewed' &&
       skillId === UGV_AGENT_PROFILE_SKILL_ID &&
@@ -202,7 +210,11 @@ export class UgvAgentProfileSkillRepositoryView implements SkillRepository {
   }
 
   async findVersion(skillId: string, version: number) {
-    if (!this.#includes(skillId)) return undefined;
+    if (
+      !this.#includes(skillId) ||
+      (this.#scope === 'profile_reviewed' && skillId === 'embodied.area_patrol' && version < 2)
+    )
+      return undefined;
     if (
       this.#scope === 'profile_reviewed' &&
       skillId === UGV_AGENT_PROFILE_SKILL_ID &&
@@ -412,6 +424,22 @@ function assertUgvAgentProfileSkillDeclaration(skill: SkillVersion): void {
   if (declaration === undefined) throw new Error('UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID');
   if (isHistoricalUgvPointSkill(skill.skillId, skill.version)) {
     assertHistoricalPointSkill(skill);
+    return;
+  }
+  if (skill.skillId === 'embodied.area_patrol' && skill.version >= 2) {
+    const usage = skill.usageSpecification;
+    const composition = usage?.composition;
+    if (
+      !usage?.visibility.userSelectable ||
+      usage.visibility.internalOnly ||
+      usage.taskBindings.length !== 0 ||
+      composition?.fixedDependencies.length !== 1 ||
+      composition.fixedDependencies[0]?.skillId !== 'embodied.move_to' ||
+      composition.capabilitySlots.length !== 1 ||
+      composition.capabilitySlots[0]?.capability !== 'embodied.inspect_area' ||
+      !usage.evidencePolicy.rejectSuccessWithoutRequiredEvidence
+    )
+      throw Error('UGV_AGENT_PROFILE_PATROL_DECLARATION_INVALID');
     return;
   }
   const usage = skill.usageSpecification;

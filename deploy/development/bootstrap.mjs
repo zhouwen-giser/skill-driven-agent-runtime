@@ -1,3 +1,4 @@
+import { governUgvAreaPatrol } from '../../dist/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.js';
 import console from 'node:console';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
@@ -116,6 +117,25 @@ const result = await runGovernanceBootstrap(c, {
     return governance;
   },
   builtins: async () => {
+    if (['ugv-inspect-v1-13', 'ugv-inspect-v1-14'].includes(c.SDAR_UGV_CATALOG_PROFILE)) {
+      await governUgvAreaPatrol({
+        ...shared,
+        packageWorkspaceRoot: '/app/development-packages',
+        initialPointSkillPackageRoot: '/app/skills/embodied.move_to',
+        initialPatrolPackageRoot: '/app/skills/embodied.area_patrol',
+        patrolPackageRoot: '/app/skills/embodied.area_patrol.v2',
+        developmentComposeNetwork: true,
+        excludeDeviceWeapons: true,
+        bindingId: c.SDAR_UGV_BINDING_ID,
+        resourceId: c.SDAR_UGV_RESOURCE_ID,
+        activateNavigateControl: true,
+        navigateControlMode: 'coordinate_point',
+        runtimeExecutionContext:
+          c.SDAR_UGV_EXECUTION_MODE === 'simulation'
+            ? { mode: 'simulation', simulationId: c.UGV_SIMULATION_RUN_ID }
+            : { mode: 'live' },
+      });
+    }
     const skills = (await get(shared.runtimeManagementBaseUrl, '/api/v1/skills')).items;
     const capabilities = (
       await get(shared.nodeControlBaseUrl, '/api/v1/node-capabilities?pageSize=200')

@@ -83,6 +83,40 @@ function definition(
 }
 
 describe('LangGraph Workflow compiler', () => {
+  it('meters a trusted compiled child without reserving a model call and still reserves its cost', async () => {
+    const executeSkill = vi
+      .fn()
+      .mockResolvedValue({ status: 'completed', output: { report: true } });
+    const runtime = ports({ executeSkill, isDeterministicSkillCall: () => Promise.resolve(true) });
+    const workflow = definition(
+      [
+        {
+          nodeId: 'child',
+          name: 'Child',
+          type: 'skill_call',
+          skillId: 'reviewed.child',
+          input: {},
+        },
+      ],
+      [],
+      'child',
+      ['child'],
+    );
+    const result = await compileWorkflow(workflow, 'confirmed', runtime).invoke(
+      {},
+      { ...budget, maxLlmCalls: 0 },
+      costs,
+    );
+    expect(result).toMatchObject({ status: 'succeeded', budgetUsage: { llmCalls: 0, cost: 1 } });
+    expect(executeSkill).toHaveBeenCalledOnce();
+    expect(runtime.executeLlm).not.toHaveBeenCalled();
+    const denied = await compileWorkflow(
+      workflow,
+      'confirmed',
+      ports({ isDeterministicSkillCall: () => Promise.resolve(false) }),
+    ).invoke({}, { ...budget, maxLlmCalls: 0 }, costs);
+    expect(denied).toMatchObject({ status: 'failed', terminationReason: 'llm_calls_exhausted' });
+  });
   it('preserves a child deadline across human pause and disposes its timers after resume', async () => {
     vi.useFakeTimers();
     try {

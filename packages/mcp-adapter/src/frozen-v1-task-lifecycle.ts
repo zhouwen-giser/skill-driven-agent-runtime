@@ -56,6 +56,7 @@ const taskExecutionMetaSchema = z
     substate: z
       .enum(['accepted', 'scheduled', 'queued', 'running', 'paused', 'resuming', 'stopping'])
       .optional(),
+    cancellationRequested: z.boolean().optional(),
     progress: z
       .object({ percent: z.number().min(0).max(100) })
       .strict()

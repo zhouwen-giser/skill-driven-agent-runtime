@@ -14,6 +14,7 @@ import {
 
 const UGV_TOOL_NAMES = Object.freeze([
   'vehicle_area_recon',
+  'vehicle_inspect_area',
   'vehicle_control_gimbal',
   'vehicle_emergency_stop',
   'vehicle_fire_weapon',
@@ -70,6 +71,7 @@ const FIRE_SEMANTICS = Object.freeze({
 export const UGV_REVIEWED_TOOL_POLICY: Readonly<Record<UgvToolName, SmppExpectedTool>> =
   Object.freeze({
     vehicle_area_recon: TASK_CONTROL_SEMANTICS,
+    vehicle_inspect_area: { ...TASK_CONTROL_SEMANTICS, wireContract: 'ugv.inspection/1.0' },
     vehicle_control_gimbal: TASK_CONTROL_SEMANTICS,
     vehicle_emergency_stop: TASK_CONTROL_SEMANTICS,
     vehicle_fire_weapon: FIRE_SEMANTICS,
@@ -97,7 +99,13 @@ export interface UgvSmppProviderMaterializationConfiguration {
   readonly providerDisplayName: string;
   readonly runtimeCredentialRef: string;
   readonly runId: string;
-  readonly catalogProfile?: 'ugv-v1-10' | 'ugv-v1-11' | 'ugv-v1-12' | 'ugv-v1-13';
+  readonly catalogProfile?:
+    | 'ugv-v1-10'
+    | 'ugv-v1-11'
+    | 'ugv-v1-12'
+    | 'ugv-v1-13'
+    | 'ugv-inspect-v1-13'
+    | 'ugv-inspect-v1-14';
 }
 
 export interface UgvSmppProviderMaterializationReport {
@@ -146,12 +154,24 @@ export async function materializeUgvSmppProvider(
 ): Promise<UgvSmppProviderMaterializationReport> {
   const configuration = validateConfiguration(input);
   const profile = configuration.catalogProfile ?? 'ugv-v1-11';
-  if (!['ugv-v1-10', 'ugv-v1-11', 'ugv-v1-12', 'ugv-v1-13'].includes(profile))
+  if (
+    ![
+      'ugv-v1-10',
+      'ugv-v1-11',
+      'ugv-v1-12',
+      'ugv-v1-13',
+      'ugv-inspect-v1-13',
+      'ugv-inspect-v1-14',
+    ].includes(profile)
+  )
     fail('DRIVER_CONFIGURATION_INVALID', 'Unreviewed UGV Catalog profile.');
+  const inspection = profile === 'ugv-inspect-v1-13' || profile === 'ugv-inspect-v1-14';
   const expectedNames = UGV_TOOL_NAMES.filter((name) => {
-    if (name === 'vehicle_laser_range') return profile === 'ugv-v1-11' || profile === 'ugv-v1-13';
+    if (name === 'vehicle_inspect_area') return inspection;
+    if (name === 'vehicle_laser_range')
+      return profile === 'ugv-v1-11' || profile === 'ugv-v1-13' || profile === 'ugv-inspect-v1-14';
     if (name === 'vehicle_get_trajectory_evidence' || name === 'vehicle_get_trajectory_history')
-      return profile === 'ugv-v1-12' || profile === 'ugv-v1-13';
+      return profile === 'ugv-v1-12' || profile === 'ugv-v1-13' || inspection;
     return true;
   });
   const reviewedTools = Object.fromEntries(

@@ -7,7 +7,10 @@ export function verifyPublishedInventory(manifest, inventory) {
   const publicSkillIds = new Set((inventory.card.skills ?? []).map((item) => item.id));
   for (const expected of manifest.skills) {
     const skill = inventory.skills.find(
-      (item) => item.skillId === expected.skillId && item.status === 'enabled',
+      (item) =>
+        item.skillId === expected.skillId &&
+        item.status === 'enabled' &&
+        item.version >= (expected.minimumVersion ?? 1),
     );
     if (!skill) blocked.push({ skillId: expected.skillId, reasonCode: 'SKILL_NOT_ENABLED' });
     const capability = inventory.capabilities

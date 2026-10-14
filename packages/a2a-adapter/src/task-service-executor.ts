@@ -146,14 +146,25 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
         return;
       }
       const previous = current;
-      await this.#notifier.waitForChange(
+      const waitMs = Math.min(this.#safetyPollIntervalMs, remainingMs);
+      const notification = await this.#notifier.waitForChange(
         current.taskId,
         current.updatedAt,
-        Math.min(this.#safetyPollIntervalMs, remainingMs),
+        waitMs,
       );
       if (this.#isClosed()) {
         eventBus.finished();
         return;
+      }
+      // Timers can release the final timeout just before the wall-clock deadline.
+      // Read once at that deadline instead of polling twice across its boundary.
+      if (notification === undefined && waitMs === remainingMs) {
+        while (!this.#isClosed() && Date.now() < deadline)
+          await new Promise((resolve) => setTimeout(resolve, deadline - Date.now()));
+        if (this.#isClosed()) {
+          eventBus.finished();
+          return;
+        }
       }
       current = await this.#tasks.get(submitted.task.taskId);
       if (this.#isClosed()) {

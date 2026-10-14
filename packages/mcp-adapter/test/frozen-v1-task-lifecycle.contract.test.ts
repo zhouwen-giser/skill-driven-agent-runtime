@@ -12,6 +12,28 @@ const endpoint = 'https://provider.example.test/mcp';
 const now = '2026-07-18T03:10:00.000Z';
 
 describe('Frozen V1 Task lifecycle', () => {
+  it('accepts the Provider cancellation-request marker while a physical stop is still pending', () => {
+    const task = parseDetailedTask(
+      {
+        resultType: 'complete',
+        taskId: 'stopping-task',
+        status: 'working',
+        createdAt: now,
+        lastUpdatedAt: now,
+        ttlMs: null,
+        _meta: {
+          'io.sdar/taskExecution': {
+            profileVersion: '1.0',
+            runtimeRevision: '1',
+            substate: 'stopping',
+            cancellationRequested: true,
+          },
+        },
+      },
+      now,
+    );
+    expect(task).toMatchObject({ status: 'working', observation: { substate: 'stopping' } });
+  });
   it('enforces the discovered Tool output schema on the actual lifecycle result path', async () => {
     const lifecycle = createLifecycle(() => ({
       resultType: 'complete',

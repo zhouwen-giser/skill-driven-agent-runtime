@@ -138,7 +138,7 @@ export function verifyUgvMoveTerminalWorkflowEvidence(
   if (assessment.status !== 'completed')
     invalid(
       'UGV_MOVE_WORKFLOW_EVIDENCE_RESULT_INVALID',
-      'A succeeded UGV Workflow requires the deterministic final-position hard gate.',
+      `A succeeded UGV Workflow requires the deterministic final-position hard gate: ${assessment.reasonCode}.`,
     );
   const skillResult = completedSkillResult(assessment);
   if (!sameJson(input.workflowResult, skillResult))

@@ -1,3 +1,6 @@
+import { PatrolEvidenceReader } from './patrol-evidence-reader.js';
+import type { GovernedChildTaskPort } from '../../../packages/application/src/governed-child-task.js';
+import { createGovernedPatrolChildTasks } from './governed-patrol-child-tasks.js';
 import type { WorkflowControlRecord as CompositionWorkflowControlRecord } from './composition/../../../../packages/domain/src/workflow-control.js';
 import { RuntimeCleanupScope } from './composition/runtime-cleanup-scope.js';
 import type {
@@ -51,6 +54,10 @@ export async function startServerRuntime(
     const interactivePlanningSessions = new RuntimeValueRef<InteractivePlanningSessionService>(
       'interactivePlanningSessions',
     );
+    const governedPatrolChildren = new RuntimeValueRef<GovernedChildTaskPort | undefined>(
+      'governedPatrolChildren',
+    );
+    governedPatrolChildren.value = undefined;
     const service = new RuntimeValueRef<TaskService>('service');
     const remoteTaskInput = new RuntimeValueRef<RemoteTaskInputService | undefined>(
       'remoteTaskInput',
@@ -271,6 +278,7 @@ export async function startServerRuntime(
       taskReadiness,
       mcpRegistry,
       skillUsage,
+      profileSkillUsage,
       skillSelection,
       ugvMoveBindingResolver,
       frozenMcpRegistry,
@@ -378,6 +386,10 @@ export async function startServerRuntime(
       skillConfirmation,
       workflowChildCalls,
     } = composeExecution({
+      governedPatrolChildren,
+      ugvMoveBindingResolver,
+      ugvWorkflowCandidateGuard,
+      skillInputResolutionRepository,
       cleanupScope,
       options,
       tasks,
@@ -419,6 +431,7 @@ export async function startServerRuntime(
       schemaValidator,
       resolveSkillUsageContext,
       skillUsage,
+      profileSkillUsage,
       skillComposition,
       resolveSkillUsageSlotChoices,
       skillExecutionRepository,
@@ -431,6 +444,7 @@ export async function startServerRuntime(
       goalService,
       userGoalPlanning,
       ugvInitialAdmission,
+      areaReportInitialAdmission,
       userGoalRuntimeRepository,
       interactiveActions,
       fastGateway,
@@ -479,6 +493,7 @@ export async function startServerRuntime(
       backgroundExecutionErrors,
       resolveTaskWorkflowControlId,
     } = await composeTasks({
+      governedPatrolChildren,
       cleanupScope,
       options,
       resolveDeviceOwnership,
@@ -625,7 +640,39 @@ export async function startServerRuntime(
       workflowController,
       projectSkillExecutionControl,
     });
+    if (ugvAgentProfile)
+      taskCapabilities.configurePatrolEvidence(
+        new PatrolEvidenceReader({
+          calls: skillCallWorkflows,
+          tasks,
+          bindings: taskCapabilityRepository,
+          plans: workflowPlans,
+          business: taskBusinessRepository,
+        }),
+      );
+    if (ugvAgentProfile)
+      governedPatrolChildren.value = createGovernedPatrolChildTasks({
+        calls: skillCallWorkflows,
+        commands: taskCommands,
+        service: service.value,
+        goals: goalService,
+        tasks,
+        capabilities: taskCapabilities,
+        plans: workflowPlans,
+        inputs: skillInputResolution,
+        inputRecords: skillInputResolutionRepository,
+        skills,
+        graph: skillGraphRepository,
+        selections: skillSelectionRepository,
+        usage: profileSkillUsage,
+        mcp: mcpRepository,
+        execution: workflowExecution,
+        controller: workflowController.value,
+        usageContext: resolveSkillUsageContext,
+        clock,
+      });
     composePreparation({
+      areaReportInitialAdmission,
       cleanupScope,
       options,
       processor,

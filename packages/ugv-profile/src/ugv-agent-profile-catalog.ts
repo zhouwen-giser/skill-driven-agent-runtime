@@ -5,6 +5,7 @@ export type UgvReviewedToolName =
   | 'vehicle_get_targets'
   | 'vehicle_navigate'
   | 'vehicle_area_recon'
+  | 'vehicle_inspect_area'
   | 'vehicle_track_target'
   | 'vehicle_control_gimbal'
   | 'vehicle_emergency_stop'
@@ -115,6 +116,28 @@ export const UGV_AGENT_CAPABILITY_CATALOG: readonly UgvAgentCapabilityDeclaratio
       'physical_control',
       'physical',
     ),
+    Object.freeze({
+      toolName: 'vehicle_inspect_area' as const,
+      skillId: 'embodied.inspect_area',
+      capabilityId: 'embodied.inspect_area',
+      exposureId: 'a2a.embodied.inspect_area',
+      taskTypeId: 'task-type.ugv-area-inspection',
+      title: 'Inspect an authorized WGS84 area',
+      recognitionHints: Object.freeze(['区域检查', '无人车检查区域', 'UGV area inspection']),
+      kind: 'physical_control' as const,
+      confirmation: 'physical' as const,
+    }),
+    Object.freeze({
+      toolName: 'vehicle_inspect_area' as const,
+      skillId: 'embodied.area_patrol',
+      capabilityId: 'embodied.area_patrol',
+      exposureId: 'a2a.embodied.area_patrol',
+      taskTypeId: 'task-type.ugv-area-patrol',
+      title: 'Patrol one authorized WGS84 subregion',
+      recognitionHints: Object.freeze(['区域巡逻', 'UGV area patrol']),
+      kind: 'physical_control' as const,
+      confirmation: 'physical' as const,
+    }),
     declaration(
       'vehicle_track_target',
       'ugv.track-target',

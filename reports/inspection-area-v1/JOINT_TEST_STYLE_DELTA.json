@@ -1,0 +1,11 @@
+{
+  "jointReceipt": "sdar-inspection-joint-62",
+  "jointSourceSha256": "b44acbad4432fcd353500a0ba529c719e4a78647c441017d6a6b376a67001b3b",
+  "onlyChangedPath": "packages/a2a-adapter/test/task-service-executor.unit.test.ts",
+  "testBeforeSha256": "83ccf9d71b8e7542318cb042e63e25f0eb9b199948bcacc41f8278cf96b38376",
+  "allOtherSourceSha256Before": "bb6a9dccab6a80086efb5da0d88015787d8aa14a5938b25e7202d9f53c90f6c0",
+  "reason": "Apply existing lint rules to test doubles and void callback only; no assertion or production change.",
+  "allOtherSourceSha256After": "bb6a9dccab6a80086efb5da0d88015787d8aa14a5938b25e7202d9f53c90f6c0",
+  "testAfterSha256": "163a7e8e6dd13c316e23bca1ea0359437032a02b8458b501f746ba133bdf8a2c",
+  "status": "PASS"
+}

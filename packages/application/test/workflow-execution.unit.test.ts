@@ -59,6 +59,131 @@ const validPlan: WorkflowPlanRecord = {
 };
 
 describe('Workflow execution application service', () => {
+  it('keeps a monotonic continuation chain across successive child confirmations', async () => {
+    const instances = new MemoryExecutions(),
+      continuations = new MemoryContinuations();
+    const usage = { replanCount: 0, durationMs: 2, llmCalls: 0, mcpCalls: 1, cost: 0 };
+    const state = (ordinal: number) => ({
+      input: {},
+      waitingNodeRuns: [
+        {
+          waitId: `wait-${String(ordinal)}`,
+          kind: 'remote_task' as const,
+          sourceId: `binding-${String(ordinal)}`,
+          nodeId: 'result',
+          nodeRunId: `instance-two-children~result~${String(ordinal)}`,
+          state: 'waiting' as const,
+        },
+      ],
+      runnableFrontier: [],
+      parallelJoinState: [],
+      failed: false,
+      completedNodeRunIds: [],
+      nodeRunCounts: { result: ordinal },
+      outputs: {},
+      errors: {},
+      routes: {},
+      loopCounts: {},
+      recoveryCounts: {},
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: usage,
+      executionContext: { mode: 'live' as const },
+    });
+    const execute = vi.fn().mockResolvedValue({
+      status: 'waiting_external',
+      continuation: state(1),
+      errors: {},
+      budgetUsage: usage,
+      events: [],
+    });
+    const continueExternal = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 'paused',
+        pendingConfirmation: {
+          nodeId: 'result',
+          prompt: 'Confirm the next child.',
+          kind: 'skill_confirmation',
+          parentPlanId: validPlan.planId,
+          childPlanId: 'plan-child-two',
+          childSkillId: 'skill.child.two',
+          childSkillVersion: 1,
+        },
+        errors: {},
+        budgetUsage: usage,
+        events: [],
+      })
+      .mockResolvedValueOnce({
+        status: 'succeeded',
+        result: 'done',
+        errors: {},
+        budgetUsage: usage,
+        events: [],
+      });
+    const resumeHumanConfirmation = vi.fn().mockResolvedValue({
+      status: 'waiting_external',
+      continuation: state(2),
+      errors: {},
+      budgetUsage: usage,
+      events: [],
+    });
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      instances,
+      { execute, continueExternal, resumeHumanConfirmation },
+      disabledSkills,
+      undefined,
+      continuations,
+    );
+    await service.execute({
+      instanceId: 'instance-two-children',
+      planId: validPlan.planId,
+      input: {},
+      continuationAuthority: {
+        agentTaskId: 'task-two-children',
+        contextId: 'context-two-children',
+        workflowControlId: 'control-two-children',
+      },
+    });
+    await service.continueExternal({
+      instanceId: 'instance-two-children',
+      continuationAttemptId: 'attempt-one',
+      resolution: {
+        kind: 'completed',
+        waitId: 'wait-1',
+        nodeRunId: 'instance-two-children~result~1',
+        result: { content: [], isError: false },
+      },
+    });
+    const first = await continuations.findCurrent('instance-two-children');
+    expect(first?.stateVersion).toBe(1);
+    await service.resumeHumanConfirmation({ instanceId: 'instance-two-children', confirmed: true });
+    const next = await continuations.findCurrent('instance-two-children');
+    expect(next).toMatchObject({
+      stateVersion: 2,
+      continuationId: first?.continuationId,
+      predecessorSnapshotId: first?.snapshotId,
+    });
+    await service.continueExternal({
+      instanceId: 'instance-two-children',
+      continuationAttemptId: 'attempt-two',
+      resolution: {
+        kind: 'completed',
+        waitId: 'wait-2',
+        nodeRunId: 'instance-two-children~result~2',
+        result: { content: [], isError: false },
+      },
+    });
+    expect(await continuations.findCurrent('instance-two-children')).toBeUndefined();
+    expect(execute).toHaveBeenCalledOnce();
+    expect(continueExternal).toHaveBeenCalledTimes(2);
+  });
   it('cancels exact descendant instances even when multiple children share a plan', async () => {
     const instances = new MemoryExecutions();
     const seed = {

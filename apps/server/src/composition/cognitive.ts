@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createAreaReportInitialAdmission } from '../area-report-initial-admission.js';
 import type { QueryResult as CompositionQueryResult, Pool } from 'pg';
 import type {
   CapabilitySummaryService,
@@ -221,6 +222,16 @@ export function composeCognitive(dependencies: composeCognitiveDependencies) {
           guard: ugvUserGoalPlanGuard,
           clock,
         });
+  const areaReportInitialAdmission = ugvAgentProfile
+    ? createAreaReportInitialAdmission({
+        capabilities: taskCapabilities,
+        goals: goalService,
+        authority: genericTaskCapabilityGoalAuthority,
+        planning: userGoalPlanning,
+        plans: userGoalRuntimeRepository,
+        clock,
+      })
+    : undefined;
   const experiencePlanning = new ExperienceEnrichedUserGoalPlanningService({
     base: userGoalPlanning.candidates,
     contexts: new PlanningExperienceContextBuilder(planningKnowledge, {
@@ -411,6 +422,7 @@ export function composeCognitive(dependencies: composeCognitiveDependencies) {
     goalService,
     userGoalPlanning,
     ugvInitialAdmission,
+    areaReportInitialAdmission,
     userGoalRuntimeRepository,
     interactiveActions,
     fastGateway,

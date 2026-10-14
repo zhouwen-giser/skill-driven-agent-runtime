@@ -26,6 +26,7 @@ import {
   type FrozenTaskLifecycleRuntimePort,
 } from '../src/mcp-registry.js';
 import {
+  GovernedControlAuthorityError,
   governedControlSnapshotHash,
   type GovernedControlInvocation,
 } from '../src/governed-control-authority.js';
@@ -653,6 +654,60 @@ describe('MCP Registry invocation boundary', () => {
         controlDispatchHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/u),
       }),
     ]);
+  });
+
+  it('refreshes stale pre-dispatch readiness once before consuming confirmation or calling the Provider', async () => {
+    const order: string[] = [];
+    const fixture = createFixture({ toolEffect: 'side_effecting', order });
+    fixture.controlAuthority.mockRejectedValueOnce(
+      new GovernedControlAuthorityError('GOVERNED_CONTROL_READINESS_STALE', 'expired'),
+    );
+    const refresh = vi.fn(() => {
+      order.push('readiness-refresh');
+      return Promise.resolve();
+    });
+    await fixture.service.callDetailed(
+      'provider-1',
+      'light_set_state',
+      { resourceId: 'living-room-main-light' },
+      undefined,
+      {
+        taskId: 'task-control-1',
+        capabilityAttemptId: 'capability-attempt-control-1',
+        providerBindingId: 'binding-provider-1',
+        providerId: 'external-provider-1',
+        beforeControlAuthorization: refresh,
+      },
+    );
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(fixture.controlAuthority).toHaveBeenCalledTimes(2);
+    expect(fixture.call).toHaveBeenCalledOnce();
+    expect(order.at(-1)).toBe('provider-call');
+  });
+  it('keeps persistent stale readiness blocked without Provider transport', async () => {
+    const fixture = createFixture({ toolEffect: 'side_effecting' });
+    fixture.controlAuthority.mockRejectedValue(
+      new GovernedControlAuthorityError('GOVERNED_CONTROL_READINESS_STALE', 'expired'),
+    );
+    const refresh = vi.fn(() => Promise.resolve());
+    await expect(
+      fixture.service.callDetailed(
+        'provider-1',
+        'light_set_state',
+        { resourceId: 'living-room-main-light' },
+        undefined,
+        {
+          taskId: 'task-control-1',
+          capabilityAttemptId: 'capability-attempt-control-1',
+          providerBindingId: 'binding-provider-1',
+          providerId: 'external-provider-1',
+          beforeControlAuthorization: refresh,
+        },
+      ),
+    ).rejects.toThrow('expired');
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(fixture.controlAuthority).toHaveBeenCalledTimes(2);
+    expect(fixture.call).not.toHaveBeenCalled();
   });
 
   it('forwards exact nested navigate distance arguments through authority before transport', async () => {

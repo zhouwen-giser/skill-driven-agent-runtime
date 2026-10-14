@@ -1,0 +1,21 @@
+{
+  "name": "sdar-inspection-dispatch-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "packages/application/test/mcp-registry.unit.test.ts",
+    "packages/ugv-profile/test/governed-control-invocation-authorizer.unit.test.ts"
+  ],
+  "startedAt": "2026-10-14T00:37:36.991Z",
+  "completedAt": "2026-10-14T00:37:40.350Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "ca2b1dc3ad636b117c78455c0fdc9f203564c96073dca70c617f4406c2a4fd7c",
+  "sourceAfter": "ca2b1dc3ad636b117c78455c0fdc9f203564c96073dca70c617f4406c2a4fd7c",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-dispatch-01.log",
+  "logSha256": "5a5a5da99f0f732ae7f57edeb356c0e3c741fd09e1e653b4e3710f6be8cdfa65"
+}

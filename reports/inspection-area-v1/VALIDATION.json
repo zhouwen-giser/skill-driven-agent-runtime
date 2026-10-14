@@ -1,0 +1,131 @@
+{
+  "status": "VALIDATING_FINAL_GATE_AND_LOCAL_DEPLOYMENT",
+  "recordedAt": "2026-10-14T03:16:19.877368+00:00",
+  "smppFullGate": {
+    "name": "smpp-inspection-gate-11",
+    "status": "PASS",
+    "exitCode": 0,
+    "sourceBefore": "2ab531b7502ea7851c17e07963991f38365a5a8ce766f8e172315c6135b9622a",
+    "sourceAfter": "2ab531b7502ea7851c17e07963991f38365a5a8ce766f8e172315c6135b9622a",
+    "logSha256": "1a019b426c3ec5419a4b5d464cb7b1a2bce0bda3a19b5bf2cd6b88686b23e1ee"
+  },
+  "freshInfrastructure": {
+    "name": "smpp-inspection-ci-integration-02",
+    "status": "PASS",
+    "exitCode": 0,
+    "sourceBefore": "84e3ea3fc395666a2fa0d3762e7db7cb05bcc6038013a2bcb9fe4c3eb36a4d68",
+    "sourceAfter": "84e3ea3fc395666a2fa0d3762e7db7cb05bcc6038013a2bcb9fe4c3eb36a4d68",
+    "logSha256": "af23de3582f3920e13c52c57956a062b3e287b7553ccd85517a201ef2ac59c67"
+  },
+  "inspectionSourceScopes": {
+    "name": "smpp-inspection-source-scope-01",
+    "status": "PASS",
+    "exitCode": 0,
+    "sourceBefore": "f4e53b14632fcae7f99083ebfbe386534b8d5c821e03fec9499c96b977778be4",
+    "sourceAfter": "f4e53b14632fcae7f99083ebfbe386534b8d5c821e03fec9499c96b977778be4",
+    "logSha256": "85b5ec5cda03a75e59e8a8eba583471705d8e155759f3d41b27d38baa3099586"
+  },
+  "formalJoint": {
+    "name": "sdar-inspection-joint-62",
+    "status": "PASS",
+    "exitCode": 0,
+    "sourceBefore": "b44acbad4432fcd353500a0ba529c719e4a78647c441017d6a6b376a67001b3b",
+    "sourceAfter": "b44acbad4432fcd353500a0ba529c719e4a78647c441017d6a6b376a67001b3b",
+    "logSha256": "9ffa9b446ddeeac7787d57118194233243309cae957397cd8ba09680b98265ad"
+  },
+  "physicalExecution": "NOT_RUN",
+  "requirements": [
+    {
+      "id": "INSPECT-01",
+      "status": "PASS",
+      "coverage": [
+        "WGS84 longitude/latitude",
+        "invalid geometry",
+        "unresolved exclusions",
+        "parent deadline clip",
+        "strict 13/14 catalogs"
+      ],
+      "tests": [
+        "tests/unit/ugv-inspection.test.ts",
+        "packages/domain/test/area-inspection.unit.test.ts",
+        "packages/runtime-control-application/test/inspection-patrol-policy.unit.test.ts"
+      ]
+    },
+    {
+      "id": "INSPECT-02",
+      "status": "PASS",
+      "coverage": [
+        "once scan",
+        "pause/resume/cancel",
+        "RequiredInput",
+        "timeout acknowledgement",
+        "restart without duplicate dispatch"
+      ],
+      "tests": [
+        "tests/integration/ugv-inspection-postgres-mqtt.test.ts",
+        "tests/integration/ugv-inspection-public-task.test.ts"
+      ]
+    },
+    {
+      "id": "INSPECT-03",
+      "status": "PASS",
+      "coverage": [
+        "findings and qualified empty",
+        "missing source",
+        "conflicting/duplicate versions",
+        "retained/expired/future/pre-dispatch packets",
+        "cross-resource and cross-task scopes",
+        "256 inline/full objects readable"
+      ],
+      "tests": [
+        "tests/unit/ugv-inspection.test.ts",
+        "reports/inspection-area-v1/inspection-correlation.test.ts",
+        "tests/integration/ugv-inspection-postgres-mqtt.test.ts"
+      ]
+    },
+    {
+      "id": "INSPECT-04",
+      "status": "PASS",
+      "coverage": [
+        "partial/unavailable reports",
+        "byte truncation",
+        "changed effective area",
+        "failure/cancellation/timeout retention",
+        "real trajectory required"
+      ],
+      "tests": [
+        "tests/integration/result-contract-hardening.test.ts",
+        "packages/domain/test/area-patrol.unit.test.ts",
+        "apps/server/test/patrol-retained-evidence.unit.test.ts"
+      ]
+    },
+    {
+      "id": "INSPECT-05",
+      "status": "PASS",
+      "coverage": [
+        "native governed publication and idempotence",
+        "two independent child Tasks",
+        "one remote admission per child",
+        "full/degraded/failed/cancelled aggregation",
+        "fixed readiness TTL refresh/no replay"
+      ],
+      "evidence": "JOINT.json"
+    },
+    {
+      "id": "INSPECT-06",
+      "status": "IN_PROGRESS",
+      "coverage": [
+        "all full gates",
+        "joint deployment archives",
+        "idle-gated local services update",
+        "read-only catalog/governance/composability acceptance",
+        "preserved data/configuration/signing keys/PMS"
+      ]
+    }
+  ],
+  "frozenAssets": {
+    "smpp": 224,
+    "sdar": 165,
+    "changed": 0
+  }
+}

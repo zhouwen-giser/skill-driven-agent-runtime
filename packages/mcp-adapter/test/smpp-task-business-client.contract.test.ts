@@ -406,6 +406,48 @@ describe('SMPP v1.3 TaskBusiness adapter over the frozen transport', () => {
       consumer(client).getArtifact({ taskId, artifactId: 'route-1', revision: 3 }),
     ).rejects.toMatchObject({ code: 'SMPP_ARTIFACT_REVISION_MISMATCH' });
   });
+  it('reads a validated inline Artifact without inventing a byte stream or accepting a different identity', async () => {
+    const artifact = {
+      ...catalog.artifacts[0],
+      artifactId: 'inline-region',
+      revision: 2,
+      identity,
+    };
+    const { client, calls } = fake((call) =>
+      call.method === 'server/discover'
+        ? discovery()
+        : {
+            resultType: 'complete',
+            profileVersion: '1.0-rc2',
+            artifact,
+          },
+    );
+    const bytes = await consumer(client).readArtifactContent({
+      taskId,
+      artifactId: artifact.artifactId,
+      revision: 2,
+    });
+    if (!('content' in artifact)) throw Error('TEST_INLINE_CONTENT_REQUIRED');
+    expect(JSON.parse(bytes.toString('utf8'))).toEqual(artifact.content);
+    expect(calls.at(-1)?.params['includeContent']).toBe(true);
+    expect(calls.at(-1)?.params).not.toHaveProperty('representationName');
+    const foreign = fake((call) =>
+      call.method === 'server/discover'
+        ? discovery()
+        : {
+            resultType: 'complete',
+            profileVersion: '1.0-rc2',
+            artifact: { ...artifact, identity: { ...identity, resourceId: 'vehicle:other' } },
+          },
+    );
+    await expect(
+      consumer(foreign.client).readArtifactContent({
+        taskId,
+        artifactId: artifact.artifactId,
+        revision: 2,
+      }),
+    ).rejects.toMatchObject({ code: 'SMPP_BUSINESS_IDENTITY_MISMATCH' });
+  });
 
   it('refuses ungoverned Input writes, then accepts an exact current target decision', async () => {
     const { client, calls } = fake((call) => {

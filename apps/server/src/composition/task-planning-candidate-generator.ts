@@ -184,7 +184,12 @@ export class TaskPlanningCandidateGenerator {
           }),
       taskId: input.task.taskId,
       templateQuery: input.goalDescription,
-      ...(selectedTaskOperation === undefined ? {} : { deterministicOnly: true as const }),
+      ...(selectedTaskOperation !== undefined ||
+      (preparedUsage?.deterministicDefinition !== undefined &&
+        ((skill?.skillId === 'embodied.inspect_area' && skill.version >= 1) ||
+          (skill?.skillId === 'embodied.area_patrol' && skill.version >= 2)))
+        ? { deterministicOnly: true as const }
+        : {}),
       ...(preparedUsage === undefined
         ? {}
         : {

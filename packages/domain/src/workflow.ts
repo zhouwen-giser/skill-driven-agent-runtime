@@ -257,7 +257,16 @@ export interface WorkflowInstance {
     'running' | 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled' | 'invalidated';
   readonly input: unknown;
   readonly result?: unknown;
-  readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+  readonly errors: Readonly<
+    Record<
+      string,
+      Readonly<{
+        code: string;
+        message: string;
+        details?: Readonly<Record<string, unknown>> | undefined;
+      }>
+    >
+  >;
   readonly startedAt: string;
   readonly completedAt?: string;
   readonly terminationReason?: WorkflowBudgetTerminationReason;

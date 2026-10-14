@@ -1,3 +1,4 @@
+export * from './area-inspection.js';
 export * from './conversation-context.js';
 export * from './cognitive/index.js';
 export {

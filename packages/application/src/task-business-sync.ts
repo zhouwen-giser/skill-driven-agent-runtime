@@ -282,6 +282,14 @@ export class TaskBusinessSyncService {
         revision: ref.revision,
       });
       const artifact = readArtifact(response, view.context.identity, ref.id, ref.revision);
+      // Unavailable content remains an unresolved scoped reference in the projection.
+      // Other available artifacts can still be restored and verified independently.
+      if (
+        ['empty', 'not_produced_yet', 'unavailable', 'not_supported'].includes(
+          String(artifact.metadata['availability']),
+        )
+      )
+        continue;
       const bytes = await this.#reader.readRemoteTaskBusinessArtifactContent({
         ...read,
         expectedExecutionId: view.context.identity.executionId,

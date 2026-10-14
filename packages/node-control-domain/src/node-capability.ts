@@ -160,7 +160,12 @@ export function assertNodeCapabilityPublishable(
     invalid('At least one active primary or alternative implementation is required.');
 }
 
-export function nodeCapabilityEtag(capability: NodeCapabilityDefinitionVersion): string {
+export function nodeCapabilityEtag(
+  capability: Pick<
+    NodeCapabilityDefinitionVersion,
+    'capabilityId' | 'version' | 'status' | 'definitionHash'
+  >,
+): string {
   return `"node-capability:${capability.capabilityId}:${String(capability.version)}:${capability.status}:${capability.definitionHash}"`;
 }
 

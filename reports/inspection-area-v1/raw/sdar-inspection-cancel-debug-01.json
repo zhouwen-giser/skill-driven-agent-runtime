@@ -1,0 +1,24 @@
+{
+  "name": "sdar-inspection-cancel-debug-01",
+  "command": "node",
+  "args": [
+    "--import",
+    "tsx",
+    "scripts/inspection/joint.mts"
+  ],
+  "startedAt": "2026-10-14T00:06:35.231Z",
+  "completedAt": "2026-10-14T00:07:21.032Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "e3821459d30819bcf85872f17be01b188baf938c4f46d9d03962a90d29a9e9cd",
+  "sourceAfter": "e3821459d30819bcf85872f17be01b188baf938c4f46d9d03962a90d29a9e9cd",
+  "sourceUnchanged": true,
+  "relatedSource": {
+    "root": "/home/sz/.codex/worktrees/trajectory-history-authority/sdar-mcp-provider-platform",
+    "before": "e4777fbd26e10d23b9f4ec1a9e83605a5436b8a05687323d2de7fa22583e6543",
+    "after": "e4777fbd26e10d23b9f4ec1a9e83605a5436b8a05687323d2de7fa22583e6543"
+  },
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-cancel-debug-01.log",
+  "logSha256": "6349acc5e2e81ff23114a7725e05f96b5b9d6af106df284f110dd0accf9a1099"
+}

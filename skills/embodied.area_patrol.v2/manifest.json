@@ -1,0 +1,410 @@
+{
+  "apiVersion": "sdar.io/v1alpha1",
+  "kind": "SkillPackage",
+  "skill": {
+    "skillId": "embodied.area_patrol",
+    "version": 2,
+    "name": "Area Patrol",
+    "summary": "Inspect one legal WGS84 patrol subregion with governed movement and honest evidence aggregation.",
+    "description": "Treat the admitted legal area as subregion-1, compose exact governed movement and inspection child Tasks, and require retained actual trajectory and scoped coverage for complete success.",
+    "capabilities": ["embodied.area_patrol", "embodied.coverage", "embodied.anomaly_reporting"],
+    "workflowGuidance": "Compile one bounded subregion using the admitted exact child versions; pass resourceId, area and timeWindow to inspection; preserve degraded, failed and cancelled results.",
+    "outputInstruction": "Return source-qualified coverage, real trajectory, discoveries, child Task references and every missing subregion/evidence. A final position alone does not prove a trajectory.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resourceId", "target", "area", "timeWindow"],
+      "properties": {
+        "resourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "frame"],
+          "properties": {
+            "x": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "y": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "frame": {
+              "type": "string",
+              "const": "WGS84"
+            }
+          }
+        },
+        "area": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["boundary"],
+          "properties": {
+            "boundary": {
+              "type": "array",
+              "minItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["x", "y"],
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  }
+                }
+              },
+              "maxItems": 257
+            },
+            "excludedZones": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 0
+            },
+            "frame": {
+              "type": "string",
+              "enum": ["WGS84", "EPSG:4326"]
+            }
+          }
+        },
+        "timeWindow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["earliestStart", "deadline"],
+          "properties": {
+            "earliestStart": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "deadline": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "outputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "coveredSubregions",
+        "missingSubregions",
+        "trajectory",
+        "anomalies",
+        "resourceId",
+        "missingEffects",
+        "missingEvidence",
+        "childTasks",
+        "inspectionReports",
+        "trajectorySourceRefs"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["completed", "degraded", "failed", "cancelled"]
+        },
+        "coveredSubregions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missingSubregions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trajectory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["resourceId", "position"],
+            "properties": {
+              "resourceId": {
+                "type": "string"
+              },
+              "position": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["x", "y"],
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "frame": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "maxItems": 4096
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "maxItems": 256
+        },
+        "missingEffects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missingEvidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "childTasks": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["taskId", "skillId", "skillVersion", "status", "missingEvidence"],
+            "properties": {
+              "taskId": {
+                "type": "string"
+              },
+              "skillId": {
+                "type": "string"
+              },
+              "skillVersion": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "status": {
+                "enum": ["completed", "failed", "canceled", "unavailable"]
+              },
+              "missingEvidence": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "inspectionReports": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subregionId", "taskId", "report", "missingEvidence"],
+            "properties": {
+              "subregionId": {
+                "const": "subregion-1"
+              },
+              "taskId": {
+                "type": "string"
+              },
+              "report": {
+                "anyOf": [
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "const": "1.0"
+                      },
+                      "completion": {
+                        "type": "string",
+                        "enum": ["complete", "partial", "unavailable"]
+                      },
+                      "targetReportObservedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "targetReportComplete": {
+                        "type": "boolean"
+                      },
+                      "coverageState": {
+                        "type": "string",
+                        "enum": ["full", "partial", "none", "unknown"]
+                      },
+                      "findingCount": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      },
+                      "artifactRefs": {
+                        "maxItems": 256,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "artifact"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["kind", "id", "revision"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "completion",
+                      "targetReportObservedAt",
+                      "targetReportComplete",
+                      "coverageState",
+                      "findingCount",
+                      "truncated",
+                      "artifactRefs"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "missingEvidence": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "trajectorySourceRefs": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "toolPolicy": {
+      "required": [],
+      "optional": [],
+      "forbidden": []
+    },
+    "runtimePolicy": {
+      "autoConfirmPlan": false,
+      "maxReplans": 0,
+      "maxDurationSeconds": 3600,
+      "maxMcpCalls": 64,
+      "cancelStrategy": "try_interrupt",
+      "compensationGuidance": "Stop new subregions, preserve partial evidence, and report Provider uncertainty.",
+      "maxLlmCalls": 0
+    },
+    "outcomeSpecification": {
+      "schemaVersion": "1.0",
+      "skillId": "embodied.area_patrol",
+      "skillVersion": 2,
+      "effects": ["effect.patrol_reported"],
+      "evidence": ["patrol.report"],
+      "artifacts": [],
+      "taskGoalPolicy": {},
+      "confidencePolicy": {
+        "rejectSuccessWithoutRequiredEvidence": true,
+        "requireSchemaValidation": true,
+        "incompleteOutcome": "degraded"
+      },
+      "sideEffectPolicy": {
+        "sideEffecting": true,
+        "confirmation": "required_before_execution",
+        "autoConfirmPlan": false,
+        "exactChildConfirmationRequired": true,
+        "redispatchAfterUncertain": false
+      },
+      "specificationHash": "sha256:8aa4f7929bc6bba761e4c33c550dc2e4da52cb287c89ebec77e6b9aeb182f8c5"
+    },
+    "status": "enabled",
+    "sourceKind": "admin",
+    "validationPassed": true,
+    "createdAt": "2026-07-17T00:00:00.000Z",
+    "previousVersion": 1
+  },
+  "skillMarkdownSha256": "eb34bc29b1b8f10cf621eeaad82b6c32a2026f92f89c7a3a1259a23a589f1535",
+  "files": {
+    "normative": {
+      "path": "normative.json",
+      "sha256": "fa8ee870aa20a4847787211830603f6840c641a446ce1ce3c00789c1947f6c8d"
+    },
+    "adaptive": {
+      "path": "adaptive.json",
+      "sha256": "7fb5a7aace2a1caa3fbee0dc44865ed991b6336816ca21c0d65ed53111c2a618"
+    },
+    "modes": {
+      "path": "modes.json",
+      "sha256": "e16dab6e5d495c07f7f4e94dd8d5faafd07e549a0b03dd1138871159c4e67a81"
+    },
+    "composition": {
+      "path": "composition.json",
+      "sha256": "6678bcbd6bd0d45376fd36c3394b6c9c3ddf9aa1ba9fe05d4a8d5fd7a735447c"
+    },
+    "evidence": {
+      "path": "evidence.json",
+      "sha256": "dd86e84be22c250bc7cccb98163cac356740fb2375fd68a2e9f8b15ad7759c88"
+    }
+  }
+}

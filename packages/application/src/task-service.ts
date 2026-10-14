@@ -176,7 +176,10 @@ export interface TaskServiceDependencies {
     ): Promise<void>;
   }>;
   readonly planActions?: Readonly<{
-    confirm(task: AgentTask): Promise<TaskPlanConfirmationTarget>;
+    confirm(
+      task: AgentTask,
+      authority?: TaskPlanConfirmationAuthority,
+    ): Promise<TaskPlanConfirmationTarget>;
     reject(task: AgentTask): Promise<void>;
     executeConfirmed(task: AgentTask, target: TaskPlanConfirmationTarget): Promise<void>;
     reviseNaturalLanguage(
@@ -431,13 +434,24 @@ export class TaskService {
       };
     }
 
-    const attempt = createTaskExecutionAttempt({
+    const queuedAttempt = createTaskExecutionAttempt({
       attemptId: this.#dependencies.ids.nextId('attempt'),
       taskId: task.taskId,
       contextId: task.contextId,
       reason: 'initial',
       createdAt: timestamp,
     });
+    // A deterministic admission must never expose a queued preparation attempt
+    // to the recovery dispatcher between the acceptance commit and this caller.
+    const attempt =
+      !enqueue && initialAdmission !== undefined
+        ? {
+            ...queuedAttempt,
+            status: 'completed' as const,
+            startedAt: timestamp,
+            completedAt: timestamp,
+          }
+        : queuedAttempt;
     const createdEvent = {
       eventId: this.#dependencies.ids.nextId('event'),
       taskId: task.taskId,
@@ -539,7 +553,7 @@ export class TaskService {
         if (initialAdmission === undefined) throw error;
         queueDispatchStatus = 'deferred_recovery';
       }
-    } else {
+    } else if (attempt.status !== 'completed') {
       await this.#dependencies.taskInputs.updateAttempt(attempt.attemptId, 'running', timestamp);
       await this.#dependencies.taskInputs.updateAttempt(attempt.attemptId, 'completed', timestamp);
     }
@@ -1036,7 +1050,10 @@ export class TaskService {
           'TASK_PLAN_ACTIONS_UNAVAILABLE',
           'Task plan confirmation is unavailable.',
         );
-      confirmationTarget = await this.#dependencies.planActions.confirm(task);
+      confirmationTarget =
+        command.confirmationAuthority === undefined
+          ? await this.#dependencies.planActions.confirm(task)
+          : await this.#dependencies.planActions.confirm(task, command.confirmationAuthority);
       if (
         confirmationTarget === 'task_plan' &&
         this.#dependencies.beforePlanExecution !== undefined
@@ -1130,6 +1147,44 @@ export class TaskService {
     // Otherwise an immediate confirmation can advance the attempt while this bind is pending.
     await this.#dependencies.tasks.save(task);
     return task;
+  }
+
+  async awaitPreparedCompositionPlan(taskId: string): Promise<AgentTask> {
+    const task = await this.get(taskId);
+    if (task.phase !== 'planning' || task.planId === undefined)
+      throw new Error('COMPOSED_TASK_PLAN_NOT_PREPARED');
+    return this.#saveTransition(
+      task,
+      'awaiting_plan_confirmation',
+      'The exact composed child plan requires physical-operation confirmation.',
+    );
+  }
+
+  /** Confirms authority for the child graph; its existing controller owns dispatch and terminal commits. */
+  async authorizePreparedCompositionTask(
+    taskId: string,
+    authority: TaskPlanConfirmationAuthority,
+  ): Promise<AgentTask> {
+    const task = await this.get(taskId);
+    if (task.phase === 'executing') return task;
+    if (
+      task.phase !== 'awaiting_plan_confirmation' ||
+      task.planId === undefined ||
+      this.#dependencies.beforePlanExecution === undefined
+    )
+      throw new Error('COMPOSED_TASK_CONFIRMATION_AUTHORITY_INVALID');
+    const deferred = await this.#dependencies.beforePlanExecution({
+      task,
+      confirmationTarget: 'task_plan',
+      confirmationAuthority: authority,
+    });
+    if (deferred?.deferExecution !== undefined)
+      throw new Error('COMPOSED_TASK_AUTHORITY_KIND_UNSUPPORTED');
+    return this.#saveTransition(
+      task,
+      'executing',
+      'The exact composed child plan and physical operation were confirmed.',
+    );
   }
 
   async requestInput(

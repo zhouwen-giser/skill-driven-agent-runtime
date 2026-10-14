@@ -1535,7 +1535,12 @@ export async function composeKnowledge(dependencies: composeKnowledgeDependencie
           resolve(input: Parameters<typeof skillInputResolution.resolve>[0]) {
             return isHistoricalUgvPointSkill(input.skill.skillId, input.skill.version)
               ? ugvExactSkillInputResolver.resolve(input)
-              : skillInputResolution.resolve(input);
+              : ['embodied.inspect_area', 'embodied.area_patrol'].includes(input.skill.skillId)
+                ? new CapabilityBoundSkillInputResolver(
+                    taskCapabilities,
+                    skillInputResolution,
+                  ).resolve(input)
+                : skillInputResolution.resolve(input);
           },
         };
   return {

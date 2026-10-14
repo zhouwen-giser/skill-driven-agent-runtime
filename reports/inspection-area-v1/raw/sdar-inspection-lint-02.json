@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-lint-02",
+  "command": "pnpm",
+  "args": [
+    "lint"
+  ],
+  "startedAt": "2026-10-13T21:01:00.938Z",
+  "completedAt": "2026-10-13T21:03:47.956Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "5a2b1174578199496c3d72b043815a2b9780db743214a0ccfcd21ca27117b2a2",
+  "sourceAfter": "5a2b1174578199496c3d72b043815a2b9780db743214a0ccfcd21ca27117b2a2",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-lint-02.log",
+  "logSha256": "07e527ed84af72cafd465591c6529d41e85b9f2aabc0ef080e804174b1cb4f5c"
+}

@@ -1,0 +1,55 @@
+{
+  "status": "CAPTURED_BEFORE_UPDATE",
+  "capturedAt": "2026-10-14T00:46:11.369897+00:00",
+  "privateBackupDirectory": "/tmp/smpp-inspection-v1-20261014/deployment",
+  "files": [
+    {
+      "name": "smpp-compose",
+      "path": "/home/sz/.smpp-debug/refresh-cfda8c7f-20261013-2i1s3dqr/after.compose.json",
+      "sha256": "3e72514fac92207dad24491e2554058f19daedef2721d2749372d706021b703d",
+      "size": 11313
+    },
+    {
+      "name": "sdar-compose",
+      "path": "/mnt/data/sdar-local-integrated-20261013/config/.state/compose.json",
+      "sha256": "85ec6e0f71a38d74c0e86420d5a9558cb61c438be46147a79e0ee12fd6f1c89e",
+      "size": 4841
+    },
+    {
+      "name": "sdar-environment",
+      "path": "/mnt/data/sdar-local-integrated-20261013/config/.state/environment.json",
+      "sha256": "3592643bff9ae690b74b9a1d695b403124e850cf9292576de0b72266c9578d3b",
+      "size": 5309
+    },
+    {
+      "name": "smpp-config/gowm-binding.json",
+      "sha256": "080c1858b75faedd670cf58b7b8572b75b00286f4db669aafb61a5c67becc1f5",
+      "size": 982,
+      "mode": "0o644"
+    },
+    {
+      "name": "smpp-config/gowm.url",
+      "sha256": "f5ba4c479a16a9871201c4c54d9067c7135370d90c1f544d6ad34be640b5f525",
+      "size": 110,
+      "mode": "0o600"
+    },
+    {
+      "name": "smpp-config/pms-registration-token",
+      "sha256": "03b4a07d1a286ef1f8294463cea9fa83820790c0a75f1f68397658719b43b2b0",
+      "size": 64,
+      "mode": "0o600"
+    },
+    {
+      "name": "smpp-config/trajectory-history-public.pem",
+      "sha256": "405c89e5f7e8bd0ba81fa7a49f14072da4e9b7f23dfb9b1fe745779b8aacb47d",
+      "size": 113,
+      "mode": "0o644"
+    },
+    {
+      "name": "smpp-config/trajectory-history-signing.pem",
+      "sha256": "c31255903be887ab18978fc7f6cba66f41c9a3eb54df68aa868f435e74f448be",
+      "size": 119,
+      "mode": "0o600"
+    }
+  ]
+}

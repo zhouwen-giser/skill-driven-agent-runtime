@@ -287,7 +287,10 @@ function executionSemanticsMatchMode(
   execution: SelectedTaskOperation['execution'],
   replay: McpToolExecutionSemantics['replay'],
 ): boolean {
-  return execution.mode === 'live' ? replay === 'forbidden' : replay === 'simulation_only';
+  // Replay policy restricts replay, not a fresh explicitly qualified simulation.
+  return execution.mode === 'live'
+    ? replay === 'forbidden'
+    : replay === 'simulation_only' || replay === 'forbidden';
 }
 
 function isExactNavigateArguments(

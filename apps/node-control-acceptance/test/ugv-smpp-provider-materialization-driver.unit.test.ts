@@ -1,3 +1,4 @@
+import inspectionContract from '../../../packages/domain/src/area-inspection-tool-contract.json' with { type: 'json' };
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -163,6 +164,42 @@ describe('UGV SMPP Provider materialization wrapper', () => {
     expect(extra.toolCallCount).toBe(0);
   });
 
+  it.each(['ugv-inspect-v1-13', 'ugv-inspect-v1-14'] as const)(
+    'materializes the exact reviewed inspection profile %s',
+    async (catalogProfile) => {
+      const names = [
+        ...TOOL_NAMES.filter(
+          (name) => catalogProfile === 'ugv-inspect-v1-14' || name !== 'vehicle_laser_range',
+        ),
+        'vehicle_get_trajectory_history',
+        'vehicle_get_trajectory_evidence',
+        'vehicle_inspect_area',
+      ];
+      const api = new FakeApis({ toolNames: names });
+      const report = await materializeUgvSmppProvider(
+        { ...configuration(), catalogProfile },
+        { fetch: api.fetch, now: () => NOW },
+      );
+      expect(report.catalog.expectedToolCount).toBe(
+        catalogProfile === 'ugv-inspect-v1-13' ? 13 : 14,
+      );
+      expect(api.toolCallCount).toBe(0);
+      for (const invalid of [
+        names.filter((name) => name !== 'vehicle_inspect_area'),
+        [...names, 'vehicle_unreviewed_action'],
+      ]) {
+        const drift = new FakeApis({ toolNames: invalid });
+        await expect(
+          materializeUgvSmppProvider(
+            { ...configuration(), catalogProfile },
+            { fetch: drift.fetch, now: () => NOW },
+          ),
+        ).rejects.toMatchObject({ code: 'CATALOG_TOOL_SET_MISMATCH' });
+        expect(drift.toolCallCount).toBe(0);
+      }
+    },
+  );
+
   it('fails closed when the live Catalog omits fire or has an unreviewed extra Tool', async () => {
     for (const names of [
       TOOL_NAMES.filter((name) => name !== 'vehicle_fire_weapon'),
@@ -253,11 +290,12 @@ describe('UGV SMPP Provider materialization wrapper', () => {
     );
   });
 
-  it('freezes a complete explicit reviewed policy for all 13 Tools', () => {
+  it('freezes a complete explicit reviewed policy for all 14 Tools', () => {
     const names = [
       ...TOOL_NAMES,
       'vehicle_get_trajectory_history',
       'vehicle_get_trajectory_evidence',
+      'vehicle_inspect_area',
     ] as const;
     expect(Object.keys(UGV_REVIEWED_TOOL_POLICY).sort()).toEqual([...names].sort());
     for (const name of names) {
@@ -462,17 +500,23 @@ function runtimeTool(toolName: string, governed: boolean) {
           replay: 'unknown',
           source: 'default_unknown',
         };
+  const inspection =
+    toolName === 'vehicle_inspect_area'
+      ? (JSON.parse(
+          JSON.stringify(inspectionContract).replaceAll('__RESOURCE_ID__', 'vehicle:ugv1'),
+        ) as typeof inspectionContract)
+      : undefined;
   return {
     serverId: 'ugv-smpp-runtime',
     toolName,
     description: `Reviewed ${toolName} contract.`,
-    inputSchema: {
+    inputSchema: inspection?.input ?? {
       type: 'object',
       properties: { resourceId: { const: 'vehicle:ugv1' } },
       required: ['resourceId'],
       additionalProperties: false,
     },
-    outputSchema: { type: 'object' },
+    outputSchema: inspection?.result ?? { type: 'object' },
     protocolMode: 'frozen_v1',
     executionSemantics,
     taskExecutionProfile: {
@@ -481,6 +525,9 @@ function runtimeTool(toolName: string, governed: boolean) {
       availability: readOnly ? 'not_supported' : 'dynamic',
       supportsScheduling: !readOnly,
       supportsMaxElapsed: !readOnly,
+      ...(inspection === undefined
+        ? {}
+        : { supportsCancellation: true, supportsPauseResume: true }),
       supportsObservations: !readOnly,
       supportsInputRequired: toolName === 'vehicle_fire_weapon',
       idempotency: 'server_managed',

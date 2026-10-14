@@ -26,7 +26,7 @@ describe('UGV Agent Profile composition', () => {
       entryPolicy: 'all_requests',
       skillSelectionMode: 'exact_compatible_only',
     });
-    expect(taskUnderstanding.taskTypes).toHaveLength(13);
+    expect(taskUnderstanding.taskTypes).toHaveLength(15);
     expect(taskUnderstanding.taskTypes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

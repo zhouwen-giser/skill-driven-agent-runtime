@@ -1,0 +1,667 @@
+{
+  "createdAt": "2026-10-13T16:23:52.767534+00:00",
+  "sourceCommit": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "branch": "codex/inspect-area-v1",
+  "frozenAssets": [
+    {
+      "file": "contracts/gowm-shared-storage/current/078_device_shared_business_storage.sql",
+      "sha256": "efcc7a866c9777394dc5cd9f256d8a786385881c25e513a3310efb71454f88bc"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/LICENSE",
+      "sha256": "1b712f796950a9c2fd5e90441c36315fefe28ee18da64099b89a10653cdfa88a"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/expected-consumption.json",
+      "sha256": "2dbb55df2d4fb8d15782427d2f821593b93030ff5a207571e8a40fbe66f2e758"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/install-contract.json",
+      "sha256": "0899eebb9d0f5d619f0ae9a7617a3f21b0364aacb24b6242f64f62cc9267bc83"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/native-tables.json",
+      "sha256": "722ad3b8080167ecc72d5381179cc720106feed79cc05d9b8afb76238f037590"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/read-model.sql",
+      "sha256": "57ecb4fd1883e5adac488a0a5938d0ffac810f19d91e26ae193c08706cd76a7f"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/sdar-additional.sql",
+      "sha256": "1b294e844f03bda8ae1c37e16e1994ff66760a9744e60dc14111abd9e4685920"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/sdar-derived-ownership.sql",
+      "sha256": "bb590ee330a0af44b87fe93d8150a000039598837b77aa2e524ceca00e2036cd"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/sdar-hardening.sql",
+      "sha256": "1ad3150232a29f5cf04f5623f011afa64454dcd849571d6dbdb5b3de8e4212e5"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/sdar-terminal-link-ownership.sql",
+      "sha256": "7ff257a3b878cb9f431994abd5f8b597959279cb5f0ac4bb72b61311903322f6"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/source.json",
+      "sha256": "954c1a9fa69f0bed282a3f454a8cc89427af536a26f13081ce542672f8534d8d"
+    },
+    {
+      "file": "contracts/gowm-shared-storage/current/ugv_sdar.sql",
+      "sha256": "cd0468c421de6cf6b0a069d788f7b4937f74bac0d0a3729e85d1213f425294c5"
+    },
+    {
+      "file": "contracts/smpp-task-business/v1.3/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "file": "contracts/smpp-task-business/v1.3/OSS_INTAKE.md",
+      "sha256": "709d85ea1f64559d5dd1b85a502f5a7d6fde0e15ba8f8397fb4e52e573c0af48"
+    },
+    {
+      "file": "contracts/smpp-task-business/v1.3/SOURCE.lock.json",
+      "sha256": "39ef4683ea443bf844eb0a4934a94c51a4b9be7983877cfcde3b121a7d7e4c2e"
+    },
+    {
+      "file": "contracts/smpp-task-business/v1.3/artifact.schema.json",
+      "sha256": "30ee236f236fd1758c236906e92db2b47830c993a639b430d9cff2b27b8e8cc9"
+    },
+    {
+      "file": "contracts/smpp-task-business/v1.3/core.schema.json",
+      "sha256": "c2df666d828f9cbe7b0dd83467eba7f9a85dd13c5ee0854573596dc9d7cb4a90"
+    },
+    {
+      "file": "contracts/smpp-task-business/v1.3/interaction.schema.json",
+      "sha256": "9d71f04e20b51b08930bec0f15e408d2dfafb816e1e64f8144c76e3f0dbdb4d1"
+    },
+    {
+      "file": "contracts/smpp-task-business/v1.3/positive-catalog.json",
+      "sha256": "715648f6decd0ba622ec0ba3cc7aad33424e6b1cbe8f0cdc4ab8c11d542b5562"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/SOURCE.json",
+      "sha256": "32949b3e88ea567d79a6fc433746078b7560ccf3c319d91f997b2cfbb5795a0d"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/docs/protocol/SDAR_BUSINESS_EVENTS_PROFILE_V1_0.md",
+      "sha256": "86bbbd931510d6fb30334723f5da98ce2da5deeb0c45018d8370cd9d063048f9"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/invalid/invalid-decimal-sequence.json",
+      "sha256": "ade4ede1589142750113c52487e3364eac93bb94047537ca31349760bee2bb8a"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/invalid/invalid-headers.json",
+      "sha256": "0b1782dd39c6e40bbaa2bb0f0598b7a3eec1e0ec6bb63660215182401c6b272f"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/invalid/invalid-identifier.json",
+      "sha256": "548248bec6ae7b0cc11a6db2a71c5084d46e944faf0a218374eacba11862c68a"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/invalid/invalid-scope.json",
+      "sha256": "a4a2e69add2a999d1ee5c6787be898593ed1fc1ce438317e4c5936fc6b7b06b3"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/invalid/poison-boundaries.json",
+      "sha256": "924af1c3c4adad410ae4fa6755d9c994435ff7f127ca8846d84968a51ad0759d"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/continuity-notification.json",
+      "sha256": "a81b4c30ca8b8fc1883b0cfb7883acc823b52318a586a099ed0cd30ee0bd6ba0"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/current-cursor.json",
+      "sha256": "c2b55dcb1d1871b01085abe26c1e28ac139971b389b4d0f59422ca7adb895099"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/empty-stream.json",
+      "sha256": "16cad9c8c0185cd53ad7d6a51a21bdbaa04141865e32ef2fe0eb6c7b0bd34c68"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/mixed-continuity.json",
+      "sha256": "961e0a1953a3d8164dace44969657172afade6d539dbc2d881ac19f360a8291f"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/relation-truncated.json",
+      "sha256": "da58e9e46695107c686faacdb5b540d427d901ecfa0a42463cb9e4dc06430674"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/resource-scope.json",
+      "sha256": "a803abfabc2e76360b3c3f3fa93e78eb8f7bf58f8ccaf02cb06f485a8ce1bb55"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/rotated-drain.json",
+      "sha256": "41e6a76d0dc099337cf85443fe03ef988b389b31105b419f578398d219a350b0"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/fixtures/valid/task-scope.json",
+      "sha256": "eef8c26500de23e8b5728e44e66c7d83655051cd64b3a6f0fac964d901b73749"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/golden/event-id.json",
+      "sha256": "7d8cb292a0c1aa552051146e9d4c2a3ec3482fab1ced74799078d4a1bc357542"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/golden/source-canonical-hash.json",
+      "sha256": "005431fb1cda9f96aed7d5198b90460d96f8d9aaf63421c7a6c3c727ca133962"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/golden/stored-event-hash.json",
+      "sha256": "1df268d09282d3c689308c385addca1fa2acac0e6a6d91b621bd7144c2197c40"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/golden/timestamp-normalization.json",
+      "sha256": "67c3c1c265f67933b22f1a8cd9c4e27419240ffa6f7e0f9fc62e42ee655cb21d"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/proto/io/sdar/mcp/tasks/adapter/v1/adapter.proto",
+      "sha256": "d36d49e8f6d85c5cb35e7c92fb6e66d8275c8d7cb4b97343c7f212d5c8ffc603"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/schemas/sdar-business-events-continuity-v1.schema.json",
+      "sha256": "f92d0ad364a2f4ec068f99a0501a74a2d38748244ba6a04a85893527263807f0"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/schemas/sdar-business-events-relation-v1.schema.json",
+      "sha256": "7e3bbe9d9ac96d10b4ab399cf5c90621a070959c3bdfb092327400c96a216dc4"
+    },
+    {
+      "file": "protocol/business-events/provider-v1.0/schemas/sdar-business-events-v1.schema.json",
+      "sha256": "dceb9ee64e414890813b784880a2d90f710c93faa0c8aaa8b4f2b7d6ba9b7e6f"
+    },
+    {
+      "file": "protocol/evidence/v1/README.md",
+      "sha256": "8b456e2fa9fc83cdc126453807f7156c496929f22fb1534545314ea82c5a349e"
+    },
+    {
+      "file": "protocol/evidence/v1/evidence-contract.json",
+      "sha256": "fa9cdb146682a2f525af0fc11a5d561a7a1bf0abc35d6a9d9927c75182b7218e"
+    },
+    {
+      "file": "protocol/external/smpp-sdar-registry-projection/v1/CONTRACT.md",
+      "sha256": "d31cfc3e635524da82219a1f5b19c152e16fcf75aed86ad0c72c3fe595d1e633"
+    },
+    {
+      "file": "protocol/external/smpp-sdar-registry-projection/v1/MANIFEST.json",
+      "sha256": "863dfd9046aa12a17dfa4751e63f2660c15b8472f9a162b94dddc04541138cd8"
+    },
+    {
+      "file": "protocol/external/smpp-sdar-registry-projection/v1/SOURCE_LOCK.json",
+      "sha256": "1d1d8b02848a613421c0b9dad681121cf090fb7b6010204e6afb12e9961f9be9"
+    },
+    {
+      "file": "protocol/external/smpp-sdar-registry-projection/v1/checksum-vectors.json",
+      "sha256": "b7d86b6cc609850a9c8a7450bd42c0c5fa0c892d424bcf4680b550aff90f74c1"
+    },
+    {
+      "file": "protocol/external/smpp-sdar-registry-projection/v1/error-catalog.json",
+      "sha256": "93aeef3dd6f66ca98730748511110311ca7fcbe792d4c1cc4fd4bdc671a5fce3"
+    },
+    {
+      "file": "protocol/external/smpp-sdar-registry-projection/v1/projection.schema.json",
+      "sha256": "425cd331f7ee7e4294919ea307f05edb222b99fe5bbc9d320ae71959ed6ab34e"
+    },
+    {
+      "file": "protocol/fixtures/invalid/boolean-evidence.json",
+      "sha256": "8618eaf50497c3fe97d3aecdb2ae922d4f1419f78c33877fa2b6ba541431ef67"
+    },
+    {
+      "file": "protocol/fixtures/invalid/evidence-requirement-id.json",
+      "sha256": "4b4d1b52d6b0c46c4bbecb37989050f7a226d0c83eae1e165c4a67edc054763d"
+    },
+    {
+      "file": "protocol/fixtures/invalid/evidence-uri-scheme.json",
+      "sha256": "811e5b2eff859f227260cd089c418c429dd60bb727a39341f37f4f61f7d76460"
+    },
+    {
+      "file": "protocol/fixtures/invalid/legacy-availability.json",
+      "sha256": "779061de037bdd0d186a0ec87bf353877027358b0d7585dfa3825338a4bcae7e"
+    },
+    {
+      "file": "protocol/fixtures/invalid/legacy-nested-task.json",
+      "sha256": "52240e5c5ee78af9c6f3cd9c903fecaf2d52513961e66cb566ce3bc4e57dce4e"
+    },
+    {
+      "file": "protocol/fixtures/invalid/legacy-reserved-method.json",
+      "sha256": "3bf2ac08a9828aed6435018303fec03846ee1db510ef4f85bd373a8b66f6e515"
+    },
+    {
+      "file": "protocol/fixtures/invalid/legacy-task-profile.json",
+      "sha256": "7e29b55c8b7373b030e046bf9a9be71b61eb8f48473e15a8300fedceae9a0549"
+    },
+    {
+      "file": "protocol/fixtures/invalid/missing-call-result-discriminator.json",
+      "sha256": "d539150b3497c73c39531361ef5c38a291050d729d0f79684e196163243a0e7a"
+    },
+    {
+      "file": "protocol/fixtures/invalid/missing-client-info.json",
+      "sha256": "35b299f1507169a0c3da4ece7022ac8394dfd2963d36823e58d4c3ce3fa44404"
+    },
+    {
+      "file": "protocol/fixtures/invalid/missing-routing-name.json",
+      "sha256": "19d7b65eb6aaf79d0aa676336811f687db6083560854d675e1cb57fbe891ed01"
+    },
+    {
+      "file": "protocol/fixtures/invalid/missing-task-capability.json",
+      "sha256": "b944c76e20d2f342c307834d045383800ce25af012d411f93478287015f3387d"
+    },
+    {
+      "file": "protocol/fixtures/invalid/remote-revision-only.json",
+      "sha256": "52f37f9cc5e3a1db7c36690131032b2030f33cba9326cc1bd4569c1923199349"
+    },
+    {
+      "file": "protocol/fixtures/valid/availability-request.json",
+      "sha256": "86059b9de443832d613dcc7f2ac7a075d7120086dc102b7047e39c828027b333"
+    },
+    {
+      "file": "protocol/fixtures/valid/completed-task.json",
+      "sha256": "3dd0928fce09b95332e23d5cef59b3c5140fd64805caba63f9be5693c7cd8fee"
+    },
+    {
+      "file": "protocol/fixtures/valid/evidence.json",
+      "sha256": "d65af26404f779ba29587daecd2fe98473157d62feb846e51c5c1f12e7c10d94"
+    },
+    {
+      "file": "protocol/fixtures/valid/flat-create-task.json",
+      "sha256": "8644be72b844765250c8ffdb0a157141cd58ac6fe74b503d5d20ba79cf20d42c"
+    },
+    {
+      "file": "protocol/fixtures/valid/routing-tools-call.json",
+      "sha256": "02f314b99951af5745f150de7163f21bfd0f11d5026fe78aabe873a2c9777831"
+    },
+    {
+      "file": "protocol/fixtures/valid/server-discover.json",
+      "sha256": "6e9ad04c7dc1257d2eb7127acf55a907760bb6ca8f4a016e8f70780340c08425"
+    },
+    {
+      "file": "protocol/fixtures/valid/stateless-request.json",
+      "sha256": "14ba1ea9b94631be53f4a76c797201a51b592a04bead5503704c5e5ede66b7c6"
+    },
+    {
+      "file": "protocol/fixtures/valid/subscription-ack.json",
+      "sha256": "ee2510087533ae46ff7f608d16cb9d4b35cf1878cde00f2a4f76c23c1e3a9839"
+    },
+    {
+      "file": "protocol/fixtures/valid/task-execution-profile.json",
+      "sha256": "df024b7e7e611bcad809984d8a4ae518bf094889fa23645b033fd1cfa5043520"
+    },
+    {
+      "file": "protocol/node-control/v1/00-freeze-declaration.md",
+      "sha256": "87a6e322fe4cf634ad7b6afd287214e1aab35e5a500916804ff36b5e41c0cf9c"
+    },
+    {
+      "file": "protocol/node-control/v1/01-scope-and-non-goals.md",
+      "sha256": "0e8c2fbd30bf3c7fbb4e53dcf20cdc4eb167979c7a6d781d159144b885468495"
+    },
+    {
+      "file": "protocol/node-control/v1/02-authority-and-api-boundaries.md",
+      "sha256": "e5c1fb3a01c937b0c17f9f16d9b1ccb0e4ba1cdc1c0b774f13d7f0501043dcd9"
+    },
+    {
+      "file": "protocol/node-control/v1/03-node-control-api-profile.md",
+      "sha256": "c53fb66d779761fe2f85aa529eaa0bb98416e2b7988818c38893b58f535638a1"
+    },
+    {
+      "file": "protocol/node-control/v1/04-runtime-control-contract.md",
+      "sha256": "5f5ce88a6b79d42e370b39a42816e4ac97fdea20f36e1bc2c15e8bd9bf350652"
+    },
+    {
+      "file": "protocol/node-control/v1/05-node-events-contract.md",
+      "sha256": "d142c62e9c4f2e1442c0799cb97932174a7fc44155192f6c79c82873fec0a5b1"
+    },
+    {
+      "file": "protocol/node-control/v1/06-evidence-export-contract.md",
+      "sha256": "628fb7003952e47d60f3906759af6269d1e8e6dab6fb0b96fb38222f0365a002"
+    },
+    {
+      "file": "protocol/node-control/v1/07-versioning-concurrency-idempotency.md",
+      "sha256": "61b2fe502474aabe70f1e6e66a0afc1107da625f9e51507471c677ecea9679cf"
+    },
+    {
+      "file": "protocol/node-control/v1/08-security-rbac-and-secrets.md",
+      "sha256": "fbb28134c5b9d89db6e6ee7ce7c0973278193d04d20cee94edba612d7430cefc"
+    },
+    {
+      "file": "protocol/node-control/v1/09-error-and-operation-semantics.md",
+      "sha256": "0e3f1098b05172be83c5f7bc283f270e0eab3968d519dcda2580a5913518a201"
+    },
+    {
+      "file": "protocol/node-control/v1/10-organization-facing-node-profile.md",
+      "sha256": "509637a1dd5c502fe1bfe4d52d92acea6eea8e1e2f14353fda69ffcffb5f95b9"
+    },
+    {
+      "file": "protocol/node-control/v1/11-v13-adaptation-boundary.md",
+      "sha256": "adc5645b8a5027c94f47252a8c7a617956af78183e1dbf650640e8d2e90f6051"
+    },
+    {
+      "file": "protocol/node-control/v1/12-validation-and-release-gates.md",
+      "sha256": "ccabb5ffa1999b548f3ddda116bb3d7ff4e77b54b6019fa8fa2589abc5d7bb4a"
+    },
+    {
+      "file": "protocol/node-control/v1/13-compatibility-policy.md",
+      "sha256": "b82906dc3cc1018543aaf15e938086b6fac359912309e879f830d23667682975"
+    },
+    {
+      "file": "protocol/node-control/v1/MANIFEST.json",
+      "sha256": "7dffc6fe506a606c263ed26a418b70cb3ee3e664db64b44b680513c8f03ff545"
+    },
+    {
+      "file": "protocol/node-control/v1/README.md",
+      "sha256": "797442a4921b9d6eeaf58eb4e51d8dc5dce7e5a53a41eed34c6dc7507ca00413"
+    },
+    {
+      "file": "protocol/node-control/v1/VALIDATION.txt",
+      "sha256": "8755e0d3af4e9be2e1480f218490c1c1a7ab6607f38e5d9a146499b6e4c73c4c"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-001-headless-backend.md",
+      "sha256": "944be30a57db8676aef466354b5de80f52d5116d865239bc80078472d1046be6"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-002-no-telemetry-query.md",
+      "sha256": "330662b478912c0158351ebb9602b5e7eb2bcd793c1e9cf1ca4a83d7fde1a36c"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-003-separate-public-internal-api.md",
+      "sha256": "7e0768df6d16ef27f56991402fbcf306f7ddd9998d74f9216935ba51948adac9"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-004-desired-observed.md",
+      "sha256": "873669a19f6f1165bed8ec0d021eab484b0d80b81d655a2f583de606f6e30f1c"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-005-events-are-hints.md",
+      "sha256": "b7a902c731a18f45df4ff2f7bc5432693d40fee1cb3b967be71d7f04e85719a1"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-006-capability-authority.md",
+      "sha256": "8d7daeb5b26370767818e71da4fcbfad7f56bc9138b02244e255e6a703c91a8a"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-007-task-binding-immutable.md",
+      "sha256": "02c0e5b24b9fb8926019ff37532acb6955a491f1125544be788ea0d23693b02b"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-008-runtime-lkg.md",
+      "sha256": "4fc4f665e9762a8222518c6c240d3a13a39d83f6a90fa54455bce5f26b0b02fa"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-009-secret-reference-only.md",
+      "sha256": "d68303ae6869db75e4f84ec36056eb2cb2cb3698b84300414915f3a54b482d55"
+    },
+    {
+      "file": "protocol/node-control/v1/adr/ADR-NCB-010-organization-profile.md",
+      "sha256": "5f92affb16f0b2fa29e6bc7d814fe3e58e98bc737f9669e6383991c36aaca35b"
+    },
+    {
+      "file": "protocol/node-control/v1/asyncapi/node-events.asyncapi.yaml",
+      "sha256": "d117282d3fe65c20a7af5444b5c14edd78d77a04f3ec5cb3916dc5d676098f59"
+    },
+    {
+      "file": "protocol/node-control/v1/contracts/apply-mode-catalog.yaml",
+      "sha256": "a59815cc9484d01a24b9de200dc8436638c9659f6d6b249769fcddb8092aa986"
+    },
+    {
+      "file": "protocol/node-control/v1/contracts/error-code-catalog.yaml",
+      "sha256": "486f35ca762a30cf594e582af15ec4d1ac717f08f6f3933d9d2f92eee85abca9"
+    },
+    {
+      "file": "protocol/node-control/v1/contracts/evidence-export-contract.yaml",
+      "sha256": "01003d0875390833f44254de35c1bcee14ff921c49b6c388f71c1981bdb9b184"
+    },
+    {
+      "file": "protocol/node-control/v1/contracts/node-event-catalog.yaml",
+      "sha256": "6fd2caf6b10c03f06ca113ff79999a8c21ec9cc4822bc4c712fa9d2912157ae0"
+    },
+    {
+      "file": "protocol/node-control/v1/contracts/organization-facing-api-profile.yaml",
+      "sha256": "626bf3bc27c5f12b68a67243fefe506b08045ad7fa012c6deab8fc918bc373f3"
+    },
+    {
+      "file": "protocol/node-control/v1/fixtures/degraded/capability-readiness.json",
+      "sha256": "6f967efae77b93d51ca5fbe461df0a0530facdb94988d939b1ce2f11d86de018"
+    },
+    {
+      "file": "protocol/node-control/v1/fixtures/degraded/evidence-export-status.json",
+      "sha256": "b1bfa7124ac1029992f5e1f46c55bd4dc9ca89157f9ad026fda1d5ab52aa7363"
+    },
+    {
+      "file": "protocol/node-control/v1/fixtures/error/revision-conflict.problem.json",
+      "sha256": "85887edad633c1b70c1fc0f3ca7ea88bc7be9ce87a1b593b6e726bbf7bd9ab0a"
+    },
+    {
+      "file": "protocol/node-control/v1/fixtures/success/management-operation-accepted.json",
+      "sha256": "89f06b638c95feca07bf75efb6c5205ce0dbd481329299e5fc076c70898a8915"
+    },
+    {
+      "file": "protocol/node-control/v1/fixtures/success/node-event-readiness.json",
+      "sha256": "330aaa68acaa70a95435913a7e1de05bc824c66cd76962142bcbf599d390863d"
+    },
+    {
+      "file": "protocol/node-control/v1/fixtures/success/node-profile.json",
+      "sha256": "8f81bf7b2b2390c2da460bcc29fae7691ab53b37a88ae5de4ebbec99bafe5793"
+    },
+    {
+      "file": "protocol/node-control/v1/fixtures/success/task-capability-binding.json",
+      "sha256": "6c99fe32d5b49656f6c2fc95ae2604466643cb4e7c1068c63a4b3fcf048ac5f0"
+    },
+    {
+      "file": "protocol/node-control/v1/matrices/authority-matrix.csv",
+      "sha256": "9a7cb7f6181c861395012e1c9745594af6a5a40696cddb17e5eb4e1608a8e8d0"
+    },
+    {
+      "file": "protocol/node-control/v1/matrices/operation-inventory.csv",
+      "sha256": "150e74baa085a965fd7130d334d858c6af14d816ff4c3ce6ba199b0f9ce81c3e"
+    },
+    {
+      "file": "protocol/node-control/v1/matrices/rbac-matrix.csv",
+      "sha256": "74d3b5bad5eebf3cca7520af3daf24a7acad93b71c78f4790a4075d2930e538a"
+    },
+    {
+      "file": "protocol/node-control/v1/matrices/traceability.csv",
+      "sha256": "21b3183a2cabc3d4c40e7b02a0da03e4cdfaeecd57c93b1f1e3836b4b025df65"
+    },
+    {
+      "file": "protocol/node-control/v1/openapi/node-control.openapi.yaml",
+      "sha256": "b9e2cf35412cf3a671eb807feb60d6b707572332b6f4d8939ce6ad0e5ea8f490"
+    },
+    {
+      "file": "protocol/node-control/v1/openapi/runtime-control.openapi.yaml",
+      "sha256": "d9f250a8f057eab5d9d5dc77088faf0fc525835804f8f3ad8fdb7fca18e66aba"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/a2a-exposure-version.schema.json",
+      "sha256": "174005abd7f94072b043e15b8efed9c38b1965ec65da02e90c219ddd4b20e173"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/agent-card-revision.schema.json",
+      "sha256": "eccd572ef156d08d94a9891d86ed27deefaf563556bb6a79ad3b5c282ad797be"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/capability-implementation-binding.schema.json",
+      "sha256": "727be6ae638a235e751dacb73276a8fb3c3bfbbe6a318710b384053864e170ae"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/capability-readiness.schema.json",
+      "sha256": "8a782439830fd30eb34313f833a903e454aa39f9faf78ac600073b1e3bd35983"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/command-request.schema.json",
+      "sha256": "4559b8609ff20205dcfcac1b192c1137fb21cb899a0b1f52acdc5ed253baef77"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/configuration-revision.schema.json",
+      "sha256": "8fc28acc1583a4f23677003eacf9cfa3592c13cf0a086ca4f4d0cfff82525d01"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/desired-observed-state.schema.json",
+      "sha256": "3328e64b6c0004f5460c726c1247f00fdbda200584122a1e1af90fa08f4c6083"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/event-envelope.schema.json",
+      "sha256": "ffc94d700f409c5d7083af393540fe167b7f0b724cf7bf08554f819ae0d6f625"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/evidence-export-config.schema.json",
+      "sha256": "717779f9c5af87b3e7e8592454ed1ec80f0c1a2bf34c66398c48f13e5063f35e"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/evidence-export-status.schema.json",
+      "sha256": "3c3206e6ab4d1beb9ce5cd6d4c9475cae73e42545c2ea7c9b77eea6ddff74608"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/evidence-operations.schema.json",
+      "sha256": "6eb2adf6d3d648042ec0fac03a587fae784c968b213d8f3acac8d3c691dcc815"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/llm-provider.schema.json",
+      "sha256": "c634e4bd7dafef86ed2754e10af907c46f08dcd7e1802d093d936818466bd6f9"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/management-operation.schema.json",
+      "sha256": "ddeeaf71bdc648eb1a2bba0837d79f5d1ec663d4bd57afa1d60393faa9d41aa4"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/mcp-provider-binding.schema.json",
+      "sha256": "3afe0532b62675eda9b054da5e5a3f3e3cc9760829d7da0d6f28dc2f38d30dd2"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/model-route.schema.json",
+      "sha256": "e1218b5f1b34a9eff50e826546f7c537b62d05056df574949f170471ecef9059"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/node-capability-version.schema.json",
+      "sha256": "18aaf97178b1e438b65e6541e0215b9a52fb905d02b9c994a3d25e8369e6982e"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/node-health.schema.json",
+      "sha256": "72aa6e66369451681c17c6a377adee9d74508a615f98a6d1c778fa6dd7ca08cc"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/node-profile.schema.json",
+      "sha256": "fcc4329e2ed39e2edeec1e9a40a2601d79ede3243ddeafd37acb1204f88dbd56"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/page.schema.json",
+      "sha256": "af5b0961493ee8d1df50a19105c3585d63aa06831f5882987efe7e52290ebe8b"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/plan-template-version.schema.json",
+      "sha256": "d1fff6faf4c1605301cb9236fcb3b6f0c7b126b15754dc2538417ce9f41a825e"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/problem-details.schema.json",
+      "sha256": "7ae66b18e2df9b99c9db3e116da4206cbfa9761a2bc76e65b7cfacadf4ed1e9d"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/resource-ref.schema.json",
+      "sha256": "39374f8ec2992622eeefc179b85ae51ee4bced9979db6c87fe7dc591d29d3bc0"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/runtime-ack.schema.json",
+      "sha256": "19b51da833003a4ca07bfb1b128e306ab6003226f4f2ec30c1e3e1c780073ba4"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/runtime-bootstrap.schema.json",
+      "sha256": "f0fe98205fb9f3b884d93c0b5c8627ad72d7a4ec8a8a66294cd1e22aadae33de"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/skill-version.schema.json",
+      "sha256": "7098ea7ec545f856f576116968ac2e825ba5c5972e017849879ce7014d566163"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/smpp-source.schema.json",
+      "sha256": "ae31dd7441c7f8e52cdf3360d30ead7fcbbcfcc6c77e51b5cae9f12495710b0a"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/task-capability-binding.schema.json",
+      "sha256": "a5ac323466ee06b4a12b6c0a307196637f7532e07bfd07a301492c5659ef43b3"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/task-summary.schema.json",
+      "sha256": "18064fc9a10ca3ccb408ef620ede1595ed148834de4bffaf4164a68def38f7f3"
+    },
+    {
+      "file": "protocol/node-control/v1/schemas/well-known-node.schema.json",
+      "sha256": "689493574ed7441ec8c938b65f474e7971f2480338ec53650c2456cca8dc5106"
+    },
+    {
+      "file": "protocol/node-control/v1/scripts/validate_freeze.py",
+      "sha256": "a036c331621c8bfe48e9e8fcc2fbd57a3bf3c03bc6ef8bd3e7007fa2bd52d7d1"
+    },
+    {
+      "file": "protocol/node-control/v1/source-alignment/SDAR_v1.3_alignment.md",
+      "sha256": "8ac5b40bea96ed43a59fc21a3d5a95729686b7bc1bb16e3a0c294e9bd87be2a3"
+    },
+    {
+      "file": "protocol/protocol-baseline.json",
+      "sha256": "2166f15bf092d2b3d6c0781459bd7213ae268aa8c4c4f3236ec8da0fef0d38fb"
+    },
+    {
+      "file": "protocol/protocol-baseline.lock.json",
+      "sha256": "f7f893242430629896d443dc2d4e72cf30321c77ad636b11027a0e7bac903355"
+    },
+    {
+      "file": "protocol/schemas/mcp-server-discover.schema.json",
+      "sha256": "f620fd136a55bf0b8cb13710c23b38bd492314b4c11189da041f039420be0796"
+    },
+    {
+      "file": "protocol/schemas/mcp-stateless-request.schema.json",
+      "sha256": "a0a963d9d9b79191e8bc7644bfbcbeb8ccfcd8dbd5c939d1318f911912cf1811"
+    },
+    {
+      "file": "protocol/schemas/mcp-streamable-http-routing.schema.json",
+      "sha256": "3597daeb936ed18c923b486ec64a74a186651a2cdd4032785df5c49df53429b8"
+    },
+    {
+      "file": "protocol/schemas/mcp-task-notifications.schema.json",
+      "sha256": "b42c4c4f30911ee0eb779959c43800c41a0af3088a2a7b97a7dddf7c8f92f9fe"
+    },
+    {
+      "file": "protocol/schemas/mcp-tasks-sep2663.schema.json",
+      "sha256": "643aaf1e4969ca5f779980b620845fde6f3baf237d68e0f83169da1a0b5910bf"
+    },
+    {
+      "file": "protocol/schemas/protocol-mismatch.schema.json",
+      "sha256": "2c2133706f09c5e3da2cbec429aa9e198fe8affec881a8b8ee815cfefc6ec194"
+    },
+    {
+      "file": "protocol/schemas/sdar-availability-v1.schema.json",
+      "sha256": "9bf4ed52c73e05c85224ac64cdacee0a92269be3b530be2f06c8bac87d136105"
+    },
+    {
+      "file": "protocol/schemas/sdar-evidence-v1.schema.json",
+      "sha256": "4fa0a48d02b76693f64e375f6ed398067a0d1d5557b0f83531fd8d78cac72098"
+    },
+    {
+      "file": "protocol/schemas/sdar-task-execution-profile-v1.schema.json",
+      "sha256": "1a20fd7d2c4b1924ac4b319a9d2052c6c5d13c54a683f56a1877ece738fe3259"
+    },
+    {
+      "file": "protocol/scripts/fetch-pinned-source.mjs",
+      "sha256": "a3ee1a1237f6fc0c32328d87d7aa63e3764ce76d1aa51fe74aa46a9af4992011"
+    },
+    {
+      "file": "protocol/scripts/lock-protocol-package.mjs",
+      "sha256": "a49f713353b16060d69fa664b6205778729cc7cc07d6309e236058882209ba64"
+    },
+    {
+      "file": "protocol/scripts/verify-protocol-package.mjs",
+      "sha256": "6e37a7e04d93cc3656c8135fcbaafb96405ae5703cc0dbd40a91c7c3c199fcb6"
+    },
+    {
+      "file": "protocol/source/ATTRIBUTION.md",
+      "sha256": "61482275f7eb85ae0a49a33d53d2aad47f62d385dad5bc0bc808351c3c481fa7"
+    },
+    {
+      "file": "protocol/source/mcp-2026-07-28.schema.json",
+      "sha256": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708"
+    }
+  ]
+}

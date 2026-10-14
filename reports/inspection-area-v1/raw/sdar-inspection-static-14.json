@@ -1,0 +1,18 @@
+{
+  "name": "sdar-inspection-static-14",
+  "command": "bash",
+  "args": [
+    "-c",
+    "pnpm format:check && pnpm lint && pnpm typecheck"
+  ],
+  "startedAt": "2026-10-13T23:49:35.064Z",
+  "completedAt": "2026-10-13T23:50:15.731Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "80b9a7ad768268e05779e93bab6e4c9251de912c86a4552eceea1bf97c765dfc",
+  "sourceAfter": "80b9a7ad768268e05779e93bab6e4c9251de912c86a4552eceea1bf97c765dfc",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-static-14.log",
+  "logSha256": "8b4c7a6582cbd23f54c8180af20b7171583b396ccd4d94c90a2eb8a50a8a47da"
+}

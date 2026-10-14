@@ -1,0 +1,22 @@
+{
+  "name": "sdar-inspection-regression-09",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "packages/application/test/task-service.unit.test.ts",
+    "packages/domain/test/area-patrol.unit.test.ts",
+    "packages/application/test/task-capability.unit.test.ts"
+  ],
+  "startedAt": "2026-10-13T23:21:59.026Z",
+  "completedAt": "2026-10-13T23:22:05.462Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "af25dd2f0c6f5e2b7dbb59c8f506849ce04c470779fb8d7c5f49842e4316cd02",
+  "sourceAfter": "af25dd2f0c6f5e2b7dbb59c8f506849ce04c470779fb8d7c5f49842e4316cd02",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-regression-09.log",
+  "logSha256": "0c8885f393ac7f90c23f5fc96155488a592d8ab7819a1850529350a975e6c12f"
+}

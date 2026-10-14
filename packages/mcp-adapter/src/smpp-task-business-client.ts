@@ -475,7 +475,9 @@ export class SmppTaskBusinessClient {
           taskId: input.taskId,
           artifactId: input.artifactId,
           revision: input.revision,
-          representationName: input.representationName ?? '',
+          ...(input.representationName === undefined
+            ? {}
+            : { representationName: input.representationName }),
           includeContent: true,
           contentOffset: offset,
           maxContentBytes: 65_536,
@@ -485,13 +487,32 @@ export class SmppTaskBusinessClient {
       if (
         !parsed.success ||
         parsed.data.artifact.artifactId !== input.artifactId ||
-        parsed.data.artifact.revision !== input.revision ||
-        !parsed.data.content
+        parsed.data.artifact.revision !== input.revision
       )
         throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_UNAVAILABLE');
       this.#validateIdentity(parsed.data.artifact.identity, input.taskId);
       if (!validateSmppPublicContract('artifact', parsed.data.artifact))
         throw new SmppBusinessError('SMPP_BUSINESS_SCHEMA_INVALID');
+      if (parsed.data.content === undefined) {
+        const artifact = parsed.data.artifact;
+        const inline = input.representationName
+          ? object.parse(artifact['representations'])[input.representationName]
+          : artifact['content'];
+        const content = object.safeParse(inline);
+        if (
+          offset !== 0 ||
+          artifact['availability'] !== 'available' ||
+          !content.success ||
+          !['geojson', 'local_geometry', 'image_observation', 'structured'].includes(
+            String(content.data['kind']),
+          )
+        )
+          throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_UNAVAILABLE');
+        const bytes = Buffer.from(JSON.stringify(content.data));
+        if (bytes.length > MAX_CONTENT)
+          throw new SmppBusinessError('SMPP_ARTIFACT_CONTENT_CONFLICT');
+        return bytes;
+      }
       const part = parsed.data.content;
       const length = Number(part.totalBytes);
       if (

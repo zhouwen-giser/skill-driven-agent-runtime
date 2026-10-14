@@ -1,0 +1,4628 @@
+{
+  "jsonrpc": "2.0",
+  "id": "inspection-catalog-capture",
+  "result": {
+    "tools": [
+      {
+        "name": "vehicle_get_state",
+        "description": "Read the normalized local UGV state without referee or global-truth data.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "include": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "chassis",
+                  "payload",
+                  "health",
+                  "targets"
+                ]
+              }
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleStateV1",
+              "type": "object",
+              "properties": {
+                "businessSemantics": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string",
+                      "const": "ugv.business-semantics/1"
+                    },
+                    "missionTaskState": {
+                      "type": "string",
+                      "enum": [
+                        "idle",
+                        "starting",
+                        "running",
+                        "paused",
+                        "cancelled",
+                        "succeeded",
+                        "failed",
+                        "unknown"
+                      ]
+                    },
+                    "reconPhase": {
+                      "type": "string",
+                      "enum": [
+                        "idle",
+                        "configuring",
+                        "ready",
+                        "starting",
+                        "running",
+                        "resuming",
+                        "pausing",
+                        "paused",
+                        "cancelled",
+                        "failed",
+                        "completed",
+                        "stopping",
+                        "manual_intervention",
+                        "unknown"
+                      ]
+                    },
+                    "visualLockState": {
+                      "type": "string",
+                      "enum": [
+                        "unlocked",
+                        "locking",
+                        "locked",
+                        "unknown"
+                      ]
+                    },
+                    "sensorMode": {
+                      "type": "string",
+                      "enum": [
+                        "adaptive",
+                        "visible",
+                        "infrared",
+                        "dc",
+                        "unknown"
+                      ]
+                    },
+                    "payloadHealth": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "fault",
+                        "offline",
+                        "unknown"
+                      ]
+                    },
+                    "payloadLoadState": {
+                      "type": "string",
+                      "enum": [
+                        "fault",
+                        "unknown"
+                      ]
+                    },
+                    "native": {
+                      "type": "object",
+                      "properties": {
+                        "missionTaskState": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reconMotionStatus": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lockStage": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reconType": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "loadStatus": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cameraFault": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "online": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "sensorHealth": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "normal",
+                                "fault",
+                                "unknown"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "missionTaskState",
+                        "reconMotionStatus",
+                        "lockStage",
+                        "reconType",
+                        "loadStatus",
+                        "cameraFault",
+                        "online",
+                        "sensorHealth"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "missionTaskState",
+                    "reconPhase",
+                    "visualLockState",
+                    "sensorMode",
+                    "payloadHealth",
+                    "payloadLoadState",
+                    "native"
+                  ],
+                  "additionalProperties": false
+                },
+                "identity": {
+                  "type": "object",
+                  "properties": {
+                    "providerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "resourceId": {
+                      "type": "string",
+                      "const": "vehicle:ugv1"
+                    },
+                    "vehicleType": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "executionMode": {
+                      "type": "string",
+                      "enum": [
+                        "simulation",
+                        "live"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "providerId",
+                    "resourceId",
+                    "vehicleType",
+                    "executionMode"
+                  ],
+                  "additionalProperties": false
+                },
+                "connectivity": {
+                  "type": "object",
+                  "properties": {
+                    "mqttConnected": {
+                      "type": "boolean"
+                    },
+                    "deviceMcpConnected": {
+                      "type": "boolean"
+                    },
+                    "deviceAvailable": {
+                      "type": "boolean"
+                    },
+                    "packetLossRate": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "averageRoundTripTimeMs": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "mqttConnected",
+                    "deviceMcpConnected"
+                  ],
+                  "additionalProperties": false
+                },
+                "freshness": {
+                  "type": "object",
+                  "properties": {
+                    "chassisObservedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "positionObservedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "healthObservedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "missionObservedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "targetObservedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "payloadObservedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "chassis": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "payload": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "health": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "targets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "revision": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "mqttIngressSequence": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "identity",
+                "connectivity",
+                "freshness",
+                "revision",
+                "observedAt",
+                "mqttIngressSequence"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "synchronous_only",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": false,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": false,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_get_capabilities",
+        "description": "Read device-reported UGV capability facts without inventing unsupported limits.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleCapabilitiesV1",
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "source": {
+                  "type": "string",
+                  "const": "device_mcp"
+                },
+                "available": {
+                  "type": "boolean"
+                },
+                "navigation": {
+                  "type": "object",
+                  "properties": {
+                    "point": {
+                      "type": "boolean"
+                    },
+                    "route": {
+                      "type": "boolean"
+                    },
+                    "distance": {
+                      "type": "boolean"
+                    },
+                    "returnHome": {
+                      "type": "boolean"
+                    },
+                    "pauseResumeCancel": {
+                      "type": "boolean"
+                    },
+                    "planningDensities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "uniqueItems": true
+                    },
+                    "supportsRoadNetworkPlanning": {
+                      "type": "boolean"
+                    },
+                    "needPlanDefault": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "point",
+                    "route",
+                    "distance",
+                    "returnHome",
+                    "pauseResumeCancel",
+                    "planningDensities",
+                    "supportsRoadNetworkPlanning"
+                  ],
+                  "additionalProperties": false
+                },
+                "payload": {
+                  "type": "object",
+                  "properties": {
+                    "reconnaissance": {
+                      "type": "object",
+                      "properties": {
+                        "area": {
+                          "type": "boolean"
+                        },
+                        "circular": {
+                          "type": "boolean"
+                        },
+                        "scanModes": {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "uniqueItems": true
+                        },
+                        "movingWhileRecon": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "area",
+                        "circular",
+                        "scanModes",
+                        "movingWhileRecon"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "gimbal": {
+                      "type": "object",
+                      "properties": {
+                        "supported": {
+                          "type": "boolean"
+                        },
+                        "modes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "uniqueItems": true
+                        },
+                        "manualYawSweep": {
+                          "type": "boolean"
+                        },
+                        "continuousPitchSweep": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "supported",
+                        "modes",
+                        "manualYawSweep",
+                        "continuousPitchSweep"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "targetTracking": {
+                      "type": "boolean"
+                    },
+                    "laserRange": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "reconnaissance",
+                    "gimbal",
+                    "targetTracking",
+                    "laserRange"
+                  ],
+                  "additionalProperties": false
+                },
+                "provenance": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "string",
+                      "enum": [
+                        "device_reported",
+                        "contract_inferred",
+                        "managed_configuration",
+                        "unverified"
+                      ]
+                    },
+                    "navigation": {
+                      "type": "object",
+                      "properties": {
+                        "point": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "route": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "distance": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "returnHome": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "pauseResumeCancel": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "planningDensities": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "supportsRoadNetworkPlanning": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "needPlanDefault": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "point",
+                        "route",
+                        "distance",
+                        "returnHome",
+                        "pauseResumeCancel",
+                        "planningDensities",
+                        "supportsRoadNetworkPlanning",
+                        "needPlanDefault"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "reconnaissance": {
+                          "type": "object",
+                          "properties": {
+                            "area": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            },
+                            "circular": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            },
+                            "scanModes": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            },
+                            "movingWhileRecon": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "area",
+                            "circular",
+                            "scanModes",
+                            "movingWhileRecon"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "gimbal": {
+                          "type": "object",
+                          "properties": {
+                            "supported": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            },
+                            "modes": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            },
+                            "manualYawSweep": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            },
+                            "continuousPitchSweep": {
+                              "type": "string",
+                              "enum": [
+                                "device_reported",
+                                "contract_inferred",
+                                "managed_configuration",
+                                "unverified"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "supported",
+                            "modes",
+                            "manualYawSweep",
+                            "continuousPitchSweep"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "targetTracking": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        },
+                        "laserRange": {
+                          "type": "string",
+                          "enum": [
+                            "device_reported",
+                            "contract_inferred",
+                            "managed_configuration",
+                            "unverified"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "reconnaissance",
+                        "gimbal",
+                        "targetTracking",
+                        "laserRange"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "deviceReported": {
+                      "type": "string",
+                      "enum": [
+                        "device_reported",
+                        "contract_inferred",
+                        "managed_configuration",
+                        "unverified"
+                      ]
+                    },
+                    "engineeringProfile": {
+                      "type": "string",
+                      "enum": [
+                        "device_reported",
+                        "contract_inferred",
+                        "managed_configuration",
+                        "unverified"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "navigation",
+                    "payload",
+                    "deviceReported",
+                    "engineeringProfile"
+                  ],
+                  "additionalProperties": false
+                },
+                "deviceReported": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "engineeringProfile": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "resourceId",
+                "source",
+                "available",
+                "navigation",
+                "payload",
+                "provenance",
+                "deviceReported",
+                "engineeringProfile",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "synchronous_only",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": false,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": false,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_get_payload_status",
+        "description": "Read local UGV payload, gimbal, laser and task status.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "businessSemantics": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string",
+                      "const": "ugv.business-semantics/1"
+                    },
+                    "missionTaskState": {
+                      "type": "string",
+                      "enum": [
+                        "idle",
+                        "starting",
+                        "running",
+                        "paused",
+                        "cancelled",
+                        "succeeded",
+                        "failed",
+                        "unknown"
+                      ]
+                    },
+                    "reconPhase": {
+                      "type": "string",
+                      "enum": [
+                        "idle",
+                        "configuring",
+                        "ready",
+                        "starting",
+                        "running",
+                        "resuming",
+                        "pausing",
+                        "paused",
+                        "cancelled",
+                        "failed",
+                        "completed",
+                        "stopping",
+                        "manual_intervention",
+                        "unknown"
+                      ]
+                    },
+                    "visualLockState": {
+                      "type": "string",
+                      "enum": [
+                        "unlocked",
+                        "locking",
+                        "locked",
+                        "unknown"
+                      ]
+                    },
+                    "sensorMode": {
+                      "type": "string",
+                      "enum": [
+                        "adaptive",
+                        "visible",
+                        "infrared",
+                        "dc",
+                        "unknown"
+                      ]
+                    },
+                    "payloadHealth": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "fault",
+                        "offline",
+                        "unknown"
+                      ]
+                    },
+                    "payloadLoadState": {
+                      "type": "string",
+                      "enum": [
+                        "fault",
+                        "unknown"
+                      ]
+                    },
+                    "native": {
+                      "type": "object",
+                      "properties": {
+                        "missionTaskState": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reconMotionStatus": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lockStage": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reconType": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "loadStatus": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cameraFault": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "online": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "sensorHealth": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "normal",
+                                "fault",
+                                "unknown"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "missionTaskState",
+                        "reconMotionStatus",
+                        "lockStage",
+                        "reconType",
+                        "loadStatus",
+                        "cameraFault",
+                        "online",
+                        "sensorHealth"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "missionTaskState",
+                    "reconPhase",
+                    "visualLockState",
+                    "sensorMode",
+                    "payloadHealth",
+                    "payloadLoadState",
+                    "native"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "synchronous_only",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": false,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": false,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_get_targets",
+        "description": "Read targets observed by local UGV sensors only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "businessSemantics": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string",
+                      "const": "ugv.business-semantics/1"
+                    },
+                    "missionTaskState": {
+                      "type": "string",
+                      "enum": [
+                        "idle",
+                        "starting",
+                        "running",
+                        "paused",
+                        "cancelled",
+                        "succeeded",
+                        "failed",
+                        "unknown"
+                      ]
+                    },
+                    "reconPhase": {
+                      "type": "string",
+                      "enum": [
+                        "idle",
+                        "configuring",
+                        "ready",
+                        "starting",
+                        "running",
+                        "resuming",
+                        "pausing",
+                        "paused",
+                        "cancelled",
+                        "failed",
+                        "completed",
+                        "stopping",
+                        "manual_intervention",
+                        "unknown"
+                      ]
+                    },
+                    "visualLockState": {
+                      "type": "string",
+                      "enum": [
+                        "unlocked",
+                        "locking",
+                        "locked",
+                        "unknown"
+                      ]
+                    },
+                    "sensorMode": {
+                      "type": "string",
+                      "enum": [
+                        "adaptive",
+                        "visible",
+                        "infrared",
+                        "dc",
+                        "unknown"
+                      ]
+                    },
+                    "payloadHealth": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "fault",
+                        "offline",
+                        "unknown"
+                      ]
+                    },
+                    "payloadLoadState": {
+                      "type": "string",
+                      "enum": [
+                        "fault",
+                        "unknown"
+                      ]
+                    },
+                    "native": {
+                      "type": "object",
+                      "properties": {
+                        "missionTaskState": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reconMotionStatus": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lockStage": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reconType": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "loadStatus": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cameraFault": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "online": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "sensorHealth": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "normal",
+                                "fault",
+                                "unknown"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "missionTaskState",
+                        "reconMotionStatus",
+                        "lockStage",
+                        "reconType",
+                        "loadStatus",
+                        "cameraFault",
+                        "online",
+                        "sensorHealth"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "missionTaskState",
+                    "reconPhase",
+                    "visualLockState",
+                    "sensorMode",
+                    "payloadHealth",
+                    "payloadLoadState",
+                    "native"
+                  ],
+                  "additionalProperties": false
+                },
+                "targets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "freshness": {
+                  "type": "object"
+                },
+                "observedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "resourceId",
+                "targets",
+                "freshness",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "synchronous_only",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": false,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": false,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_laser_range",
+        "description": "Perform a synchronous local laser-range query.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "distanceM": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "valid": {
+                  "type": "boolean"
+                },
+                "observedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "resourceId",
+                "distanceM",
+                "valid",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "synchronous_only",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": false,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": false,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_navigate",
+        "description": "Run a point, route, distance or return-home chassis mission.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "mission": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "point"
+                    },
+                    "target": {
+                      "type": "object",
+                      "properties": {
+                        "latitude": {
+                          "type": "number",
+                          "minimum": -90,
+                          "maximum": 90
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "minimum": -180,
+                          "maximum": 180
+                        },
+                        "altitude": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "latitude",
+                        "longitude"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "target"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "route"
+                    },
+                    "waypoints": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 1024,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "latitude": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "altitude": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "latitude",
+                          "longitude"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "waypoints"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "distance"
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "forward",
+                        "backward",
+                        "left",
+                        "right"
+                      ]
+                    },
+                    "distanceM": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "direction",
+                    "distanceM"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "return_home"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "speedLimitKmh": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "stopOnObstacle": {
+              "type": "boolean"
+            },
+            "planningMode": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "road_network",
+                "direct"
+              ]
+            },
+            "density": {
+              "type": "string",
+              "enum": [
+                "adaptive",
+                "dense",
+                "medium",
+                "sparse"
+              ]
+            }
+          },
+          "required": [
+            "resourceId",
+            "mission"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleTaskResultV1",
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "timeout"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "requestedDistanceM": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "startPosition": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "endPosition": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "observedDisplacementM": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "displacementUnavailableReason": {
+                  "type": "string",
+                  "enum": [
+                    "POSITION_AUTHORITY_MISMATCH"
+                  ]
+                },
+                "positionAuthority": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "type": "string"
+                    },
+                    "observedAt": {
+                      "type": "string"
+                    },
+                    "timeAuthority": {
+                      "type": "string",
+                      "enum": [
+                        "source",
+                        "ingest"
+                      ]
+                    },
+                    "cursor": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "topic",
+                    "observedAt",
+                    "timeAuthority",
+                    "cursor"
+                  ],
+                  "additionalProperties": false
+                },
+                "finalHeadingDeg": {
+                  "type": "number"
+                },
+                "finalSpeedKmh": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "missionId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "missionState": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "snapshotRevision": {
+                  "type": "string"
+                },
+                "stationaryAtCompletion": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "correlationStrength": {
+                  "type": "string",
+                  "enum": [
+                    "STRICT_CORRELATED",
+                    "WEAK_UNCORRELATED",
+                    "MISMATCH",
+                    "UNKNOWN"
+                  ]
+                },
+                "observationAuthority": {
+                  "type": "string"
+                },
+                "effectivePlanRevision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "destination": {
+                  "type": "object",
+                  "properties": {
+                    "longitude": {
+                      "type": "number",
+                      "minimum": -180,
+                      "maximum": 180
+                    },
+                    "latitude": {
+                      "type": "number",
+                      "minimum": -90,
+                      "maximum": 90
+                    },
+                    "altitude": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "longitude",
+                    "latitude"
+                  ],
+                  "additionalProperties": false
+                },
+                "destinationDistanceM": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "routeRef": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "artifact"
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "resourceId",
+                "status",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "task_required",
+            "availability": "dynamic",
+            "supportsScheduling": true,
+            "supportsMaxElapsed": true,
+            "supportsCancellation": true,
+            "supportsPauseResume": true,
+            "supportsObservations": true,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          },
+          "io.sdar/taskBusiness": {
+            "schemaVersion": "sdar.task-business-operation-profile/1.0-rc2",
+            "profileVersion": "1.0-rc2",
+            "availability": "available",
+            "source": {
+              "sourceId": "vehicle.business",
+              "deliverySemantics": "durable_at_least_once",
+              "replaySupported": true
+            },
+            "artifactTypes": [
+              "navigation.destination",
+              "navigation.waypoints",
+              "navigation.trajectory"
+            ],
+            "actionTypes": [],
+            "requiredInputTypes": [],
+            "interventionTypes": [],
+            "methods": {
+              "contextGet": "io.sdar/taskBusiness/context/get",
+              "snapshotPartGet": "io.sdar/taskBusiness/snapshotParts/get",
+              "artifactGet": "io.sdar/taskBusiness/artifacts/get",
+              "eventsListen": "io.sdar/businessEvents/listen",
+              "contentGet": true,
+              "inputUpdate": false,
+              "interventionApply": false
+            },
+            "semantics": {
+              "artifact": [
+                "requested",
+                "observed"
+              ],
+              "coordinateFrames": [],
+              "observationClockDomains": [
+                "utc"
+              ]
+            },
+            "limits": {
+              "maxInlineArtifactBytes": 65536,
+              "maxWaitMs": 300000,
+              "trajectoryMinSamples": 2
+            },
+            "policy": {
+              "visualLockOwner": "disabled",
+              "decisionMode": "none",
+              "onExpire": "end_observation",
+              "onDismiss": "end_observation",
+              "footprintMode": "disabled",
+              "coverageMode": "disabled"
+            },
+            "qualification": {
+              "routeAdoption": "not_supported",
+              "footprint": "not_supported",
+              "automaticVisualLock": "not_supported",
+              "runtimeReplan": "not_supported"
+            }
+          }
+        }
+      },
+      {
+        "name": "vehicle_area_recon",
+        "description": "Run local electro-optical reconnaissance.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "area": {
+              "type": "object",
+              "properties": {
+                "polygon": {
+                  "type": "array",
+                  "minItems": 3,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "latitude": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                      },
+                      "longitude": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                      }
+                    },
+                    "required": [
+                      "latitude",
+                      "longitude"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "polygon"
+              ],
+              "additionalProperties": false
+            },
+            "scanMode": {
+              "type": "string",
+              "enum": [
+                "area",
+                "circular"
+              ]
+            },
+            "scanCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "regionType": {
+              "type": "integer",
+              "enum": [
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            "targetTypes": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "lockDurationLimitSec": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reconType": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "adaptive",
+                    "visible",
+                    "infrared",
+                    "dc"
+                  ]
+                }
+              ]
+            },
+            "scanSpeed": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "scanPitch": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            }
+          },
+          "required": [
+            "resourceId",
+            "scanMode"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "scanMode": {
+                    "const": "circular"
+                  }
+                },
+                "required": [
+                  "scanMode"
+                ]
+              },
+              "then": {},
+              "else": {
+                "properties": {
+                  "area": {}
+                },
+                "required": [
+                  "area"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleTaskResultV1",
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "timeout"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "coverability": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "outOfRange": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "missionId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "scanMode": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "progress": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "observedTargetCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "terminalMotionStatus": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "cameraFault": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "exception": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "snapshotRevision": {
+                  "type": "string"
+                },
+                "correlationStrength": {
+                  "type": "string",
+                  "enum": [
+                    "STRICT_CORRELATED",
+                    "INFERRED_CURRENT_EXECUTION",
+                    "WEAK_UNCORRELATED",
+                    "MISMATCH",
+                    "UNKNOWN"
+                  ]
+                },
+                "observationIsNew": {
+                  "type": "boolean"
+                },
+                "timeAuthority": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "resourceId",
+                "status",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "task_required",
+            "availability": "dynamic",
+            "supportsScheduling": true,
+            "supportsMaxElapsed": true,
+            "supportsCancellation": true,
+            "supportsPauseResume": true,
+            "supportsObservations": true,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          },
+          "io.sdar/taskBusiness": {
+            "schemaVersion": "sdar.task-business-operation-profile/1.0-rc2",
+            "profileVersion": "1.0-rc2",
+            "availability": "available",
+            "source": {
+              "sourceId": "vehicle.business",
+              "deliverySemantics": "durable_at_least_once",
+              "replaySupported": true
+            },
+            "artifactTypes": [
+              "recon.area",
+              "recon.coverage_plan",
+              "recon.covered_area",
+              "target.object",
+              "target.track"
+            ],
+            "actionTypes": [
+              "sensor.visual_lock"
+            ],
+            "requiredInputTypes": [],
+            "interventionTypes": [],
+            "methods": {
+              "contextGet": "io.sdar/taskBusiness/context/get",
+              "snapshotPartGet": "io.sdar/taskBusiness/snapshotParts/get",
+              "artifactGet": "io.sdar/taskBusiness/artifacts/get",
+              "eventsListen": "io.sdar/businessEvents/listen",
+              "contentGet": true,
+              "inputUpdate": false,
+              "interventionApply": false
+            },
+            "semantics": {
+              "artifact": [
+                "requested",
+                "planned",
+                "derived",
+                "observed"
+              ],
+              "coordinateFrames": [],
+              "observationClockDomains": [
+                "utc"
+              ]
+            },
+            "limits": {
+              "maxInlineArtifactBytes": 65536,
+              "maxWaitMs": 300000,
+              "trajectoryMinSamples": 2
+            },
+            "policy": {
+              "visualLockOwner": "disabled",
+              "decisionMode": "none",
+              "onExpire": "end_observation",
+              "onDismiss": "end_observation",
+              "footprintMode": "disabled",
+              "coverageMode": "device_reported"
+            },
+            "qualification": {
+              "routeAdoption": "not_supported",
+              "footprint": "not_supported",
+              "automaticVisualLock": "not_supported",
+              "runtimeReplan": "not_supported"
+            }
+          }
+        }
+      },
+      {
+        "name": "vehicle_track_target",
+        "description": "Track a locally observed target and fail locally when lock is lost.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "targetId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "resourceId",
+            "targetId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleTaskResultV1",
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "target_locked",
+                    "target_lost",
+                    "cancelled",
+                    "timeout"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "resourceId",
+                "status",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "task_required",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": true,
+            "supportsCancellation": true,
+            "supportsPauseResume": false,
+            "supportsObservations": true,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_control_gimbal",
+        "description": "Run a finite absolute, relative, or reset electro-optical gimbal adjustment.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "absolute",
+                "relative",
+                "reset"
+              ]
+            },
+            "yaw": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "pitch": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "yawSpeed": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "pitchSpeed": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "deltaZoom": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "resourceId",
+            "mode"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "mode": {
+                    "const": "reset"
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              },
+              "then": {},
+              "else": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "yaw": {}
+                    },
+                    "required": [
+                      "yaw"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "pitch": {}
+                    },
+                    "required": [
+                      "pitch"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "deltaZoom": {}
+                    },
+                    "required": [
+                      "deltaZoom"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleTaskResultV1",
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "timeout"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "resourceId",
+                "status",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "task_required",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": true,
+            "supportsCancellation": true,
+            "supportsPauseResume": false,
+            "supportsObservations": true,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_fire_weapon",
+        "description": "Execute one confirmed local fire-control cycle without hit, damage or destruction semantics.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "targetId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "engagementMode": {
+              "const": "single"
+            },
+            "requireConfirmation": {
+              "const": true
+            },
+            "approvalRef": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "resourceId",
+            "targetId",
+            "engagementMode",
+            "requireConfirmation"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleTaskResultV1",
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "fire_command_accepted",
+                    "fire_command_rejected",
+                    "fire_cycle_completed",
+                    "target_not_found",
+                    "target_not_locked",
+                    "out_of_range",
+                    "out_of_fov",
+                    "no_ammo_reported_by_weapon",
+                    "weapon_fault",
+                    "friendly_target_rejected",
+                    "timeout",
+                    "cancelled"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "resourceId",
+                "status",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "task_required",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": true,
+            "supportsCancellation": true,
+            "supportsPauseResume": false,
+            "supportsObservations": true,
+            "supportsInputRequired": true,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_emergency_stop",
+        "description": "Preempt and stop only this UGV's local tracks.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "title": "VehicleTaskResultV1",
+              "type": "object",
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "stopped",
+                    "timeout",
+                    "failed"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "finalSpeedKmh": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "missionState": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "reconMotionStatus": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "eoTaskState": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "weaponTaskState": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "targetUnlocked": {
+                  "type": "boolean"
+                },
+                "observationAuthority": {
+                  "type": "string"
+                },
+                "snapshotRevision": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "resourceId",
+                "status",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "task_required",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": true,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": true,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_inspect_area",
+        "description": "Inspect one authorized WGS84 subregion in one bounded scan. x is longitude; y is latitude. Target discoveries and qualified events retain their source. Unknown coverage or missing target reports cannot establish complete inspection. Default maximum elapsed time: 300 seconds.",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "area": {
+              "type": "object",
+              "properties": {
+                "boundary": {
+                  "minItems": 3,
+                  "maxItems": 257,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "frame": {
+                  "type": "string",
+                  "enum": [
+                    "WGS84",
+                    "EPSG:4326"
+                  ]
+                },
+                "excludedZones": {
+                  "maxItems": 128,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                }
+              },
+              "required": [
+                "boundary"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "resourceId",
+            "area"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "resourceId",
+                "status",
+                "observedAt",
+                "anomalies",
+                "inspectionReport",
+                "coverage",
+                "correlationStrength",
+                "missingEvidence"
+              ],
+              "properties": {
+                "resourceId": {
+                  "type": "string",
+                  "const": "vehicle:ugv1"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "timeout"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "anomalies": {
+                  "type": "array",
+                  "maxItems": 256,
+                  "items": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "inspectionReport": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string",
+                      "const": "1.0"
+                    },
+                    "completion": {
+                      "type": "string",
+                      "enum": [
+                        "complete",
+                        "partial",
+                        "unavailable"
+                      ]
+                    },
+                    "targetReportObservedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "targetReportComplete": {
+                      "type": "boolean"
+                    },
+                    "coverageState": {
+                      "type": "string",
+                      "enum": [
+                        "full",
+                        "partial",
+                        "none",
+                        "unknown"
+                      ]
+                    },
+                    "findingCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "artifactRefs": {
+                      "maxItems": 256,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "artifact"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id",
+                          "revision"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "completion",
+                    "targetReportObservedAt",
+                    "targetReportComplete",
+                    "coverageState",
+                    "findingCount",
+                    "truncated",
+                    "artifactRefs"
+                  ],
+                  "additionalProperties": false
+                },
+                "coverage": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "correlationStrength": {
+                  "type": "string",
+                  "enum": [
+                    "STRICT_CORRELATED",
+                    "INFERRED_CURRENT_EXECUTION",
+                    "WEAK_UNCORRELATED",
+                    "MISMATCH",
+                    "UNKNOWN"
+                  ]
+                },
+                "missingEvidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "task_required",
+            "availability": "dynamic",
+            "supportsScheduling": true,
+            "supportsMaxElapsed": true,
+            "supportsCancellation": true,
+            "supportsPauseResume": true,
+            "supportsObservations": true,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          },
+          "io.sdar/taskBusiness": {
+            "schemaVersion": "sdar.task-business-operation-profile/1.0-rc2",
+            "profileVersion": "1.0-rc2",
+            "availability": "available",
+            "source": {
+              "sourceId": "vehicle.business",
+              "deliverySemantics": "durable_at_least_once",
+              "replaySupported": true
+            },
+            "artifactTypes": [
+              "recon.area",
+              "recon.coverage_plan",
+              "recon.covered_area",
+              "target.object",
+              "target.track"
+            ],
+            "actionTypes": [
+              "sensor.visual_lock"
+            ],
+            "requiredInputTypes": [],
+            "interventionTypes": [],
+            "methods": {
+              "contextGet": "io.sdar/taskBusiness/context/get",
+              "snapshotPartGet": "io.sdar/taskBusiness/snapshotParts/get",
+              "artifactGet": "io.sdar/taskBusiness/artifacts/get",
+              "eventsListen": "io.sdar/businessEvents/listen",
+              "contentGet": true,
+              "inputUpdate": false,
+              "interventionApply": false
+            },
+            "semantics": {
+              "artifact": [
+                "requested",
+                "planned",
+                "derived",
+                "observed"
+              ],
+              "coordinateFrames": [],
+              "observationClockDomains": [
+                "utc"
+              ]
+            },
+            "limits": {
+              "maxInlineArtifactBytes": 65536,
+              "maxWaitMs": 300000,
+              "trajectoryMinSamples": 2
+            },
+            "policy": {
+              "visualLockOwner": "disabled",
+              "decisionMode": "none",
+              "onExpire": "end_observation",
+              "onDismiss": "end_observation",
+              "footprintMode": "disabled",
+              "coverageMode": "device_reported"
+            },
+            "qualification": {
+              "routeAdoption": "not_supported",
+              "footprint": "not_supported",
+              "automaticVisualLock": "not_supported",
+              "runtimeReplan": "not_supported"
+            }
+          }
+        }
+      },
+      {
+        "name": "vehicle_get_trajectory_history",
+        "description": "Read trajectory reception history v1.0. Provider retained ranges are distinct from device-generation history. Pin Ed25519 key 729abef5c010b50a9d1b7fc706d7afb6bb0509681232343f8ae1e7d2068c0a93 separately.",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "historyVersion": {
+              "type": "string",
+              "const": "1.0"
+            },
+            "fromSequence": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$"
+            },
+            "throughSequence": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$"
+            },
+            "pageCursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16384
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "maxPageBytes": {
+              "type": "integer",
+              "minimum": 8192,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "resourceId",
+            "historyVersion"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "object",
+              "properties": {
+                "schemaVersion": {
+                  "type": "string",
+                  "const": "ugv.trajectory-history-page/1.0"
+                },
+                "snapshot": {
+                  "type": "object",
+                  "properties": {
+                    "manifest": {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "string",
+                          "const": "ugv.trajectory-history-manifest/1.0"
+                        },
+                        "scope": {
+                          "type": "object",
+                          "properties": {
+                            "providerId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            },
+                            "resourceId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            },
+                            "deviceId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            },
+                            "deviceIdentityAuthority": {
+                              "type": "string",
+                              "enum": [
+                                "GOWM_DEVICE_BINDING",
+                                "PROVIDER_RESOURCE_CONFIGURATION"
+                              ]
+                            },
+                            "streamId": {
+                              "type": "string",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "sourceSessionKey": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            },
+                            "smppServiceKey": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            },
+                            "bindingId": {
+                              "type": "string",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "required": [
+                            "providerId",
+                            "resourceId",
+                            "deviceId",
+                            "deviceIdentityAuthority",
+                            "streamId",
+                            "sourceSessionKey"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "snapshotId": {
+                          "type": "string",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "capturedFromSequence": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,18})$"
+                        },
+                        "capturedFromRecordingTime": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "activationClockOwner": {
+                          "type": "string",
+                          "const": "POSTGRESQL_STREAM_CREATION_CLOCK"
+                        },
+                        "guaranteedSinceHistoryVersion": {
+                          "type": "string",
+                          "const": "1.0"
+                        },
+                        "fromSequence": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,18})$"
+                        },
+                        "throughSequence": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,18})$"
+                        },
+                        "highWatermark": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,18})$"
+                        },
+                        "retainedEntryCount": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,18})$"
+                        },
+                        "expectedOrdinalCount": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,18})$"
+                        },
+                        "previousHash": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "terminalHash": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "chainAlgorithm": {
+                          "type": "string",
+                          "const": "SMPP_CANONICAL_JSON_SHA256_CHAIN_V1"
+                        },
+                        "ordering": {
+                          "type": "string",
+                          "const": "DURABLE_PROVIDER_RECEIPT_SEQUENCE"
+                        },
+                        "deduplication": {
+                          "type": "string",
+                          "const": "RECEPTIONS_NOT_COLLAPSED_INTO_DEVICE_SAMPLES"
+                        },
+                        "retainedHistory": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "complete",
+                                "incomplete",
+                                "unknown"
+                              ]
+                            },
+                            "reasons": {
+                              "maxItems": 32,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "reasons"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "providerCaptureCoverage": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "complete",
+                                "incomplete",
+                                "unknown"
+                              ]
+                            },
+                            "reasons": {
+                              "maxItems": 32,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "reasons"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "deviceGenerationHistory": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "incomplete",
+                                "unknown"
+                              ]
+                            },
+                            "reasons": {
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "reasons"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "legacyHistory": {
+                          "type": "string",
+                          "const": "NO_RETROACTIVE_RECEPTION_TIME_OR_DEVICE_COMPLETENESS_CLAIM"
+                        },
+                        "prunedThroughSequence": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,18})$"
+                        },
+                        "recovery": {
+                          "type": "object",
+                          "properties": {
+                            "uncleanSessionCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "disconnectCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "captureFailureCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "uncleanSessionCount",
+                            "disconnectCount",
+                            "captureFailureCount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "evidenceClass": {
+                          "type": "string",
+                          "enum": [
+                            "SIMULATED",
+                            "UNQUALIFIED_SOURCE"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "schemaVersion",
+                        "scope",
+                        "snapshotId",
+                        "capturedFromSequence",
+                        "capturedFromRecordingTime",
+                        "activationClockOwner",
+                        "guaranteedSinceHistoryVersion",
+                        "fromSequence",
+                        "throughSequence",
+                        "highWatermark",
+                        "retainedEntryCount",
+                        "expectedOrdinalCount",
+                        "previousHash",
+                        "terminalHash",
+                        "chainAlgorithm",
+                        "ordering",
+                        "deduplication",
+                        "retainedHistory",
+                        "providerCaptureCoverage",
+                        "deviceGenerationHistory",
+                        "legacyHistory",
+                        "prunedThroughSequence",
+                        "recovery",
+                        "evidenceClass"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "signature": {
+                      "type": "object",
+                      "properties": {
+                        "algorithm": {
+                          "type": "string",
+                          "const": "Ed25519"
+                        },
+                        "keyId": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "value": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_-]{86}$"
+                        }
+                      },
+                      "required": [
+                        "algorithm",
+                        "keyId",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "manifest",
+                    "signature"
+                  ],
+                  "additionalProperties": false
+                },
+                "entries": {
+                  "maxItems": 256,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sequence": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,18})$"
+                      },
+                      "previousHash": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "hash": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "receipt": {
+                        "type": "object",
+                        "properties": {
+                          "schemaVersion": {
+                            "type": "string",
+                            "const": "ugv.trajectory-reception/1.0"
+                          },
+                          "receptionId": {
+                            "type": "string",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "sessionId": {
+                            "type": "string",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "sourceTopic": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "originalMessageSha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "originalMessageBytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "originalMessageReference": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 512
+                          },
+                          "providerReceivedAt": {
+                            "type": "object",
+                            "properties": {
+                              "utc": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              "owner": {
+                                "type": "string",
+                                "const": "PROVIDER_MQTT_MESSAGE_CALLBACK"
+                              },
+                              "clockId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              },
+                              "resolution": {
+                                "type": "string",
+                                "const": "MILLISECOND"
+                              },
+                              "synchronization": {
+                                "type": "string",
+                                "const": "UNVERIFIED"
+                              },
+                              "accuracyBoundMilliseconds": {
+                                "type": "null"
+                              },
+                              "processMonotonicNanoseconds": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              }
+                            },
+                            "required": [
+                              "utc",
+                              "owner",
+                              "clockId",
+                              "resolution",
+                              "synchronization",
+                              "accuracyBoundMilliseconds",
+                              "processMonotonicNanoseconds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "reportedTime": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "originalField": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                  },
+                                  "rawValueJson": {
+                                    "type": "string",
+                                    "maxLength": 4096
+                                  },
+                                  "valueProvenance": {
+                                    "type": "string",
+                                    "const": "DECODED_JSON_VALUE_NOT_ORIGINAL_WIRE_LEXEME"
+                                  },
+                                  "unit": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ISO8601",
+                                      "EPOCH_MICROSECONDS",
+                                      "MICROSECONDS_UNSPECIFIED_EPOCH",
+                                      "ROS_SECONDS_NANOSECONDS",
+                                      "UNKNOWN"
+                                    ]
+                                  },
+                                  "timeBase": {
+                                    "type": "string",
+                                    "enum": [
+                                      "REPORTED_UNIX_EPOCH",
+                                      "UNKNOWN"
+                                    ]
+                                  },
+                                  "reportedClockOwner": {
+                                    "type": "string",
+                                    "const": "MESSAGE_PRODUCER_UNVERIFIED"
+                                  },
+                                  "normalizedUtc": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "conversion": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 512
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "calibration": {
+                                    "type": "null"
+                                  },
+                                  "quality": {
+                                    "type": "string",
+                                    "enum": [
+                                      "REPORTED_UNVERIFIED",
+                                      "UNKNOWN_TIMEBASE",
+                                      "INVALID",
+                                      "REPORTED_CLOCK_REGRESSION"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "originalField",
+                                  "rawValueJson",
+                                  "valueProvenance",
+                                  "unit",
+                                  "timeBase",
+                                  "reportedClockOwner",
+                                  "normalizedUtc",
+                                  "conversion",
+                                  "calibration",
+                                  "quality"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "deviceAcquisitionTime": {
+                            "type": "null"
+                          },
+                          "deviceClockAttribution": {
+                            "type": "string",
+                            "const": "NOT_ATTESTED_BY_PRODUCER_CONTRACT"
+                          },
+                          "sourceReportedSequence": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 256
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "sourceProducerEpoch": {
+                            "type": "null"
+                          },
+                          "transport": {
+                            "type": "object",
+                            "properties": {
+                              "qos": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 2
+                              },
+                              "packetId": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "duplicateDeliveryHint": {
+                                "type": "boolean"
+                              },
+                              "retainedDelivery": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "qos",
+                              "packetId",
+                              "duplicateDeliveryHint",
+                              "retainedDelivery"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "disposition": {
+                            "type": "string",
+                            "enum": [
+                              "POSITION_OBSERVATION",
+                              "NO_POSITION",
+                              "REJECTED"
+                            ]
+                          },
+                          "reasonCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "position": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "longitude": {
+                                    "type": "number",
+                                    "minimum": -180,
+                                    "maximum": 180
+                                  },
+                                  "latitude": {
+                                    "type": "number",
+                                    "minimum": -90,
+                                    "maximum": 90
+                                  },
+                                  "altitude": {
+                                    "type": "number"
+                                  },
+                                  "crs": {
+                                    "type": "string",
+                                    "const": "OGC:CRS84"
+                                  },
+                                  "derivation": {
+                                    "type": "string",
+                                    "const": "VERSIONED_PROVIDER_NORMALIZER"
+                                  }
+                                },
+                                "required": [
+                                  "longitude",
+                                  "latitude",
+                                  "crs",
+                                  "derivation"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reportedMission": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "missionId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "const": "SAME_ORIGINAL_MESSAGE"
+                                  },
+                                  "producerEpoch": {
+                                    "type": "null"
+                                  },
+                                  "executionOwnership": {
+                                    "type": "string",
+                                    "const": "NOT_ATTESTED"
+                                  }
+                                },
+                                "required": [
+                                  "missionId",
+                                  "provenance",
+                                  "producerEpoch",
+                                  "executionOwnership"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "evidenceClass": {
+                            "type": "string",
+                            "enum": [
+                              "SIMULATED",
+                              "UNQUALIFIED_SOURCE"
+                            ]
+                          },
+                          "diagnostics": {
+                            "maxItems": 32,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            }
+                          }
+                        },
+                        "required": [
+                          "schemaVersion",
+                          "receptionId",
+                          "sessionId",
+                          "sourceTopic",
+                          "originalMessageSha256",
+                          "originalMessageBytes",
+                          "originalMessageReference",
+                          "providerReceivedAt",
+                          "reportedTime",
+                          "deviceAcquisitionTime",
+                          "deviceClockAttribution",
+                          "sourceReportedSequence",
+                          "sourceProducerEpoch",
+                          "transport",
+                          "disposition",
+                          "reasonCode",
+                          "position",
+                          "reportedMission",
+                          "evidenceClass",
+                          "diagnostics"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "recordedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                      },
+                      "recordingClockOwner": {
+                        "type": "string",
+                        "const": "POSTGRESQL_RECORD_INSERTION_CLOCK"
+                      },
+                      "recordingResolution": {
+                        "type": "string",
+                        "const": "MICROSECOND"
+                      },
+                      "exactTransactionCommittedAt": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sequence",
+                      "previousHash",
+                      "hash",
+                      "receipt",
+                      "recordedAt",
+                      "recordingClockOwner",
+                      "recordingResolution",
+                      "exactTransactionCommittedAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "nextCursor": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 16384
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rangeReadFinished": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "schemaVersion",
+                "snapshot",
+                "entries",
+                "nextCursor",
+                "rangeReadFinished"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "synchronous_only",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": false,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": false,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      },
+      {
+        "name": "vehicle_get_trajectory_evidence",
+        "description": "Read version 1.0 immutable coordinate-to-reception evidence for an authorized navigation Artifact. Legacy point times remain unknown. Pin Ed25519 key 729abef5c010b50a9d1b7fc706d7afb6bb0509681232343f8ae1e7d2068c0a93 separately.",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "const": "vehicle:ugv1"
+            },
+            "historyVersion": {
+              "type": "string",
+              "const": "1.0"
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "executionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "artifactId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "revision": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "resourceId",
+            "historyVersion",
+            "taskId",
+            "executionId",
+            "artifactId",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "anyOf": [
+            {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "object",
+              "properties": {
+                "evidence": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string",
+                      "const": "ugv.trajectory-artifact-evidence/1.0"
+                    },
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "taskId": {
+                          "type": "string"
+                        },
+                        "executionId": {
+                          "type": "string"
+                        },
+                        "providerId": {
+                          "type": "string"
+                        },
+                        "resourceId": {
+                          "type": "string"
+                        },
+                        "operationName": {
+                          "type": "string",
+                          "const": "vehicle_navigate"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "simulationId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "taskId",
+                        "executionId",
+                        "providerId",
+                        "resourceId",
+                        "operationName"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "artifactId": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "artifactGeometrySha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "projectionPolicy": {
+                      "type": "string",
+                      "const": "SAMPLED_GEOMETRY_NOT_FULL_RECEPTION_HISTORY"
+                    },
+                    "sampleEveryMilliseconds": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "missionBinding": {
+                      "type": "object",
+                      "properties": {
+                        "missionId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "authority": {
+                          "type": "string",
+                          "const": "PROVIDER_CURRENT_MISSION_AND_UNIQUE_ACTIVE_EXECUTION"
+                        },
+                        "deviceExecutionOwnership": {
+                          "type": "string",
+                          "const": "NOT_ATTESTED"
+                        }
+                      },
+                      "required": [
+                        "missionId",
+                        "authority",
+                        "deviceExecutionOwnership"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "points": {
+                      "minItems": 1,
+                      "maxItems": 256,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "coordinateIndex": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 255
+                          },
+                          "coordinate": {
+                            "minItems": 2,
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            }
+                          },
+                          "reception": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "scope": {
+                                    "type": "object",
+                                    "properties": {
+                                      "providerId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      "resourceId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      "deviceId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      "deviceIdentityAuthority": {
+                                        "type": "string",
+                                        "enum": [
+                                          "GOWM_DEVICE_BINDING",
+                                          "PROVIDER_RESOURCE_CONFIGURATION"
+                                        ]
+                                      },
+                                      "streamId": {
+                                        "type": "string",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "sourceSessionKey": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      "smppServiceKey": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      "bindingId": {
+                                        "type": "string",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    },
+                                    "required": [
+                                      "providerId",
+                                      "resourceId",
+                                      "deviceId",
+                                      "deviceIdentityAuthority",
+                                      "streamId",
+                                      "sourceSessionKey"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "receptionId": {
+                                    "type": "string",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "sequence": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                  },
+                                  "entryHash": {
+                                    "type": "string",
+                                    "pattern": "^[a-f0-9]{64}$"
+                                  },
+                                  "originalMessageSha256": {
+                                    "type": "string",
+                                    "pattern": "^[a-f0-9]{64}$"
+                                  },
+                                  "providerReceivedAt": {
+                                    "type": "object",
+                                    "properties": {
+                                      "utc": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                      },
+                                      "owner": {
+                                        "type": "string",
+                                        "const": "PROVIDER_MQTT_MESSAGE_CALLBACK"
+                                      },
+                                      "clockId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      "resolution": {
+                                        "type": "string",
+                                        "const": "MILLISECOND"
+                                      },
+                                      "synchronization": {
+                                        "type": "string",
+                                        "const": "UNVERIFIED"
+                                      },
+                                      "accuracyBoundMilliseconds": {
+                                        "type": "null"
+                                      },
+                                      "processMonotonicNanoseconds": {
+                                        "type": "string",
+                                        "pattern": "^[0-9]+$"
+                                      }
+                                    },
+                                    "required": [
+                                      "utc",
+                                      "owner",
+                                      "clockId",
+                                      "resolution",
+                                      "synchronization",
+                                      "accuracyBoundMilliseconds",
+                                      "processMonotonicNanoseconds"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "evidenceClass": {
+                                    "type": "string",
+                                    "enum": [
+                                      "SIMULATED",
+                                      "UNQUALIFIED_SOURCE"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "scope",
+                                  "receptionId",
+                                  "sequence",
+                                  "entryHash",
+                                  "originalMessageSha256",
+                                  "providerReceivedAt",
+                                  "evidenceClass"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "receptionTimeQuality": {
+                            "type": "string",
+                            "enum": [
+                              "ENTRANCE_RECEIPT_LINKED",
+                              "UNKNOWN_LEGACY_OR_UNJOURNALED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "coordinateIndex",
+                          "coordinate",
+                          "reception",
+                          "receptionTimeQuality"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "deviceGenerationHistory": {
+                      "type": "string",
+                      "const": "UNKNOWN_PRODUCER_BOUNDARIES_NOT_ATTESTED"
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "identity",
+                    "artifactId",
+                    "revision",
+                    "artifactGeometrySha256",
+                    "projectionPolicy",
+                    "sampleEveryMilliseconds",
+                    "missionBinding",
+                    "points",
+                    "deviceGenerationHistory"
+                  ],
+                  "additionalProperties": false
+                },
+                "signature": {
+                  "type": "object",
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "const": "Ed25519"
+                    },
+                    "keyId": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "value": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{86}$"
+                    }
+                  },
+                  "required": [
+                    "algorithm",
+                    "keyId",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "evidence",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "outcome",
+                "reasonCode",
+                "retryable",
+                "completedAt"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "_meta": {
+          "io.sdar/taskExecution": {
+            "profileVersion": "1.0",
+            "taskBehavior": "synchronous_only",
+            "availability": "dynamic",
+            "supportsScheduling": false,
+            "supportsMaxElapsed": false,
+            "supportsCancellation": false,
+            "supportsPauseResume": false,
+            "supportsObservations": false,
+            "supportsInputRequired": false,
+            "idempotency": "server_managed"
+          },
+          "io.sdar/resourceBinding": {
+            "mode": "ARGUMENT_REFERENCE",
+            "resourceIdJsonPointer": "/resourceId"
+          }
+        }
+      }
+    ]
+  }
+}

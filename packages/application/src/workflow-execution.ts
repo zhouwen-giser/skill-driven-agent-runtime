@@ -531,7 +531,11 @@ export class WorkflowExecutionService {
           fallbackSnapshot,
         );
       }
-      if (activatedSnapshot === undefined && priorSnapshot !== undefined)
+      if (
+        activatedSnapshot === undefined &&
+        priorSnapshot !== undefined &&
+        outcome.status !== 'paused'
+      )
         await this.#continuations.transitionLifecycle(
           priorSnapshot.snapshotId,
           'active',
@@ -685,7 +689,7 @@ export class WorkflowExecutionService {
           preparedExternalWaits,
           fallbackSnapshot,
         );
-      } else {
+      } else if (outcome.status !== 'paused') {
         await this.#continuations.transitionLifecycle(
           snapshot.snapshotId,
           'active',
@@ -693,6 +697,8 @@ export class WorkflowExecutionService {
           timestamp,
         );
       }
+      // A memory-backed human checkpoint keeps the last durable chain head.
+      // The next external wait must succeed it, rather than reuse version one.
       const continued: WorkflowInstance = {
         ...withoutPendingConfirmation(instance),
         status: outcome.status,

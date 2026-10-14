@@ -1,0 +1,24 @@
+{
+  "name": "sdar-inspection-joint-55",
+  "command": "node",
+  "args": [
+    "--import",
+    "tsx",
+    "scripts/inspection/joint.mts"
+  ],
+  "startedAt": "2026-10-13T23:58:18.149Z",
+  "completedAt": "2026-10-14T00:04:20.503Z",
+  "exitCode": null,
+  "signal": "SIGTERM",
+  "status": "FAIL",
+  "sourceBefore": "058833c92d27d7d3219c65a5e876b20a680d16b49ff8ceb6a7a14711763ba965",
+  "sourceAfter": "058833c92d27d7d3219c65a5e876b20a680d16b49ff8ceb6a7a14711763ba965",
+  "sourceUnchanged": true,
+  "relatedSource": {
+    "root": "/home/sz/.codex/worktrees/trajectory-history-authority/sdar-mcp-provider-platform",
+    "before": "e4777fbd26e10d23b9f4ec1a9e83605a5436b8a05687323d2de7fa22583e6543",
+    "after": "e4777fbd26e10d23b9f4ec1a9e83605a5436b8a05687323d2de7fa22583e6543"
+  },
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-joint-55.log",
+  "logSha256": "1117c1823c9dcf6dacff24627f52648084e8f28d7a1cffdb6089a0d77a712c94"
+}

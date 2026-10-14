@@ -120,7 +120,9 @@ export function hashA2aExposure(
     .digest('hex');
 }
 
-export function a2aExposureEtag(exposure: A2aExposureVersion): string {
+export function a2aExposureEtag(
+  exposure: Pick<A2aExposureVersion, 'exposureId' | 'version' | 'status' | 'exposureHash'>,
+): string {
   return `"a2a-exposure:${exposure.exposureId}:${String(exposure.version)}:${exposure.status}:${exposure.exposureHash}"`;
 }
 

@@ -25,6 +25,10 @@ export async function continueRemoteTaskWorkflowHierarchy(
       snapshot: WorkflowContinuationSnapshot,
       control: WorkflowControlRecord,
     ): Promise<void>;
+    finalizeOwnedChild?(
+      snapshot: WorkflowContinuationSnapshot,
+      instance: WorkflowInstance,
+    ): Promise<void>;
   }>,
   input: Readonly<{
     snapshot: WorkflowContinuationSnapshot;
@@ -117,6 +121,9 @@ export async function continueRemoteTaskWorkflowHierarchy(
       depth += 1;
       continue;
     }
+    // A governed physical child owns a separate native controller. Its terminal transaction
+    // must finish before the parent reads Task output; shared-Task legacy children have no hook.
+    await dependencies.finalizeOwnedChild?.(currentSnapshot, currentInstance);
     const child =
       commonLink?.kind === 'subworkflow'
         ? {

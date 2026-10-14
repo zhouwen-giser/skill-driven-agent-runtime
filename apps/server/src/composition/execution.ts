@@ -1,3 +1,19 @@
+import type { GovernedChildTaskPort } from '../../../../packages/application/src/governed-child-task.js';
+import { areaReportChildExecutionStatus } from '../area-report-terminal.js';
+import { parseAreaPatrolInput } from '../../../../packages/domain/src/area-patrol.js';
+import type { UgvMoveTaskBindingResolver } from '../../../../packages/ugv-profile/src/ugv-move-binding.js';
+import { resolveUgvMoveSkillUsageContext } from '../../../../packages/ugv-profile/src/ugv-move-skill-usage.js';
+import {
+  UgvMoveWorkflowCandidateGuard,
+  prepareUgvMoveWorkflowPlan,
+} from '../../../../packages/ugv-profile/src/ugv-move-workflow.js';
+import { assertUgvAgentProfileMoveInputAuthority } from '../../../../packages/ugv-profile/src/ugv-agent-profile-admission.js';
+import type { RuntimeValueRef } from './runtime-value-ref.js';
+import {
+  inspectionTaskExecution,
+  inspectionToolArguments,
+  projectInspectionResult,
+} from '../../../../packages/domain/src/area-inspection.js';
 import type { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
@@ -67,6 +83,7 @@ import type {
   PostgresSkillCallWorkflowRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillGraphRepository,
+  PostgresSkillInputResolutionRepository,
   PostgresSkillRepository,
   PostgresWorkflowPlanRepository,
 } from '../../../../packages/persistence-postgres/src/index.js';
@@ -101,6 +118,10 @@ import {
   uniqueToolReferences,
 } from './runtime-support.js';
 export interface composeExecutionDependencies {
+  readonly governedPatrolChildren: RuntimeValueRef<GovernedChildTaskPort | undefined>;
+  readonly ugvMoveBindingResolver: UgvMoveTaskBindingResolver | undefined;
+  readonly ugvWorkflowCandidateGuard: AsyncLocalStorage<UgvMoveWorkflowCandidateGuard>;
+  readonly skillInputResolutionRepository: PostgresSkillInputResolutionRepository;
   readonly cleanupScope: RuntimeCleanupScope;
   options: ServerRuntimeOptions;
   readonly tasks: PostgresAgentTaskRepository;
@@ -153,6 +174,7 @@ export interface composeExecutionDependencies {
     task?: AgentTask,
   ) => Promise<SkillUsageSelectionContext>;
   readonly skillUsage: SkillUsageCandidateAssessor;
+  readonly profileSkillUsage: Pick<SkillUsageCandidateAssessor, 'assess'>;
   readonly skillComposition: SkillCompositionPlanner;
   readonly resolveSkillUsageSlotChoices: (
     goalContract: GoalExecutionContract,
@@ -203,12 +225,31 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
     workflowPlanner,
     schemaValidator,
     resolveSkillUsageContext,
-    skillUsage,
     skillComposition,
     resolveSkillUsageSlotChoices,
     skillExecutionRepository,
   } = dependencies;
   const workflowPorts: WorkflowRuntimePorts = {
+    async projectResult({ executionId, result }) {
+      const instance = await workflowInstances.findInstance(executionId);
+      const plan =
+        instance === undefined ? undefined : await workflowPlans.findPlan(instance.planId);
+      if (
+        plan?.definition?.skillUsagePolicy?.skill.skillId === 'embodied.inspect_area' &&
+        result !== false
+      )
+        return projectInspectionResult(result);
+      if (
+        plan?.definition?.skillUsagePolicy?.skill.skillId === 'embodied.area_patrol' &&
+        plan.definition.skillUsagePolicy.skill.skillVersion >= 2 &&
+        instance
+      ) {
+        const task = await tasks.findByPlanId(plan.planId);
+        if (!task) throw Error('PATROL_PARENT_TASK_NOT_FOUND');
+        return taskCapabilities.readPatrolTerminalReport(task.taskId, plan.planId);
+      }
+      return result;
+    },
     async executeLlm({ executionId, instruction, context, responseSchema, signal }) {
       const instance = await workflowInstances.findInstance(executionId);
       const task =
@@ -272,16 +313,71 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         taskExecution === undefined
           ? await mcpRepository.getTaskOperationDefinition(tool)
           : undefined;
+      const inspectionInput =
+        tool.toolName === 'vehicle_inspect_area' &&
+        plan?.definition?.skillUsagePolicy?.skill.skillId === 'embodied.inspect_area' &&
+        isRecord(instance?.input)
+          ? instance.input['skillInput']
+          : undefined;
+      let patrolTimingInput: unknown;
+      if (
+        tool.toolName === 'vehicle_navigate' &&
+        skillCallLink !== undefined &&
+        task !== undefined &&
+        instance !== undefined &&
+        plan !== undefined
+      ) {
+        const parent = await tasks.findByPlanId(skillCallLink.parentPlanId);
+        if (
+          parent?.selectedSkillId === 'embodied.area_patrol' &&
+          (parent.selectedSkillVersion ?? 0) >= 2
+        ) {
+          const parentPlan = await workflowPlans.findPlan(skillCallLink.parentPlanId);
+          const parentBinding = await taskCapabilities.findBinding(parent.taskId);
+          const childBinding = await taskCapabilities.findBinding(task.taskId);
+          if (
+            parentPlan === undefined ||
+            parent.phase !== 'executing' ||
+            parent.planId !== parentPlan.planId ||
+            parentPlan.confirmationStatus !== 'confirmed' ||
+            parentBinding?.requestedCapabilityId !== 'embodied.area_patrol' ||
+            skillCallLink.childPlanId !== plan.planId ||
+            skillCallLink.childInstanceId !== instance.instanceId ||
+            childBinding?.requestedCapabilityId !== 'embodied.move'
+          )
+            throw Error('PATROL_NAVIGATION_WINDOW_AUTHORITY_INVALID');
+          const parentInput = parseAreaPatrolInput(parentBinding.inputSnapshot);
+          if (
+            canonicalJson(childBinding.inputSnapshot) !==
+            canonicalJson({ resourceId: parentInput.resourceId, target: parentInput.target })
+          )
+            throw Error('PATROL_NAVIGATION_INPUT_CONFLICT');
+          patrolTimingInput = {
+            resourceId: parentInput.resourceId,
+            area: parentInput.area,
+            timeWindow: parentInput.timeWindow,
+          };
+        }
+      }
+      if (tool.toolName === 'vehicle_inspect_area') {
+        if (
+          inspectionInput === undefined ||
+          canonicalJson(inspectionToolArguments(inspectionInput)) !== canonicalJson(arguments_)
+        )
+          throw new Error('INSPECTION_FROZEN_INPUT_AUTHORITY_INVALID');
+      }
       const effectiveTaskExecution =
-        taskExecution ??
-        (declaredTaskOperation?.taskExecutionProfile.taskBehavior === 'task_required'
-          ? { protocolMode: 'frozen_v1' as const, availabilityCheck: 'required' as const }
-          : undefined);
+        inspectionInput === undefined && patrolTimingInput === undefined
+          ? (taskExecution ??
+            (declaredTaskOperation?.taskExecutionProfile.taskBehavior === 'task_required'
+              ? { protocolMode: 'frozen_v1' as const, availabilityCheck: 'required' as const }
+              : undefined))
+          : inspectionTaskExecution(inspectionInput ?? patrolTimingInput, clock.now());
       if (effectiveTaskExecution !== undefined && taskReadiness === undefined)
         throw new Error('MCP_TASK_READINESS_RUNTIME_DISABLED');
       if (effectiveTaskExecution !== undefined && planDefinition === undefined)
         throw new Error('MCP_TASK_WORKFLOW_DEFINITION_MISSING');
-      const guardedTaskExecution =
+      let guardedTaskExecution =
         effectiveTaskExecution === undefined ||
         taskReadiness === undefined ||
         instance === undefined ||
@@ -303,6 +399,13 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
               executionContext,
               ...(signal === undefined ? {} : { signal }),
             });
+      if (inspectionInput !== undefined || patrolTimingInput !== undefined)
+        guardedTaskExecution = {
+          ...inspectionTaskExecution(inspectionInput ?? patrolTimingInput, clock.now()),
+          ...(guardedTaskExecution?.reservationRef === undefined
+            ? {}
+            : { reservationRef: guardedTaskExecution.reservationRef }),
+        };
       const providerBindingContext =
         authorityTask === undefined
           ? undefined
@@ -591,6 +694,35 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
               },
             };
       let receipt: Awaited<ReturnType<McpRegistryService['callDetailed']>>;
+      const beforeControlAuthorization =
+        (inspectionInput !== undefined || patrolTimingInput !== undefined) &&
+        taskReadiness &&
+        instance &&
+        plan &&
+        planDefinition &&
+        effectiveTaskExecution !== undefined &&
+        guardedTaskExecution?.reservationRef === undefined
+          ? async () => {
+              inspectionTaskExecution(inspectionInput ?? patrolTimingInput, clock.now());
+              const fresh = await taskReadiness.assertPreInvocation({
+                planId: plan.planId,
+                planAttempt: plan.attemptCount,
+                definition: planDefinition,
+                planConfirmed: plan.confirmationStatus === 'confirmed',
+                workflowInstanceId: instance.instanceId,
+                workflowNodeId,
+                workflowNodeRunId,
+                serverId: tool.serverId,
+                operationName: tool.toolName,
+                arguments: arguments_,
+                taskExecution: effectiveTaskExecution,
+                executionContext,
+                ...(signal === undefined ? {} : { signal }),
+              });
+              if (fresh.reservationRef !== undefined)
+                throw Error('AREA_DISPATCH_RESERVATION_CHANGED');
+            }
+          : undefined;
       try {
         receipt = await mcpRegistry.callDetailed(
           tool.serverId,
@@ -606,6 +738,7 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
                 ...(preTransportFence === undefined ? {} : { preTransportFence }),
                 ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
                 ...(logicalInvocationIdentity === undefined ? {} : { logicalInvocationIdentity }),
+                ...(beforeControlAuthorization === undefined ? {} : { beforeControlAuthorization }),
               }
             : {
                 taskId: authorityTask.taskId,
@@ -618,6 +751,7 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
                 ...(preTransportFence === undefined ? {} : { preTransportFence }),
                 ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
                 ...(logicalInvocationIdentity === undefined ? {} : { logicalInvocationIdentity }),
+                ...(beforeControlAuthorization === undefined ? {} : { beforeControlAuthorization }),
               },
         );
       } catch (dispatchError: unknown) {
@@ -934,6 +1068,27 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         throw new RemoteMcpTaskAdmissionUncertainError(remote.remoteTaskId);
       }
     },
+    async isDeterministicSkillCall({ skillId, parentExecutionId, parentNodeId }) {
+      const instance = await workflowInstances.findInstance(parentExecutionId);
+      const plan = instance && (await workflowPlans.findPlan(instance.planId));
+      const policy = plan?.definition?.skillUsagePolicy;
+      const node = plan?.definition?.nodes.find((candidate) => candidate.nodeId === parentNodeId);
+      if (
+        plan?.confirmationStatus !== 'confirmed' ||
+        policy?.skill.skillId !== 'embodied.area_patrol' ||
+        policy.skill.skillVersion < 2 ||
+        node?.type !== 'skill_call' ||
+        node.skillId !== skillId
+      )
+        return false;
+      const declared = policy.childPolicies.filter((child) => child.child.skillId === skillId);
+      if (declared.length !== 1 || !['embodied.move_to', 'embodied.inspect_area'].includes(skillId))
+        return false;
+      const declaredChild = declared[0];
+      if (!declaredChild) return false;
+      const child = await skills.findVersion(skillId, declaredChild.child.skillVersion);
+      return child?.status === 'enabled' && child.usageSpecification !== undefined;
+    },
     async executeSkill({
       skillId,
       input,
@@ -974,9 +1129,21 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
             ...(signal === undefined ? {} : { signal }),
           }),
         );
-      return authorityTask === undefined
-        ? executeChild()
-        : workflowTaskAuthority.run(authorityTask, executeChild);
+      try {
+        return await (authorityTask === undefined
+          ? executeChild()
+          : workflowTaskAuthority.run(authorityTask, executeChild));
+      } catch (error) {
+        process.stderr.write(
+          JSON.stringify({
+            event: 'workflow.skill_child_denied',
+            skillId,
+            parentNodeId,
+            summary: error instanceof Error ? error.message : 'Unknown child failure',
+          }) + '\n',
+        );
+        throw error;
+      }
     },
     async executeSubworkflow({
       workflowDefinitionId,
@@ -1030,7 +1197,26 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
     requestHumanConfirmation: () => {
       throw new Error('WORKFLOW_HUMAN_CONFIRMATION_REQUIRED');
     },
-    decideExecutionError: (input) => executionExceptionDecider.decide(input),
+    async decideExecutionError(input) {
+      const instance =
+        input.executionId === undefined
+          ? undefined
+          : await workflowInstances.findInstance(input.executionId);
+      const plan = instance && (await workflowPlans.findPlan(instance.planId));
+      if (
+        plan?.confirmationStatus === 'confirmed' &&
+        plan.definition?.skillUsagePolicy?.skill.skillId === 'embodied.area_patrol' &&
+        plan.definition.skillUsagePolicy.skill.skillVersion >= 2
+      ) {
+        return {
+          strategy: input.allowedStrategies.includes('continue')
+            ? ('continue' as const)
+            : ('terminate' as const),
+          summary: `Preserved child failure ${input.error.code}; no physical redispatch is permitted.`,
+        };
+      }
+      return executionExceptionDecider.decide(input);
+    },
     now: clock.now,
     nowMilliseconds: () => Date.now(),
   };
@@ -1260,8 +1446,40 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
     graph: skillGraphRepository,
   });
   const skillCallWorkflowService = new SkillCallWorkflowService({
+    governedChildren: {
+      prepare: (input) =>
+        dependencies.governedPatrolChildren.value?.prepare(input) ?? Promise.resolve(undefined),
+      attach: (input) =>
+        dependencies.governedPatrolChildren.value?.attach(input) ?? Promise.resolve(),
+      confirm: (planId, authority) =>
+        dependencies.governedPatrolChildren.value?.confirm(planId, authority) ??
+        Promise.resolve(false),
+      execute: (input) =>
+        dependencies.governedPatrolChildren.value?.execute(input) ?? Promise.resolve(undefined),
+      reject: (planId) =>
+        dependencies.governedPatrolChildren.value?.reject(planId) ?? Promise.resolve(),
+      cancelChildren: (taskId, planId) =>
+        dependencies.governedPatrolChildren.value?.cancelChildren(taskId, planId) ??
+        Promise.resolve(),
+    },
     skills,
     planner: workflowPlanner,
+    planUsage(request, usage) {
+      if (usage?.selectedTaskOperation === undefined) return workflowPlanner.plan(request);
+      return dependencies.ugvWorkflowCandidateGuard.run(
+        new UgvMoveWorkflowCandidateGuard({
+          selectedTaskOperation: usage.selectedTaskOperation,
+          skillUsagePolicy: usage.prepared.policy,
+          taskId: request.taskId ?? '',
+          workflowDefinitionId: request.workflowDefinitionId,
+          workflowVersion: request.workflowVersion,
+          goalId: request.goalId,
+          goalVersion: request.goalVersion,
+          clock,
+        }),
+        () => workflowPlanner.plan(request),
+      );
+    },
     validator: workflowValidator,
     execution: workflowExecution,
     plans: workflowPlans,
@@ -1288,8 +1506,18 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
       ),
     async prepareUsage({ skill, value, goalContract, workflowDefinitionId, taskId }) {
       const task = taskId === undefined ? undefined : await tasks.findById(taskId);
-      const usageContext = await resolveSkillUsageContext(goalContract, task);
-      const candidate = await skillUsage.assess(
+      const authority =
+        taskId === undefined
+          ? undefined
+          : await taskCapabilities.resolveSkillUsageAuthority(taskId);
+      const binding = taskId === undefined ? undefined : await taskCapabilities.findBinding(taskId);
+      const usageContext =
+        authority === undefined
+          ? await resolveSkillUsageContext(goalContract, task)
+          : isHistoricalUgvPointSkill(skill.skillId, skill.version) && binding !== undefined
+            ? resolveUgvMoveSkillUsageContext({ authority, binding })
+            : authority.context;
+      const candidate = await dependencies.profileSkillUsage.assess(
         skill,
         skill.usageSpecification === undefined
           ? {
@@ -1309,15 +1537,57 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         { skillId: skill.skillId, skillVersion: skill.version },
         await resolveSkillUsageSlotChoices(goalContract, skill, value, task),
       );
+      const interpretation = skillComposition.interpretUsage(
+        skill,
+        candidate.modeDecision,
+        composition,
+      );
+      if (isHistoricalUgvPointSkill(skill.skillId, skill.version)) {
+        if (!task || !dependencies.ugvMoveBindingResolver)
+          throw Error('COMPOSED_MOVE_BINDING_REQUIRED');
+        const resolution = await dependencies.skillInputResolutionRepository.findLatest(
+          task.taskId,
+          skill.skillId,
+          skill.version,
+          goalContract.version,
+        );
+        const executionContext = await taskCapabilities.resolveRuntimeExecutionContext(task.taskId);
+        const binding = await taskCapabilities.findBinding(task.taskId);
+        if (
+          !resolution ||
+          !binding ||
+          !executionContext ||
+          executionContext.mode === 'historical-replay'
+        )
+          throw Error('COMPOSED_MOVE_INPUT_AUTHORITY_REQUIRED');
+        const resolved = await dependencies.ugvMoveBindingResolver.resolve({
+          skillInput: value,
+          executionContext,
+        });
+        assertUgvAgentProfileMoveInputAuthority({
+          binding,
+          resolution,
+          selectedTaskOperation: resolved.selected,
+        });
+        return {
+          prepared: prepareUgvMoveWorkflowPlan({
+            skill,
+            candidate,
+            interpretation,
+            goalContract,
+            workflowDefinitionId,
+            workflowVersion: skill.version,
+            selectedTaskOperation: resolved.selected,
+          }),
+          applicabilityStatus: candidate.applicability.status,
+          selectedTaskOperation: resolved.selected,
+        };
+      }
       return {
         prepared: prepareSkillUsagePlan({
           skill,
           candidate,
-          interpretation: skillComposition.interpretUsage(
-            skill,
-            candidate.modeDecision,
-            composition,
-          ),
+          interpretation,
           goalContract,
           workflowDefinitionId,
           workflowVersion: skill.version,
@@ -1332,7 +1602,7 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         await skillExecutionRecording.recordPlanning({
           executionId: `skill-execution-${plan.planId}`,
           parentExecutionId: parent.executionId,
-          taskId: parent.taskId,
+          taskId: plan.executionTaskId ?? parent.taskId,
           goalId: plan.goalId,
           goalVersion: plan.goalVersion,
           selectionRef: `composition:${parent.executionId}:${skill.skillId}@${String(skill.version)}`,
@@ -1347,9 +1617,32 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
           planCompliancePassed: true,
         });
       });
+      if (preparedUsage.selectedTaskOperation !== undefined) {
+        if (!ugvMoveWorkflowAuthority || !plan.executionTaskId || !plan.definition)
+          throw Error('COMPOSED_MOVE_WORKFLOW_AUTHORITY_REQUIRED');
+        await ugvMoveWorkflowAuthority.append(
+          {
+            taskId: plan.executionTaskId,
+            workflowPlanId: plan.planId,
+            workflowDefinitionId: plan.definition.workflowDefinitionId,
+            workflowDefinitionVersion: plan.definition.version,
+            goalId: plan.goalId,
+            goalVersion: plan.goalVersion,
+            skillId: skill.skillId,
+            skillVersion: skill.version,
+          },
+          preparedUsage.selectedTaskOperation,
+        );
+      }
     },
     async onExecutionStatus({ childPlanId, childInstanceId, status, summary }) {
       await recordSkillProjectionSafely(async () => {
+        const projectedStatus = areaReportChildExecutionStatus(
+          childInstanceId === undefined
+            ? undefined
+            : await workflowInstances.findInstance(childInstanceId),
+          status,
+        );
         if (childInstanceId !== undefined && ['completed', 'failed', 'cancelled'].includes(status))
           await skillExecutionRecording.recordReference({
             workflowPlanId: childPlanId,
@@ -1363,14 +1656,16 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         await skillExecutionRecording.recordStatus({
           workflowPlanId: childPlanId,
           eventType:
-            status === 'executing'
-              ? 'skill.execution_started'
-              : status === 'waiting_external'
-                ? 'skill.execution_waiting_external'
-                : status === 'completed'
-                  ? 'skill.execution_completed'
-                  : 'skill.execution_failed',
-          status,
+            projectedStatus === 'degraded'
+              ? 'skill.execution_degraded'
+              : status === 'executing'
+                ? 'skill.execution_started'
+                : status === 'waiting_external'
+                  ? 'skill.execution_waiting_external'
+                  : status === 'completed'
+                    ? 'skill.execution_completed'
+                    : 'skill.execution_failed',
+          status: projectedStatus,
           summary,
           ...(childInstanceId === undefined ? {} : { details: { childInstanceId } }),
         });

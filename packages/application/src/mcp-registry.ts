@@ -51,11 +51,14 @@ import {
 } from './mcp-runtime-binding-authority.js';
 import {
   HARD_DENIED_CONTROL_TOOLS,
+  GovernedControlAuthorityError,
   type GovernedControlDispatchReceipt,
   type GovernedControlInvocationAuthorityPort,
 } from './governed-control-authority.js';
 
 export interface McpCallContext {
+  /** Internal read-only refresh at the confirmation boundary; never a Provider redispatch. */
+  readonly beforeControlAuthorization?: () => Promise<void>;
   readonly taskId?: string;
   readonly capabilityAttemptId?: string;
   readonly contextId?: string;
@@ -450,13 +453,35 @@ export class McpRegistryService {
         });
       }
       throwIfAborted(transportSignal);
-      controlAuthority = await this.#assertControlAuthority(
-        tool,
-        arguments_,
-        context,
-        invocationId,
-        dispatchHash,
-      );
+      if (tool.executionSemantics.effect === 'side_effecting')
+        await context.beforeControlAuthorization?.();
+      try {
+        controlAuthority = await this.#assertControlAuthority(
+          tool,
+          arguments_,
+          context,
+          invocationId,
+          dispatchHash,
+        );
+      } catch (error) {
+        if (
+          !(error instanceof GovernedControlAuthorityError) ||
+          error.code !== 'GOVERNED_CONTROL_READINESS_STALE' ||
+          !context.beforeControlAuthorization
+        )
+          throw error;
+        // This guard precedes confirmation consumption, journal dispatch and transport.
+        // Refresh once, preserving the invocation identity and all original TTL rules.
+        await context.beforeControlAuthorization();
+        throwIfAborted(transportSignal);
+        controlAuthority = await this.#assertControlAuthority(
+          tool,
+          arguments_,
+          context,
+          invocationId,
+          dispatchHash,
+        );
+      }
       if (context.remoteAdmissionJournal !== undefined)
         await context.remoteAdmissionJournal.markDispatching({
           invocationId,

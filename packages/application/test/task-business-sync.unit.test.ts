@@ -106,6 +106,29 @@ function fixture() {
 }
 
 describe('TaskBusiness sync through the admitted Task authority', () => {
+  it.each(['empty', 'not_produced_yet', 'unavailable', 'not_supported'])(
+    'retains %s references as gaps while restoring other scoped objects',
+    async (availability) => {
+      const f = fixture();
+      const artifact = f.view.objects.find((item) => item.kind === 'artifact');
+      if (!artifact) throw Error('TEST_ARTIFACT_REQUIRED');
+      f.reader.readRemoteTaskBusinessArtifact.mockResolvedValue({
+        artifact: { ...artifact.value, availability },
+      });
+      await f.service.reconcile();
+      expect(f.reader.readRemoteTaskBusinessArtifactContent).not.toHaveBeenCalled();
+      expect(f.commits[0]?.projection.objects).toContainEqual({
+        ref: {
+          kind: 'artifact',
+          id: artifact.value['artifactId'],
+          revision: artifact.value.revision,
+        },
+        resolution: 'unresolved',
+      });
+      expect(f.commits[0]?.projection.quality.currentStateComplete).toBe(false);
+      expect(f.commits[0]?.projection.quality.gaps).toContain('unresolved_object_content');
+    },
+  );
   it('AC-010 reads and recovers the same binding without any start or Tool dispatch port', async () => {
     const f = fixture();
     await f.service.reconcile();

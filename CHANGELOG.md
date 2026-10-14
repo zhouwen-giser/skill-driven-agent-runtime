@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-14 — 区域检查与巡逻组合
+
+- 新增默认关闭的 SMPP vehicle_inspect_area 任务及精确 13/14 工具目录，发布对应检查 Skill/Capability 和巡逻 v2 组合。
+- 校验 WGS84 子区域、排除区和父期限；保留任务关联发现、覆盖、来源及缺失证据。完整结果要求真实检查报告和区域内实际轨迹。
+- 物理子任务使用独立原生 Task/Goal/绑定及确认，禁止自动重放；修复确定性接收与恢复队列竞争、连续确认的 continuation 版本及业务错误 details 读取。
+- 保留失败、取消及截断报告，使用现有 JSONB；冻结迁移未改。联合验收、完整门禁及本地部署状态见 EP-INSPECTION-AREA-V1 与 reports/inspection-area-v1，现场执行 NOT_RUN。
+
 ## 2026-10-14 — local integrated deployment with explicit capability gap
 
 - Validate WSGS-aware SMPP version-2 source unions recursively through GSAP/GDPS/GOWM; preserve the old format, original upstream bytes and strict inventory/source/secret checks.

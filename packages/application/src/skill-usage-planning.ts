@@ -1,4 +1,8 @@
 import {
+  AREA_INSPECTION_SKILL_ID,
+  AREA_INSPECTION_TOOL_NAME,
+} from '../../domain/src/area-inspection.js';
+import {
   type GoalExecutionContract,
   type SkillModeInterpretation,
   type SkillUsageCandidateSnapshot,
@@ -285,7 +289,8 @@ export function checkSkillUsagePlanCompliance(
       (node) =>
         node.type === 'condition' &&
         (node.expression.op === 'ref' ||
-          ((mappedEvidence || providerEvidence) && node.expression.op === 'exists')) &&
+          ((mappedEvidence || providerEvidence || governedPatrolPolicy(policy)) &&
+            node.expression.op === 'exists')) &&
         node.expression.path.join('.') === evidencePath,
     );
     const falseEdge =
@@ -383,10 +388,37 @@ function compileDeterministicDefinition(
       name: `Execute ${task.bindingId}`,
       type: 'mcp_tool',
       tool: { serverId: task.providerId, toolName: task.operationName },
-      arguments: { op: 'ref', path: ['input', 'skillInput'] },
+      arguments:
+        input.policy.skill.skillId === AREA_INSPECTION_SKILL_ID &&
+        task.operationName === AREA_INSPECTION_TOOL_NAME
+          ? {
+              resourceId: { op: 'ref', path: ['input', 'skillInput', 'resourceId'] },
+              area: { op: 'ref', path: ['input', 'skillInput', 'area'] },
+            }
+          : { op: 'ref', path: ['input', 'skillInput'] },
       ...(synchronousOnly
         ? {}
-        : { taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' } }),
+        : {
+            taskExecution: {
+              protocolMode: 'frozen_v1',
+              availabilityCheck: 'required',
+              ...(input.policy.skill.skillId === AREA_INSPECTION_SKILL_ID
+                ? {
+                    timing: {
+                      start: {
+                        mode: 'scheduled',
+                        scheduledAt: {
+                          op: 'ref',
+                          path: ['input', 'skillInput', 'timeWindow', 'earliestStart'],
+                        },
+                        startToleranceMs: 0,
+                      },
+                      maxElapsedMs: 300000,
+                    },
+                  }
+                : {}),
+            },
+          }),
     });
   });
   input.policy.evidenceRequirements
@@ -406,7 +438,10 @@ function compileDeterministicDefinition(
         name: `Require evidence ${requirement.requirementId}`,
         type: 'condition',
         expression: {
-          op: mappedEvidence || providerEvidence ? 'exists' : 'ref',
+          op:
+            mappedEvidence || providerEvidence || governedPatrolPolicy(input.policy)
+              ? 'exists'
+              : 'ref',
           path: [
             'evidence',
             providerEvidence ? requirement.evidenceType : requirement.requirementId,
@@ -559,4 +594,8 @@ export class SkillUsagePlanningError extends Error {
     this.name = 'SkillUsagePlanningError';
     this.code = code;
   }
+}
+
+function governedPatrolPolicy(policy: SkillUsagePlanPolicy): boolean {
+  return policy.skill.skillId === 'embodied.area_patrol' && policy.skill.skillVersion >= 2;
 }

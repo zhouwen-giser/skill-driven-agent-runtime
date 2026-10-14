@@ -1,0 +1,372 @@
+{
+  "capturedAt": "2026-10-14T02:27:56.399823+00:00",
+  "configurationUnchangedSinceBackup": true,
+  "containers": [
+    {
+      "name": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "image": "gowm-analysis-dev-f3dc6f4b8e-smpp/runtime:cfda8c7f2f651a2c81db3c0e5f169e09100a911f-worktree-572fa8021175",
+      "imageId": "sha256:2123e6a3e26bfa44f633c33b65a36142ab8a4b29843fc44257abcef92beb293a",
+      "mounts": [
+        {
+          "type": "volume",
+          "source": "/mnt/data/docker/volumes/gowm-analysis-dev-f3dc6f4b8e-smpp_runtime-state/_data",
+          "destination": "/var/lib/sdar",
+          "rw": true
+        },
+        {
+          "type": "bind",
+          "source": "/home/sz/.smpp-debug/refresh-cfda8c7f-20261013-2i1s3dqr/smpp/deploy/development/server/config",
+          "destination": "/run/config",
+          "rw": false
+        }
+      ],
+      "portBindings": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "19100"
+          }
+        ],
+        "9229/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "9229"
+          }
+        ]
+      },
+      "environmentSha256": {
+        "ADAPTER_ENDPOINT": "e9e95ced1d857468b027a3dfd3b80bf7982cff98f073e006363b364dc33bca98",
+        "ADAPTER_HEALTH_FAILURE_THRESHOLD": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+        "ADAPTER_HEALTH_POLL_MS": "0f8eb4b72b6e0c9e88b388eb967b49e067ef1004bf07bffc22c3acb13b43580a",
+        "ADAPTER_MANIFEST_POLL_MS": "d55d01d0341ed0ba2cd99b322e8c5b609254f47d10c7cd12b99b4922effeba44",
+        "ADAPTER_RPC_TIMEOUT_MS": "d55d01d0341ed0ba2cd99b322e8c5b609254f47d10c7cd12b99b4922effeba44",
+        "ADAPTER_TLS_MODE": "17eb3c0168d0d7b21ede5481150f17233427d89833ec121b4dbc4fb96cfab71e",
+        "ALLOW_INSECURE_INTERNAL_TRANSPORT": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "ALLOW_WEAK_LEASE_CONFIGURATION": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "ARGUMENT_MAX_BYTES": "50b4b069390c1d7966da182649bb2caddb412a2f9012425b5e9ec0ef4ec68545",
+        "ARGUMENT_MAX_DEPTH": "e29c9c180c6279b0b02abd6a1801c7c04082cf486ec027aa13515e4f3884bb6b",
+        "ARGUMENT_MAX_NODES": "39e5b4830d4d9c14db7368a95b65d5463ea3d09520373723430c03a5a453b5df",
+        "AUTH_MODE": "875b9380866e9d56e7110b0ee310962c16d9d4ae103f829d62bdffd2cbe7c61d",
+        "BUSINESS_EVENTS_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "BUSINESS_EVENTS_MAX_EVENT_BYTES": "0f255ec16482c343fd099ba9668863778be40dc166a6856b1d470e0bc97cc6fd",
+        "BUSINESS_EVENTS_MAX_PAYLOAD_DEPTH": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+        "BUSINESS_EVENTS_MAX_PAYLOAD_NODES": "8b926d75599a618e21f1341318e66517be26e18cc7496783d2b59758c1333be8",
+        "BUSINESS_EVENTS_MAX_PAYLOAD_STRING_BYTES": "ca902d4a8acbdea132ada81a004081f51c5c9279d409cee414de5a39a139fab6",
+        "BUSINESS_EVENTS_MAX_QUEUE_BYTES": "50b4b069390c1d7966da182649bb2caddb412a2f9012425b5e9ec0ef4ec68545",
+        "BUSINESS_EVENTS_MAX_QUEUE_MESSAGES": "a68b412c4282555f15546cf6e1fc42893b7e07f271557ceb021821098dd66c1b",
+        "BUSINESS_EVENTS_MAX_STREAM_DURATION_MS": "c48664a448d8a63d99349ce31b40aca5285c6f6b01a7c6bda646827a46062120",
+        "BUSINESS_EVENTS_MAX_SUBSCRIPTIONS": "51e8ea280b44e16934d4d611901f3d3afc41789840acdff81942c2f65009cd52",
+        "BUSINESS_EVENTS_MAX_SUBSCRIPTIONS_PER_AUTH": "e29c9c180c6279b0b02abd6a1801c7c04082cf486ec027aa13515e4f3884bb6b",
+        "BUSINESS_EVENTS_POLL_INTERVAL_MS": "0604cd3138feed202ef293e062da2f4720f77a05d25ee036a7a01c9cfcdd1f0a",
+        "BUSINESS_EVENTS_REPLAY_BATCH_SIZE": "51e8ea280b44e16934d4d611901f3d3afc41789840acdff81942c2f65009cd52",
+        "BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "BUSINESS_EVENTS_RETENTION_MS": "e4ee343ddea0000d6d9a1d3314b4a7b8c9ed294e6a6365f97cb819130d0422f9",
+        "BUSINESS_EVENT_CLOCK_SKEW_SAFETY_MS": "6ce318969619d1c360b6144be09e3d3a22674897c7cbfe995716ed8b7ff7c4cf",
+        "BUSINESS_EVENT_MAPPING_DEADLINE_MS": "d55d01d0341ed0ba2cd99b322e8c5b609254f47d10c7cd12b99b4922effeba44",
+        "BUSINESS_EVENT_MAX_FUTURE_SKEW_MS": "6ce318969619d1c360b6144be09e3d3a22674897c7cbfe995716ed8b7ff7c4cf",
+        "COMMAND_CLAIM_LEASE_MS": "89d295d75a9717e8c0bdd71076b638ad12dd95bf6621a5bf4541ca24d185d522",
+        "COMMAND_DISPATCH_CONCURRENCY": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+        "DATABASE_POOL_MAX": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+        "DB_PUBLICATION_BUDGET_MS": "40510175845988f13f6162ed8526f0b09f73384467fa855e1e79b44a56562a58",
+        "GOWM_DATABASE_URL_FILE": "d20db834fb965d8def15ebcbb0f98860b88f54e0964ffabd4cc091c7bf9a0ee3",
+        "HOST": "19e36255972107d42b8cecb77ef5622e842e8a50778a6ed8dd1ce94732daca9e",
+        "HTTP_BODY_LIMIT_BYTES": "50b4b069390c1d7966da182649bb2caddb412a2f9012425b5e9ec0ef4ec68545",
+        "IDEMPOTENCY_LEASE_MS": "89d295d75a9717e8c0bdd71076b638ad12dd95bf6621a5bf4541ca24d185d522",
+        "IDEMPOTENCY_POLL_MS": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+        "IDEMPOTENCY_WAIT_TIMEOUT_MS": "39e5b4830d4d9c14db7368a95b65d5463ea3d09520373723430c03a5a453b5df",
+        "INTERNAL_ENDPOINTS_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "LEASE_SAFETY_MARGIN_MS": "0604cd3138feed202ef293e062da2f4720f77a05d25ee036a7a01c9cfcdd1f0a",
+        "LOG_LEVEL": "0b8e9e995d8d77f1e4770f0f79665aee6f3f70247b3735422daba73df4c3096f",
+        "MCP_LEGACY_ENDPOINT_ENABLED": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "NODE_ENV": "ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
+        "NODE_VERSION": "231f0fc805fbbd82909021ec5644309ae9d332ffed1ca019d4133c1d09569368",
+        "OTEL_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "ab409c497ec0448d1c22abd0b030ee872b4b520aa0012e38b8d03fd0f1ea2cb2",
+        "OTEL_EXPORTER_OTLP_TIMEOUT_MS": "39e5b4830d4d9c14db7368a95b65d5463ea3d09520373723430c03a5a453b5df",
+        "OTEL_EXPORTER_OTLP_TLS_MODE": "17eb3c0168d0d7b21ede5481150f17233427d89833ec121b4dbc4fb96cfab71e",
+        "OTEL_SERVICE_INSTANCE_ID": "7670ca7f28d6a1d020d5fb33616f54a0a5fc641f5c5a8285017e2c542b09d086",
+        "OUTBOX_BATCH_SIZE": "ad57366865126e55649ecb23ae1d48887544976efea46a48eb5d85a6eeb4d306",
+        "OUTBOX_CLEANER_POLL_MS": "d55d01d0341ed0ba2cd99b322e8c5b609254f47d10c7cd12b99b4922effeba44",
+        "OUTBOX_POLL_MS": "40510175845988f13f6162ed8526f0b09f73384467fa855e1e79b44a56562a58",
+        "OUTBOX_PUBLISHED_RETENTION_MS": "619d6a33617fad349ba0aa57557416f206f833a77a836db358ea09d0d5e3156e",
+        "OUTBOX_SINK": "614e3ec0ad73ced64a437a8fd3f8910dcd6e1b02ebbc1cba778341c2a48688a4",
+        "OUTBOX_WEBHOOK_TIMEOUT_MS": "0f8eb4b72b6e0c9e88b388eb967b49e067ef1004bf07bffc22c3acb13b43580a",
+        "PATH": "ce908b8efad4aed2432c6201f968c8a5033499e2d0276764ec023b8249a90429",
+        "PMS_DEPLOYMENT_ID": "1816f82e121e14bf58de7712fe2e9e44eedb364077cad29b91a46c30de877ecc",
+        "PMS_INSTANCE_ID": "7670ca7f28d6a1d020d5fb33616f54a0a5fc641f5c5a8285017e2c542b09d086",
+        "PMS_RUNTIME_REGISTRATION_TOKEN_FILE": "16d0e619d1f6008d478883539a78ea3a630b54ac03462e72fa3d3ce07702a783",
+        "PMS_RUNTIME_REGISTRATION_URL": "d76070a5928f91652aa94765dc1887792e6e4790de5232f5d9fb1951712e2f69",
+        "PORT": "6c237681e70921603a306be9a1a5d9833fce5c1e268f52b1650970eaad0dce21",
+        "PROVIDER_ID": "2b87843d7167127d80d943674a9bdfa9cf17df220c70736ac4e0fa9fa051a7a6",
+        "PROVIDER_TELEMETRY_HOST": "19e36255972107d42b8cecb77ef5622e842e8a50778a6ed8dd1ce94732daca9e",
+        "PROVIDER_TELEMETRY_INGRESS_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "PROVIDER_TELEMETRY_MAX_BATCH": "ad57366865126e55649ecb23ae1d48887544976efea46a48eb5d85a6eeb4d306",
+        "PROVIDER_TELEMETRY_MAX_DEPTH": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+        "PROVIDER_TELEMETRY_MAX_EVENT_BYTES": "0f255ec16482c343fd099ba9668863778be40dc166a6856b1d470e0bc97cc6fd",
+        "PROVIDER_TELEMETRY_MAX_NODES": "8b926d75599a618e21f1341318e66517be26e18cc7496783d2b59758c1333be8",
+        "PROVIDER_TELEMETRY_PORT": "2378926a9bcc79f385034655e9f4e1027eb6ca96cfbfb872dcbb5d09dbbc196e",
+        "PROVIDER_TELEMETRY_RATE_LIMIT": "284b7e6d788f363f910f7beb1910473e23ce9d6c871f1ce0f31f22a982d48ad4",
+        "PROVIDER_TELEMETRY_TLS_MODE": "17eb3c0168d0d7b21ede5481150f17233427d89833ec121b4dbc4fb96cfab71e",
+        "RATE_LIMIT_MAX": "983bd614bb5afece5ab3b6023f71147cd7b6bc2314f9d27af7422541c6558389",
+        "RATE_LIMIT_MAX_KEYS": "39e5b4830d4d9c14db7368a95b65d5463ea3d09520373723430c03a5a453b5df",
+        "RATE_LIMIT_WINDOW_MS": "d55d01d0341ed0ba2cd99b322e8c5b609254f47d10c7cd12b99b4922effeba44",
+        "RECOVERY_LEASE_MS": "ac911e4a8f2b48c071ce0fbb434c039c48e60e8d96dff768f69daa740af0c3bb",
+        "RECOVERY_POLL_MS": "0f8eb4b72b6e0c9e88b388eb967b49e067ef1004bf07bffc22c3acb13b43580a",
+        "RUNTIME_DEPLOYMENT_ID": "1816f82e121e14bf58de7712fe2e9e44eedb364077cad29b91a46c30de877ecc",
+        "RUNTIME_ENV": "875b9380866e9d56e7110b0ee310962c16d9d4ae103f829d62bdffd2cbe7c61d",
+        "RUNTIME_INSTANCE_ID": "7670ca7f28d6a1d020d5fb33616f54a0a5fc641f5c5a8285017e2c542b09d086",
+        "SCHEDULER_CONCURRENCY": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+        "SCHEDULER_POLL_MS": "40510175845988f13f6162ed8526f0b09f73384467fa855e1e79b44a56562a58",
+        "SCHEDULE_CLAIM_LEASE_MS": "ac911e4a8f2b48c071ce0fbb434c039c48e60e8d96dff768f69daa740af0c3bb",
+        "SDAR_BUILD_REVISION": "80c0895de33063cb8dd9e6ffb119def38ee6248c0d422ae6f5ef95f71b66eb26",
+        "SIMULATOR_CREDENTIAL_FREE": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "SMPP_ALLOWED_DEVICE_IDS": "52b495fe8456a90cd45fda80040106375b8a80e55f336aed9fa52d5d78d1a687",
+        "SMPP_DIAGNOSTICS_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "SMPP_DIAGNOSTICS_MAX_TTL_MS": "6ce318969619d1c360b6144be09e3d3a22674897c7cbfe995716ed8b7ff7c4cf",
+        "SMPP_GOWM_BINDING_ID": "d66b7cc89591a5bfabc330141a21fc480b6c229b589a6a667824d068ea343f7f",
+        "SMPP_SERVICE_KEY": "d65f0d4a168163d13ca9536fc5be85d0c61d810729cf200e0bfad695e6e1404b",
+        "SMPP_SOURCE_SESSION_KEY": "80ccd884cfc4b7c36908407497038c6a652aaacfdd74a82b16d074a7ab619bfd",
+        "SMPP_STORAGE_MODE": "ad257c90b1e0be301d6a39b87f7edada6c1aff2aa42b8bbf25585995bdc102b0",
+        "TASK_NOTIFICATION_BATCH_SIZE": "51e8ea280b44e16934d4d611901f3d3afc41789840acdff81942c2f65009cd52",
+        "TASK_NOTIFICATION_MAX_QUEUE_BYTES": "50b4b069390c1d7966da182649bb2caddb412a2f9012425b5e9ec0ef4ec68545",
+        "TASK_NOTIFICATION_MAX_QUEUE_MESSAGES": "a68b412c4282555f15546cf6e1fc42893b7e07f271557ceb021821098dd66c1b",
+        "TASK_NOTIFICATION_MAX_SUBSCRIPTIONS": "51e8ea280b44e16934d4d611901f3d3afc41789840acdff81942c2f65009cd52",
+        "TASK_NOTIFICATION_MAX_SUBSCRIPTIONS_PER_AUTH": "e29c9c180c6279b0b02abd6a1801c7c04082cf486ec027aa13515e4f3884bb6b",
+        "TASK_NOTIFICATION_MAX_TASK_BINDINGS": "8b926d75599a618e21f1341318e66517be26e18cc7496783d2b59758c1333be8",
+        "TASK_NOTIFICATION_POLL_INTERVAL_MS": "0604cd3138feed202ef293e062da2f4720f77a05d25ee036a7a01c9cfcdd1f0a",
+        "TTL_CLEANER_BATCH_SIZE": "2747b7c718564ba5f066f0523b03e17f6a496b06851333d2d59ab6d863225848",
+        "TTL_CLEANER_POLL_MS": "d55d01d0341ed0ba2cd99b322e8c5b609254f47d10c7cd12b99b4922effeba44",
+        "TTL_PURGE_GRACE_MS": "619d6a33617fad349ba0aa57557416f206f833a77a836db358ea09d0d5e3156e",
+        "YARN_VERSION": "feb97ccb8fb16be6aabb7e25a3434679be448969f8ea27b677d44a0b6ea294ba"
+      },
+      "networks": [
+        "gowm-analysis-dev-f3dc6f4b8e-smpp_default",
+        "gowm-analysis-dev-f3dc6f4b8e_default"
+      ]
+    },
+    {
+      "name": "gowm-analysis-dev-f3dc6f4b8e-smpp-adapter-1",
+      "image": "gowm-analysis-dev-f3dc6f4b8e-smpp/adapter:cfda8c7f2f651a2c81db3c0e5f169e09100a911f-worktree-572fa8021175",
+      "imageId": "sha256:a8006b9813d771bd05e2b2ab0e636d874c2fabeaf7d6a0c65681af3ec8b55bab",
+      "mounts": [
+        {
+          "type": "volume",
+          "source": "/mnt/data/docker/volumes/gowm-analysis-dev-f3dc6f4b8e-smpp_adapter-state/_data",
+          "destination": "/var/lib/sdar",
+          "rw": true
+        },
+        {
+          "type": "bind",
+          "source": "/home/sz/.smpp-debug/refresh-cfda8c7f-20261013-2i1s3dqr/smpp/deploy/development/server/config",
+          "destination": "/run/config",
+          "rw": false
+        }
+      ],
+      "portBindings": {
+        "7010/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "17010"
+          }
+        ],
+        "9229/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "9230"
+          }
+        ]
+      },
+      "environmentSha256": {
+        "ADAPTER_HOST": "19e36255972107d42b8cecb77ef5622e842e8a50778a6ed8dd1ce94732daca9e",
+        "ADAPTER_PORT": "1eb2cf2faec287ff82d265b863f54383712b6ff74d66dff812381353582362e2",
+        "ADAPTER_TLS_MODE": "17eb3c0168d0d7b21ede5481150f17233427d89833ec121b4dbc4fb96cfab71e",
+        "ALLOW_INSECURE_INTERNAL_TRANSPORT": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "GOWM_DATABASE_URL_FILE": "d20db834fb965d8def15ebcbb0f98860b88f54e0964ffabd4cc091c7bf9a0ee3",
+        "LOG_LEVEL": "0b8e9e995d8d77f1e4770f0f79665aee6f3f70247b3735422daba73df4c3096f",
+        "NODE_ENV": "ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
+        "NODE_VERSION": "231f0fc805fbbd82909021ec5644309ae9d332ffed1ca019d4133c1d09569368",
+        "PATH": "ce908b8efad4aed2432c6201f968c8a5033499e2d0276764ec023b8249a90429",
+        "PROVIDER_ID": "2b87843d7167127d80d943674a9bdfa9cf17df220c70736ac4e0fa9fa051a7a6",
+        "PROVIDER_TELEMETRY_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "PROVIDER_TELEMETRY_ENDPOINT": "bb708284cfee32516018f817b15a3cc6eb3a8e3c33979493c71078dba41237e4",
+        "PROVIDER_TELEMETRY_TLS_MODE": "17eb3c0168d0d7b21ede5481150f17233427d89833ec121b4dbc4fb96cfab71e",
+        "PROVIDER_VERSION": "92521fc3cbd964bdc9f584a991b89fddaa5754ed1cc96d6d42445338669c1305",
+        "RUNTIME_ENV": "875b9380866e9d56e7110b0ee310962c16d9d4ae103f829d62bdffd2cbe7c61d",
+        "SIMULATOR_CREDENTIAL_FREE": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "SMPP_ALLOWED_DEVICE_IDS": "52b495fe8456a90cd45fda80040106375b8a80e55f336aed9fa52d5d78d1a687",
+        "SMPP_GOWM_BINDING_ID": "d66b7cc89591a5bfabc330141a21fc480b6c229b589a6a667824d068ea343f7f",
+        "SMPP_SERVICE_KEY": "d65f0d4a168163d13ca9536fc5be85d0c61d810729cf200e0bfad695e6e1404b",
+        "SMPP_SOURCE_SESSION_KEY": "80ccd884cfc4b7c36908407497038c6a652aaacfdd74a82b16d074a7ab619bfd",
+        "SMPP_STORAGE_MODE": "ad257c90b1e0be301d6a39b87f7edada6c1aff2aa42b8bbf25585995bdc102b0",
+        "UGV_ADAPTER_DATABASE_POOL_MAX": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+        "UGV_ADAPTER_STORE_MODE": "a942b37ccfaf5a813b1432caa209a43b9d144e47ad0de1549c289c253e556cd5",
+        "UGV_ALLOW_NAVIGATION_WITH_RECON": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "UGV_CHASSIS_FRESHNESS_MS": "a176eeb31e601c3877c87c2843a2f584968975269e369d5c86788b4c2f92d2a2",
+        "UGV_DELIVERY_STAGE": "bf2b1e832475e8ae06d1002a0f1e475293e8296102b4a2da727445287208afdb",
+        "UGV_DEVICE_MCP_ALLOW_CAPTURED_CONTRACT": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "UGV_DEVICE_MCP_ALLOW_MOCK_CONTRACT": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "UGV_DEVICE_MCP_CIRCUIT_BREAKER_RESET_MS": "0f8eb4b72b6e0c9e88b388eb967b49e067ef1004bf07bffc22c3acb13b43580a",
+        "UGV_DEVICE_MCP_CIRCUIT_BREAKER_THRESHOLD": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+        "UGV_DEVICE_MCP_CONTRACT_REPORT_PATH": "3df59cb9ed2bac70e7013edfdc2180f23afa6ec361267cbb64c3977ecc510364",
+        "UGV_DEVICE_MCP_MAX_RESPONSE_BYTES": "0f255ec16482c343fd099ba9668863778be40dc166a6856b1d470e0bc97cc6fd",
+        "UGV_DEVICE_MCP_READ_RETRY_ATTEMPTS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+        "UGV_DEVICE_MCP_TIMEOUT_MS": "d4c999ae43633bd2036188d2bca68e1be8202b2cc1f3a1c42a728eaff7d2483d",
+        "UGV_DEVICE_MCP_TLS_MODE": "17eb3c0168d0d7b21ede5481150f17233427d89833ec121b4dbc4fb96cfab71e",
+        "UGV_DEVICE_MCP_URL": "e8e9f6e981d0b5ed46bf6bd0c45f358f621668ee515b9d7cdabf74fdcd86860d",
+        "UGV_DIAGNOSTICS_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "UGV_DIAGNOSTICS_MAX_TTL_MS": "6ce318969619d1c360b6144be09e3d3a22674897c7cbfe995716ed8b7ff7c4cf",
+        "UGV_ENTITY_ID": "caa4799bf34cad4423199f9a5d3f45c15b6381aa7aaac5302434f8983ef90d8e",
+        "UGV_EXECUTION_MODE": "247610f4dedd4ab7247d07dbda19c81ca9817f85820742cad49d407ffae9e4ed",
+        "UGV_EXECUTION_POLL_INTERVAL_MS": "1e472b39b105d349bcd069c4a711b44a2fffb8e274714bb07ecfff69a9a7f67b",
+        "UGV_FIRE_ENABLED": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+        "UGV_FIRE_REQUIRES_CHASSIS_STOPPED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "UGV_HEALTH_FRESHNESS_MS": "0f8eb4b72b6e0c9e88b388eb967b49e067ef1004bf07bffc22c3acb13b43580a",
+        "UGV_MISSION_FRESHNESS_MS": "a176eeb31e601c3877c87c2843a2f584968975269e369d5c86788b4c2f92d2a2",
+        "UGV_MQTT_CLIENT_ID": "4455af05d72e1ea07367c394db6e5bcdc0651a72be24ee86177118d005fccd15",
+        "UGV_MQTT_MAX_JSON_DEPTH": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+        "UGV_MQTT_MAX_JSON_NODES": "8b926d75599a618e21f1341318e66517be26e18cc7496783d2b59758c1333be8",
+        "UGV_MQTT_MAX_PAYLOAD_BYTES": "0f255ec16482c343fd099ba9668863778be40dc166a6856b1d470e0bc97cc6fd",
+        "UGV_MQTT_MAX_STRING_BYTES": "ca902d4a8acbdea132ada81a004081f51c5c9279d409cee414de5a39a139fab6",
+        "UGV_MQTT_RECONNECT_MAX_MS": "891937cb335016e9c7074c3781dcb1364e0c660733a8889bbeae83e6aa759be6",
+        "UGV_MQTT_RECONNECT_MIN_MS": "0604cd3138feed202ef293e062da2f4720f77a05d25ee036a7a01c9cfcdd1f0a",
+        "UGV_MQTT_SESSION_MODE": "3b066804f6d1d077173cfe4d06002e6a61e6f21c2b2e648417962115f1afcd8e",
+        "UGV_MQTT_TLS_MODE": "17eb3c0168d0d7b21ede5481150f17233427d89833ec121b4dbc4fb96cfab71e",
+        "UGV_MQTT_URL": "76dded5c393a221afd1d3698b2916604c214159aca1fe9700e4b6be11c43678b",
+        "UGV_MQTT_WIRE_MODE": "91cef00306d1ed8ae767c0aaf318d64af7a80967b66406c990e3fb2502036c6e",
+        "UGV_NAVIGATION_PLANNER_MODE": "accf8a987a30a81950a3ae1efdb37bd5a196d3a0f0a9c4921820c35285115fac",
+        "UGV_NAVIGATION_PLANNER_URL": "875276b381574ca6dccbc1bee2b6cb52fd39a30965d50de644b22d7e331b2071",
+        "UGV_OBSERVATION_MAX_FUTURE_SKEW_MS": "40510175845988f13f6162ed8526f0b09f73384467fa855e1e79b44a56562a58",
+        "UGV_OPERATION_FAILURE_DEGRADED_THRESHOLD": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+        "UGV_OPERATION_FAILURE_OPEN_THRESHOLD": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+        "UGV_OPERATION_RECOVERY_SUCCESS_THRESHOLD": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+        "UGV_PAYLOAD_FRESHNESS_MS": "a176eeb31e601c3877c87c2843a2f584968975269e369d5c86788b4c2f92d2a2",
+        "UGV_PHYSICAL_CONFIRMATION_TIMEOUT_MS": "891937cb335016e9c7074c3781dcb1364e0c660733a8889bbeae83e6aa759be6",
+        "UGV_RESOURCE_ID": "e8b7750d47062fa4f8f0aed852705f7481750bc9606396d65d8f9590fb34d21f",
+        "UGV_STATIONARY_MIN_SAMPLES": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+        "UGV_STATIONARY_SPEED_THRESHOLD_KMH": "14be4b45f18e0d8c67b4f719b5144eee88497e413709d11d85b096d8e2346310",
+        "UGV_STATIONARY_STABILITY_MS": "0604cd3138feed202ef293e062da2f4720f77a05d25ee036a7a01c9cfcdd1f0a",
+        "UGV_TARGET_FRESHNESS_MS": "a176eeb31e601c3877c87c2843a2f584968975269e369d5c86788b4c2f92d2a2",
+        "UGV_TASK_BUSINESS_PROFILE_PATH": "5bfb98b11cba64bcd8942bd8a019ef7dd086b87e16779a48c33110322e8fef4f",
+        "UGV_TRAJECTORY_HISTORY_ENABLED": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "UGV_TRAJECTORY_HISTORY_MAX_PENDING": "51e8ea280b44e16934d4d611901f3d3afc41789840acdff81942c2f65009cd52",
+        "UGV_TRAJECTORY_HISTORY_SIGNING_KEY_FILE": "97c090abb2218398d8c3a97fbea1eda1836be5e6eb20127c863d5462887290b7",
+        "UGV_VEHICLE_TYPE": "91db0b9459a73cab78586be894ab221ae0628f81ef20bfba99d7c7a113f45b82",
+        "YARN_VERSION": "feb97ccb8fb16be6aabb7e25a3434679be448969f8ea27b677d44a0b6ea294ba"
+      },
+      "networks": [
+        "gowm-analysis-dev-f3dc6f4b8e-smpp_default",
+        "gowm-analysis-dev-f3dc6f4b8e_default"
+      ]
+    },
+    {
+      "name": "sdar-sz-gowm-runtime-1",
+      "image": "sdar-local-integrated:066963ddfbd5",
+      "imageId": "sha256:cd9b40b33e9fa5af22046ab4f231895c8d5a2628e57e37ecd7ef552495d3ab50",
+      "mounts": [
+        {
+          "type": "bind",
+          "source": "/mnt/data/sdar-local-integrated-20261013/config/.state/environment.json",
+          "destination": "/run/sdar/environment.json",
+          "rw": false
+        },
+        {
+          "type": "volume",
+          "source": "/mnt/data/docker/volumes/sdar-sz-gowm_governance-packages/_data",
+          "destination": "/app/development-packages",
+          "rw": true
+        }
+      ],
+      "portBindings": {
+        "10998/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "10998"
+          }
+        ],
+        "10999/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "10999"
+          }
+        ]
+      },
+      "environmentSha256": {
+        "NODE_VERSION": "939531735818957082a756c70310df67de7a81cbe295b39f9e22bffc088e71c9",
+        "PATH": "ce908b8efad4aed2432c6201f968c8a5033499e2d0276764ec023b8249a90429",
+        "SDAR_DEPLOY_CONFIG_FINGERPRINT": "6f32a037846712162f3ff8aa4ecd040df64b63e8b1f28bc9e3a991edcb11884e",
+        "YARN_VERSION": "feb97ccb8fb16be6aabb7e25a3434679be448969f8ea27b677d44a0b6ea294ba"
+      },
+      "networks": [
+        "gowm-analysis-dev-f3dc6f4b8e_default",
+        "sdar-sz-gowm_default"
+      ]
+    },
+    {
+      "name": "sdar-sz-gowm-control-api-1",
+      "image": "sdar-local-integrated:066963ddfbd5",
+      "imageId": "sha256:cd9b40b33e9fa5af22046ab4f231895c8d5a2628e57e37ecd7ef552495d3ab50",
+      "mounts": [
+        {
+          "type": "volume",
+          "source": "/mnt/data/docker/volumes/sdar-sz-gowm_governance-packages/_data",
+          "destination": "/app/development-packages",
+          "rw": true
+        },
+        {
+          "type": "bind",
+          "source": "/mnt/data/sdar-local-integrated-20261013/config/.state/environment.json",
+          "destination": "/run/sdar/environment.json",
+          "rw": false
+        }
+      ],
+      "portBindings": {
+        "10091/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "10091"
+          }
+        ]
+      },
+      "environmentSha256": {
+        "NODE_VERSION": "939531735818957082a756c70310df67de7a81cbe295b39f9e22bffc088e71c9",
+        "PATH": "ce908b8efad4aed2432c6201f968c8a5033499e2d0276764ec023b8249a90429",
+        "SDAR_DEPLOY_CONFIG_FINGERPRINT": "6f32a037846712162f3ff8aa4ecd040df64b63e8b1f28bc9e3a991edcb11884e",
+        "YARN_VERSION": "feb97ccb8fb16be6aabb7e25a3434679be448969f8ea27b677d44a0b6ea294ba"
+      },
+      "networks": [
+        "gowm-analysis-dev-f3dc6f4b8e_default",
+        "sdar-sz-gowm_default"
+      ]
+    },
+    {
+      "name": "sdar-sz-gowm-control-worker-1",
+      "image": "sdar-local-integrated:066963ddfbd5",
+      "imageId": "sha256:cd9b40b33e9fa5af22046ab4f231895c8d5a2628e57e37ecd7ef552495d3ab50",
+      "mounts": [
+        {
+          "type": "bind",
+          "source": "/mnt/data/sdar-local-integrated-20261013/config/.state/environment.json",
+          "destination": "/run/sdar/environment.json",
+          "rw": false
+        },
+        {
+          "type": "volume",
+          "source": "/mnt/data/docker/volumes/sdar-sz-gowm_governance-packages/_data",
+          "destination": "/app/development-packages",
+          "rw": true
+        }
+      ],
+      "portBindings": {},
+      "environmentSha256": {
+        "NODE_VERSION": "939531735818957082a756c70310df67de7a81cbe295b39f9e22bffc088e71c9",
+        "PATH": "ce908b8efad4aed2432c6201f968c8a5033499e2d0276764ec023b8249a90429",
+        "SDAR_DEPLOY_CONFIG_FINGERPRINT": "6f32a037846712162f3ff8aa4ecd040df64b63e8b1f28bc9e3a991edcb11884e",
+        "YARN_VERSION": "feb97ccb8fb16be6aabb7e25a3434679be448969f8ea27b677d44a0b6ea294ba"
+      },
+      "networks": [
+        "gowm-analysis-dev-f3dc6f4b8e_default",
+        "sdar-sz-gowm_default"
+      ]
+    }
+  ]
+}
