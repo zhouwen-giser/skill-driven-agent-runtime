@@ -21,6 +21,8 @@ const UGV_TOOL_NAMES = Object.freeze([
   'vehicle_get_payload_status',
   'vehicle_get_state',
   'vehicle_get_targets',
+  'vehicle_get_trajectory_evidence',
+  'vehicle_get_trajectory_history',
   'vehicle_laser_range',
   'vehicle_navigate',
   'vehicle_track_target',
@@ -75,6 +77,8 @@ export const UGV_REVIEWED_TOOL_POLICY: Readonly<Record<UgvToolName, SmppExpected
     vehicle_get_payload_status: READ_ONLY_SEMANTICS,
     vehicle_get_state: READ_ONLY_SEMANTICS,
     vehicle_get_targets: READ_ONLY_SEMANTICS,
+    vehicle_get_trajectory_evidence: READ_ONLY_SEMANTICS,
+    vehicle_get_trajectory_history: READ_ONLY_SEMANTICS,
     vehicle_laser_range: READ_ONLY_SEMANTICS,
     vehicle_navigate: TASK_CONTROL_SEMANTICS,
     vehicle_track_target: TASK_CONTROL_SEMANTICS,
@@ -93,7 +97,7 @@ export interface UgvSmppProviderMaterializationConfiguration {
   readonly providerDisplayName: string;
   readonly runtimeCredentialRef: string;
   readonly runId: string;
-  readonly catalogProfile?: 'ugv-v1-10' | 'ugv-v1-11';
+  readonly catalogProfile?: 'ugv-v1-10' | 'ugv-v1-11' | 'ugv-v1-12' | 'ugv-v1-13';
 }
 
 export interface UgvSmppProviderMaterializationReport {
@@ -141,9 +145,15 @@ export async function materializeUgvSmppProvider(
   dependencies: Readonly<{ fetch?: typeof fetch; now?: () => string }> = {},
 ): Promise<UgvSmppProviderMaterializationReport> {
   const configuration = validateConfiguration(input);
-  const expectedNames = UGV_TOOL_NAMES.filter(
-    (name) => configuration.catalogProfile !== 'ugv-v1-10' || name !== 'vehicle_laser_range',
-  );
+  const profile = configuration.catalogProfile ?? 'ugv-v1-11';
+  if (!['ugv-v1-10', 'ugv-v1-11', 'ugv-v1-12', 'ugv-v1-13'].includes(profile))
+    fail('DRIVER_CONFIGURATION_INVALID', 'Unreviewed UGV Catalog profile.');
+  const expectedNames = UGV_TOOL_NAMES.filter((name) => {
+    if (name === 'vehicle_laser_range') return profile === 'ugv-v1-11' || profile === 'ugv-v1-13';
+    if (name === 'vehicle_get_trajectory_evidence' || name === 'vehicle_get_trajectory_history')
+      return profile === 'ugv-v1-12' || profile === 'ugv-v1-13';
+    return true;
+  });
   const reviewedTools = Object.fromEntries(
     expectedNames.map((name) => [name, UGV_REVIEWED_TOOL_POLICY[name]]),
   );

@@ -139,7 +139,9 @@ GOWM 管理的 `ugv_sdar_app` 连接仅存放于服务器私有配置，不能�
 
 
 治理初始化默认开启。`SDAR_UGV_CATALOG_PROFILE` 默认为 `ugv-v1-11`；固定 sz-gowm
-上游使用 `ugv-v1-10`（不包含 laser range），两种配置均要求工具合同精确匹配。
+旧版 sz-gowm 上游使用 `ugv-v1-10`（不包含 laser range）。新版轨迹历史合同使用
+`ugv-v1-12`（10 个原工具加两个轨迹只读工具），包含 laser range 时使用 `ugv-v1-13`。
+四种配置均要求工具合同精确匹配；新增轨迹工具仅归类为只读，不授予设备执行权威。
 初始化清单在 `capability-manifest.json`。Source、Provider、治理发布、内置依赖、公开 Card
 任一阶段失败均返回非零，显式关闭则报告 `started_governance_disabled`。
 巡逻 Skill 的 `embodied.inspect_area` 依赖由后续 GOWM 提供，目前保留阻塞；其余能力的

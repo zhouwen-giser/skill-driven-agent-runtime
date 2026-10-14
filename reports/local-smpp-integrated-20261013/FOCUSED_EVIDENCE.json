@@ -1,0 +1,42 @@
+{
+  "pythonMethods": 9,
+  "vitestFocusedTests": 9,
+  "localLint": "FAILED_PREEXISTING_PRIVATE_HELPERS; full-source isolated strict lint required",
+  "records": [
+    {
+      "log": "sdar-wsgs-union-focused.log.gz",
+      "observedExitCode": 0,
+      "rawSha256": "739b5a792fd1588a72b4953f6a1fabde9b61d511eb8f3cee27e7b6b39a46f398"
+    },
+    {
+      "log": "sdar-wsgs-union-focused2.log.gz",
+      "observedExitCode": 0,
+      "rawSha256": "ea2d3f436da5a0a2b1e96467efdef26e3383c25386e73f3f4162a2419cd347d0"
+    },
+    {
+      "log": "sdar-local-deployment-focused.log.gz",
+      "observedExitCode": 0,
+      "rawSha256": "2051571ab386c4be65b32d64a31fad0e79273f96e5ce69f317673057ca264837"
+    },
+    {
+      "log": "sdar-local-deployment-focused2.log.gz",
+      "observedExitCode": 0,
+      "rawSha256": "0d55af90d7c423f65bc5c7af15476e7e850521c9d98d84ce32d19ebc407df60f"
+    },
+    {
+      "log": "sdar-local-format.log.gz",
+      "observedExitCode": 0,
+      "rawSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641"
+    },
+    {
+      "log": "sdar-local-lint.log.gz",
+      "observedExitCode": 1,
+      "rawSha256": "8f338b30f220579fbea40eee7b11ccc88337f1555020ec2387570a78646e27bb"
+    },
+    {
+      "log": "sdar-local-types.log.gz",
+      "observedExitCode": 0,
+      "rawSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+    }
+  ]
+}

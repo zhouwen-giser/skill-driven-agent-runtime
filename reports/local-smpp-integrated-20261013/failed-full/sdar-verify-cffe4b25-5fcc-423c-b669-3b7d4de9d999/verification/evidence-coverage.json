@@ -1,0 +1,21 @@
+{
+  "name": "evidence-coverage",
+  "command": "pnpm verify:evidence-coverage",
+  "status": "passed",
+  "startedAt": "2026-10-13T15:37:21.191Z",
+  "finishedAt": "2026-10-13T15:37:24.805Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/evidence-coverage.log",
+  "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 3614,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 4,
+    "peakRssBytes": 279195648,
+    "peakProcesses": 2
+  },
+  "cleanupErrors": []
+}

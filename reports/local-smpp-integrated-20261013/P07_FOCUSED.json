@@ -1,0 +1,30 @@
+{
+  "runId": "sdar-verify-refactor-perf-d598620d-5286-416e-a0b5-728b4d3dffc2",
+  "source": "/tmp/sdar-verify-cffe4b25-5fcc-423c-b669-3b7d4de9d999-wUM0nH/source",
+  "sourceCommit": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "inputSha256": "c7f7867c89b0808a7e7bb70f9925d18478e4819a065e1ed74bcf026cd4639bb4",
+  "baselineSha256": "93014ef97af0be1148fc693a2c63f1f24b38d5ce25694b6b32b9ddda0dca0c42",
+  "command": [
+    "pnpm",
+    "test:integration",
+    "--",
+    "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"
+  ],
+  "scope": "focused_unchanged_performance_test_on_owned_loopback_infrastructure",
+  "ownedCpuSetContainers": [],
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "site": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "status": "PASS_FOCUSED_ONLY",
+  "tests": 4,
+  "samples": 25,
+  "p50Ms": 8.151386999999886,
+  "p95Ms": 19.484983999998803,
+  "thresholdMs": 100,
+  "codeChanged": false,
+  "persistentVolume": true,
+  "rawLog": "P07_PERSISTENT_FOCUSED.log.gz",
+  "rawLogSha256": "0c0f5fc142fbf11a7817d64c34cd35eae7d01aab37a3f57417832185eaca3e84",
+  "fullGateReplacement": false
+}

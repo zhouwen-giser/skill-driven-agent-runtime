@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "command": "pnpm verify:isolated -- --frozen",
+  "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+  "runId": "sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929",
+  "runtimeInputSha256": "5979cc1859d9eebf321fb0a45fb3c777849347568bc5092949bda5adf8e9ad7b",
+  "baselineSha256": "1f615c8f50683a81d819beef7c3c25e9ce462efed5620181d2608af6c906f8dc",
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "stageCount": 30,
+  "metrics": {
+    "unit": {
+      "testFiles": 310,
+      "tests": 2695
+    },
+    "contract": {
+      "testFiles": 63,
+      "tests": 553
+    },
+    "management-openapi": {
+      "openapiOperations": 186
+    },
+    "clean-baseline-reset-seed": {
+      "migrationCount": 77
+    },
+    "postgres-redis-integration": {
+      "testFiles": 44,
+      "tests": 272
+    },
+    "postgres-redis-model-mcp-e2e": {
+      "testFiles": 8,
+      "tests": 77
+    }
+  },
+  "evidence": "reports/local-smpp-integrated-20261013/review-fix/final-full/sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929",
+  "runJsonSha256": "aa4285ff8ee1d57d750adf8e4f572db464712d02c44e91f7d05f54e71fb38f3e",
+  "storage": {
+    "status": "OWNED_TEST_VOLUME_PROVISIONED",
+    "runId": "sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929",
+    "volume": {
+      "Name": "sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929_sdar-postgres-data",
+      "Driver": "local",
+      "Options": {
+        "device": "tmpfs",
+        "o": "size=2g",
+        "type": "tmpfs"
+      },
+      "Labels": {
+        "com.docker.compose.project": "sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929",
+        "com.docker.compose.volume": "sdar-postgres-data"
+      }
+    },
+    "scope": "verification only; live databases unchanged",
+    "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+    "assertionsTimeoutsAndCodeUnchanged": true
+  },
+  "sourceUnion": {
+    "archive": "/home/sz/code/skill-driven-agent-runtime/artifacts/united/sdar-united-48e08fcd026345a32fb1/sdar-united-48e08fcd026345a32fb1.tar.gz",
+    "sha256": "ab698966b3e37f54fc9fe342f4e8bb39b8834794c86a1abaca485cf90f80d2d5",
+    "sourceHash": "066963ddfbd51194580f498c86103690775254afee0ff2b0856a243c12922072",
+    "byteIdenticalRepeat": true,
+    "sourceFiles": 2921
+  },
+  "sourceContainerComparison": "CONTAINER_SOURCE.json",
+  "restrictedRoleGOWM": "GOWM_VALIDATION.json",
+  "failedReviewedRun": {
+    "runId": "sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e",
+    "status": "NOT_PASS",
+    "cause": "official pinned A2A TCK GitHub clone timed out after 25 passed stages; exit 1, cleanup 0; preserved failed-full receipt"
+  },
+  "officialTooling": "TCK_NETWORK_PREPARATION.json; official clone, exact pinned commit and frozen uv dependencies checked by unchanged gate",
+  "fullSiteBootstrap": "FAILED_MISSING_EMBODIED_INSPECT_AREA",
+  "productionDurabilityQualification": "NOT_RUN",
+  "physicalDeviceActions": "NOT_RUN",
+  "remoteDeployment": "NOT_RUN",
+  "wholeProjectAcceptance": "OPEN",
+  "historicalPersistentIntegrationScope": "source 4112a90b persistent 271 aggregate cases plus unchanged focused final case; review fix only Python inventories; retained as PRE_REVIEW separate evidence, not substituted for current full gate"
+}

@@ -177,6 +177,58 @@ describe('UGV SMPP Provider materialization wrapper', () => {
     }
   });
 
+  it.each(['ugv-v1-12', 'ugv-v1-13'] as const)(
+    'materializes %s with read-only trajectory contracts and no physical calls',
+    async (catalogProfile) => {
+      const names = [
+        ...TOOL_NAMES.filter(
+          (name) => catalogProfile === 'ugv-v1-13' || name !== 'vehicle_laser_range',
+        ),
+        'vehicle_get_trajectory_history',
+        'vehicle_get_trajectory_evidence',
+      ];
+      const api = new FakeApis({ toolNames: names });
+      const report = await materializeUgvSmppProvider(
+        { ...configuration(), catalogProfile },
+        { fetch: api.fetch, now: () => NOW },
+      );
+      expect(report.catalog.expectedToolCount).toBe(catalogProfile === 'ugv-v1-12' ? 12 : 13);
+      expect(report.provider.tools.map(({ toolName }) => toolName)).toEqual([...names].sort());
+      for (const toolName of ['vehicle_get_trajectory_history', 'vehicle_get_trajectory_evidence'])
+        expect(report.provider.tools.find((tool) => tool.toolName === toolName)).toMatchObject({
+          effect: 'read_only',
+          taskBehavior: 'synchronous_only',
+          executionSemanticsSource: 'admin_override',
+        });
+      expect(report.firePolicy.executionAuthorized).toBe(false);
+      expect(api.toolCallCount).toBe(0);
+    },
+  );
+
+  it('rejects missing, unreviewed and legacy-profile trajectory catalog drift', async () => {
+    const original = TOOL_NAMES.filter((name) => name !== 'vehicle_laser_range');
+    const names = [
+      ...original,
+      'vehicle_get_trajectory_history',
+      'vehicle_get_trajectory_evidence',
+    ];
+    for (const [catalogProfile, tools] of [
+      ['ugv-v1-12', names.filter((name) => name !== 'vehicle_get_trajectory_evidence')],
+      ['ugv-v1-12', [...names, 'vehicle_unreviewed_action']],
+      ['ugv-v1-10', names],
+    ] as const) {
+      const api = new FakeApis({ toolNames: tools });
+      await expect(
+        materializeUgvSmppProvider(
+          { ...configuration(), catalogProfile },
+          { fetch: api.fetch, now: () => NOW },
+        ),
+      ).rejects.toMatchObject({ code: 'CATALOG_TOOL_SET_MISMATCH' });
+      expect(api.commands).toEqual(['runtime:register']);
+      expect(api.toolCallCount).toBe(0);
+    }
+  });
+
   it('rejects any implicit or populated Runtime credential configuration', () => {
     const environment = deploymentEnvironment();
     expect(ugvSmppProviderMaterializationConfigurationFromEnvironment(environment)).toMatchObject({
@@ -201,9 +253,14 @@ describe('UGV SMPP Provider materialization wrapper', () => {
     );
   });
 
-  it('freezes a complete explicit reviewed policy for all 11 Tools', () => {
-    expect(Object.keys(UGV_REVIEWED_TOOL_POLICY).sort()).toEqual([...TOOL_NAMES].sort());
-    for (const name of TOOL_NAMES) {
+  it('freezes a complete explicit reviewed policy for all 13 Tools', () => {
+    const names = [
+      ...TOOL_NAMES,
+      'vehicle_get_trajectory_history',
+      'vehicle_get_trajectory_evidence',
+    ] as const;
+    expect(Object.keys(UGV_REVIEWED_TOOL_POLICY).sort()).toEqual([...names].sort());
+    for (const name of names) {
       const policy = UGV_REVIEWED_TOOL_POLICY[name];
       expect(Object.values(policy.executionSemantics)).not.toContain('unknown');
       if (name.startsWith('vehicle_get_') || name === 'vehicle_laser_range')

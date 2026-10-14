@@ -1,5 +1,15 @@
 # Project Status
 
+## Local SMPP integrated deployment (2026-10-14, LOCAL_DEPLOYED_WITH_CAPABILITY_GAP)
+
+Reviewed source `ac7838da` / source hash `066963dd…` is reproducibly packaged and deployed. All 2,921 source-file hashes, generated metadata and revision labels match in Runtime, Control API and Worker. Official PMS/current Telemetry and 13 actual GET checks pass; the exact 12-tool Catalog includes two synchronous read-only trajectory operations and publishes 12 Skills. GOWM owner storage, separate Control database, original volumes, private configuration and binding history are preserved. Snapshot history is excluded from the scoped backup; its original live data remains intact.
+
+Post-review frozen run `38c4b6b9` passes all 30 stages: 2,695 unit / 553 contract / 272 integration / 77 E2E, fresh install/cleanup exit 0, runtime input `5979cc18…` and baseline `1f615c8f…` unchanged. Its owned main PostgreSQL fixture is explicitly memory-backed; source/assertions/timeouts are unchanged. Identical frozen inputs pass persistent restricted GOWM 8 steps / 2 formal flows / 32 native cases. Ten Python methods include six new deepest-component inventory regressions. The first reviewed full run's official TCK GitHub-clone timeout and all earlier failures remain NOT_PASS. Official TCK exclusions do not certify unsupported protocol paths.
+
+PR40's P2 inventory omission is fixed; WSGS application and GOWM internal inventories are mandatory. Compatibility CI 38486905947 tests merge ref `ded3efda`, whose tree equals `ac7838da`. Final evidence/status publication uses the existing commit/push/merge authorization; its exact final CI and merge event are recorded in PR40 and the delivery publication receipt. Source package identity remains `ac7838da`; later result-document changes have a separate baseline-delta receipt.
+
+Complete site bootstrap remains blocked by `embodied.inspect_area`; `embodied.area_patrol` is not published. Whole-project acceptance, device-generation history, full evolution and production durability remain OPEN/unqualified. Physical actions and remote deployment remain NOT_RUN. See `reports/local-smpp-integrated-20261013/review-fix/VALIDATION.json`, `DEPLOYMENT.json`, `FINAL_CLOSEOUT.md`, ADR-164 and the ExecPlan; root receipts retain the PRE_REVIEW source.
+
 ## Functional closure (2026-10-12, COMPLETE scoped local implementation)
 
 GOWM terminal/device and auxiliary-link repairs, Console node editing and ordinary synchronous recorded Skill evolution pass the post-review 30-stage frozen gate `sdar-verify-465f7622-f3a3-4d25-834f-cdb48afe4ac3`: 2,689 unit / 553 contract / 272 integration / 77 E2E, install/exit/cleanup 0. The review fix preserves the combined Goal-success flag while using native Workflow terminal status for replay and atomic publication. Same-source restricted GOWM passes eight steps, two formal flows and 32 native scenarios; fresh browser/API/LangGraph verification passes with zero model/MCP calls. Runtime `8ab70b92e5c5c28b19a293120e28ea86b2f3352c2c2b5d821a9a747db32037ee` is frozen. Only the traceability acceptance appendix is reconciled after verification, with an explicit baseline-delta receipt.

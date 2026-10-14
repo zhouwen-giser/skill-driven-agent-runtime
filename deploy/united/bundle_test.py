@@ -14,10 +14,10 @@ b = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(b)
 
 
-def union(files):
+def union(files, dot_prefix=False, root='fixture'):
     files = dict(files)
-    files['SHA256SUMS'] = ''.join(f'{b.digest(v)}  {k}\n' for k, v in sorted(files.items())).encode()
-    return b.archive({'fixture/'+k: v for k, v in files.items()})
+    files['SHA256SUMS'] = ''.join(f'{b.digest(v)}  {"./" if dot_prefix else ""}{k}\n' for k, v in sorted(files.items())).encode()
+    return b.archive({root+'/'+k: v for k, v in files.items()})
 
 
 def upstream():
@@ -34,7 +34,100 @@ def upstream():
                   'upstream/telemetry.tar.gz': source, 'sdar/schema.json': schema, 'sdar/schema-contract-release.jsonl': seed})
 
 
+def wsgs_upstream(application_data=None, gowm_data=None):
+    gowm = gowm_data if gowm_data is not None else union({'source.txt': b'GOWM source'}, dot_prefix=True, root='gowm')
+    gdps = union({'packages/gowm.tar.gz': gowm}, dot_prefix=True)
+    analysis_source = b.encode({'packageName': 'gdps.tar.gz', 'sha256': b.digest(gdps),
+                               'nestedGowm': {'packageName': 'gowm.tar.gz', 'sha256': b.digest(gowm)}})
+    analysis = union({'deployment/SOURCE.json': analysis_source, 'packages/gdps.tar.gz': gdps}, dot_prefix=True)
+    application = application_data if application_data is not None else union({'source.txt': b'WSGS source'}, dot_prefix=True, root='wsgs')
+    components = {'gsap': {'path': 'packages/analysis.tar.gz', 'root': 'fixture', 'sha256': b.digest(analysis)},
+                  'wsgs': {'path': 'packages/wsgs.tar.gz', 'root': 'wsgs', 'sha256': b.digest(application)},
+                  'gdps': {'packageName': 'gdps.tar.gz', 'sha256': b.digest(gdps)},
+                  'gowm': {'packageName': 'gowm.tar.gz', 'sha256': b.digest(gowm)}}
+    specification = b.encode({'schemaVersion': 'gowm-gdps-gsap-wsgs-unified-deployment/1.0', 'components': components})
+    wsgs = union({'deployment/MANIFEST.json': specification,
+                  'packages/analysis.tar.gz': analysis, 'packages/wsgs.tar.gz': application}, dot_prefix=True)
+    _, files = b.rooted(upstream())
+    _, inner = b.rooted(files['upstream/smpp-united.tar.gz'])
+    smpp = json.loads(inner['UNION.json'])
+    smpp.update(schemaVersion=2, baseRoot='fixture', components=components,
+                base={'sha256': b.digest(analysis)}, gowm={'sha256': b.digest(gowm)},
+                baseSourceSha256=b.digest(analysis_source),
+                wsgsUnion={'path': 'upstream/wsgs-united.tar.gz', 'root': 'fixture',
+                           'sha256': b.digest(wsgs), 'manifestSha256': b.digest(specification)})
+    inner = union({'UNION.json': b.encode(smpp), 'upstream/smpp.tar.gz': inner['upstream/smpp.tar.gz'],
+                   'upstream/wsgs-united.tar.gz': wsgs})
+    outer = json.loads(files['UNION.json'])
+    outer['upstream'].update(sha256=b.digest(inner), baseSourceSha256=smpp['baseSourceSha256'],
+                             wsgsUnion=smpp['wsgsUnion'], components=components)
+    files.update({'UNION.json': b.encode(outer), 'upstream/smpp-united.tar.gz': inner})
+    return union({k:v for k,v in files.items() if k != 'SHA256SUMS'})
+
+
+def replace_smpp(data, modify):
+    _, outer = b.rooted(data)
+    _, inner = b.rooted(outer['upstream/smpp-united.tar.gz'])
+    modify(inner)
+    blob = union({k:v for k,v in inner.items() if k != 'SHA256SUMS'})
+    manifest = json.loads(outer['UNION.json']); manifest['upstream']['sha256'] = b.digest(blob)
+    outer.update({'UNION.json': b.encode(manifest), 'upstream/smpp-united.tar.gz': blob})
+    return union({k:v for k,v in outer.items() if k != 'SHA256SUMS'})
+
+
 class BundleTests(unittest.TestCase):
+    def test_dot_prefixed_inventory_rejects_alias_collision_and_unsafe_names(self):
+        line = f'{b.digest(b"source")}  '
+        for names in [('source.txt', './source.txt'), ('../source.txt',), ('././source.txt',), ('/source.txt',)]:
+            with self.subTest(names=names), self.assertRaisesRegex(ValueError, 'INVENTORY_MISMATCH'):
+                b.inventory({'source.txt': b'source', 'SHA256SUMS': ''.join(line + n + '\n' for n in names).encode()}, allow_dot_prefix=True)
+
+    def test_wsgs_union_validates_every_nested_component(self):
+        self.assertEqual(b.validate_upstream(wsgs_upstream())[0], 'fixture')
+
+    def test_deep_component_inventories_fail_with_consistent_outer_hashes(self):
+        for component, root in [('application_data', 'wsgs'), ('gowm_data', 'gowm')]:
+            original = b'component source'
+            cases = [
+                ({'source.txt': original}, 'MISSING_INVENTORY'),
+                ({'source.txt': b'changed', 'SHA256SUMS': f'{b.digest(original)}  ./source.txt\n'.encode()}, 'INVENTORY_MISMATCH'),
+                ({'source.txt': original, 'extra.txt': b'unlisted', 'SHA256SUMS': f'{b.digest(original)}  ./source.txt\n'.encode()}, 'INVENTORY_COVERAGE_MISMATCH'),
+            ]
+            for files, code in cases:
+                blob = b.archive({root+'/'+name: data for name, data in files.items()})
+                # Rebuild every enclosing descriptor/hash, so only the deepest inventory is invalid.
+                with self.subTest(component=component, code=code), self.assertRaisesRegex(ValueError, code):
+                    b.validate_upstream(wsgs_upstream(**{component: blob}))
+
+    def test_wsgs_missing_or_changed_nested_archive(self):
+        for operation, code in [(lambda f: f.pop('upstream/wsgs-united.tar.gz'), 'NESTED_MEMBER_MISSING'),
+                                (lambda f: f.update({'upstream/wsgs-united.tar.gz': b'changed'}), 'NESTED_HASH_MISMATCH')]:
+            with self.subTest(code=code), self.assertRaisesRegex(ValueError, code):
+                b.validate_upstream(replace_smpp(wsgs_upstream(), operation))
+
+    def test_wsgs_component_descriptor_and_source_manifest_drift(self):
+        _, outer = b.rooted(wsgs_upstream())
+        _, inner = b.rooted(outer['upstream/smpp-united.tar.gz'])
+        original = json.loads(inner['UNION.json'])
+        for mutation, code in [(lambda m: m['components']['wsgs'].update(sha256='0'*64), 'WSGS_COMPONENT_IDENTITY'),
+                               (lambda m: m.update(baseSourceSha256='0'*64), 'NESTED_HASH_MISMATCH'),
+                               (lambda m: m['wsgsUnion'].update(root='wrong'), 'WSGS_ROOT_MISMATCH')]:
+            manifest = json.loads(b.encode(original)); mutation(manifest)
+            nested = {**inner, 'UNION.json': b.encode(manifest)}
+            blob = union({k:v for k,v in nested.items() if k != 'SHA256SUMS'})
+            outside = json.loads(outer['UNION.json'])
+            outside['upstream'].update(sha256=b.digest(blob), components=manifest['components'],
+                                       wsgsUnion=manifest['wsgsUnion'], baseSourceSha256=manifest['baseSourceSha256'])
+            with self.subTest(code=code), self.assertRaisesRegex(ValueError, code):
+                b.validate_upstream(union({**{k:v for k,v in outer.items() if k != 'SHA256SUMS'},
+                                          'UNION.json': b.encode(outside), 'upstream/smpp-united.tar.gz': blob}))
+
+    def test_wsgs_outer_descriptor_cannot_disagree_with_embedded_union(self):
+        _, files = b.rooted(wsgs_upstream()); manifest = json.loads(files['UNION.json'])
+        manifest['upstream']['wsgsUnion']['manifestSha256'] = '0'*64
+        with self.assertRaisesRegex(ValueError, 'NESTED_WSGS_IDENTITY'):
+            b.validate_upstream(union({**{k:v for k,v in files.items() if k != 'SHA256SUMS'}, 'UNION.json': b.encode(manifest)}))
+
     def test_valid_nested_and_missing_or_changed_member(self):
         data = upstream()
         self.assertEqual(b.validate_upstream(data)[0], 'fixture')

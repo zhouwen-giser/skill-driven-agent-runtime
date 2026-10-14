@@ -52,12 +52,13 @@ Both profiles reject unexpected catalog drift. Keep the Runtime MCP server ID di
 PMS instance ID and the GOWM device binding ID.
 
 If PMS is absent, build Dockerfile targets `pms-api` and `pms-worker` from the verified nested
-SMPP source in the fixed upstream union. `pms-registry.py SITE --api-image IMAGE
+SMPP source in the fixed upstream union. `pms-registry.py SITE --runtime-container ACTUAL_RUNTIME_CONTAINER --api-image IMAGE
 --worker-image IMAGE --postgres-image IMAGE` prepares private configuration for an independent
 PMS management PostgreSQL and official API/worker. Start its generated Compose, then execute
 `node /run/pms-site/pms-register.mjs` in the API container (copy this helper into SITE first).
 It uses official PMS application services/APIs to synchronize packages and register the existing
 Provider, resource and direct-container deployment. It does not migrate SMPP business storage.
+The Runtime container parameter defaults to the historical `smpp-gowm-runtime-1`; WSGS-aware local deployments use their actual Compose Runtime name. The helper checks the Runtime role and derives endpoint DNS from the inspected container rather than assuming a legacy name.
 Enable the existing Runtime's native PMS registration client using the same deployment/instance
 identity and generated registration token file. Back up its resolved Compose, verify no active
 provider tasks, add the token as a read-only bind mount, and reload only that Runtime with its

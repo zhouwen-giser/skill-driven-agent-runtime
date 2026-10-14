@@ -1,0 +1,976 @@
+[
+  {
+    "name": "smpp-telemetry-telemetry-processor-1",
+    "id": "6431843923d8dcec27733b90ef1c41dd70c0916be410b3dbd0362d4823a2ca49",
+    "imageId": "sha256:ce1de75bbed390d4269de817de9674d91888cfd73b91a52c831ddb1b3f97341a",
+    "startedAt": "2026-10-13T12:03:38.90160851Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "smpp-telemetry_default"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/telemetry/wal-reader-entrypoint.sh"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/local-password"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/shared-password"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/config/source-mappings.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/config/projection-targets.json"
+      },
+      {
+        "type": "volume",
+        "name": "smpp-telemetry_processor-wal",
+        "destination": "/var/lib/smpp-telemetry/wal"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/telemetry/wal-reader-guard.mjs"
+      }
+    ]
+  },
+  {
+    "name": "smpp-telemetry-query-api-1",
+    "id": "fad97cd10fadd4f1d282712910479bc68b69804da524f54e7ed9b68d3961c3da",
+    "imageId": "sha256:ce1de75bbed390d4269de817de9674d91888cfd73b91a52c831ddb1b3f97341a",
+    "startedAt": "2026-10-13T12:03:38.902314212Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "smpp-telemetry_default"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/local-password"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/shared-password"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/query-cursor-key"
+      }
+    ]
+  },
+  {
+    "name": "smpp-telemetry-grafana-1",
+    "id": "b7e21469550c7a9c4f8fa69d0c5d1fdc6b5ce397e61e994a3fd45b5be7eddc4e",
+    "imageId": "sha256:6ac590e7cabc2fbe8d7b8fc1ce9c9f0582177b334e0df9c927ebd9670469440f",
+    "startedAt": "2026-10-13T12:03:35.734559705Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "smpp-telemetry_default"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/etc/grafana/provisioning"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/var/lib/grafana/dashboards"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/etc/grafana/provisioning/datasources/clickhouse.yaml"
+      },
+      {
+        "type": "volume",
+        "name": "smpp-telemetry_grafana-data",
+        "destination": "/var/lib/grafana"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/etc/grafana/telemetry-start.sh"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/grafana-password"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/local-password"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs-grounding-api-1",
+    "id": "2811aa65c029f143cdb053ce9a3e7a25ef0f7dd223cf824e1dbe4425d435f1b3",
+    "imageId": "sha256:bcc3fc9fe577c442819e244e96fa0309873e62108cd04d44a5946286d04fe246",
+    "startedAt": "2026-10-13T11:51:14.715618679Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-wsgs_default"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/gowm-delegation-private-key.pem"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/wsgs/gowm-southbound-operation-lock.json"
+      },
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs_delegation",
+        "destination": "/run/wsgs-delegation"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/upstream/gowm-current"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs-grounding-worker-1",
+    "id": "d408d548867b30f4c6dca6da3a243d8b89b94e5b80f8763dd7c7a713db88b691",
+    "imageId": "sha256:bcc3fc9fe577c442819e244e96fa0309873e62108cd04d44a5946286d04fe246",
+    "startedAt": "2026-10-13T11:51:14.716314089Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-wsgs_default"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/gowm-delegation-private-key.pem"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/wsgs/gowm-southbound-operation-lock.json"
+      },
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs_delegation",
+        "destination": "/run/wsgs-delegation"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/upstream/gowm-current"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+    "id": "f089161585f429d2a4428ee155f198ff6c67720e27230ca77e1dc67d20e5c50c",
+    "imageId": "sha256:2123e6a3e26bfa44f633c33b65a36142ab8a4b29843fc44257abcef92beb293a",
+    "startedAt": "2026-10-13T11:33:29.168036839Z",
+    "status": "running",
+    "health": null,
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-smpp_default",
+      "gowm-analysis-dev-f3dc6f4b8e_default"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e-smpp_runtime-state",
+        "destination": "/var/lib/sdar"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/config"
+      }
+    ]
+  },
+  {
+    "name": "smpp-telemetry-otel-collector-1",
+    "id": "7960d7086371deb61f48b50711550580d238234de41e95042e0724b6dfd3317c",
+    "imageId": "sha256:f2f01157055a9b2aab9df7118e1f1c9abf345e99b23bc7a2bc791db374a7d0f6",
+    "startedAt": "2026-10-13T11:33:24.898817308Z",
+    "status": "running",
+    "health": null,
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-smpp_default",
+      "smpp-telemetry_default"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "smpp-telemetry_collector-queue",
+        "destination": "/var/lib/otelcol/storage"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/etc/otelcol/config.yaml"
+      }
+    ]
+  },
+  {
+    "name": "smpp-telemetry-clickhouse-1",
+    "id": "a9034df1dd4c21afec6a5af337620cb6bdcb0b5daece02231298d11e64fc0e9e",
+    "imageId": "sha256:b627d7a9bc0e0c1bac26cdbe9d2fc6316faa29c5d8a174f28f5abd57d0fa6ba2",
+    "startedAt": "2026-10-13T11:28:43.958525648Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "smpp-telemetry_default"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "smpp-telemetry_clickhouse-data",
+        "destination": "/var/lib/clickhouse"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/local-password"
+      }
+    ]
+  },
+  {
+    "name": "smpp-telemetry-sdar-clickhouse-1",
+    "id": "3db1ed15b38ef90d36a2512be186ad1b1319dfce9cc6c47237da04c80dcd76cd",
+    "imageId": "sha256:b627d7a9bc0e0c1bac26cdbe9d2fc6316faa29c5d8a174f28f5abd57d0fa6ba2",
+    "startedAt": "2026-10-13T11:28:43.957368843Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "smpp-telemetry_default"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "smpp-telemetry_sdar-clickhouse-data",
+        "destination": "/var/lib/clickhouse"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/secrets/shared-password"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-smpp-adapter-1",
+    "id": "eab6ccfef368037dfe1845f79e82c637b90e3005246278b3741d397e3e655663",
+    "imageId": "sha256:a8006b9813d771bd05e2b2ab0e636d874c2fabeaf7d6a0c65681af3ec8b55bab",
+    "startedAt": "2026-10-13T10:07:11.070240684Z",
+    "status": "running",
+    "health": null,
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-smpp_default",
+      "gowm-analysis-dev-f3dc6f4b8e_default"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e-smpp_adapter-state",
+        "destination": "/var/lib/sdar"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/run/config"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs-signed-gateway-1",
+    "id": "64d170ef7b943506419683cd3bb4599ce892ff5f1cec44cc7a49a37cbb193987",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:37:33.642763234Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-wsgs_default",
+      "gowm-analysis-dev-f3dc6f4b8e_default"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/analysis-registry.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/analysis-schema-lock.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/map-matching-provider.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/world-platform-gateway-registry.gdps.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/gdps-geospatial-products-provider.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/metric-ranking-provider.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/gdps-canonical-schema-lock.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/gdps-schemas"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/analysis-schemas"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/temporal-events-provider.json"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-world-capability-gateway-1",
+    "id": "3561ebcf2f8fa77cd6ad118db176da3593d1281494c96905f2fce4e375fdadcf",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:37:04.940088042Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/gdps-geospatial-products-provider.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/analysis-registry.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/analysis-schema-lock.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/temporal-events-provider.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/world-platform-gateway-registry.gdps.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/gdps-schemas"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/analysis-schemas"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/config/gdps-canonical-schema-lock.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/map-matching-provider.json"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/app/contracts/manifests/providers/metric-ranking-provider.json"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-map-matching-provider-1",
+    "id": "6dff117221c8c107f9e0b772b25a25f85d024bcd45dcd47e9b524ecca8665bfa",
+    "imageId": "sha256:e9bca9ae54eec8b88910dbcf958c12078e873bbe8583bcecef833e0436b10344",
+    "startedAt": "2026-10-13T09:36:26.571435098Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-temporal-events-provider-1",
+    "id": "a6482e5fd3548fd4a09b179e1fceab2c0b537fc4c0043e73dca2259d83936981",
+    "imageId": "sha256:e9bca9ae54eec8b88910dbcf958c12078e873bbe8583bcecef833e0436b10344",
+    "startedAt": "2026-10-13T09:36:26.556008762Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-metric-ranking-provider-1",
+    "id": "de10d539264a97fce36ead8b1934166c4432c4cdd3a83b2c1128c861e042f667",
+    "imageId": "sha256:e9bca9ae54eec8b88910dbcf958c12078e873bbe8583bcecef833e0436b10344",
+    "startedAt": "2026-10-13T09:36:26.572821011Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-gdps-1",
+    "id": "57e062a3435f7788441a08289465ec7bff62d4fc011bdcbaa5d1cf2b612257e3",
+    "imageId": "sha256:ffca75862d30b10b95b4ea2900ba9728ba4bec25764a51076b12536a9c74a928",
+    "startedAt": "2026-10-13T09:24:52.592835324Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e_gdps-staging",
+        "destination": "/staging"
+      },
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e_gdps-state",
+        "destination": "/state"
+      },
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e_gdps-data",
+        "destination": "/data"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/imports"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-ugv-mqtt-ingest-1",
+    "id": "dc1d34d01eee9c2be547ebcd6e066669869af16bedaf0b13c0821ab6f2cd4bb3",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:52.912899815Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/source-schema"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-world-mcp-server-1",
+    "id": "c0c7e8275ad2a38fbdeb851dd0c2218ec1bb5ee35fcc58ae9f8da4d39714cc66",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:53.24851562Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-h3-interactive-provider-1",
+    "id": "0b40b825e488590f6cf372d3abfee9ad304f948408031babd81d53ffa10f63da",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:53.592847534Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/opt/gowm/h3-bindings.mjs"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-h3-analysis-provider-1",
+    "id": "9ede0ca81ee201c0db2203259600f18d3c12f72f8ddff34c2fd92a033fad8383",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:53.938811541Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/opt/gowm/h3-bindings.mjs"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-observation-ingest-1",
+    "id": "f0082789334fda6947c33d6ec06dc430f3ab49ca30afa2e0ef4e2863f386351a",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:54.289536282Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-operational-reality-provider-1",
+    "id": "e7bcbff293ebb5b2fdb337c37ea662cbcb3dc8b73057c929127c130f8b7a7950",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:54.627064517Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-world-evidence-provider-1",
+    "id": "b2e21e5ecb1ef58da232ea7c7a0e6c232f246ca90216f78858f98f3572bd9ecb",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:54.984385064Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-gowm-situation-provider-1",
+    "id": "6f06be06914f43e214d2376c16fd48cbe93577de2119f381f02664b9707cf4cd",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:55.373744516Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-geometry-provider-bridge-1",
+    "id": "9c5cc7a44da2ff82a66d0e5053f2c3f4c3369eb58d6e19b5fd7f9bb98b45540d",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:55.86300307Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-platform-validation-provider-1",
+    "id": "f8972e833656ba82d59a98ba33e187fcfc780cfa882521fa3e512d3de56c7cca",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:56.228555154Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-route-planning-provider-1",
+    "id": "166d244386dd09f6b965aa4769fd20f38db94ac3daa4d4485beb4eb47f540c1a",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:56.560291152Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-dataset-catalog-provider-1",
+    "id": "d552166afa776a8ecde79264e5fb07448b9b1bf2f7f7f617d7142e68665e7a74",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:56.864290139Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-crs-provider-bridge-1",
+    "id": "c5bcfd5a3bd67d24c121d955737380b6e11be3910f4a3839e07b0d7bd5c50dea",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:57.218626297Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-reference-catalog-provider-1",
+    "id": "e665d628f29e718e4bd5b47ee2e76a849bd451e58fc9b5234ac0b4f72270cded",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:57.575719835Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-world-api-1",
+    "id": "580388673d613a62779ea926f370d0253134ae061a4deba145c88b5ccc4fe790",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:57.934238677Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-road-coverage-provider-1",
+    "id": "24757a3515233d127fd015723e4004e19000dc4c7cc4355a5eb9bf9f53742491",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:58.269114641Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-network-provider-1",
+    "id": "4c77e0932d5e7bf5cc2291d55d6e09d579f14f36836551072326b201ba53683f",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:58.566937615Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-spatial-provider-bridge-1",
+    "id": "4c700b4320a0d1055a0c5eb848689c687ebb8ea234d050604124f4278cbd06da",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:58.946180453Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-historical-trace-provider-1",
+    "id": "93f85731fcdcd6b22b083dd80175c4cb8a3585a6380061f5c3110926c90d3f5a",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:59.282838729Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-stas-provider-1",
+    "id": "044b80a978e41271e457c57b577b766fd624c75c914d67c61fb9f43d7e17be8a",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:24:59.75846209Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-world-platform-projection-worker-1",
+    "id": "d7c06247eb41f4c0d305bc0f76104ff802c9a172cb00bbdc19a7b2642a57fbf5",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:25:00.277071543Z",
+    "status": "running",
+    "health": null,
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-projection-worker-1",
+    "id": "3bdcaeba1b6b5dd2bfb21aa152cfdbc322f82cfea08843a7f26be1f2bfb49e90",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:25:00.649683104Z",
+    "status": "running",
+    "health": null,
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-stas-1",
+    "id": "95e5601a05ac9258f3b4ae8c222e2ac7f0b17cdc82afb3f9e8a47b942e6047e5",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:25:00.888879239Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-history-auto-1",
+    "id": "833d5f0bcfdf6ab3e8f05ca1f67e6a95172f0c93e9d5d35c7b656cc3d21651f8",
+    "imageId": "sha256:f9ee012227ffb0d23dc181af3ad0875846f0a5495225f0b76501b0adde6a565f",
+    "startedAt": "2026-10-13T09:25:01.268095666Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs-gateway-db-1",
+    "id": "f9f5eb90916db56bbeaf2dd564a0732a53e1b7e1890619019a8eb75f4b1852c2",
+    "imageId": "sha256:20e7e39aa7638d0a0ac70df277a2b13c5d034cb5a91c1f74aa3f0a7c4fb7ec8f",
+    "startedAt": "2026-10-13T09:24:51.601595265Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-wsgs_default"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs_gateway-data",
+        "destination": "/var/lib/postgresql"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-postgres-1",
+    "id": "e1371c247c844307ac1fb8ed291f47a0a8cfbc7e3a288a953886f7bf168ec6c2",
+    "imageId": "sha256:20e7e39aa7638d0a0ac70df277a2b13c5d034cb5a91c1f74aa3f0a7c4fb7ec8f",
+    "startedAt": "2026-10-13T09:24:50.857848813Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e_gowm-postgres",
+        "destination": "/var/lib/postgresql"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-crs-upstream-1",
+    "id": "8ae1079ed766e862f6ada706a778de9fd8e7c7365f5de5a3bdb2fa647468c4aa",
+    "imageId": "sha256:3cde4f9857d4848c3921ec3b801e5f01a6fcf26c032a844c81597890ea42a710",
+    "startedAt": "2026-10-13T09:25:02.640654237Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-geometry-upstream-1",
+    "id": "842159a6fca9bcbb6ddcda90618ee121e6a56d69d7c1abe9b2ed4b8c5ad90c9f",
+    "imageId": "sha256:99d8b90fc749f7da5cad910d97f9345f55f187354b99f5e72b899185c2957c7c",
+    "startedAt": "2026-10-13T09:25:03.064838914Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": []
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs-postgres-1",
+    "id": "8f097403011b77f2ae3da9e1a5a7e41adfa475636f89eceee27a9f5fe96f0300",
+    "imageId": "sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4",
+    "startedAt": "2026-10-13T09:24:51.851826621Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e-wsgs_default"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e-wsgs_wsgs-postgres-data",
+        "destination": "/var/lib/postgresql/data"
+      }
+    ]
+  },
+  {
+    "name": "gowm-analysis-dev-f3dc6f4b8e-mqtt-1",
+    "id": "e493697c21747ae40b13b776e605c61f2bc2d8a2ebf1fcc041d39d7f375d7c43",
+    "imageId": "sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408",
+    "startedAt": "2026-10-13T09:24:51.196990575Z",
+    "status": "running",
+    "health": "healthy",
+    "networks": [
+      "gowm-analysis-dev-f3dc6f4b8e_default",
+      "gowm-analysis-dev-f3dc6f4b8e_world-edge"
+    ],
+    "mounts": [
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/mosquitto/config/mosquitto.conf"
+      },
+      {
+        "type": "volume",
+        "name": "gowm-analysis-dev-f3dc6f4b8e_gowm-mosquitto",
+        "destination": "/mosquitto/data"
+      },
+      {
+        "type": "volume",
+        "name": "4dd203c616c9ca6a42180bf74eb76074b29f0b3e9b236898a81eab197f7d2f13",
+        "destination": "/mosquitto/log"
+      }
+    ]
+  },
+  {
+    "name": "gpustack-worker",
+    "id": "285c26044ac9a3b76d8b64e0c7274c1bfaa34118049626c7bc293a53d8601614",
+    "imageId": "sha256:e85e0a7d7c59b0c44ad49e0f990ee110612a98c7770cf49468f282fd9ed43fee",
+    "startedAt": "2026-10-13T09:25:04.427042131Z",
+    "status": "running",
+    "health": null,
+    "networks": [
+      "host"
+    ],
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "gpustack-data",
+        "destination": "/var/lib/gpustack"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/var/lib/gpustack/cache"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/var/run/docker.sock"
+      }
+    ]
+  }
+]

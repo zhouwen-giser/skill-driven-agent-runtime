@@ -1,0 +1,272 @@
+{
+  "status": "failed",
+  "runId": "sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e",
+  "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+  "inputSha256": "5979cc1859d9eebf321fb0a45fb3c777849347568bc5092949bda5adf8e9ad7b",
+  "baselineSha256": "1f615c8f50683a81d819beef7c3c25e9ce462efed5620181d2608af6c906f8dc",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "stageCount": 26,
+  "pendingSteps": [
+    "canonical-evidence-demo",
+    "infrastructure-smoke",
+    "server-console-smoke",
+    "node-control-api-worker-smoke"
+  ],
+  "rawLogs": [
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/git-core.worktree.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/git-core.worktree.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/install.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/install.log.gz",
+      "rawSha256": "4bf1472363f51fb4f6dfd88bd83d05b17dc9823d147fe0947753013bc0e96661",
+      "gzipSha256": "0cf545b2cdfad3dd6ed31fa198706e5bb6efaaca3f18a166ac823c550610ef7a",
+      "bytes": 1928
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-migration-container-inventory.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-migration-container-inventory.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/git-snapshot.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/git-snapshot.log.gz",
+      "rawSha256": "8e43382628b3d441d2832736d1771991a51afce0f805a693e3d09887371c020e",
+      "gzipSha256": "bd637e73f48f160b9bea7c1241292c1ea49fc4fe4795bb6d297c342ad2051465",
+      "bytes": 120
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-runtime-smoke.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-runtime-smoke.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-control-smoke.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-control-smoke.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/git-core.bare.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/git-core.bare.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-e2e-performance.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e-e2e-performance.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e.log.gz",
+      "rawSha256": "6ae143799a462f7b0fadb659c1fc16b79e47a2d0e1b42969eb5332e1ba50c5fc",
+      "gzipSha256": "d328f970186f9f36cd4736548e7d5c99c6d847383aaca959cd8b2071fe6c2711",
+      "bytes": 336
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-migration-volume-inventory.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/cleanup-migration-volume-inventory.log.gz",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/infra.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/infra.log.gz",
+      "rawSha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d",
+      "gzipSha256": "e1692692cd991aaf2ef61a6f7d2295e65f15a9b0a98370d726dc50d34ba29df9",
+      "bytes": 136
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/licenses.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/licenses.log.gz",
+      "rawSha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c",
+      "gzipSha256": "0fd55b6fb1e1063d256cd5f349cdc9380a90704a2a21b05cdcbf6a275e11cef7",
+      "bytes": 163
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/format.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/format.log.gz",
+      "rawSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641",
+      "gzipSha256": "66c02c5835a2bc3d8f0a9a00d778ec83ea242e13ef1877274d83400e21fe69d5",
+      "bytes": 302
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/evidence-contract.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/evidence-contract.log.gz",
+      "rawSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4",
+      "gzipSha256": "3f98314b8e357cc368fa974576a3845f440556645f66f3cf62e65063ad547bd2",
+      "bytes": 438
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/evidence-coverage.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/evidence-coverage.log.gz",
+      "rawSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634",
+      "gzipSha256": "e895c431e920f8bcc73684df3172437626cc9f091ae922e56a92a781d775bd9a",
+      "bytes": 175
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/smpp-registry-projection.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/smpp-registry-projection.log.gz",
+      "rawSha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab",
+      "gzipSha256": "a68d9c1c8dba59c9f2b270298465f6d59cfca3ba8694ac78f2d37af91b783fdf",
+      "bytes": 641
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/postgres-redis-integration.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/postgres-redis-integration.log.gz",
+      "rawSha256": "53237afeda22900f577ded23c18367c20340dcd2e6dc77f7c853a0d1f69eddeb",
+      "gzipSha256": "a8ed0531e23d8b2b3e8498db67844626d44c374b56c984d55a05c5c7ef5ca6e4",
+      "bytes": 32344
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/node-control-implementation-conformance.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/node-control-implementation-conformance.log.gz",
+      "rawSha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b",
+      "gzipSha256": "dbdf4b3b3c7fb3f62c6324d13918c293281ad9c0ddd8c2319e7a425f4f2180b8",
+      "bytes": 198
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/node-control-contract.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/node-control-contract.log.gz",
+      "rawSha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab",
+      "gzipSha256": "dadf517cfae4e3905e31e5ec2cc2d5ee61e2d80ed71472ef114d048c891b9510",
+      "bytes": 148
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/build.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/build.log.gz",
+      "rawSha256": "671555f9d57db6e6689fed84749dc4f2faa9dab68e9fd389ba138377a45629b6",
+      "gzipSha256": "4e1844fc4c3024a5cc44870053dc1115af25dff5917f725c8efeb4cd453d8189",
+      "bytes": 458
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/a2a-baseline.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/a2a-baseline.log.gz",
+      "rawSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f",
+      "gzipSha256": "4f1379b5e1996a18ce75bcf4cea6c43e6bdc0babf4da9bae27fc24801248754a",
+      "bytes": 312
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/clean-baseline-reset-seed.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/clean-baseline-reset-seed.log.gz",
+      "rawSha256": "96fccdb175217cd33cfc3e2e64afe344e317ed9b178e1190029c4552f11be94c",
+      "gzipSha256": "e132653f5c06f06216275442795e18fb2312d591a1dbc54ead63ed0241997d79",
+      "bytes": 4219
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/contract.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/contract.log.gz",
+      "rawSha256": "9bb121f601f95fb350522106d4ded5df94539018a0f15182d23f3063fe117e6f",
+      "gzipSha256": "b3fde30e397a77bb004a78f47206e04ae13ea8b6affcb94d4b8cdd3b1ce4b558",
+      "bytes": 7899
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/verification-runner-contract.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/verification-runner-contract.log.gz",
+      "rawSha256": "b914eaff997b156bc905e45c26301700e581a76bb95362828f9890cc1a3b9146",
+      "gzipSha256": "cdc73d1bea3492859450bbf3bc13d0e9fab2d478a84f5c97921c2b7789112c07",
+      "bytes": 4976
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/postgres-redis-model-mcp-e2e.log.gz",
+      "rawSha256": "b9a22834f353a11543e4fd56450b28cb73973e25d87c12720072dd6ba93de140",
+      "gzipSha256": "f6f924de43ea2e68b46f4ec008619f8a0a74c4670e24ce42334b5c8f26916d04",
+      "bytes": 37580
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/protocol.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/protocol.log.gz",
+      "rawSha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27",
+      "gzipSha256": "08d928ef6ad4b24404bd2c85cd8d5e24bbeda58602dee0ccc11b7c09a21ed10e",
+      "bytes": 172
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/sources.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/sources.log.gz",
+      "rawSha256": "a382d8438c8da8d0e65f5155682361a1be32937cfef504dc8228567d4b4e49cc",
+      "gzipSha256": "6ac4e8c737717a7704e709d7cbd8ba9bb1b99bd6e2aacd2ad6f3118d1235a2f4",
+      "bytes": 88
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/official-a2a-tck.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/official-a2a-tck.log.gz",
+      "rawSha256": "5d720acd70581e43cce6d3706b48c867585fbdca7d6b2fbe7977be0d57e188e3",
+      "gzipSha256": "545516da71e8c6a7972f982292d6da409553e5b29c1bdc517e0d122f2ffd6bfb",
+      "bytes": 1202
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/lint.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/lint.log.gz",
+      "rawSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1",
+      "gzipSha256": "a3fc63b15eb42f707fa9d63b0a9a9628dd72eaec4b6f4cd626a9cf98d67ebe19",
+      "bytes": 11
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/unit.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/unit.log.gz",
+      "rawSha256": "234869396e2a7c198bd3c798214f0b8e496b10ab01ebff8d03b811f4a1bf0696",
+      "gzipSha256": "e92c1818c4f2da5311915ab146a0e85567b98eed26aa665dc4048d24c1081a59",
+      "bytes": 32905
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/cognitive-replay-no-physical-provider.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/cognitive-replay-no-physical-provider.log.gz",
+      "rawSha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2",
+      "gzipSha256": "e41245fe39381ca0b9589f72a8b557b0247e26be4024632649b6af5eeb14c3ae",
+      "bytes": 140
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/typecheck.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/typecheck.log.gz",
+      "rawSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "gzipSha256": "5b091cfa84f153e454772c0c86ea561333701b98e8aa9ac99687a1b460087dea",
+      "bytes": 32
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/architecture.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/architecture.log.gz",
+      "rawSha256": "83a1ba4eb255e75c2f9307211dd078a78858e94de096a0895e11e00816c8bdae",
+      "gzipSha256": "56818ef96b4c14fb15850ae27a9367e2cb74cf6f93402bf260820096f8754639",
+      "bytes": 480
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/management-openapi.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/management-openapi.log.gz",
+      "rawSha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a",
+      "gzipSha256": "341fb6c1232c6e65869f73efb7d85afb3f34b9a82443978118d9cd45f71e7db8",
+      "bytes": 100
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/acceptance.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/acceptance.log.gz",
+      "rawSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788",
+      "gzipSha256": "a242dce08b09fc93c2ec48dd18ad7ff6a153b68560bc363a70d0a6aefd1c95ca",
+      "bytes": 181
+    },
+    {
+      "source": "reports/runtime-semantic-closure/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/snapshot-reports/verification/raw/project-license.log",
+      "archive": "reports/local-smpp-integrated-20261013/review-fix/failed-full/sdar-verify-b0a5874e-a463-400e-958a-b9b207cfa20e/verification/raw/project-license.log.gz",
+      "rawSha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861",
+      "gzipSha256": "d8c8fb372f50aa866b81d1026031cac3b1e8291f5c8885ef1d8da77e26927f0f",
+      "bytes": 109
+    }
+  ]
+}

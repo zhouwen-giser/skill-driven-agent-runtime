@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "deploy/united",
+    "-p",
+    "bundle_test.py"
+  ],
+  "cwd": "/home/sz/code/skill-driven-agent-runtime",
+  "exitCode": 0,
+  "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+  "rawLogSha256": "67eb5ed41f4e3f68f04c9c935856ceee0351b6149fcb104e241373df07d77203"
+}

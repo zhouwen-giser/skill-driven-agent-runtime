@@ -1,0 +1,21 @@
+{
+  "name": "infrastructure-smoke",
+  "command": "pnpm smoke:infra",
+  "status": "passed",
+  "startedAt": "2026-10-14T00:27:43.183Z",
+  "finishedAt": "2026-10-14T00:28:18.219Z",
+  "timeoutMs": 240000,
+  "logPath": "reports/verification/raw/infrastructure-smoke.log",
+  "outputSha256": "19df468bb02c5e1b27f632a31187a1a0ae4c8b2f2c2f5d53cd6dd83998143751",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 35036,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 35,
+    "peakRssBytes": 570355712,
+    "peakProcesses": 7
+  },
+  "cleanupErrors": []
+}

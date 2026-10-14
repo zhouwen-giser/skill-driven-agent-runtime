@@ -1,0 +1,99 @@
+{
+  "status": "PASS_CORE_AND_PUBLISHED_INVENTORY",
+  "checkedAt": "2026-10-14T00:05:08.612Z",
+  "endpoints": [
+    {
+      "url": "http://127.0.0.1:10998/api/v1/health",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "da3cdd6777ce37814577a2d22d3945d526c5fcd60c2fb568c063de65d45211b2"
+    },
+    {
+      "url": "http://127.0.0.1:10091/health/ready",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "fe216473b487f0baf7484496f05738ed221e089d6b9d3ac1edf1d0003ca45428"
+    },
+    {
+      "url": "http://127.0.0.1:19100/health/ready",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "2ed166d31b9874b5b047d08f529962590706deecb7c57d726e6019e630bbc6f8"
+    },
+    {
+      "url": "http://127.0.0.1:28088/health/ready",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "3ebe57a5453eb73992e341d8985016eda52a1650a4ee24f2203860cd39ad7381"
+    },
+    {
+      "url": "http://127.0.0.1:28443/health/ready",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "b1aeb1c9cb0f4e5120888e7ceea71edf4e63ba9909c7ba66709a7cd0c9314c1f"
+    },
+    {
+      "url": "http://127.0.0.1:23000/api/health",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "24ffd1c359122e1cb5b518dc8590127fd2a3b8c657c32f713e14a7bbf8490274"
+    },
+    {
+      "url": "http://127.0.0.1:10999/.well-known/agent-card.json",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "c794afd2cc5001ec3d85f2458af0c5afa6c91dab0459b61872e1207e0834505c"
+    },
+    {
+      "url": "http://127.0.0.1:10998/api/v1/skills",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "3c96727cfd0b4d2fb6ed9f43e4b3a0ac6354ee6f214d11893d2f79a05aa43950"
+    },
+    {
+      "url": "http://127.0.0.1:10998/api/v1/mcp/servers/smpp-sz-gowm/tools",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "96f01364bb6ea9d5e167b9516cd6c0ee5ab7237637388dc2686c477ad836af2c"
+    },
+    {
+      "url": "http://127.0.0.1:10998/api/v1/tasks",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "eef46741adfc3a9f76294d3b78f37a45f113092ac9d44ee77c7a038a88ff09a1"
+    },
+    {
+      "url": "http://127.0.0.1:10998/api/v1/models/providers",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "6f009cafa1f8a006af66eee869c503936b12caae3ce92e70766c8dd22f84c8fc"
+    },
+    {
+      "url": "http://127.0.0.1:10998/api/v1/models/routes",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "ee5b4b2f88e4349265a3df0d2f9ecf959120d1a8ce4e43e25f0fd6c4f4b62783"
+    },
+    {
+      "url": "http://127.0.0.1:10091/api/v1/mcp-provider-bindings/80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+      "method": "GET",
+      "httpStatus": 200,
+      "sha256": "daa82b88926f3859df395c2a88d16d8e07977db98cfd8dc4143b86fa0118c720"
+    }
+  ],
+  "publicSkillCount": 12,
+  "toolCount": 12,
+  "taskCount": 0,
+  "modelProviders": [
+    {
+      "providerId": "ugv-real-model",
+      "enabled": true,
+      "model": "qwen3.8-max-0902"
+    }
+  ],
+  "modelRouteCount": 21,
+  "fullBootstrap": "BLOCKED_MISSING_EMBODIED_INSPECT_AREA",
+  "deviceCalls": 0,
+  "physicalTaskExecution": "NOT_RUN",
+  "modelInvocation": "NOT_RUN"
+}

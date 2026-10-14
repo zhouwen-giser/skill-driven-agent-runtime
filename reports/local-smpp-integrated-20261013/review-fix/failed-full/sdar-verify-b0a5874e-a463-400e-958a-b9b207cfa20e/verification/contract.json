@@ -1,0 +1,24 @@
+{
+  "name": "contract",
+  "command": "pnpm test:contract",
+  "status": "passed",
+  "startedAt": "2026-10-13T17:43:47.303Z",
+  "finishedAt": "2026-10-13T17:44:35.808Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/contract.log",
+  "outputSha256": "9bb121f601f95fb350522106d4ded5df94539018a0f15182d23f3063fe117e6f",
+  "metrics": {
+    "testFiles": 63,
+    "tests": 553
+  },
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 48505,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 49,
+    "peakRssBytes": 1311875072,
+    "peakProcesses": 8
+  },
+  "cleanupErrors": []
+}

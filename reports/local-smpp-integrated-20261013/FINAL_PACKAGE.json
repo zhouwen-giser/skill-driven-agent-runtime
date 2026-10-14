@@ -1,0 +1,13 @@
+{
+  "archive": "/home/sz/code/skill-driven-agent-runtime/artifacts/united/sdar-united-fb0189654593f96c6681/sdar-united-fb0189654593f96c6681.tar.gz",
+  "sha256": "f63a13bcd69188a12a60e32355107e84e3f0cb9c13478a40fe83fb4506410edb",
+  "upstreamSha256": "e5acd4b667b8344881210e84b319203d4f5419fb224ad56b6e404c79f400530e",
+  "sourceHash": "380c512cceec438f691289eb3564e28aa48b939c4b9bc375dac4cea342c38785",
+  "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+  "sourceFiles": 2921,
+  "release": "/mnt/data/sdar-local-integrated-20261013/release/final/sdar",
+  "status": "PASS",
+  "repeatLog": "/tmp/sdar-local-final-package-repeat.log",
+  "byteIdentical": true,
+  "credentialPolicy": "private external files only"
+}

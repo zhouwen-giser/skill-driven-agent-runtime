@@ -1,0 +1,35 @@
+Browser tab: 4, Title: "SDAR Operations Console", URL: "http://127.0.0.1:10998/console/".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 64-334
+~			56 heading MCP Servers, Value: 1
+~				57 text MCP Servers
+~				60 text REAL LIFECYCLE
+~				61 heading MCP Server Registry, Value: 2
+~					62 text MCP Server Registry
+~				63 text CONNECTED
++				64 container
++					65 text Server ID
++					66 text field (settable) Server ID
++				67 container
++					68 text 名称
++					69 text field (settable) 名称
++				70 container
++					71 text Streamable HTTP Endpoint
++					72 text field (settable) Streamable HTTP Endpoint
++				73 container
++					74 text Authorization（加密保存）
++					75 text field (settable) Authorization（加密保存）
++				76 button 注册并发现 Tools
++			77 container
++				78 text Development UGV smpp-sz-gowm  · revision  2 enabled
++				79 container MCP protocol status
++					80 text frozen_v1 notifications:  streaming_supported
++				81 text http://gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1:8080/mcp
++				82 button 刷新 Tools
++				83 button protocol
++				84 button tools
++				85 button operations
++				86 button invocations
++				87 button warnings
++				88 button 删除…
+The focused UI element is 27 button MCP Servers Tools

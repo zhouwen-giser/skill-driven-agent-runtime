@@ -1,0 +1,24 @@
+{
+  "name": "unit",
+  "command": "pnpm test:unit",
+  "status": "passed",
+  "startedAt": "2026-10-13T23:58:17.652Z",
+  "finishedAt": "2026-10-14T00:01:02.723Z",
+  "timeoutMs": 1200000,
+  "logPath": "reports/verification/raw/unit.log",
+  "outputSha256": "50a71411694e56ab9a675820c9315965792f519b20571b35769b16c3e2423f1b",
+  "metrics": {
+    "testFiles": 310,
+    "tests": 2695
+  },
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 165070,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 165,
+    "peakRssBytes": 1359396864,
+    "peakProcesses": 7
+  },
+  "cleanupErrors": []
+}

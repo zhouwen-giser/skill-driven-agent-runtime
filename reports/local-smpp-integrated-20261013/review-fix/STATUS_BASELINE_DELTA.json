@@ -1,0 +1,37 @@
+{
+  "status": "PASS_RESULTS_RECONCILIATION_ONLY",
+  "sourceRevision": "ac7838dae447955fb7410aaad705530077fc030a",
+  "frozenRunId": "sdar-verify-38c4b6b9-6e95-40bd-a92e-f1f8d245c929",
+  "runtimeInputsUnchanged": true,
+  "frozenRuntimeInputSha256": "5979cc1859d9eebf321fb0a45fb3c777849347568bc5092949bda5adf8e9ad7b",
+  "frozenBaselineSha256": "1f615c8f50683a81d819beef7c3c25e9ce462efed5620181d2608af6c906f8dc",
+  "updatedBaselineSha256": "32de232fad5e70a50152cb146edf243bc9395a620173401200a8c175eb814d99",
+  "changes": [
+    {
+      "path": "CHANGELOG.md",
+      "classification": "status",
+      "before": "d2404f94e948e1c988759bdd71937bee1ede16c97d1d62ea2cd60704d1bf9092",
+      "after": "066a7ab911d970754acaa2479bf3b851ee919eafafb414e1b9b06dc987f94697"
+    },
+    {
+      "path": "PROJECT_STATUS.md",
+      "classification": "status",
+      "before": "9a139e950be489d65d7816db6d407db7935ea540dee62edf4c3cfd85ee134ce4",
+      "after": "7372690ca11ad7f3b7438f6659d0710145e2646e2e3a315b946694b936211fa5"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "classification": "baseline",
+      "before": "71930752623cb37196687353be7771597d9486c4ba430320f2f7a6471da4ea54",
+      "after": "57eca5e31c5922165871ba9907396c3ce588bb429989adf7884efb20de5cd8b8"
+    },
+    {
+      "path": "execplans/EP-LOCAL-SMPP-INTEGRATED-DEPLOYMENT.md",
+      "classification": "status",
+      "before": "fd62a50b1fb685d4cec2e780e4ed9b657d6afda0ffaffe7eecc1344404e55a03",
+      "after": "f1d3c4458f0015f3cff8450f3c52b5447fff4e57b9a460e397dd2f0c0bc393c4"
+    }
+  ],
+  "baselineDeltaScope": "append post-review results and Prettier-only spacing/table alignment in traceability; original section equals independently formatted frozen original; requirements text, contracts and accepted ADRs unchanged",
+  "fullGateRerunRequiredForRuntime": false
+}

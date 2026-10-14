@@ -1,0 +1,33 @@
+{
+  "status": "PASS_FOCUSED",
+  "records": [
+    {
+      "id": "final-history-profiles",
+      "exitCode": 0,
+      "tests": 28,
+      "sourceRevision": "4112a90bfd11de337db056dc083c4f05bd5360c1",
+      "rawLog": "final-history-profiles.log.gz",
+      "rawLogSha256": "b5dc2b2c423e9c135361b5879c3ecd221e7bbaa1d539fa410282dfbf9dc4f505",
+      "basis": "actual focused command output and exit code"
+    },
+    {
+      "id": "python-wsgs-identity",
+      "exitCode": 0,
+      "tests": 9,
+      "sourceRevision": "37294d9a4900ead08053b63ac7bf25e461d9c542",
+      "rawLog": "python-wsgs-identity.log.gz",
+      "rawLogSha256": "ea2d3f436da5a0a2b1e96467efdef26e3383c25386e73f3f4162a2419cd347d0",
+      "basis": "actual focused command output and exit code"
+    },
+    {
+      "id": "actual-pms-identity",
+      "exitCode": 0,
+      "tests": 9,
+      "sourceRevision": "37294d9a4900ead08053b63ac7bf25e461d9c542",
+      "rawLog": "actual-pms-identity.log.gz",
+      "rawLogSha256": "6c19502b3590a844febda77ae7841dfd89dd48d7bbf350866d4d403112f2399b",
+      "basis": "actual focused command output and exit code"
+    }
+  ],
+  "fullFrozenGateReplacement": false
+}

@@ -1,0 +1,21 @@
+{
+  "name": "official-a2a-tck",
+  "command": "pnpm test:a2a-tck",
+  "status": "failed",
+  "startedAt": "2026-10-13T18:01:52.943Z",
+  "finishedAt": "2026-10-13T18:04:26.957Z",
+  "timeoutMs": 300000,
+  "logPath": "reports/verification/raw/official-a2a-tck.log",
+  "outputSha256": "5d720acd70581e43cce6d3706b48c867585fbdca7d6b2fbe7977be0d57e188e3",
+  "metrics": {},
+  "exitCode": 1,
+  "signal": null,
+  "durationMs": 154013,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 154,
+    "peakRssBytes": 463523840,
+    "peakProcesses": 7
+  },
+  "cleanupErrors": []
+}

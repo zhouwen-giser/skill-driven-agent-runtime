@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "oldImage": "sha256:20e7e39aa7638d0a0ac70df277a2b13c5d034cb5a91c1f74aa3f0a7c4fb7ec8f",
+  "currentImage": "sha256:ef01d9cf5bb214fc223fb0b00cbaf5cb34415c8ae1d0d03a74b45ce49a2bcd11",
+  "originalVolumeAndEnvironmentPreserved": true,
+  "postgresDumpRestoreBinariesUnchanged": true,
+  "binaryHashes": [
+    "4944085dba4adcf0f65b8fb4e698c5ac353ecff890fdc89afe8007c2547b1469  /usr/lib/postgresql/18/bin/postgres",
+    "a200e38c89b111d3abdf26927b186fdd423bef3d84f157af0f4b65db6f8e6c94  /usr/bin/pg_dump",
+    "a200e38c89b111d3abdf26927b186fdd423bef3d84f157af0f4b65db6f8e6c94  /usr/bin/pg_restore"
+  ],
+  "extensionVersion": "0.8.5",
+  "oldImageRetained": true
+}
