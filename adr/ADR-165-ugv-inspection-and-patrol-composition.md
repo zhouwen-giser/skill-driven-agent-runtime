@@ -16,6 +16,8 @@ Status: Accepted for user-authorized implementation, 2026-10-14.
 
 检查适配器只向 Provider 传 resourceId 与 area；TaskExecution 的 scheduledAt 锚定当前可执行时间，maxElapsed 取父期限剩余值与 300 秒中的较小值。确认等待消耗预算；过期输入拒绝，不能通过重放或重新锚定延长期限。连续子任务的人类确认保留同一持久 continuation 链头，后续外部等待递增版本。
 
+派发 fence 之后及 READINESS_STALE 的一次刷新必须使用当时重算的 TaskExecution；相同值同时进入可用性检查、最终 Provider Task Profile 和恢复日志。刷新只改变时间窗，不改变物理参数、调用身份、确认或重放策略。巡逻导航独立继承父任务剩余期限，不套用检查扫描的 300 秒上限；未来最早开始时间和已过期拒绝继续有效。
+
 巡逻以完成报告为 effect.patrol_reported。完整、降级及业务失败均保留规范报告；报告 status=failed 不宣称区域已巡逻成功。取消在既有 AgentTask output JSONB 中保留原生子任务汇总，Task 终态仍为 canceled，不能产生成功效果。Workflow 的错误 details 按 JSON 读取和保留，不更改冻结迁移。
 
 当前、有效、逐对象摘要验证的实际导航轨迹是空间证据；无关业务对象缺失或事件历史重放缺口不否定该快照。至少两个真实位移点、区域内轨迹及有效检查覆盖仍是完整巡逻的必要条件。该证据不证明未提供的逐点时钟或完整设备历史。

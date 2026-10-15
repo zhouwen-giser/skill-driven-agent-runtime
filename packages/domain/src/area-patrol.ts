@@ -1,4 +1,5 @@
 import { inspectionReportComplete, parseAreaInspectionInput } from './area-inspection.js';
+import { normalizeTaskTimestamp, type ResolvedMcpTaskExecution } from './mcp-task-availability.js';
 
 export interface PatrolChildEvidence {
   readonly taskId: string;
@@ -38,6 +39,32 @@ export function parseAreaPatrolInput(value: unknown) {
   )
     throw Error('PATROL_TARGET_OUTSIDE_AREA');
   return { ...input, target: { x: target['x'], y: target['y'], frame: 'WGS84' as const } };
+}
+
+/** Navigation inherits the parent window; the 300-second scan limit belongs to inspection. */
+export function patrolNavigationTaskExecution(
+  value: unknown,
+  now: string,
+): ResolvedMcpTaskExecution {
+  const input = parseAreaPatrolInput(value);
+  const start = Math.max(
+    Date.parse(normalizeTaskTimestamp(now)),
+    Date.parse(input.timeWindow.earliestStart),
+  );
+  const remaining = Date.parse(input.timeWindow.deadline) - start;
+  if (!Number.isSafeInteger(remaining) || remaining <= 0) throw Error('PATROL_DEADLINE_EXPIRED');
+  return {
+    protocolMode: 'frozen_v1',
+    availabilityCheck: 'required',
+    timing: {
+      start: {
+        mode: 'scheduled',
+        scheduledAt: new Date(start).toISOString(),
+        startToleranceMs: Math.min(30000, remaining - 1),
+      },
+      maxElapsedMs: remaining,
+    },
+  };
 }
 
 export function patrolPointInArea(

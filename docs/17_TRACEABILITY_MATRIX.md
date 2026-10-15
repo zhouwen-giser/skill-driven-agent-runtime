@@ -1666,3 +1666,5 @@ NFR-MNT-001 / NFR-SEC-001 / FR-ADM: frozen source `ac7838da`, run `38c4b6b9`, pa
 | INSPECT-06 门禁、包、本地发布 | scripts/inspection、deploy/development、双项目联合包                                                                       | FROZEN.json：165 项 SDAR/224 项 SMPP 字节未变；最终验收另记录命令、退出码、哈希及现场 NOT_RUN |
 
 INSPECT-05 原生升级补充：`mcp-provider-binding-service` 的既有 CAS rebind 在精确 Candidate 和新目录 checksum 变化时保留同一身份并生成后继版本；16 项绑定单元回归通过，实际新目录升级与完整门禁后继验收继续实施。冻结命令 Schema 未改。
+
+INSPECT-01/02 时序审查回归：area-patrol.unit.test.ts 验证导航超过五分钟、未来开始及父期限；mcp-registry.unit.test.ts 验证 fence 延迟超过 30 秒及一次 READINESS_STALE 后的最新传输/恢复时间窗、同一调用身份和一次 Provider 派发。失败复现与修复回执见 reports/inspection-area-v1/raw/sdar-inspection-timing-regression-*，门限、确认及重放策略保持。

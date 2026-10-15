@@ -58,7 +58,7 @@ import {
 
 export interface McpCallContext {
   /** Internal read-only refresh at the confirmation boundary; never a Provider redispatch. */
-  readonly beforeControlAuthorization?: () => Promise<void>;
+  readonly beforeControlAuthorization?: () => Promise<void> | Promise<ResolvedMcpTaskExecution>;
   readonly taskId?: string;
   readonly capabilityAttemptId?: string;
   readonly contextId?: string;
@@ -390,7 +390,7 @@ export class McpRegistryService {
         'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT',
         'Remote admission and deterministic dispatch must share one invocation identity.',
       );
-    const taskCallProfile = this.#taskCallProfile(
+    let taskCallProfile = this.#taskCallProfile(
       tool,
       frozenAuthority.taskBehavior,
       context.taskExecution,
@@ -435,7 +435,6 @@ export class McpRegistryService {
       ),
       toolName,
       arguments: arguments_,
-      ...(taskCallProfile === undefined ? {} : { taskCallProfile }),
       outputValidator: this.#schemas,
       ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
       ...(transportSignal === undefined ? {} : { signal: transportSignal }),
@@ -443,6 +442,16 @@ export class McpRegistryService {
     // Acquire deterministic ownership before consuming the one-shot human confirmation. A
     // rejected or already-aborted fence must leave the confirmation reusable by the owner that
     // actually obtained dispatch authority.
+    const refreshControlReadiness = async () => {
+      const fresh = await context.beforeControlAuthorization?.();
+      if (fresh !== undefined)
+        taskCallProfile = this.#taskCallProfile(
+          tool,
+          frozenAuthority.taskBehavior,
+          fresh,
+          context.logicalInvocationIdentity?.idempotencyKey ?? invocationId,
+        );
+    };
     let controlAuthority: GovernedControlDispatchReceipt | undefined;
     try {
       throwIfAborted(transportSignal);
@@ -453,8 +462,7 @@ export class McpRegistryService {
         });
       }
       throwIfAborted(transportSignal);
-      if (tool.executionSemantics.effect === 'side_effecting')
-        await context.beforeControlAuthorization?.();
+      if (tool.executionSemantics.effect === 'side_effecting') await refreshControlReadiness();
       try {
         controlAuthority = await this.#assertControlAuthority(
           tool,
@@ -472,7 +480,7 @@ export class McpRegistryService {
           throw error;
         // This guard precedes confirmation consumption, journal dispatch and transport.
         // Refresh once, preserving the invocation identity and all original TTL rules.
-        await context.beforeControlAuthorization();
+        await refreshControlReadiness();
         throwIfAborted(transportSignal);
         controlAuthority = await this.#assertControlAuthority(
           tool,
@@ -525,7 +533,10 @@ export class McpRegistryService {
     }
     try {
       throwIfAborted(transportSignal);
-      outcome = await lifecycle.call(transportInput);
+      outcome = await lifecycle.call({
+        ...transportInput,
+        ...(taskCallProfile === undefined ? {} : { taskCallProfile }),
+      });
       assertNoHomeAssistantEntityIdentity(outcome);
     } catch (error: unknown) {
       const completedAt = this.#clock.now();

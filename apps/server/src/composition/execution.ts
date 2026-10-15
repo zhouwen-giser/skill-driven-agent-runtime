@@ -1,6 +1,9 @@
 import type { GovernedChildTaskPort } from '../../../../packages/application/src/governed-child-task.js';
 import { areaReportChildExecutionStatus } from '../area-report-terminal.js';
-import { parseAreaPatrolInput } from '../../../../packages/domain/src/area-patrol.js';
+import {
+  parseAreaPatrolInput,
+  patrolNavigationTaskExecution,
+} from '../../../../packages/domain/src/area-patrol.js';
 import type { UgvMoveTaskBindingResolver } from '../../../../packages/ugv-profile/src/ugv-move-binding.js';
 import { resolveUgvMoveSkillUsageContext } from '../../../../packages/ugv-profile/src/ugv-move-skill-usage.js';
 import {
@@ -352,11 +355,7 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
             canonicalJson({ resourceId: parentInput.resourceId, target: parentInput.target })
           )
             throw Error('PATROL_NAVIGATION_INPUT_CONFLICT');
-          patrolTimingInput = {
-            resourceId: parentInput.resourceId,
-            area: parentInput.area,
-            timeWindow: parentInput.timeWindow,
-          };
+          patrolTimingInput = parentInput;
         }
       }
       if (tool.toolName === 'vehicle_inspect_area') {
@@ -366,13 +365,19 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         )
           throw new Error('INSPECTION_FROZEN_INPUT_AUTHORITY_INVALID');
       }
+      const areaTaskExecution =
+        inspectionInput !== undefined
+          ? () => inspectionTaskExecution(inspectionInput, clock.now())
+          : patrolTimingInput !== undefined
+            ? () => patrolNavigationTaskExecution(patrolTimingInput, clock.now())
+            : undefined;
       const effectiveTaskExecution =
-        inspectionInput === undefined && patrolTimingInput === undefined
+        areaTaskExecution === undefined
           ? (taskExecution ??
             (declaredTaskOperation?.taskExecutionProfile.taskBehavior === 'task_required'
               ? { protocolMode: 'frozen_v1' as const, availabilityCheck: 'required' as const }
               : undefined))
-          : inspectionTaskExecution(inspectionInput ?? patrolTimingInput, clock.now());
+          : areaTaskExecution();
       if (effectiveTaskExecution !== undefined && taskReadiness === undefined)
         throw new Error('MCP_TASK_READINESS_RUNTIME_DISABLED');
       if (effectiveTaskExecution !== undefined && planDefinition === undefined)
@@ -399,9 +404,9 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
               executionContext,
               ...(signal === undefined ? {} : { signal }),
             });
-      if (inspectionInput !== undefined || patrolTimingInput !== undefined)
+      if (areaTaskExecution !== undefined)
         guardedTaskExecution = {
-          ...inspectionTaskExecution(inspectionInput ?? patrolTimingInput, clock.now()),
+          ...areaTaskExecution(),
           ...(guardedTaskExecution?.reservationRef === undefined
             ? {}
             : { reservationRef: guardedTaskExecution.reservationRef }),
@@ -695,7 +700,7 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
             };
       let receipt: Awaited<ReturnType<McpRegistryService['callDetailed']>>;
       const beforeControlAuthorization =
-        (inspectionInput !== undefined || patrolTimingInput !== undefined) &&
+        areaTaskExecution !== undefined &&
         taskReadiness &&
         instance &&
         plan &&
@@ -703,7 +708,7 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         effectiveTaskExecution !== undefined &&
         guardedTaskExecution?.reservationRef === undefined
           ? async () => {
-              inspectionTaskExecution(inspectionInput ?? patrolTimingInput, clock.now());
+              const refreshedTaskExecution = areaTaskExecution();
               const fresh = await taskReadiness.assertPreInvocation({
                 planId: plan.planId,
                 planAttempt: plan.attemptCount,
@@ -715,12 +720,13 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
                 serverId: tool.serverId,
                 operationName: tool.toolName,
                 arguments: arguments_,
-                taskExecution: effectiveTaskExecution,
+                taskExecution: refreshedTaskExecution,
                 executionContext,
                 ...(signal === undefined ? {} : { signal }),
               });
               if (fresh.reservationRef !== undefined)
                 throw Error('AREA_DISPATCH_RESERVATION_CHANGED');
+              return fresh;
             }
           : undefined;
       try {

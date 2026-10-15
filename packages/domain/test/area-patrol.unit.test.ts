@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregateAreaPatrol,
   parseAreaPatrolInput,
+  patrolNavigationTaskExecution,
   type PatrolChildEvidence,
 } from '../src/area-patrol.js';
 const input = {
@@ -66,6 +67,37 @@ function children(): PatrolChildEvidence[] {
   ];
 }
 describe('Source-qualified patrol aggregation', () => {
+  it('allows navigation longer than five minutes while preserving the parent deadline', () => {
+    const long = {
+      ...input,
+      timeWindow: { ...input.timeWindow, deadline: '2026-10-14T01:00:00Z' },
+    };
+    expect(patrolNavigationTaskExecution(long, '2026-10-14T00:01:00Z').timing).toEqual({
+      start: {
+        mode: 'scheduled',
+        scheduledAt: '2026-10-14T00:01:00.000Z',
+        startToleranceMs: 30000,
+      },
+      maxElapsedMs: 3540000,
+    });
+    expect(patrolNavigationTaskExecution(long, '2026-10-14T00:59:59Z').timing).toMatchObject({
+      start: { startToleranceMs: 999 },
+      maxElapsedMs: 1000,
+    });
+    expect(() => patrolNavigationTaskExecution(long, long.timeWindow.deadline)).toThrow(
+      'PATROL_DEADLINE_EXPIRED',
+    );
+    const future = {
+      ...long,
+      timeWindow: { ...long.timeWindow, earliestStart: '2026-10-14T00:10:00Z' },
+    };
+    expect(
+      patrolNavigationTaskExecution(future, input.timeWindow.earliestStart).timing,
+    ).toMatchObject({
+      start: { scheduledAt: '2026-10-14T00:10:00.000Z' },
+      maxElapsedMs: 3000000,
+    });
+  });
   it('rejects an outside or unsupported target before child admission', () => {
     expect(() =>
       parseAreaPatrolInput({ ...input, target: { x: 118, y: 39.5, frame: 'WGS84' } }),

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-15 — inspection dispatch timing review
+
+- Propagate timing recomputed after the dispatch fence through readiness, Provider Task Profile and recovery evidence, retaining the original invocation identity.
+- Bound patrol navigation by its parent deadline; retain the separate 300-second limit for inspection scans.
+
 ## 2026-10-14 — 区域检查与巡逻组合
 
 - 同一 Provider 的真实目录 checksum 变化可通过既有 CAS rebind 生成后继绑定版本；不改变冻结命令 Schema、绑定身份或凭据引用，纯观察变化仍拒绝。

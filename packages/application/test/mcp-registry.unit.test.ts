@@ -17,6 +17,7 @@ import {
   deriveFrozenMcpCatalogAuthority,
   LIVE_RUNTIME_EXECUTION_CONTEXT,
 } from '../../domain/src/index.js';
+import { inspectionTaskExecution } from '../../domain/src/area-inspection.js';
 import {
   createMcpProviderDispatchHash,
   McpRegistryService,
@@ -684,6 +685,107 @@ describe('MCP Registry invocation boundary', () => {
     expect(fixture.call).toHaveBeenCalledOnce();
     expect(order.at(-1)).toBe('provider-call');
   });
+  it('uses refreshed timing after a delayed fence and readiness retry for transport and recovery', async () => {
+    let now = timestamp;
+    const fixture = createFixture({
+      toolName: 'vehicle_inspect_area',
+      toolEffect: 'side_effecting',
+      toolExecution: 'task_required',
+      taskBehavior: 'task_required',
+      toolIdempotency: 'server_managed',
+      clockNow: () => now,
+    });
+    const input = {
+      resourceId: 'vehicle:ugv1',
+      area: {
+        boundary: [
+          { x: 116, y: 39 },
+          { x: 117, y: 39 },
+          { x: 117, y: 40 },
+        ],
+      },
+      timeWindow: { earliestStart: timestamp, deadline: '2026-08-11T01:01:00.000Z' },
+    };
+    const arguments_ = { resourceId: input.resourceId, area: input.area };
+    const logicalIdentity = createMcpLogicalInvocationIdentity({
+      taskId: 'task-delayed-inspection',
+      contextId: 'context-delayed-inspection',
+      goalId: 'goal-delayed-inspection',
+      goalVersion: 1,
+      workflowPlanId: 'plan-delayed-inspection',
+      workflowDefinitionId: 'workflow-delayed-inspection',
+      workflowDefinitionVersion: 1,
+      workflowInstanceId: 'instance-delayed-inspection',
+      workflowNodeId: 'inspect',
+      workflowNodeRunId: 'inspect-run',
+      serverId: 'provider-1',
+      providerBindingId: 'binding-provider-1',
+      providerId: 'external-provider-1',
+      operationName: 'vehicle_inspect_area',
+      argumentsHash: createHash('sha256').update(JSON.stringify(arguments_)).digest('hex'),
+      executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+    });
+    const enter = vi.fn(() => {
+      now = '2026-08-11T01:00:40.000Z';
+      return Promise.resolve();
+    });
+    const refresh = vi.fn(() => Promise.resolve(inspectionTaskExecution(input, now)));
+    fixture.controlAuthority.mockImplementationOnce(() => {
+      now = '2026-08-11T01:00:45.000Z';
+      return Promise.reject(
+        new GovernedControlAuthorityError('GOVERNED_CONTROL_READINESS_STALE', 'expired'),
+      );
+    });
+    const markDispatching = vi.fn().mockResolvedValue(undefined);
+    await fixture.service.callDetailed(
+      'provider-1',
+      'vehicle_inspect_area',
+      arguments_,
+      undefined,
+      {
+        taskId: logicalIdentity.taskId,
+        contextId: logicalIdentity.contextId,
+        capabilityAttemptId: 'attempt-delayed-inspection',
+        providerBindingId: 'binding-provider-1',
+        providerId: 'external-provider-1',
+        logicalInvocationIdentity: logicalIdentity,
+        taskExecution: inspectionTaskExecution(input, timestamp),
+        preTransportFence: {
+          invocationId: 'invocation-delayed-inspection',
+          signal: new AbortController().signal,
+          enter,
+        },
+        beforeControlAuthorization: refresh,
+        remoteAdmissionJournal: {
+          invocationId: 'invocation-delayed-inspection',
+          markDispatching,
+          recordRemoteReceipt: vi.fn().mockResolvedValue(undefined),
+          close: vi.fn().mockResolvedValue(undefined),
+          markUncertain: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    );
+    const profile = {
+      profileVersion: '1.0',
+      idempotencyKey: logicalIdentity.idempotencyKey,
+      timing: inspectionTaskExecution(input, now).timing,
+    };
+    expect(profile.timing?.start).toMatchObject({ scheduledAt: now, startToleranceMs: 14999 });
+    expect(profile.timing?.maxElapsedMs).toBe(15000);
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ taskCallProfile: profile }),
+    );
+    expect(markDispatching).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        invocationId: 'invocation-delayed-inspection',
+        reconciliationContract: expect.objectContaining({ taskCallProfile: profile }),
+      }),
+    );
+    expect(enter).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(fixture.controlAuthority).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps persistent stale readiness blocked without Provider transport', async () => {
     const fixture = createFixture({ toolEffect: 'side_effecting' });
     fixture.controlAuthority.mockRejectedValue(
