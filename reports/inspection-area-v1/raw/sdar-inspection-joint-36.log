@@ -1,0 +1,271 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-17ea4541-6909-433d-97eb-23a93ac86a3c","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":34,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":6,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":10,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:36:11.433Z"}
+Formal inspection case: findings
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:36:11.454Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":254,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":34,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":32,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":9,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+Formal inspection case: missing
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:36:25.979Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:36:25.995Z"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-23d17689-73bc-472d-a6ca-904b35bac122","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":73,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-23d17689-73bc-472d-a6ca-904b35bac122","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"a2a_terminal_projection.reconciled","scanned":3,"reconciled":2,"alreadyConverged":0,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":19,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":6,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":17,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":17,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":22,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":236,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":18,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":20,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":18,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":14,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":11,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":20,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":9,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":14,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":13,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":675,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":2,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":10,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":26,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":13,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":6,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":26,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":11,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":25,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":9,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":13,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":201,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.lifecycle_read_failed","summary":"tasks/get returned an invalid frozen DetailedTask."}
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:103
+  throw Error('JOINT_WAIT_TIMEOUT:' + JSON.stringify(last) + ':' + stderr.slice(-1500));
+        ^
+
+Error: JOINT_WAIT_TIMEOUT:[{"taskId":"f5f51cce-5adc-4ac3-8973-f1c0234076ff","operationName":"vehicle_inspect_area","state":"STOPPING","reasonCode":"UGV_CANCEL_REQUEST_ACCEPTED","missionId":"1841098307893045"}]:
+    at until (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:103:9)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:558:5)
+
+Node.js v22.23.2

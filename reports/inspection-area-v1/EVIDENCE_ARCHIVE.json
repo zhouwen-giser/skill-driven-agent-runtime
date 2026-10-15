@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "path": "/mnt/data/inspection-area-v1-20261014/inspection-area-v1-evidence.tar.gz",
+  "sha256": "216e306d32f3f421dfc5867557d63223351d18a30c86867b9fcad6dfa2fac41d",
+  "bytes": 3826632,
+  "files": 1096,
+  "indexSha256": "7780f55fdc86f4476a9ddc1cf3f3605e52805db9f0dc8712e94aa31263ce1dd5"
+}

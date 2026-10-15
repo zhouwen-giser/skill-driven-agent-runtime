@@ -1,0 +1,40 @@
+{
+  "status": "PREPARED",
+  "preparedAt": "2026-10-14T13:38:32.869560+00:00",
+  "changedPaths": {
+    "smpp-compose": [
+      "/services/adapter/build/args/VCS_REF",
+      "/services/adapter/build/context",
+      "/services/adapter/environment/UGV_INSPECTION_ENABLED",
+      "/services/adapter/image",
+      "/services/runtime/build/args/VCS_REF",
+      "/services/runtime/build/context",
+      "/services/runtime/image"
+    ],
+    "sdar-compose": [
+      "/services/control-api/image",
+      "/services/control-worker/image",
+      "/services/runtime/build/args/SDAR_SOURCE_REVISION",
+      "/services/runtime/build/context",
+      "/services/runtime/image"
+    ],
+    "sdar-environment": [
+      "/SDAR_UGV_CATALOG_PROFILE"
+    ]
+  },
+  "proposedSha256": {
+    "smpp-compose": "50154570a3c6e1913d6b6600baec9c26ae4d373cbc41286f11ffa6e6ba558261",
+    "sdar-compose": "844ccf097bff054a0b160ad4edcdd1b27147be9cbbf44437d85f456b971f4670",
+    "sdar-environment": "a69a5d62ec5a5d3f227d85073f10ca4d1913afc4c3352baa44babeea4cf28706"
+  },
+  "images": {
+    "smpp": {
+      "runtime": "smpp-inspection/runtime:175cc25943003d8dad31dd2fc946993301e33a28-worktree-dc52023fa084",
+      "adapter": "smpp-inspection/adapter:175cc25943003d8dad31dd2fc946993301e33a28-worktree-dc52023fa084"
+    },
+    "sdar": "sdar-inspection:c8a39c8616c5-9a7e9302eea6"
+  },
+  "privateDirectory": "/tmp/smpp-inspection-v1-20261014/deployment",
+  "liveFilesChanged": true,
+  "currentSdarUpgradeSourceRevision": "c8a39c8616c5c9574afb104077fb59879c32ea0b"
+}

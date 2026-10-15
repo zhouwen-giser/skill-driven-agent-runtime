@@ -1,0 +1,37 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+ ❯ |unit| apps/server/test/ugv-move-binding.unit.test.ts (30 tests | 1 failed) 3410ms
+     × accepts a fresh explicitly qualified simulation while retaining replay prohibition 94ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/server/test/ugv-move-binding.unit.test.ts > UGV move governed Task binding > accepts a fresh explicitly qualified simulation while retaining replay prohibition
+AssertionError: expected DomainError: Simulation and historical re… { …(2) } to match object { Object (code) }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": "UGV_PROFILE_EXECUTION_CONTEXT_REQUIRED",
++ DomainError {
++   "code": "RUNTIME_EXECUTION_CONTEXT_INVALID",
+  }
+
+ ❯ apps/server/test/ugv-move-binding.unit.test.ts:797:6
+    795|     await expect(
+    796|       item.resolver.resolve({ ...request(), executionContext: { mode: …
+    797|     ).rejects.toMatchObject({ code: 'UGV_PROFILE_EXECUTION_CONTEXT_REQ…
+       |      ^
+    798|   });
+    799|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 133 passed (134)
+   Start at  06:35:45
+   Duration  7.61s (transform 7.91s, setup 0ms, import 11.41s, tests 6.46s, environment 1ms)
+

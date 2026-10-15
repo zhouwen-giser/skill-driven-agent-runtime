@@ -1651,3 +1651,24 @@ The preceding `4112a90b` receipts remain PRE_REVIEW. PR40 P2 is fixed by mandato
 NFR-MNT-001 / NFR-SEC-001 / FR-ADM: frozen source `ac7838da`, run `38c4b6b9`, passes all 30 stages (2695 unit / 553 contract / 272 integration / 77 E2E), fresh install/cleanup 0 and unchanged runtime `5979cc18…` / baseline `1f615c8f…`. Evidence: `reports/local-smpp-integrated-20261013/review-fix/VALIDATION.json`, its full raw-log archive and `GOWM_VALIDATION.json` (same frozen inputs, persistent restricted storage, 8 steps / 2 formal flows / 32 native cases). Main fixture uses the documented owned memory-backed test volume; production durability is NOT_RUN. The failed reviewed TCK GitHub clone remains NOT_PASS. Official TCK transport/optional exclusions are not acceptance for omitted paths.
 
 `review-fix/FINAL_PACKAGE.json`, `CONTAINER_SOURCE.json`, `LIVE_APIS.json`, `LIVE_RESTRICTED_STORAGE.json`, `CI.json` and `FINAL_CLOSEOUT.md` map byte-identical package, all 2921 files/metadata/revision labels in three containers, 13 GET checks, owner contract and actual CI checkout tree. Original preservation/backup receipts remain applicable; no upstream image/data change occurs in this packaging repair. Final GitHub publication is under existing user authorization and has an adjacent delivery event receipt. Full 13-item bootstrap still fails missing `embodied.inspect_area`; patrol is not published. Whole-project acceptance/device-generation history/full evolution stay OPEN, physical actions/remote deployment NOT_RUN. Only this results appendix and Markdown formatting change the baseline digest; `review-fix/STATUS_BASELINE_DELTA.json` records the delta without changing requirements, contracts or accepted ADRs.
+
+## 用户授权扩展：区域检查及巡逻 v2（2026-10-14）
+
+该扩展依 ADR-165 和 EP-INSPECTION-AREA-V1 实施，不修改需求前缀或冻结迁移。当前实现和隔离用例已具备；最终全门禁、联合包及本地发布记录仍待封存，现场 NOT_RUN。
+
+| 扩展要求                      | 实现                                                                                                                       | 验证及证据                                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| INSPECT-01 合同、坐标与期限   | domain/area-inspection、area-patrol；ugv-profile 精确 13/14 Catalog；MCP Task 适配                                         | area-inspection/area-patrol/materialization 单元和合同；reports/inspection-area-v1/raw        |
+| INSPECT-02 原生执行与禁止重放 | application/governed-child-task、skill-call-workflow、task-service、workflow-execution；server/governed-patrol-child-tasks | 确定性接收、原生确认/continuation/取消；隔离 PostgreSQL/MQTT/Device MCP 联合场景              |
+| INSPECT-03 关联发现及事实保留 | SMPP inspection-report 与 JSONB 事实；SDAR TaskBusiness、错误 details、inspection result                                   | 来源缺失、有效空报告、有发现、失败及截断；联合日志记录两仓库源码摘要                          |
+| INSPECT-04 完整性与轨迹证据   | server/patrol-evidence-reader；domain/area-patrol；TaskCapability 规范结果门禁                                             | 完整、降级、失败、取消汇总；摘要冲突、资源/区域、256 项与字节预算；不可由最终位置单独证明轨迹 |
+| INSPECT-05 治理、候选及组合   | ugv-area-patrol-governance-driver、Skill v2、SkillProviderDependencyPolicy、readiness repository                           | policy-01 的 7 个正反向用例；子依赖状态/期限用例；原生发布及组合验证                          |
+| INSPECT-06 门禁、包、本地发布 | scripts/inspection、deploy/development、双项目联合包                                                                       | FROZEN.json：165 项 SDAR/224 项 SMPP 字节未变；最终验收另记录命令、退出码、哈希及现场 NOT_RUN |
+
+INSPECT-05 原生升级补充：`mcp-provider-binding-service` 的既有 CAS rebind 在精确 Candidate 和新目录 checksum 变化时保留同一身份并生成后继版本；16 项绑定单元回归通过，实际新目录升级与完整门禁后继验收继续实施。冻结命令 Schema 未改。
+
+INSPECT-01/02 时序审查回归：area-patrol.unit.test.ts 验证导航超过五分钟、未来开始及父期限；mcp-registry.unit.test.ts 验证 fence 延迟超过 30 秒及一次 READINESS_STALE 后的最新传输/恢复时间窗、同一调用身份和一次 Provider 派发。失败复现与修复回执见 reports/inspection-area-v1/raw/sdar-inspection-timing-regression-*，门限、确认及重放策略保持。
+
+INSPECT-05 数据库提交回归：node-control-persistence-postgres/test/smpp-registry.integration.test.ts 通过真实 Source Snapshot、Binding 服务和 PostgreSQL 验证已观察目录变化后 CAS 对齐、历史版本完整、同键幂等，以及随后纯计数推进拒绝。存储提交在既有锁内重新验证证据；不改冻结 Schema。证据见 cas-persistence-red-02 与 green 回执。
+
+INSPECT-01–06 本次交付验收：SMPP gate-11、最终 SDAR gate-18 全 30 阶段及清理、joint-68 四项检查及四项巡逻均 PASS。原生 CAS 目录升级、13 工具、14 项发布/组合清单、五容器和三份源码对比以及原卷、密钥、PMS、绑定历史和 48 个上游实例保留均 PASS。对应证据为 reports/inspection-area-v1/FINAL_VALIDATION.json 与其逐项证据索引；现场设备巡逻及实际生产回退演练 NOT_RUN。此段只记录授权扩展的结果，不改需求正文或冻结合同。

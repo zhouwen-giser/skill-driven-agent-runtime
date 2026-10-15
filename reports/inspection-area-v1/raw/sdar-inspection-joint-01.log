@@ -1,0 +1,15 @@
+Native source, Provider and Capability publication
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:418
+  throw new UgvSmppProviderMaterializationError(code, message);
+        ^
+
+UgvSmppProviderMaterializationError: This deployment wrapper requires unauthenticated://none.
+    at fail (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:418:9)
+    at validateConfiguration (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:332:5)
+    at materializeUgvSmppProvider (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:155:25)
+    at <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:327:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  code: 'UGV_RUNTIME_CREDENTIAL_MODE_UNSUPPORTED'
+}
+
+Node.js v22.23.2

@@ -111,6 +111,8 @@ export interface RuntimeCanceledOutcomeInput {
   readonly round?: WorkflowControlRound;
   readonly finalInstanceId?: string;
   readonly summary: string;
+  /** Canonical native area report retained without authorizing a success effect. */
+  readonly retainedReport?: Readonly<Record<string, unknown>>;
   readonly authority?: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
   readonly eventId?: string;
   readonly committedAt: string;

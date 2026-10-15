@@ -1,0 +1,142 @@
+{
+  "status": "ARCHIVED_ACTUAL_DRIVERS",
+  "scope": "Exact local operational source; command receipts prove each executed action separately. Historical preparation drivers are retained as history. No credentials included.",
+  "files": [
+    {
+      "path": "raw/deployment-drivers/stage-durable.py",
+      "sha256": "ff858584900a0659bf982eec253939716ceda7d7e7aae33b5d97cb19831a7014"
+    },
+    {
+      "path": "raw/deployment-drivers/prepare-update.py",
+      "sha256": "c977c2aa2ae2cfe487d961bb4ec3147c3f5e08a5e32c84173e2b4b7701b549f3"
+    },
+    {
+      "path": "raw/deployment-drivers/apply-update.py",
+      "sha256": "832f55949782516cbb226d9e3c7057293f197f76cd07b380bfec613689c6aee4"
+    },
+    {
+      "path": "raw/deployment-drivers/upgrade-sdar.py",
+      "sha256": "d3da15c0037a9e1909feb4612af942edeabe7cee377d6ca8efc2374da3ac9f1c"
+    },
+    {
+      "path": "raw/deployment-drivers/rebind-current-catalog.mjs",
+      "sha256": "08b9abd511eace91b1bc1fffb03533a18febe3e944330b59df0f626f3e40d92f"
+    },
+    {
+      "path": "raw/deployment-drivers/verify-publication.mjs",
+      "sha256": "e74639e7fe540d2c74a540bf3dc8a8315f73e4499034022b0e8bde2c57b05d57"
+    },
+    {
+      "path": "raw/deployment-drivers/verify-preservation.py",
+      "sha256": "7c90a9a5f57419e2121dc821e188581d8eb8a5206b23c659536e0378dca56ac9"
+    },
+    {
+      "path": "raw/deployment-drivers/verify-live-source.py",
+      "sha256": "ebc6e77470bc0c3c627ca6b4390ab33e5b1f0ba313c9b9c8bf7199b026015354"
+    },
+    {
+      "path": "raw/deployment-drivers/smpp-idle-core.mjs",
+      "sha256": "88a805e0c0052c1c6955b701e6f8ee869366a2512bb700f902225a6da412371b"
+    },
+    {
+      "path": "raw/deployment-drivers/snapshot-tools.mjs",
+      "sha256": "6383d6fc100bf24e8b7785edd1cca05abb1cd5c954e964ecdf54d46b73b260f3"
+    },
+    {
+      "path": "raw/deployment-drivers/final-live.py",
+      "sha256": "0bb8092239d041d092aac96806383a258a9c347b9713c4cd3dec899676497944"
+    },
+    {
+      "path": "raw/deployment-drivers/final-live-v2.py",
+      "sha256": "7ad30e4a51a883fdfe1be46ab3d3ac093d9f412bbe019a7d96866ad4412959fc"
+    },
+    {
+      "path": "raw/deployment-drivers/copy-final-gate-18.py",
+      "sha256": "b2496291bf4719be846c94fd8f53ffdfea8e3987fbca401d898e513cf8f283e9"
+    },
+    {
+      "path": "raw/deployment-drivers/finalize-outcomes.py",
+      "sha256": "12176ed3c1ab1d2d3d4ada076339eec595aef629f95017fdde6d3e72bcd8e400"
+    },
+    {
+      "path": "raw/deployment-drivers/verify-public-secrets.py",
+      "sha256": "1e3fa2c3f4360fb1e4c66c5aacf93edca2f7a3abeafceb172944543a826ae4de"
+    },
+    {
+      "path": "raw/deployment-drivers/archive-evidence.py",
+      "sha256": "0f3e843082ee0b61521f17d5d6e6e731824c82d1af65923eeb92712a641678ad"
+    },
+    {
+      "path": "raw/deployment-drivers/prepare-tck-tools.py",
+      "sha256": "5ce71c4c33ff6a65f8d1832151e1317eff0dce038f754b0ef8a4c965a10b5eef"
+    },
+    {
+      "path": "raw/deployment-drivers/prepare-tck-tools-gate16.py",
+      "sha256": "5de76d56fc402b8d9f67002760d2ee56e2cb3c739dada28e02d8fa5b3425f81a"
+    },
+    {
+      "path": "raw/deployment-drivers/prepare-tck-tools-gate17.py",
+      "sha256": "36bd5e6e39956aac932c159342c4df8defd4a659cc0c2fe914c18ef71b7f7e9d"
+    },
+    {
+      "path": "raw/deployment-drivers/prepare-tck-tools-gate18.py",
+      "sha256": "8d17a7791001ae603e2d248ca7b13c337c16348e17838ec2b04dceddf0c21b84"
+    },
+    {
+      "path": "raw/deployment-drivers/pin-owned-performance.py",
+      "sha256": "94ddf86bbf9d363a175c48558d1d29362e1121c3347f24a563ca966326280bf6"
+    },
+    {
+      "path": "raw/deployment-drivers/build-sdar-v5.py",
+      "sha256": "79f0b17888fe556d05e70c57adff07a43de9a50aa5ca1bc1bd91da91df6e8219"
+    },
+    {
+      "path": "raw/deployment-drivers/build-sdar-v6.py",
+      "sha256": "1e7db8491b03dfe987a092d097e6249b699c3d6385f6328f855dfe1ebadf88ee"
+    },
+    {
+      "path": "raw/deployment-drivers/owned-cas-test.mjs",
+      "sha256": "2bfeb9f954349701c7f715852369adfdb16d28012f12f96477ff5276fb63d0ad"
+    },
+    {
+      "path": "raw/deployment-drivers/stage-public-drivers.py",
+      "sha256": "b754015a964eb49298ad8a36b51f3e3869f98848f74f8be38f191d8aba27365a"
+    },
+    {
+      "path": "raw/deployment-drivers/fix-deployment-readme.py",
+      "sha256": "946e461e8e209047fc1884affdff292b2aebc87b39d958e386e4dd082d4ead4d"
+    },
+    {
+      "path": "raw/deployment-drivers/build-sdar-v7.py",
+      "sha256": "3208fc3507f90514b485a2ffc04e33cfa1965baba68f7f2b166216f690777c30"
+    },
+    {
+      "path": "raw/deployment-drivers/finish-latest-package.py",
+      "sha256": "a5561e4e2edc1ad0c8d6bbfa6e5727f212e3232ff4ec54474d410b6080c39a66"
+    },
+    {
+      "path": "raw/deployment-drivers/write-delivery-readme.py",
+      "sha256": "1f0e2bc0d3c456b08e5d4dcec5ecab5248ef8f10d4568fdc0cb4d42199bd4c89"
+    },
+    {
+      "path": "raw/deployment-drivers/united-README.proposed.md",
+      "sha256": "a6df4aed3f61b142e74671da9d4e61979034bdaa09e2769c04325b90875a161f"
+    },
+    {
+      "path": "raw/deployment-drivers/finish-native-site.py",
+      "sha256": "36100952bb0a16f9e77a8b5877cde3383e76fa6e54f5483724e356d9221821bf"
+    },
+    {
+      "path": "raw/deployment-drivers/finish-publication-site.py",
+      "sha256": "fecb812c59c6341e24d4015bfea6d90df75b42666aeca8968ad778c7cf7e1386"
+    },
+    {
+      "path": "raw/deployment-drivers/inspect-runtime-catalog.mjs",
+      "sha256": "48253a35adaa64d3372d5e1e014d7f54e52e47f70ed674976145873986a9aaea"
+    },
+    {
+      "path": "raw/deployment-drivers/finish-preservation-site.py",
+      "sha256": "6034afd71912e0ad324cdf339411f7c12c24a95f5acc0b107e2b6678775505d0"
+    }
+  ]
+}

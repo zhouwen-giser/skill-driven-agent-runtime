@@ -1,0 +1,20 @@
+Native source, Provider and Capability publication
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/domain/src/area-inspection.ts:253
+  throw new AreaInspectionError(code);
+        ^
+
+AreaInspectionError: INSPECTION_TOOL_CONTRACT_INVALID
+    at invalid (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/domain/src/area-inspection.ts:253:9)
+    at unwrapInspectionResultSchema (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/domain/src/area-inspection.ts:346:5)
+    at inspectionSkillOutputSchema (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/domain/src/area-inspection.ts:222:22)
+    at buildSkillContract (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:1556:9)
+    at <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:1097:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Promise.all (index 8)
+    at async resolveGovernanceVersions (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:1076:3)
+    at async governUgvSmppCapabilities (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:623:20)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:378:17) {
+  code: 'INSPECTION_TOOL_CONTRACT_INVALID'
+}
+
+Node.js v22.23.2

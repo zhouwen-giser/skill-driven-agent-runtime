@@ -43,6 +43,7 @@ import {
   PostgresSkillRepository,
   PostgresSkillSelectionRepository,
   PostgresTaskInputRepository,
+  PostgresTaskCapabilityRepository,
   PostgresTemporarySkillRepository,
 } from '../../../../packages/persistence-postgres/src/index.js';
 import {
@@ -250,13 +251,65 @@ export async function composeInfrastructure(dependencies: composeInfrastructureD
         ...(task === undefined ? {} : { task }),
       }) ?? conservativeSkillUsageSelectionContext(),
     );
-  const resolveSkillUsageSlotChoices = (
+  const patrolBindings = new PostgresTaskCapabilityRepository(
+    pool,
+    undefined,
+    undefined,
+    deviceWorkScope,
+  );
+  const resolveSkillUsageSlotChoices = async (
     goalContract: GoalExecutionContract,
     skill: SkillVersion,
     value: unknown,
     task?: AgentTask,
-  ): Promise<readonly SkillUsageSlotChoice[]> =>
-    Promise.resolve(
+  ): Promise<readonly SkillUsageSlotChoice[]> => {
+    if (ugvAgentProfile && skill.skillId === 'embodied.area_patrol' && skill.version >= 2) {
+      if (!task) throw Error('PATROL_SLOT_TASK_AUTHORITY_REQUIRED');
+      const binding = await patrolBindings.findBinding(task.taskId);
+      const authorities = binding?.constraintSnapshot.filter(
+        (c) => c['type'] === 'composition_authority_policy',
+      );
+      const children = authorities?.length === 1 ? authorities[0]?.['children'] : undefined;
+      if (
+        binding?.requestedCapabilityId !== 'embodied.area_patrol' ||
+        binding.initialImplementationRefs.length !== 1 ||
+        binding.initialImplementationRefs[0] !==
+          `skill:embodied.area_patrol:${String(skill.version)}` ||
+        !Array.isArray(children)
+      )
+        throw Error('PATROL_SLOT_AUTHORITY_INVALID');
+      const candidate = children.find(
+        (entry: unknown) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          !Array.isArray(entry) &&
+          (entry as Record<string, unknown>)['skillId'] === 'embodied.inspect_area',
+      ) as Record<string, unknown> | undefined;
+      if (
+        !candidate ||
+        typeof candidate['skillVersion'] !== 'number' ||
+        !Number.isSafeInteger(candidate['skillVersion'])
+      )
+        throw Error('PATROL_INSPECTION_CANDIDATE_MISSING');
+      const selected = await skills.findVersion('embodied.inspect_area', candidate['skillVersion']);
+      if (
+        selected?.status !== 'enabled' ||
+        selected.version !== candidate['skillVersion'] ||
+        !selected.usageSpecification?.visibility.composable ||
+        !selected.capabilities.includes('embodied.inspect_area')
+      )
+        throw Error('PATROL_INSPECTION_CANDIDATE_NOT_ENABLED');
+      return [
+        {
+          parentSkillId: skill.skillId,
+          parentSkillVersion: skill.version,
+          slotId: 'subregion-inspection',
+          skillId: selected.skillId,
+          skillVersion: selected.version,
+        },
+      ];
+    }
+    return await Promise.resolve(
       options.skillUsageComposition?.resolveSlotChoices({
         goalContract,
         skill,
@@ -264,6 +317,7 @@ export async function composeInfrastructure(dependencies: composeInfrastructureD
         ...(task === undefined ? {} : { task }),
       }) ?? [],
     );
+  };
   const mcpRepository = new PostgresMcpRegistryRepository(pool, deviceWorkScope);
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool, deviceWorkScope);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);

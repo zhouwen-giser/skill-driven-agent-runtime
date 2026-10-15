@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-10-14T14:30:53.326Z",
+  "scope": "readonly persisted predecessor proof of an already observed Catalog upgrade",
+  "physicalTaskSubmissions": 0,
+  "current": {
+    "bindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+    "revision": 3,
+    "registryRevision": 4,
+    "registryChecksum": "2c7431c1ffcb7923bd05943f661740875da08365b098a3a4bb1e3807c25783b0",
+    "catalogRevision": "2.0.0-rc.1:3",
+    "catalogChecksum": "1a140d2028edc5a649a578072ae81c1bbde72bc017b7ccc0dcd7817676adb2ba",
+    "operationCount": 13
+  },
+  "predecessor": {
+    "bindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+    "revision": 2,
+    "registryRevision": 4,
+    "registryChecksum": "2c7431c1ffcb7923bd05943f661740875da08365b098a3a4bb1e3807c25783b0",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "bd8257d627435f6f16839234e7def3a6beff2599a213ac8f5bf665626a6c1aaa",
+    "operationCount": 12
+  }
+}

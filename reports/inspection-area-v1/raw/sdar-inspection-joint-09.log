@@ -1,0 +1,18 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+{"event":"capability_catalog_refresh.deferred","errorCode":"TASK_EXECUTION_FAILED","summary":"UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID"}
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:3397
+  throw new UgvSmppCapabilityGovernanceError(code, message);
+        ^
+
+UgvSmppCapabilityGovernanceError: Governance HTTP request was rejected with status 400.
+    at fail (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:3397:9)
+    at responseJson (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:3193:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async command (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.ts:70:21)
+    at async governUgvAreaPatrol (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.ts:226:5)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:405:5) {
+  code: 'RESULT_SCHEMA_INVALID'
+}
+
+Node.js v22.23.2

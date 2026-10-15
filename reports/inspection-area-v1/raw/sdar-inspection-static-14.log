@@ -1,0 +1,5 @@
+$ prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json "apps/**/*.{ts,tsx,json}" "packages/**/*.{ts,tsx,json}" "infra/**/*.{ts,tsx,json}"
+Checking formatting...
+[warn] packages/application/test/remote-task-admission-recovery.unit.test.ts
+[warn] Code style issues found in the above file. Run Prettier with --write to fix.
+[ELIFECYCLE] Command failed with exit code 1.

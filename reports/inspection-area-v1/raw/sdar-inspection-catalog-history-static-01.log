@@ -1,0 +1,6 @@
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/node-control-application/src/mcp-provider-binding-service.ts
+  245:9  error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+
+✖ 1 problem (1 error, 0 warnings)
+

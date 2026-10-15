@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-durable-stage-04",
+  "command": "python3",
+  "args": [
+    "/tmp/smpp-inspection-v1-20261014/deployment/stage-durable.py"
+  ],
+  "startedAt": "2026-10-15T00:32:50.044Z",
+  "completedAt": "2026-10-15T00:32:54.024Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "90f257f784320f596f51cbdde5012c4464a1fe7338c8dc9d271a7431c78ab192",
+  "sourceAfter": "90f257f784320f596f51cbdde5012c4464a1fe7338c8dc9d271a7431c78ab192",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-durable-stage-04.log",
+  "logSha256": "59703e65f051d8903b5301a0d2ee3ed8b018a970ade24043cb34753fb4e57a5f"
+}

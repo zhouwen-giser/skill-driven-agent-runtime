@@ -1,0 +1,1397 @@
+{
+  "status": "PASS",
+  "runId": "uap-p3-b02-inspection-joint-2126690998ab4d119f16914ab037374f",
+  "evidenceClass": "ISOLATED_SIMULATION_REAL_PG_MQTT_MCP",
+  "sourceRoot": "/home/sz/.codex/worktrees/trajectory-history-authority/sdar-mcp-provider-platform",
+  "evidence": [
+    {
+      "schemaVersion": "sdar.ugv-smpp-source-bootstrap/v1",
+      "status": "passed",
+      "evidenceClass": "real_public_api",
+      "observedAt": "2026-10-15T02:22:37.073Z",
+      "sourceAction": "created",
+      "sourceIdentitySha256": "3ca5ccce067c19a0d2cd35b36e4cedfd91841ead4a36bb69a3f9565e81b3fdfa",
+      "intendedTupleSha256": "b7e24c3032faa8cdb8a49240e1ac1c6f1760de91b5634b15090c105df861fb51",
+      "authenticationMode": "none",
+      "sourceSyncMode": "manual",
+      "sourceRevision": 1,
+      "snapshotRevision": 1,
+      "snapshotChecksum": "63d96e8d2086ab9e4997f8111ade434eb529473f3be89e23af2441b72ad1a836",
+      "snapshotValidUntil": "2026-10-15T03:22:37.049Z",
+      "nativeRegistryRevision": 1,
+      "nativeRegistryChecksum": "63d96e8d2086ab9e4997f8111ade434eb529473f3be89e23af2441b72ad1a836",
+      "registryProjectionContract": "sdar-registry-v1",
+      "candidateCount": 1,
+      "initialSyncOutcome": "applied",
+      "conditionalSyncOutcome": "not_modified",
+      "conditionalValidity": "unchanged",
+      "checks": [
+        "public_source_list_and_direct_read",
+        "immutable_source_configuration",
+        "source_active_current_pointer",
+        "sync_operation_succeeded",
+        "exact_ugv_only_candidate_tuple",
+        "projection_and_native_lineage_complete",
+        "persisted_snapshot_fresh",
+        "conditional_304_audit_outcome",
+        "conditional_revision_checksum_lineage_unchanged",
+        "conditional_validity_not_shortened"
+      ],
+      "redaction": {
+        "secretsIncluded": false,
+        "credentialReferencesIncluded": false,
+        "endpointsIncluded": false,
+        "entityIdsIncluded": false
+      }
+    },
+    {
+      "schemaVersion": "sdar.ugv-smpp-provider-materialization/v1",
+      "status": "passed",
+      "observedAt": "2026-10-15T02:22:37.421Z",
+      "provider": {
+        "providerKey": "ugv",
+        "bindingId": "inspection-provider-binding",
+        "action": "created",
+        "runtimeAction": "registered",
+        "externalProviderId": "isr.vehicle.ugv.ugv1",
+        "externalServerId": "inspection-smpp-mcp",
+        "registryRevision": 1,
+        "registryChecksum": "63d96e8d2086ab9e4997f8111ade434eb529473f3be89e23af2441b72ad1a836",
+        "nativeRegistryRevision": 1,
+        "nativeRegistryChecksum": "63d96e8d2086ab9e4997f8111ade434eb529473f3be89e23af2441b72ad1a836",
+        "registryProjectionContract": "sdar-registry-v1",
+        "registryCatalogRevision": "1",
+        "bindingRevision": 1,
+        "catalogRevision": "2.0.0-rc.1:1",
+        "catalogChecksum": "951280d465d2bbe87f13b0314a4be3d40fc2e9aeb516145c5e10ba24cb6b264f",
+        "endpointSha256": "ede3269eae98ef60ebcdee4edcd3ac5d691f510083f1b16acd643f2d2b7b0f53",
+        "catalogObservedAt": "2026-10-15T02:22:37.758Z",
+        "availabilityValidUntil": "2026-10-15T03:22:37.758Z",
+        "runtimeToolRevision": 1,
+        "runtimeDiscoveredAt": "2026-10-15T02:22:37.461Z",
+        "runtimeValidUntil": "2026-10-15T03:22:37.461Z",
+        "credentialRotation": "not_applicable",
+        "tools": [
+          {
+            "toolName": "vehicle_area_recon",
+            "taskBehavior": "task_required",
+            "effect": "side_effecting",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "6061b0d006d934ee0078e3556291d2c1b9df08b5c3108630c1d6b18f2d1c6757",
+            "outputSchemaSha256": "01a060b41aaf226f5552a4cc1022323adf6a20b2cb07abbeff373bdcc290f6fe"
+          },
+          {
+            "toolName": "vehicle_control_gimbal",
+            "taskBehavior": "task_required",
+            "effect": "side_effecting",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "553873e6e4e6207747ffaff7fd8faff33391300472c0d5e2630059fdcbd39514",
+            "outputSchemaSha256": "e5ee3d9e7804d588c07967b7f914ff7bca5235a725a4420a12acb58e8b17ff97"
+          },
+          {
+            "toolName": "vehicle_emergency_stop",
+            "taskBehavior": "task_required",
+            "effect": "side_effecting",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+            "outputSchemaSha256": "bc89043725abe66bf7a8683cbafb3b4668e3f182710234f79ad6f3ab4d737e66"
+          },
+          {
+            "toolName": "vehicle_fire_weapon",
+            "taskBehavior": "task_required",
+            "effect": "side_effecting",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "498c3b43ca943303f33ae8bba713aac96cca8ee7b32ac007bbb61e0cee788cca",
+            "outputSchemaSha256": "dddb9e96cd33318a1583ec92e642182a5050072ee399a9ce92158041b8214041"
+          },
+          {
+            "toolName": "vehicle_get_capabilities",
+            "taskBehavior": "synchronous_only",
+            "effect": "read_only",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+            "outputSchemaSha256": "332b5fccdb300fa8462afbc78b81920ca5d705306e9371f5640566c8b2e3777b"
+          },
+          {
+            "toolName": "vehicle_get_payload_status",
+            "taskBehavior": "synchronous_only",
+            "effect": "read_only",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+            "outputSchemaSha256": "806fc6287b90cd0b2b7fcbdca479dac31cdcdcf09ea9504fe52c6d3ebf7ab307"
+          },
+          {
+            "toolName": "vehicle_get_state",
+            "taskBehavior": "synchronous_only",
+            "effect": "read_only",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "fa04af3d483adbb10b242ba4593cd86eb44bddcb51246968291bc9194c084c65",
+            "outputSchemaSha256": "165ef6698d18b1fd4fcefcfc52d42d10e0cb92b3c9eea670ff6e4d14e3f74691"
+          },
+          {
+            "toolName": "vehicle_get_targets",
+            "taskBehavior": "synchronous_only",
+            "effect": "read_only",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+            "outputSchemaSha256": "ee5775021e2bcf6f67c0b3e95df44e8965b640e9368c672af30905f7c5b2d6f0"
+          },
+          {
+            "toolName": "vehicle_get_trajectory_evidence",
+            "taskBehavior": "synchronous_only",
+            "effect": "read_only",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "f7539c0b759f54c51c2d71c147bc301abd062ee8360bc91c752a9b156570ac79",
+            "outputSchemaSha256": "cb0d379c0cf096af3e9edd8b5808811a923a5be3a04b5b0c135263de5e9c2a1a"
+          },
+          {
+            "toolName": "vehicle_get_trajectory_history",
+            "taskBehavior": "synchronous_only",
+            "effect": "read_only",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "bd5253bbd40079d310739317b4f822d50cf85414c79b06bdf81e4d4e60c073e2",
+            "outputSchemaSha256": "0a21f174498c6922b75c9be6ab4424d3623755c8aea7b9c5e5c3c2df4d0e14ba"
+          },
+          {
+            "toolName": "vehicle_inspect_area",
+            "taskBehavior": "task_required",
+            "effect": "side_effecting",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "ad0403373dab23b741fb71e07e597e39c856b99308210e1a2c25d29e3958ad61",
+            "outputSchemaSha256": "1dc0d5aa492b657ef9c703020b737e166084c0c92f94eccdd3148a0128b5735f"
+          },
+          {
+            "toolName": "vehicle_laser_range",
+            "taskBehavior": "synchronous_only",
+            "effect": "read_only",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+            "outputSchemaSha256": "85e2d9f658d9c6e0275af35240527d72c5522b64e9c3ac3d88ea63af4a8ee7be"
+          },
+          {
+            "toolName": "vehicle_navigate",
+            "taskBehavior": "task_required",
+            "effect": "side_effecting",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "ae33c7317c8689ad174ba7d685df4ebed531e1cdf76c5a63ca68d7d04b30fa32",
+            "outputSchemaSha256": "2efa53605e3553c0705b3caedda4fb1d68e275acb4e55a3256e85dad7460dbf3"
+          },
+          {
+            "toolName": "vehicle_track_target",
+            "taskBehavior": "task_required",
+            "effect": "side_effecting",
+            "executionSemanticsSource": "admin_override",
+            "inputSchemaSha256": "228a5e785e24683c84472ff34be5a9bdc05cfa00e0061b94aaa833ca499f1b50",
+            "outputSchemaSha256": "190cc81d4790ad21682f4c2cf34f4b02ed1cd616f7c7003ca144f8cc90b7319d"
+          }
+        ]
+      },
+      "catalog": {
+        "expectedToolCount": 14,
+        "materializedToolCount": 14,
+        "reviewedToolPolicy": true,
+        "allExecutionSemanticsExplicit": true,
+        "physicalToolInvocationCount": 0
+      },
+      "firePolicy": {
+        "toolName": "vehicle_fire_weapon",
+        "discoveredAndClassified": true,
+        "executionAuthorized": false,
+        "capabilityCreationAuthority": "none"
+      },
+      "authentication": {
+        "runtimeMode": "none",
+        "implicitFallback": false
+      },
+      "redaction": {
+        "secretsIncluded": false,
+        "credentialReferencesIncluded": false,
+        "endpointsIncluded": false,
+        "entityIdsIncluded": true
+      }
+    },
+    {
+      "schemaVersion": "sdar.ugv-smpp-capability-governance/v1",
+      "status": "passed",
+      "observedAt": "2026-10-15T02:22:44.660Z",
+      "binding": {
+        "bindingId": "inspection-provider-binding",
+        "localServerId": "inspection-provider",
+        "revision": 1,
+        "registryRevision": 1,
+        "registryChecksum": "63d96e8d2086ab9e4997f8111ade434eb529473f3be89e23af2441b72ad1a836",
+        "catalogRevision": "2.0.0-rc.1:1",
+        "catalogChecksum": "951280d465d2bbe87f13b0314a4be3d40fc2e9aeb516145c5e10ba24cb6b264f",
+        "operationCount": 14,
+        "availabilityValidUntil": "2026-10-15T03:22:37.758Z"
+      },
+      "resourcePolicy": {
+        "identifierAuthority": "public_smpp_tool_schema",
+        "resourceId": "vehicle:ugv1",
+        "selection": "explicit_configured_value"
+      },
+      "catalog": {
+        "discoveredToolCount": 14,
+        "governedToolCount": 12,
+        "stagedControlToolCount": 0,
+        "unmappedToolNames": [
+          "vehicle_get_trajectory_evidence",
+          "vehicle_get_trajectory_history",
+          "vehicle_laser_range"
+        ]
+      },
+      "firePolicy": {
+        "toolName": "vehicle_fire_weapon",
+        "discovered": true,
+        "lifecyclePublished": false,
+        "invocationReadiness": "restricted",
+        "restrictionReason": "STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED"
+      },
+      "navigateControl": {
+        "activated": true,
+        "mode": "coordinate_point",
+        "dispatchMaximum": 1,
+        "stopOnObstacleRequired": true
+      },
+      "skills": [
+        {
+          "skillId": "ugv.get-state",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.read-state",
+          "toolName": "vehicle_get_state",
+          "packageChecksum": "70a9a3336015d80e9186561d4a3ad9aa79cce9f45f7ec285d3c0748db6192429",
+          "inputSchemaSha256": "fa04af3d483adbb10b242ba4593cd86eb44bddcb51246968291bc9194c084c65",
+          "outputSchemaSha256": "165ef6698d18b1fd4fcefcfc52d42d10e0cb92b3c9eea670ff6e4d14e3f74691",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.get-capabilities",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.read-capabilities",
+          "toolName": "vehicle_get_capabilities",
+          "packageChecksum": "1066e3a5609fb1f48badc6ac748685637a63731704d606098450addc0d900e69",
+          "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+          "outputSchemaSha256": "332b5fccdb300fa8462afbc78b81920ca5d705306e9371f5640566c8b2e3777b",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.get-payload-status",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.read-payload",
+          "toolName": "vehicle_get_payload_status",
+          "packageChecksum": "592ec8dcc65b6c50e0b74cffa9b11e048d4b36f56ac658a5b8ef6efe433fecc8",
+          "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+          "outputSchemaSha256": "806fc6287b90cd0b2b7fcbdca479dac31cdcdcf09ea9504fe52c6d3ebf7ab307",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.get-targets",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.read-targets",
+          "toolName": "vehicle_get_targets",
+          "packageChecksum": "50990d9cc52c7696a460753a670860136be644f11f6d4af454529af3baa868e1",
+          "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+          "outputSchemaSha256": "ee5775021e2bcf6f67c0b3e95df44e8965b640e9368c672af30905f7c5b2d6f0",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.navigate-route",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.navigate-route",
+          "toolName": "vehicle_navigate",
+          "packageChecksum": "cacf9652f940c6bc075b1ca8ce40c1fe3d3915cdf951b8be2b76b0feea6e204a",
+          "inputSchemaSha256": "ae33c7317c8689ad174ba7d685df4ebed531e1cdf76c5a63ca68d7d04b30fa32",
+          "outputSchemaSha256": "2efa53605e3553c0705b3caedda4fb1d68e275acb4e55a3256e85dad7460dbf3",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.navigate-distance",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.navigate-distance",
+          "toolName": "vehicle_navigate",
+          "packageChecksum": "887977690e3c5c17b4a34c4da56396f5ddea11900338fbef4f3458ca7c7b1905",
+          "inputSchemaSha256": "ae33c7317c8689ad174ba7d685df4ebed531e1cdf76c5a63ca68d7d04b30fa32",
+          "outputSchemaSha256": "2efa53605e3553c0705b3caedda4fb1d68e275acb4e55a3256e85dad7460dbf3",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.return-home",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.return-home",
+          "toolName": "vehicle_navigate",
+          "packageChecksum": "ec5067bee8355d8c78b33b2e6b15b31d414ad1beca68cbaed67c08c5ce859403",
+          "inputSchemaSha256": "ae33c7317c8689ad174ba7d685df4ebed531e1cdf76c5a63ca68d7d04b30fa32",
+          "outputSchemaSha256": "2efa53605e3553c0705b3caedda4fb1d68e275acb4e55a3256e85dad7460dbf3",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.area-recon",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.recon",
+          "toolName": "vehicle_area_recon",
+          "packageChecksum": "8ff67a4446f72cb497566d8227de630e8fdc3a47eece093f8491ee5a0ba3505c",
+          "inputSchemaSha256": "6061b0d006d934ee0078e3556291d2c1b9df08b5c3108630c1d6b18f2d1c6757",
+          "outputSchemaSha256": "01a060b41aaf226f5552a4cc1022323adf6a20b2cb07abbeff373bdcc290f6fe",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "embodied.inspect_area",
+          "skillVersion": 1,
+          "capabilityId": "embodied.inspect_area",
+          "toolName": "vehicle_inspect_area",
+          "packageChecksum": "3c0ac4324100e76b69fe64e92ba62606332fbe961efed7fb12d7d6bd25d3735a",
+          "inputSchemaSha256": "ad0403373dab23b741fb71e07e597e39c856b99308210e1a2c25d29e3958ad61",
+          "outputSchemaSha256": "1dc0d5aa492b657ef9c703020b737e166084c0c92f94eccdd3148a0128b5735f",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.track-target",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.track-target",
+          "toolName": "vehicle_track_target",
+          "packageChecksum": "12c2585f931fe01bd025bf3fffb60eed3d0a4c61c32f775311766989c6d7b78f",
+          "inputSchemaSha256": "228a5e785e24683c84472ff34be5a9bdc05cfa00e0061b94aaa833ca499f1b50",
+          "outputSchemaSha256": "190cc81d4790ad21682f4c2cf34f4b02ed1cd616f7c7003ca144f8cc90b7319d",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.control-gimbal",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.control-gimbal",
+          "toolName": "vehicle_control_gimbal",
+          "packageChecksum": "313c5428bc46727b88c4fc6c7f9ff6bfac244b669fa71646026ef5caa866f1fb",
+          "inputSchemaSha256": "553873e6e4e6207747ffaff7fd8faff33391300472c0d5e2630059fdcbd39514",
+          "outputSchemaSha256": "e5ee3d9e7804d588c07967b7f914ff7bca5235a725a4420a12acb58e8b17ff97",
+          "action": "imported",
+          "status": "published"
+        },
+        {
+          "skillId": "ugv.emergency-stop",
+          "skillVersion": 1,
+          "capabilityId": "vehicle.ugv.emergency-stop",
+          "toolName": "vehicle_emergency_stop",
+          "packageChecksum": "b0afe4a54a74f60cfb7aa33122e6a1c83c45ab85809548014e8f862887981364",
+          "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+          "outputSchemaSha256": "bc89043725abe66bf7a8683cbafb3b4668e3f182710234f79ad6f3ab4d737e66",
+          "action": "imported",
+          "status": "published"
+        }
+      ],
+      "capabilities": [
+        {
+          "capabilityId": "vehicle.ugv.read-state",
+          "capabilityVersion": 1,
+          "definitionHash": "eb7ce3f4e9bec3092fe820e27b5ecfab6a3ecec9b2088d8bfa7b9f1e1d8cc1dd",
+          "implementationBindingId": "capability-binding-vehicle.ugv.read-state-v1",
+          "skillId": "ugv.get-state",
+          "skillVersion": 1,
+          "toolName": "vehicle_get_state",
+          "riskLevel": "low",
+          "confirmation": "not_required",
+          "remoteTerminalEvidenceRequired": false,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.284Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.read-capabilities",
+          "capabilityVersion": 1,
+          "definitionHash": "ebce0305f14b793399c872fe4566ac4d2a359c6800b2f3e44d18d5bbfa2e5d12",
+          "implementationBindingId": "capability-binding-vehicle.ugv.read-capabilities-v1",
+          "skillId": "ugv.get-capabilities",
+          "skillVersion": 1,
+          "toolName": "vehicle_get_capabilities",
+          "riskLevel": "low",
+          "confirmation": "not_required",
+          "remoteTerminalEvidenceRequired": false,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.332Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.read-payload",
+          "capabilityVersion": 1,
+          "definitionHash": "e5d2fcfed6d82f1d4fced3ab2c05ec2dcd17394df0803091a84d97ba5da760a6",
+          "implementationBindingId": "capability-binding-vehicle.ugv.read-payload-v1",
+          "skillId": "ugv.get-payload-status",
+          "skillVersion": 1,
+          "toolName": "vehicle_get_payload_status",
+          "riskLevel": "low",
+          "confirmation": "not_required",
+          "remoteTerminalEvidenceRequired": false,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.359Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.read-targets",
+          "capabilityVersion": 1,
+          "definitionHash": "f2b2c967e32fdc233722839076c978a285fbd9af47e8e8817700bdf47fb3e536",
+          "implementationBindingId": "capability-binding-vehicle.ugv.read-targets-v1",
+          "skillId": "ugv.get-targets",
+          "skillVersion": 1,
+          "toolName": "vehicle_get_targets",
+          "riskLevel": "low",
+          "confirmation": "not_required",
+          "remoteTerminalEvidenceRequired": false,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.386Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.navigate-route",
+          "capabilityVersion": 1,
+          "definitionHash": "06cc645589445f399afdfc1112c921e497b1f9ac17b632240cce354c704fac45",
+          "implementationBindingId": "capability-binding-vehicle.ugv.navigate-route-v1",
+          "skillId": "ugv.navigate-route",
+          "skillVersion": 1,
+          "toolName": "vehicle_navigate",
+          "riskLevel": "medium",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.414Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.navigate-distance",
+          "capabilityVersion": 1,
+          "definitionHash": "8faf20b9523e78507bf703dc1b783c9c8cff7facf50030026b832e4710d25ddb",
+          "implementationBindingId": "capability-binding-vehicle.ugv.navigate-distance-v1",
+          "skillId": "ugv.navigate-distance",
+          "skillVersion": 1,
+          "toolName": "vehicle_navigate",
+          "riskLevel": "medium",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.440Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.return-home",
+          "capabilityVersion": 1,
+          "definitionHash": "9239db510d5b221c35a7837c4b8b12b8037f00c195c9f9700c5f29116e6f08da",
+          "implementationBindingId": "capability-binding-vehicle.ugv.return-home-v1",
+          "skillId": "ugv.return-home",
+          "skillVersion": 1,
+          "toolName": "vehicle_navigate",
+          "riskLevel": "medium",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.468Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.recon",
+          "capabilityVersion": 1,
+          "definitionHash": "60e08822394949fe2bb107686f11cb9bcb09930307ae3237f217b4149958b482",
+          "implementationBindingId": "capability-binding-vehicle.ugv.recon-v1",
+          "skillId": "ugv.area-recon",
+          "skillVersion": 1,
+          "toolName": "vehicle_area_recon",
+          "riskLevel": "medium",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.494Z"
+        },
+        {
+          "capabilityId": "embodied.inspect_area",
+          "capabilityVersion": 1,
+          "definitionHash": "7ce5b8880b5f078225d5a75053a60d86c1736690d7bdb3f5d42db5c6a3fe5a60",
+          "implementationBindingId": "capability-binding-embodied.inspect_area-v1",
+          "skillId": "embodied.inspect_area",
+          "skillVersion": 1,
+          "toolName": "vehicle_inspect_area",
+          "riskLevel": "medium",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.521Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.track-target",
+          "capabilityVersion": 1,
+          "definitionHash": "b53d4cff1a16ee490be461019a71dbefcffb8d421ed1f9231cbf993670e726f6",
+          "implementationBindingId": "capability-binding-vehicle.ugv.track-target-v1",
+          "skillId": "ugv.track-target",
+          "skillVersion": 1,
+          "toolName": "vehicle_track_target",
+          "riskLevel": "medium",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.550Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.control-gimbal",
+          "capabilityVersion": 1,
+          "definitionHash": "559d24eaa8160c8603ad979a95a8b245749095332ae2dd3d6988a7725cee182a",
+          "implementationBindingId": "capability-binding-vehicle.ugv.control-gimbal-v1",
+          "skillId": "ugv.control-gimbal",
+          "skillVersion": 1,
+          "toolName": "vehicle_control_gimbal",
+          "riskLevel": "medium",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.592Z"
+        },
+        {
+          "capabilityId": "vehicle.ugv.emergency-stop",
+          "capabilityVersion": 1,
+          "definitionHash": "f747032cc9123d4bbdeec6463a37caf8ff7ab30b0b44add4bb69efe2226ee1ae",
+          "implementationBindingId": "capability-binding-vehicle.ugv.emergency-stop-v1",
+          "skillId": "ugv.emergency-stop",
+          "skillVersion": 1,
+          "toolName": "vehicle_emergency_stop",
+          "riskLevel": "high",
+          "confirmation": "required",
+          "remoteTerminalEvidenceRequired": true,
+          "readiness": "available",
+          "readinessValidUntil": "2026-10-15T02:23:44.638Z"
+        }
+      ],
+      "exposures": [
+        {
+          "exposureId": "a2a.embodied.inspect_area",
+          "exposureVersion": 1,
+          "capabilityId": "embodied.inspect_area",
+          "capabilityVersion": 1,
+          "exposureHash": "e44ed59b5c6b4f6057129609fddf771b6ce592e6b25fa70821fafc5dc7ee50a6",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.control-gimbal",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.control-gimbal",
+          "capabilityVersion": 1,
+          "exposureHash": "5a0efa991248ef33ebc9d0be81a8e27361c7c9903a84d7924e82fd15fdc12dc8",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.emergency-stop",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.emergency-stop",
+          "capabilityVersion": 1,
+          "exposureHash": "e25fa01e2aec75b8fe13a98f81c452366ac2b97fc739445132615dcc610aff8a",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.navigate-distance",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.navigate-distance",
+          "capabilityVersion": 1,
+          "exposureHash": "9f5153b8e17167264f7bd8d8a8deb6fa1d3734f836ee32afc2eda6823765a122",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.navigate-route",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.navigate-route",
+          "capabilityVersion": 1,
+          "exposureHash": "e69d3df72070c8c0b53000f22852b531b0f766f85608decac89bc3523f01aa92",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.read-capabilities",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.read-capabilities",
+          "capabilityVersion": 1,
+          "exposureHash": "2dc6b6dd42d4bb6a78f9df2efb666c9fdac424963687413eed986ece51bf5a32",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.read-payload",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.read-payload",
+          "capabilityVersion": 1,
+          "exposureHash": "71a0c7ff7b69e553f4202c43d1d118ebc0f60d2da8acca7df77d341d26dc57fc",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.read-state",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.read-state",
+          "capabilityVersion": 1,
+          "exposureHash": "ea423cd661cf71d4d20399989fd21818e6d921f1a7e6ba707f9475e3082d3fc0",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.read-targets",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.read-targets",
+          "capabilityVersion": 1,
+          "exposureHash": "4853c79d883179b86157084e35ea0ce2a427c27dc766d67f8b4fc7ef49e0e5e9",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.recon",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.recon",
+          "capabilityVersion": 1,
+          "exposureHash": "7e1f7c4647f0b17bd18fee0dcdbf203a7510960e8f14c0d6c4b725c362bb64c8",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.return-home",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.return-home",
+          "capabilityVersion": 1,
+          "exposureHash": "a269df97298405866ddf34a4a7d50d45b04590fcde386417c7e42e8ab590fe0b",
+          "status": "published"
+        },
+        {
+          "exposureId": "a2a.vehicle.ugv.track-target",
+          "exposureVersion": 1,
+          "capabilityId": "vehicle.ugv.track-target",
+          "capabilityVersion": 1,
+          "exposureHash": "5da5cdadcc074c2271e2db2efb5578965528fd038b6a9d61f76ba75630d47f33",
+          "status": "published"
+        }
+      ],
+      "agentCard": {
+        "status": "active",
+        "exposureCount": 13
+      },
+      "preservedPointNavigation": {
+        "skillId": "embodied.move_to",
+        "skillVersion": 1,
+        "capabilityId": "embodied.move",
+        "capabilityVersion": 1,
+        "definitionHash": "01a81fef25ff863b5a4f3961dbf46ea3f251bc91149c8b1818c8ae0eec1cb5e4",
+        "exposureId": "a2a.embodied.move",
+        "exposureVersion": 1,
+        "exposureHash": "4477994f9f63258e83a4f15143d3d3424e003ed4c6d86efb0cd009307409c75f",
+        "action": "successor_created"
+      },
+      "stagedControls": [],
+      "redaction": {
+        "secretsIncluded": false,
+        "endpointsIncluded": false,
+        "downstreamDeviceIdsIncluded": false,
+        "mqttTopicsIncluded": false
+      }
+    },
+    {
+      "status": "passed",
+      "skillId": "embodied.area_patrol",
+      "skillVersion": 2,
+      "capabilityVersion": 1,
+      "exposureVersion": 1,
+      "children": [
+        {
+          "skillId": "embodied.move_to",
+          "skillVersion": 1,
+          "capabilityId": "embodied.move",
+          "capabilityVersion": 1,
+          "exposureId": "a2a.embodied.move",
+          "exposureVersion": 1
+        },
+        {
+          "skillId": "embodied.inspect_area",
+          "skillVersion": 1,
+          "capabilityId": "embodied.inspect_area",
+          "capabilityVersion": 1,
+          "exposureId": "a2a.embodied.inspect_area",
+          "exposureVersion": 1
+        }
+      ],
+      "physicalToolInvocationCount": 0
+    },
+    {
+      "case": "patrol-publication-idempotence",
+      "result": {
+        "status": "passed",
+        "skillId": "embodied.area_patrol",
+        "skillVersion": 2,
+        "capabilityVersion": 1,
+        "exposureVersion": 1,
+        "children": [
+          {
+            "skillId": "embodied.move_to",
+            "skillVersion": 1,
+            "capabilityId": "embodied.move",
+            "capabilityVersion": 1,
+            "exposureId": "a2a.embodied.move",
+            "exposureVersion": 1
+          },
+          {
+            "skillId": "embodied.inspect_area",
+            "skillVersion": 1,
+            "capabilityId": "embodied.inspect_area",
+            "capabilityVersion": 1,
+            "exposureId": "a2a.embodied.inspect_area",
+            "exposureVersion": 1
+          }
+        ],
+        "physicalToolInvocationCount": 0
+      }
+    },
+    {
+      "case": "inspection-full",
+      "task": {
+        "task_id": "8cd56581-41ce-415f-bbec-dfa11d962668",
+        "context_id": "9e787fdb-2969-4971-b5d0-0b11d164440b",
+        "phase": "completed",
+        "phase_message": "Task completed.",
+        "plan_id": "plan-task-8cd56581-41ce-415f-bbec-dfa11d962668-c03201e9-6f8c-4c55-923c-2e4c7678c90a",
+        "output_structured": {
+          "status": "completed",
+          "coverage": {
+            "incomplete": false,
+            "coveragePercent": 100
+          },
+          "anomalies": [],
+          "observedAt": "2026-10-15T02:22:48.351Z",
+          "resourceId": "vehicle:ugv1",
+          "providerStatus": "completed",
+          "missingEvidence": [],
+          "inspectionReport": {
+            "version": "1.0",
+            "truncated": false,
+            "completion": "complete",
+            "artifactRefs": [],
+            "findingCount": 0,
+            "coverageState": "full",
+            "targetReportComplete": true,
+            "targetReportObservedAt": "2026-10-15T02:22:48.320Z"
+          },
+          "correlationStrength": "STRICT_CORRELATED"
+        },
+        "error_code": null,
+        "selected_skill_id": "embodied.inspect_area"
+      }
+    },
+    {
+      "case": "inspection-findings",
+      "task": {
+        "task_id": "c4f92e39-274e-4eba-8617-ade18c8b6af0",
+        "context_id": "6b83dfd6-f310-4554-9f37-3bb60f8c1163",
+        "phase": "completed",
+        "phase_message": "Task completed.",
+        "plan_id": "plan-task-c4f92e39-274e-4eba-8617-ade18c8b6af0-7c897517-caf6-45b7-aa61-4ef06d6497c6",
+        "output_structured": {
+          "status": "completed",
+          "coverage": {
+            "incomplete": false,
+            "coveragePercent": 100
+          },
+          "anomalies": [
+            {
+              "x": 116.5,
+              "y": 39.5,
+              "kind": "target_observed",
+              "frame": "EPSG:4326",
+              "targetId": "7",
+              "findingId": "target-8bbf579dc13652523cfc77135651b87a",
+              "artifactId": "target-8bbf579dc13652523cfc77135651b87a",
+              "confidence": null,
+              "observedAt": "2026-10-15T02:22:55.976Z",
+              "targetType": "1",
+              "visibility": "visible",
+              "sourceRevision": "1792030975976000",
+              "sourceRecordRef": "7",
+              "spatialRelation": "inside",
+              "artifactRevision": 1,
+              "correlationStrength": "STRICT_CORRELATED",
+              "lastReportObservedAt": "2026-10-15T02:22:55.976Z"
+            }
+          ],
+          "observedAt": "2026-10-15T02:22:56.015Z",
+          "resourceId": "vehicle:ugv1",
+          "providerStatus": "completed",
+          "missingEvidence": [],
+          "inspectionReport": {
+            "version": "1.0",
+            "truncated": false,
+            "completion": "complete",
+            "artifactRefs": [
+              {
+                "id": "target-8bbf579dc13652523cfc77135651b87a",
+                "kind": "artifact",
+                "revision": 1
+              }
+            ],
+            "findingCount": 1,
+            "coverageState": "full",
+            "targetReportComplete": true,
+            "targetReportObservedAt": "2026-10-15T02:22:55.976Z"
+          },
+          "correlationStrength": "STRICT_CORRELATED"
+        },
+        "error_code": null,
+        "selected_skill_id": "embodied.inspect_area"
+      }
+    },
+    {
+      "case": "inspection-missing",
+      "task": {
+        "task_id": "120b313b-e48b-45bc-84b9-a28d092ff61c",
+        "context_id": "b75c3297-b57e-4f62-9d81-788659309384",
+        "phase": "completed",
+        "phase_message": "Task completed.",
+        "plan_id": "plan-task-120b313b-e48b-45bc-84b9-a28d092ff61c-a9cd478b-cf6b-4d46-a3de-9551ddaad81e",
+        "output_structured": {
+          "status": "degraded",
+          "coverage": {
+            "incomplete": false,
+            "coveragePercent": 100
+          },
+          "anomalies": [],
+          "observedAt": "2026-10-15T02:23:08.807Z",
+          "resourceId": "vehicle:ugv1",
+          "providerStatus": "completed",
+          "missingEvidence": [
+            "INSPECTION_TARGET_REPORT_MISSING"
+          ],
+          "inspectionReport": {
+            "version": "1.0",
+            "truncated": false,
+            "completion": "unavailable",
+            "artifactRefs": [],
+            "findingCount": 0,
+            "coverageState": "full",
+            "targetReportComplete": false,
+            "targetReportObservedAt": null
+          },
+          "correlationStrength": "STRICT_CORRELATED"
+        },
+        "error_code": null,
+        "selected_skill_id": "embodied.inspect_area"
+      }
+    },
+    {
+      "case": "inspection-partial",
+      "task": {
+        "task_id": "8c9a072a-b8de-42a6-8308-2032aa6a96d8",
+        "context_id": "d6166545-dfcf-40df-afcc-e8208b1c6470",
+        "phase": "completed",
+        "phase_message": "Task completed.",
+        "plan_id": "plan-task-8c9a072a-b8de-42a6-8308-2032aa6a96d8-f4edfdb8-fc12-49bb-83ba-eee915827c03",
+        "output_structured": {
+          "status": "degraded",
+          "coverage": {
+            "incomplete": true,
+            "coveragePercent": 50
+          },
+          "anomalies": [],
+          "observedAt": "2026-10-15T02:23:30.058Z",
+          "resourceId": "vehicle:ugv1",
+          "providerStatus": "completed",
+          "missingEvidence": [
+            "INSPECTION_COVERAGE_INCOMPLETE"
+          ],
+          "inspectionReport": {
+            "version": "1.0",
+            "truncated": false,
+            "completion": "partial",
+            "artifactRefs": [],
+            "findingCount": 0,
+            "coverageState": "partial",
+            "targetReportComplete": true,
+            "targetReportObservedAt": "2026-10-15T02:23:30.039Z"
+          },
+          "correlationStrength": "STRICT_CORRELATED"
+        },
+        "error_code": null,
+        "selected_skill_id": "embodied.inspect_area"
+      }
+    },
+    {
+      "case": "patrol-full",
+      "task": {
+        "task_id": "f308e151-15a6-43e1-8809-646e9d03dffb",
+        "context_id": "8cbebeaf-9add-4783-a720-18b917c9eb39",
+        "phase": "completed",
+        "phase_message": "Task completed.",
+        "plan_id": "plan-task-f308e151-15a6-43e1-8809-646e9d03dffb-f9f4e914-69f7-44ba-a916-f0844710e5a0",
+        "output_structured": {
+          "status": "completed",
+          "anomalies": [],
+          "childTasks": [
+            {
+              "status": "completed",
+              "taskId": "task-b4fe4b25-c56f-405d-8177-183a205739e9",
+              "skillId": "embodied.move_to",
+              "skillVersion": 1,
+              "missingEvidence": []
+            },
+            {
+              "status": "completed",
+              "taskId": "task-f3896d2d-499e-4619-a244-0da46be56f25",
+              "skillId": "embodied.inspect_area",
+              "skillVersion": 1,
+              "missingEvidence": []
+            }
+          ],
+          "resourceId": "vehicle:ugv1",
+          "trajectory": [
+            {
+              "position": {
+                "x": 116,
+                "y": 39,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            },
+            {
+              "position": {
+                "x": 116.5,
+                "y": 39.5,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            }
+          ],
+          "missingEffects": [],
+          "missingEvidence": [],
+          "coveredSubregions": [
+            "subregion-1"
+          ],
+          "inspectionReports": [
+            {
+              "report": {
+                "version": "1.0",
+                "truncated": false,
+                "completion": "complete",
+                "artifactRefs": [],
+                "findingCount": 0,
+                "coverageState": "full",
+                "targetReportComplete": true,
+                "targetReportObservedAt": "2026-10-15T02:24:07.190Z"
+              },
+              "taskId": "task-f3896d2d-499e-4619-a244-0da46be56f25",
+              "subregionId": "subregion-1",
+              "missingEvidence": []
+            }
+          ],
+          "missingSubregions": [],
+          "trajectorySourceRefs": [
+            "task-business:remote-task-binding-mcp-invocation-4e3a9fae-9107-49fe-b807-25dfe2c1fe62:3fa11ceaecd24dd1fbf838cdbbcf68d93d3f3d417760c868f0b6b7eaa09c37e7"
+          ]
+        },
+        "error_code": null,
+        "selected_skill_id": "embodied.area_patrol"
+      },
+      "children": [
+        {
+          "task_id": "task-b4fe4b25-c56f-405d-8177-183a205739e9",
+          "phase": "completed",
+          "plan_id": "plan-skill-call-9ec079a2-9ed6-4d35-bdd2-574ce4c3f1a6",
+          "selected_skill_id": "embodied.move_to",
+          "selected_skill_version": 1,
+          "output_structured": {
+            "status": "completed",
+            "resourceId": "vehicle:ugv1",
+            "finalPosition": {
+              "x": 116.5,
+              "y": 39.5,
+              "frame": "EPSG:4326"
+            }
+          }
+        },
+        {
+          "task_id": "task-f3896d2d-499e-4619-a244-0da46be56f25",
+          "phase": "completed",
+          "plan_id": "plan-skill-call-b8850507-0181-48a1-8750-92107cb9fc0b",
+          "selected_skill_id": "embodied.inspect_area",
+          "selected_skill_version": 1,
+          "output_structured": {
+            "status": "completed",
+            "coverage": {
+              "incomplete": false,
+              "coveragePercent": 100
+            },
+            "anomalies": [],
+            "observedAt": "2026-10-15T02:24:07.346Z",
+            "resourceId": "vehicle:ugv1",
+            "providerStatus": "completed",
+            "missingEvidence": [],
+            "inspectionReport": {
+              "version": "1.0",
+              "truncated": false,
+              "completion": "complete",
+              "artifactRefs": [],
+              "findingCount": 0,
+              "coverageState": "full",
+              "targetReportComplete": true,
+              "targetReportObservedAt": "2026-10-15T02:24:07.190Z"
+            },
+            "correlationStrength": "STRICT_CORRELATED"
+          }
+        }
+      ]
+    },
+    {
+      "case": "patrol-missing",
+      "task": {
+        "task_id": "a7034396-cd60-49da-8a80-5268198dcc62",
+        "context_id": "a58fc1e1-002a-4c7c-8bcc-3ffa014e34dc",
+        "phase": "completed",
+        "phase_message": "Task completed.",
+        "plan_id": "plan-task-a7034396-cd60-49da-8a80-5268198dcc62-df4d243f-85ac-469e-a7ec-1c3e2bb83011",
+        "output_structured": {
+          "status": "degraded",
+          "anomalies": [],
+          "childTasks": [
+            {
+              "status": "completed",
+              "taskId": "task-0532903e-da83-4d8d-9783-61be1cd0e35f",
+              "skillId": "embodied.move_to",
+              "skillVersion": 1,
+              "missingEvidence": []
+            },
+            {
+              "status": "completed",
+              "taskId": "task-3100940a-14f9-4331-9ea9-b65daa196fb5",
+              "skillId": "embodied.inspect_area",
+              "skillVersion": 1,
+              "missingEvidence": []
+            }
+          ],
+          "resourceId": "vehicle:ugv1",
+          "trajectory": [
+            {
+              "position": {
+                "x": 116,
+                "y": 39,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            },
+            {
+              "position": {
+                "x": 116.5,
+                "y": 39.5,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            }
+          ],
+          "missingEffects": [
+            "effect.area_patrolled"
+          ],
+          "missingEvidence": [
+            "subregion-1:INSPECTION_TARGET_REPORT_MISSING",
+            "subregion-1:patrol.inspection"
+          ],
+          "coveredSubregions": [],
+          "inspectionReports": [
+            {
+              "report": {
+                "version": "1.0",
+                "truncated": false,
+                "completion": "unavailable",
+                "artifactRefs": [],
+                "findingCount": 0,
+                "coverageState": "full",
+                "targetReportComplete": false,
+                "targetReportObservedAt": null
+              },
+              "taskId": "task-3100940a-14f9-4331-9ea9-b65daa196fb5",
+              "subregionId": "subregion-1",
+              "missingEvidence": [
+                "INSPECTION_TARGET_REPORT_MISSING"
+              ]
+            }
+          ],
+          "missingSubregions": [
+            "subregion-1"
+          ],
+          "trajectorySourceRefs": [
+            "task-business:remote-task-binding-mcp-invocation-c6cd9517-b20c-473a-9113-1cefc594ac8a:3fa11ceaecd24dd1fbf838cdbbcf68d93d3f3d417760c868f0b6b7eaa09c37e7"
+          ]
+        },
+        "error_code": null,
+        "selected_skill_id": "embodied.area_patrol"
+      },
+      "children": [
+        {
+          "task_id": "task-0532903e-da83-4d8d-9783-61be1cd0e35f",
+          "phase": "completed",
+          "plan_id": "plan-skill-call-756217d6-dcef-42d4-b325-1f07ff052410",
+          "selected_skill_id": "embodied.move_to",
+          "selected_skill_version": 1,
+          "output_structured": {
+            "status": "completed",
+            "resourceId": "vehicle:ugv1",
+            "finalPosition": {
+              "x": 116.5,
+              "y": 39.5,
+              "frame": "EPSG:4326"
+            }
+          }
+        },
+        {
+          "task_id": "task-3100940a-14f9-4331-9ea9-b65daa196fb5",
+          "phase": "completed",
+          "plan_id": "plan-skill-call-a96bc68e-4fed-4cb8-8fac-b1f8aea3754e",
+          "selected_skill_id": "embodied.inspect_area",
+          "selected_skill_version": 1,
+          "output_structured": {
+            "status": "degraded",
+            "coverage": {
+              "incomplete": false,
+              "coveragePercent": 100
+            },
+            "anomalies": [],
+            "observedAt": "2026-10-15T02:24:45.487Z",
+            "resourceId": "vehicle:ugv1",
+            "providerStatus": "completed",
+            "missingEvidence": [
+              "INSPECTION_TARGET_REPORT_MISSING"
+            ],
+            "inspectionReport": {
+              "version": "1.0",
+              "truncated": false,
+              "completion": "unavailable",
+              "artifactRefs": [],
+              "findingCount": 0,
+              "coverageState": "full",
+              "targetReportComplete": false,
+              "targetReportObservedAt": null
+            },
+            "correlationStrength": "STRICT_CORRELATED"
+          }
+        }
+      ]
+    },
+    {
+      "case": "patrol-failed",
+      "task": {
+        "task_id": "95597fa5-5154-4c92-976e-6cb988b052cb",
+        "context_id": "3364edff-4580-4248-9a90-e708346b48f6",
+        "phase": "completed",
+        "phase_message": "Task completed.",
+        "plan_id": "plan-task-95597fa5-5154-4c92-976e-6cb988b052cb-cb189df3-770b-4f4f-8b71-729236df6aaa",
+        "output_structured": {
+          "status": "failed",
+          "anomalies": [
+            {
+              "x": 116.5,
+              "y": 39.5,
+              "kind": "target_observed",
+              "frame": "EPSG:4326",
+              "targetId": "7",
+              "findingId": "target-454fe38827e62a325b7d81e1d849ba0a",
+              "artifactId": "target-454fe38827e62a325b7d81e1d849ba0a",
+              "confidence": null,
+              "observedAt": "2026-10-15T02:25:19.852Z",
+              "targetType": null,
+              "visibility": "lost",
+              "sourceRevision": "lost-d6d39d3ed0cb1d627e15743b92e1e8ae",
+              "sourceRecordRef": "7",
+              "spatialRelation": "inside",
+              "artifactRevision": 2,
+              "correlationStrength": "STRICT_CORRELATED",
+              "lastReportObservedAt": "2026-10-15T02:25:19.852Z"
+            }
+          ],
+          "childTasks": [
+            {
+              "status": "completed",
+              "taskId": "task-f6e41e20-9930-4f02-a803-112bffc24298",
+              "skillId": "embodied.move_to",
+              "skillVersion": 1,
+              "missingEvidence": []
+            },
+            {
+              "status": "failed",
+              "taskId": "task-32f15cfa-27d4-4943-bf59-863fe6bbcf6c",
+              "skillId": "embodied.inspect_area",
+              "skillVersion": 1,
+              "missingEvidence": []
+            }
+          ],
+          "resourceId": "vehicle:ugv1",
+          "trajectory": [
+            {
+              "position": {
+                "x": 116,
+                "y": 39,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            },
+            {
+              "position": {
+                "x": 116.5,
+                "y": 39.5,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            }
+          ],
+          "missingEffects": [
+            "effect.area_patrolled"
+          ],
+          "missingEvidence": [
+            "subregion-1:INSPECTION_SCAN_NOT_COMPLETED",
+            "subregion-1:patrol.inspection"
+          ],
+          "coveredSubregions": [],
+          "inspectionReports": [
+            {
+              "report": {
+                "version": "1.0",
+                "truncated": false,
+                "completion": "partial",
+                "artifactRefs": [
+                  {
+                    "id": "target-454fe38827e62a325b7d81e1d849ba0a",
+                    "kind": "artifact",
+                    "revision": 2
+                  }
+                ],
+                "findingCount": 1,
+                "coverageState": "full",
+                "targetReportComplete": true,
+                "targetReportObservedAt": "2026-10-15T02:25:19.852Z"
+              },
+              "taskId": "task-32f15cfa-27d4-4943-bf59-863fe6bbcf6c",
+              "subregionId": "subregion-1",
+              "missingEvidence": [
+                "INSPECTION_SCAN_NOT_COMPLETED"
+              ]
+            }
+          ],
+          "missingSubregions": [
+            "subregion-1"
+          ],
+          "trajectorySourceRefs": [
+            "task-business:remote-task-binding-mcp-invocation-608b0eaf-c99b-4787-9f8f-2f45403b4bf1:3fa11ceaecd24dd1fbf838cdbbcf68d93d3f3d417760c868f0b6b7eaa09c37e7"
+          ]
+        },
+        "error_code": null,
+        "selected_skill_id": "embodied.area_patrol"
+      },
+      "children": [
+        {
+          "task_id": "task-f6e41e20-9930-4f02-a803-112bffc24298",
+          "phase": "completed",
+          "plan_id": "plan-skill-call-94b3a827-5abe-498f-816d-a57cd774d592",
+          "selected_skill_id": "embodied.move_to",
+          "selected_skill_version": 1,
+          "output_structured": {
+            "status": "completed",
+            "resourceId": "vehicle:ugv1",
+            "finalPosition": {
+              "x": 116.5,
+              "y": 39.5,
+              "frame": "EPSG:4326"
+            }
+          }
+        },
+        {
+          "task_id": "task-32f15cfa-27d4-4943-bf59-863fe6bbcf6c",
+          "phase": "failed",
+          "plan_id": "plan-skill-call-9a3efd75-caf8-4929-b53b-5dde8df44137",
+          "selected_skill_id": "embodied.inspect_area",
+          "selected_skill_version": 1,
+          "output_structured": null
+        }
+      ]
+    },
+    {
+      "case": "patrol-cancel",
+      "task": {
+        "task_id": "c4bcec28-cb59-405a-ac01-76c6de1504c5",
+        "context_id": "73c7dfa9-3360-458d-955d-18f3bff09ba6",
+        "phase": "canceled",
+        "phase_message": "Task canceled by user.",
+        "plan_id": "plan-task-c4bcec28-cb59-405a-ac01-76c6de1504c5-74421d7a-2abb-477e-a9bf-43e3372937fe",
+        "output_structured": {
+          "status": "cancelled",
+          "anomalies": [],
+          "childTasks": [
+            {
+              "status": "completed",
+              "taskId": "task-05a0cc7d-bd2b-4ec5-9c1c-caecc95be1e1",
+              "skillId": "embodied.move_to",
+              "skillVersion": 1,
+              "missingEvidence": []
+            },
+            {
+              "status": "canceled",
+              "taskId": "task-4ceaaa29-7ad8-4aa2-8e48-8522848b95e2",
+              "skillId": "embodied.inspect_area",
+              "skillVersion": 1,
+              "missingEvidence": [
+                "subregion-1:INSPECTION_CHILD_REPORT_UNAVAILABLE"
+              ]
+            }
+          ],
+          "resourceId": "vehicle:ugv1",
+          "trajectory": [
+            {
+              "position": {
+                "x": 116,
+                "y": 39,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            },
+            {
+              "position": {
+                "x": 116.5,
+                "y": 39.5,
+                "frame": "EPSG:4326"
+              },
+              "resourceId": "vehicle:ugv1"
+            }
+          ],
+          "missingEffects": [
+            "effect.area_patrolled"
+          ],
+          "missingEvidence": [
+            "subregion-1:INSPECTION_CHILD_REPORT_UNAVAILABLE",
+            "subregion-1:patrol.inspection"
+          ],
+          "coveredSubregions": [],
+          "inspectionReports": [],
+          "missingSubregions": [
+            "subregion-1"
+          ],
+          "trajectorySourceRefs": [
+            "task-business:remote-task-binding-mcp-invocation-e60c6416-51f3-4051-89e2-6768ebaaeb81:3fa11ceaecd24dd1fbf838cdbbcf68d93d3f3d417760c868f0b6b7eaa09c37e7"
+          ]
+        },
+        "error_code": "RUNTIME_CANCELED",
+        "selected_skill_id": "embodied.area_patrol"
+      },
+      "children": [
+        {
+          "task_id": "task-05a0cc7d-bd2b-4ec5-9c1c-caecc95be1e1",
+          "phase": "completed",
+          "plan_id": "plan-skill-call-708cf79a-358f-463f-ae61-abf839875ad3",
+          "selected_skill_id": "embodied.move_to",
+          "selected_skill_version": 1,
+          "output_structured": {
+            "status": "completed",
+            "resourceId": "vehicle:ugv1",
+            "finalPosition": {
+              "x": 116.5,
+              "y": 39.5,
+              "frame": "EPSG:4326"
+            }
+          }
+        },
+        {
+          "task_id": "task-4ceaaa29-7ad8-4aa2-8e48-8522848b95e2",
+          "phase": "canceled",
+          "plan_id": "plan-skill-call-fd8c35b8-da18-410a-bc1a-b5c205ee941b",
+          "selected_skill_id": "embodied.inspect_area",
+          "selected_skill_version": 1,
+          "output_structured": null
+        }
+      ]
+    }
+  ],
+  "modelRequests": 138
+}

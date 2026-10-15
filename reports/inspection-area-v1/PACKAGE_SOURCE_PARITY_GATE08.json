@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "archive": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/artifacts/inspection-area-v1/united/sdar-united-e38022d9cc190ca33dbd/sdar-united-e38022d9cc190ca33dbd.tar.gz",
+  "archiveSha256": "e0b369c4d09101b092aa299aaefd003e269c3690ed1e03d46fc673f739996ec1",
+  "sourceRevision": "a0f82c3291d94f1897c95386162a11a809b3f8a0",
+  "sourceHash": "ef4f02536d070a4db1a5c9465839dd5bc104176823069bac0c2b895a8e1262cd",
+  "sourceRoot": "/tmp/smpp-inspection-v1-20261014/deployment/sdar-source-final",
+  "packageFiles": 2947,
+  "gateRuntimeEntriesMatched": 2061,
+  "gateTestDataExcludedByDeploymentExport": [
+    "deploy/ugv-smpp-integration/.env.example",
+    "deploy/ugv-smpp-integration/secrets/README.md",
+    "reports/ugv-agent-profile-simulation/contract-freeze.json",
+    "reports/v1.4.1-evidence/source-to-evidence-matrix.json",
+    "reports/v1.4.1-evidence/verification-proof-manifest.json",
+    "../smpp-telemetry-platform/deploy/ugv-debug/collector.template.yaml",
+    "../smpp-telemetry-platform/deploy/ugv-debug/compose.yaml",
+    "../smpp-telemetry-platform/config/projection-targets.example.json",
+    "../sdar-telemetry-platform/migrations/clickhouse/015_provider_closure_v2.sql",
+    "../sdar-mcp-provider-platform/compose.yaml",
+    "../sdar-mcp-provider-platform/compose.ugv-agent-profile-simulation.yaml"
+  ],
+  "image": "sdar-inspection:a0f82c3291d9-ef4f02536d07"
+}

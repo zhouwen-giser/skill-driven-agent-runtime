@@ -1,0 +1,21 @@
+{
+  "name": "server-console-smoke",
+  "command": "pnpm smoke:server",
+  "status": "passed",
+  "startedAt": "2026-10-15T02:05:22.559Z",
+  "finishedAt": "2026-10-15T02:06:34.749Z",
+  "timeoutMs": 300000,
+  "logPath": "reports/verification/raw/server-console-smoke.log",
+  "outputSha256": "73ac7567dd55f88a579504626a3cda1d16a4a8257ab9ce9cabb0867e6a898516",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 72190,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 72,
+    "peakRssBytes": 1710194688,
+    "peakProcesses": 8
+  },
+  "cleanupErrors": []
+}

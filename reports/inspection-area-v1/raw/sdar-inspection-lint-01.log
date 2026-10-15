@@ -1,0 +1,100 @@
+$ eslint .
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/smpp-provider-materializer.ts
+  938:38  error  Forbidden non-null assertion                                                       @typescript-eslint/no-non-null-assertion
+  938:38  error  This assertion is unnecessary since it does not change the type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-agent-profile-authority-bootstrap-driver.ts
+  2847:28  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+  2860:28  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+  3065:25  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-agent-profile-b02-authority-gate.ts
+  441:24  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.ts
+   67:12  error  This assertion is unnecessary since it does not change the type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+  452:5   error  The value assigned to 'exposure' is not used in subsequent statements              no-useless-assignment
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-a2a-read-only-driver.ts
+  1070:23  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts
+  2149:27  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+  2164:25  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+  2679:25  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+  2694:23  error  This assertion is unnecessary since the receiver accepts the original type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/area-report-terminal.ts
+  54:7  error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/composition/execution.ts
+  120:44  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/composition/tasks.ts
+  71:7  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/governed-patrol-child-tasks.ts
+   78:7   error  Async method 'score' has no 'await' expression                                              @typescript-eslint/require-await
+   82:7   error  Async method 'decide' has no 'await' expression                                             @typescript-eslint/require-await
+   85:28  error  Forbidden non-null assertion                                                                @typescript-eslint/no-non-null-assertion
+  114:29  error  Unnecessary optional chain on a non-nullish value                                           @typescript-eslint/no-unnecessary-condition
+  134:9   error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+  176:29  error  Forbidden non-null assertion                                                                @typescript-eslint/no-non-null-assertion
+  334:17  error  Forbidden non-null assertion                                                                @typescript-eslint/no-non-null-assertion
+  335:22  error  Forbidden non-null assertion                                                                @typescript-eslint/no-non-null-assertion
+  374:11  error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/patrol-evidence-reader.ts
+   31:7   error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+   67:9   error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+   79:20  error  Invalid type "string | undefined" of template literal expression                            @typescript-eslint/restrict-template-expressions
+  179:33  error  Passing a string to String() does not change the type or value of the string                @typescript-eslint/no-unnecessary-type-conversion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/skill-call-workflow.ts
+   33:36  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+  518:13  error  Forbidden non-null assertion               @typescript-eslint/no-non-null-assertion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/task-capability.ts
+  717:47  error  Unnecessary optional chain on a non-nullish value  @typescript-eslint/no-unnecessary-condition
+  721:23  error  Unnecessary optional chain on a non-nullish value  @typescript-eslint/no-unnecessary-condition
+  722:23  error  Unnecessary optional chain on a non-nullish value  @typescript-eslint/no-unnecessary-condition
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/domain/src/area-inspection.ts
+   28:78  error  'area['frame']' may use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+   52:33  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
+   52:45  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
+   56:34  error  Invalid type "number" of template literal expression                                                  @typescript-eslint/restrict-template-expressions
+   56:41  error  Invalid type "number" of template literal expression                                                  @typescript-eslint/restrict-template-expressions
+   61:15  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
+   62:11  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
+   64:24  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
+   67:28  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
+   67:40  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
+  133:16  error  Unnecessary optional chain on a non-nullish value                                                     @typescript-eslint/no-unnecessary-condition
+  134:16  error  Unnecessary optional chain on a non-nullish value                                                     @typescript-eslint/no-unnecessary-condition
+  222:16  error  Unsafe spread of an `any` value in an array                                                           @typescript-eslint/no-unsafe-assignment
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/domain/test/area-inspection.unit.test.ts
+  127:18  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  130:18  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  133:18  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  138:18  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/domain/test/area-patrol.unit.test.ts
+   73:20  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+   85:10  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+  123:55  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+  126:20  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/run.mjs
+  13:34  error  'process' is not defined  no-undef
+  16:14  error  'process' is not defined  no-undef
+  51:78  error  'process' is not defined  no-undef
+  78:1   error  'console' is not defined  no-undef
+  79:1   error  'process' is not defined  no-undef
+
+✖ 60 problems (60 errors, 0 warnings)
+  15 errors and 0 warnings potentially fixable with the `--fix` option.
+
+[ELIFECYCLE] Command failed with exit code 1.

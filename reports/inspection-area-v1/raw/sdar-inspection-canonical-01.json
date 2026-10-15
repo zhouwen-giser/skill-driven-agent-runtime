@@ -1,0 +1,19 @@
+{
+  "name": "sdar-inspection-canonical-01",
+  "command": "node",
+  "args": [
+    "/tmp/smpp-inspection-v1-20261014/deployment/sdar-owned-tests.mjs",
+    "pnpm",
+    "demo:evidence-e2e"
+  ],
+  "startedAt": "2026-10-14T04:02:38.709Z",
+  "completedAt": "2026-10-14T04:06:53.336Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceAfter": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-canonical-01.log",
+  "logSha256": "d7b454e4e90321572872550cf06b7da7a02f7013420da5d1545093405815cbc3"
+}

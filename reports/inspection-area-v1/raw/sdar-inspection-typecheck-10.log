@@ -1,0 +1,9 @@
+$ tsc -p tsconfig.json --noEmit
+packages/application/test/remote-task-admission-recovery.unit.test.ts(30,17): error TS2375: Type '{ status: "receipt_recorded"; receipt: RemoteTaskAdmissionReceipt | undefined; receiptRecordedAt: string; intentId: string; invocationId: string; taskId: string; ... 18 more ...; version: number; }' is not assignable to type 'RemoteTaskAdmissionIntent' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'receipt' are incompatible.
+    Type 'RemoteTaskAdmissionReceipt | undefined' is not assignable to type 'RemoteTaskAdmissionReceipt'.
+      Type 'undefined' is not assignable to type 'RemoteTaskAdmissionReceipt'.
+packages/mcp-adapter/test/smpp-task-business-client.contract.test.ts(430,65): error TS2339: Property 'content' does not exist on type '{ artifactId: string; revision: number; identity: { taskId: string; executionId: string; providerId: string; resourceId: string; operationName: string; }; } | { artifactId: string; revision: number; ... 12 more ...; readPerformedAt?: never; } | ... 9 more ... | { ...; }'.
+  Property 'content' does not exist on type '{ artifactId: string; revision: number; identity: { taskId: string; executionId: string; providerId: string; resourceId: string; operationName: string; }; }'.
+packages/runtime-control-application/src/skill-provider-dependency-policy.ts(368,7): error TS2698: Spread types may only be created from object types.
+[ELIFECYCLE] Command failed with exit code 2.

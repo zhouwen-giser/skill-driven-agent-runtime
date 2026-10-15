@@ -1,0 +1,11 @@
+{
+  "status": "TEST_FAILED_CLEANED",
+  "databases": [
+    "sdar_inspection_cas_88dee6fe4a1541d6",
+    "sdar_inspection_cas_control_88dee6fe4a1541d6"
+  ],
+  "createdFrom": "template0",
+  "ownerChecked": true,
+  "liveDatabasesTouched": 0,
+  "cleanupExitCode": 0
+}

@@ -91,6 +91,12 @@ import {
   UgvProfileGoalEvaluator,
 } from '.././ugv-move-terminal-outcome.js';
 import type { ServerRuntimeOptions } from './contracts.js';
+import {
+  AreaReportGoalEvaluator,
+  isAreaReportSkill,
+  prepareAreaReportResult,
+  verifiedAreaReportOutcomeRefs,
+} from '../area-report-terminal.js';
 import type { RuntimeCleanupScope } from './runtime-cleanup-scope.js';
 import {
   isRecord,
@@ -226,12 +232,17 @@ export function composeController(dependencies: composeControllerDependencies) {
     evaluator:
       dependencies.ugvMoveTerminalOutcomeAuthority.value === undefined
         ? new StructuredGoalEvaluator(modelRuntime, memories)
-        : new UgvProfileGoalEvaluator(
-            new UgvMoveDeterministicGoalEvaluator(
-              dependencies.ugvMoveTerminalOutcomeAuthority.value,
+        : new AreaReportGoalEvaluator({
+            capabilities: taskCapabilities,
+            schemas: schemaValidator,
+            skills,
+            fallback: new UgvProfileGoalEvaluator(
+              new UgvMoveDeterministicGoalEvaluator(
+                dependencies.ugvMoveTerminalOutcomeAuthority.value,
+              ),
+              new StructuredGoalEvaluator(modelRuntime, memories),
             ),
-            new StructuredGoalEvaluator(modelRuntime, memories),
-          ),
+          }),
     recovery: userGoalRecovery,
     resolveExecutionContext: (taskId) => taskCapabilities.resolveRuntimeExecutionContext(taskId),
     experiences: evolutionExperiences,
@@ -367,6 +378,9 @@ export function composeController(dependencies: composeControllerDependencies) {
           });
         }
         const processedResult =
+          (ugvAgentProfile && isAreaReportSkill(skill.skillId, skill.version)
+            ? prepareAreaReportResult(task, skill, instance, resultProcessor)
+            : undefined) ??
           (ugvAgentProfile && ugvCapabilityForSkill(skill.skillId)?.kind === 'read_only'
             ? prepareUgvAgentProfileReadOnlyResult({
                 taskId,
@@ -439,18 +453,25 @@ export function composeController(dependencies: composeControllerDependencies) {
               ? { verifiedOutcomeRefs: verifiedHomeLabGovernedLightOutcomeRefs(skill) }
               : ugvAgentProfile && capabilityTerminalProof !== undefined
                 ? {
-                    verifiedOutcomeRefs: verifiedUgvAgentProfileOutcomeRefs({
-                      taskId,
-                      ...(task.selectedSkillId === undefined
-                        ? {}
-                        : { selectedSkillId: task.selectedSkillId }),
-                      ...(task.selectedSkillVersion === undefined
-                        ? {}
-                        : { selectedSkillVersion: task.selectedSkillVersion }),
-                      workflowSkillVersions: instance.skillVersions,
-                      skill,
-                      proof: capabilityTerminalProof,
-                    }),
+                    verifiedOutcomeRefs: isAreaReportSkill(skill.skillId, skill.version)
+                      ? verifiedAreaReportOutcomeRefs(
+                          task,
+                          skill,
+                          instance,
+                          capabilityTerminalProof,
+                        )
+                      : verifiedUgvAgentProfileOutcomeRefs({
+                          taskId,
+                          ...(task.selectedSkillId === undefined
+                            ? {}
+                            : { selectedSkillId: task.selectedSkillId }),
+                          ...(task.selectedSkillVersion === undefined
+                            ? {}
+                            : { selectedSkillVersion: task.selectedSkillVersion }),
+                          workflowSkillVersions: instance.skillVersions,
+                          skill,
+                          proof: capabilityTerminalProof,
+                        }),
                   }
                 : {
                     ...(skill.runtimePolicy.taskBusinessEvidencePolicy === undefined
@@ -616,28 +637,58 @@ export function composeController(dependencies: composeControllerDependencies) {
       continuationAttemptId: string;
     }>,
   ): Promise<void> => {
-    await continueRemoteTaskWorkflowHierarchy(
-      {
-        skillCallWorkflows,
-        childCalls: workflowChildCalls,
-        skillCallWorkflow: skillCallWorkflowService,
-        continuations: workflowContinuations,
-        execution: workflowExecution,
-        controller: dependencies.workflowController.value,
-        recordRootResume: (snapshot) =>
-          recordSkillProjectionSafely(() =>
-            skillExecutionRecording.recordStatus({
-              workflowPlanId: snapshot.workflowPlanId,
-              eventType: 'skill.execution_started',
-              status: 'executing',
-              summary: 'Authoritative Workflow resumed after an external Task observation.',
-            }),
-          ),
-        projectControl: (snapshot, control) =>
-          dependencies.projectSkillExecutionControl.value(snapshot.workflowPlanId, control),
-      },
-      input,
-    );
+    try {
+      await continueRemoteTaskWorkflowHierarchy(
+        {
+          skillCallWorkflows,
+          childCalls: workflowChildCalls,
+          skillCallWorkflow: skillCallWorkflowService,
+          continuations: workflowContinuations,
+          execution: workflowExecution,
+          controller: dependencies.workflowController.value,
+          async finalizeOwnedChild(snapshot, instance) {
+            const task = await tasks.findByPlanId(instance.planId);
+            if (!task || !isRecord(task.requestMetadata['io.sdar/governedChildTask'])) return;
+            if (
+              snapshot.agentTaskId !== task.taskId ||
+              snapshot.workflowControlId !== `control-task-${task.taskId}`
+            )
+              throw Error('COMPOSED_CHILD_CONTINUATION_AUTHORITY_INVALID');
+            const control = await dependencies.workflowController.value.get(
+              snapshot.workflowControlId,
+            );
+            if (control.finalInstanceId === instance.instanceId) return;
+            if (control.currentPlanId !== instance.planId || control.status !== 'running')
+              throw Error('COMPOSED_CHILD_CONTROLLER_AUTHORITY_INVALID');
+            await dependencies.workflowController.value.continueAfterExternal(
+              snapshot.workflowControlId,
+              instance.instanceId,
+            );
+          },
+          recordRootResume: (snapshot) =>
+            recordSkillProjectionSafely(() =>
+              skillExecutionRecording.recordStatus({
+                workflowPlanId: snapshot.workflowPlanId,
+                eventType: 'skill.execution_started',
+                status: 'executing',
+                summary: 'Authoritative Workflow resumed after an external Task observation.',
+              }),
+            ),
+          projectControl: (snapshot, control) =>
+            dependencies.projectSkillExecutionControl.value(snapshot.workflowPlanId, control),
+        },
+        input,
+      );
+    } catch (error) {
+      process.stderr.write(
+        JSON.stringify({
+          event: 'workflow_hierarchy.continuation_denied',
+          taskId: input.snapshot.agentTaskId,
+          summary: error instanceof Error ? error.message : 'Unknown continuation failure',
+        }) + '\n',
+      );
+      throw error;
+    }
   };
   const remoteTaskContinuation =
     remoteTaskRepository === undefined ||

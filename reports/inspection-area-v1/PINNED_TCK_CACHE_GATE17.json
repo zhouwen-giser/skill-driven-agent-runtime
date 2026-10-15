@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-10-15T02:21:54.632868+00:00",
+  "runId": "sdar-verify-9b26d516-7193-4599-9063-6c668349f954",
+  "officialOrigin": "https://github.com/a2aproject/a2a-tck.git",
+  "pinnedCommit": "5996b79f9cefa6fc390980e383e358a66fb9e49e",
+  "tree": "79a1b2a13d5e4d2af845a860953322a28051e0f7",
+  "sourceCache": "/tmp/sdar-verify-76e2246d-38be-4aed-bab9-efe14d6aa2f5/a2a-tck",
+  "freshIsolatedCheckout": "/tmp/sdar-verify-9b26d516-7193-4599-9063-6c668349f954/a2a-tck",
+  "hardlinks": false,
+  "trackedWorktreeClean": true,
+  "runnerStillChecksExactCommitAndRestoresTrackedFiles": true,
+  "uvFrozenLockStillRequired": true,
+  "testsOrThresholdsChanged": false,
+  "networkFailurePreserved": "raw/sdar-inspection-gate-14.json"
+}

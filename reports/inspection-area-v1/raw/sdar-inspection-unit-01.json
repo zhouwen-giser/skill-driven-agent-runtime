@@ -1,0 +1,25 @@
+{
+  "name": "sdar-inspection-unit-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/domain/test/area-inspection.unit.test.ts",
+    "apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts",
+    "packages/application/test/skill-usage-planning.unit.test.ts",
+    "apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts"
+  ],
+  "startedAt": "2026-10-13T17:26:53.100Z",
+  "completedAt": "2026-10-13T17:27:00.815Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "c3561b2588ce9f1d436eaa022f335421398ef7df6a6c125ea6023cb99a64beb9",
+  "sourceAfter": "c3561b2588ce9f1d436eaa022f335421398ef7df6a6c125ea6023cb99a64beb9",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-unit-01.log",
+  "logSha256": "d72b202ab56521caec0477b342e48aadeed7c0b7daf6239ddf466057b61a7810"
+}

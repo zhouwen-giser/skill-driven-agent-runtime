@@ -1,0 +1,17 @@
+{
+  "Name": "sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb_sdar-postgres-data",
+  "Driver": "local",
+  "Options": {
+    "device": "tmpfs",
+    "o": "size=2g",
+    "type": "tmpfs"
+  },
+  "Labels": {
+    "codex.owner": "inspection-area-v1",
+    "com.docker.compose.project": "sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb",
+    "com.docker.compose.volume": "sdar-postgres-data"
+  },
+  "runId": "sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb",
+  "productionVolumesChanged": false,
+  "condition": "Disposable isolated PostgreSQL data volume in tmpfs; real PostgreSQL and WAL, no production durability claim."
+}

@@ -1,6 +1,7 @@
 interface ExpectedSkill {
   skillId: string;
   capabilityId: string;
+  minimumVersion?: number;
 }
 interface Capability {
   capabilityId: string;
@@ -31,7 +32,7 @@ interface Profile {
 export function verifyPublishedInventory(
   manifest: { skills: ExpectedSkill[] },
   inventory: {
-    skills: { skillId: string; status: string }[];
+    skills: { skillId: string; status: string; version: number }[];
     capabilities: Capability[];
     exposures: Exposure[];
     card: {

@@ -1,0 +1,20 @@
+{
+  "name": "sdar-inspection-live-bootstrap-02",
+  "command": "docker",
+  "args": [
+    "exec",
+    "sdar-sz-gowm-runtime-1",
+    "node",
+    "deploy/development/bootstrap.mjs"
+  ],
+  "startedAt": "2026-10-15T08:15:10.871Z",
+  "completedAt": "2026-10-15T08:15:13.635Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceAfter": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-live-bootstrap-02.log",
+  "logSha256": "c4e79f5ae43b2100b6fda0cdd8d4fb4cb26dc1990d2f22ca5547402a9d6226cb"
+}

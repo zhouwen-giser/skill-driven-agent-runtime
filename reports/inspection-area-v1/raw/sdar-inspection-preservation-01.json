@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-preservation-01",
+  "command": "python3",
+  "args": [
+    "/tmp/smpp-inspection-v1-20261014/deployment/verify-preservation.py"
+  ],
+  "startedAt": "2026-10-15T08:18:02.545Z",
+  "completedAt": "2026-10-15T08:18:03.492Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceAfter": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-preservation-01.log",
+  "logSha256": "b9e59b901e7528f008e29e293dd7b2c1c85b89dc03e7b87c31de52c8aedde7ea"
+}

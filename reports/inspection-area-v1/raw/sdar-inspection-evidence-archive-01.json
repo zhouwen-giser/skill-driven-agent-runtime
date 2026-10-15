@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-evidence-archive-01",
+  "command": "python3",
+  "args": [
+    "/tmp/smpp-inspection-v1-20261014/deployment/archive-evidence.py"
+  ],
+  "startedAt": "2026-10-15T08:22:58.354Z",
+  "completedAt": "2026-10-15T08:23:00.470Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "cd8a050842c3de2753e73a78d36fbdc3668d6ffa7830044b531cf432c6a318a0",
+  "sourceAfter": "cd8a050842c3de2753e73a78d36fbdc3668d6ffa7830044b531cf432c6a318a0",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-evidence-archive-01.log",
+  "logSha256": "1d661faf8e54075f322b7767d3629724fca324da339726e21a65f4a20beee939"
+}

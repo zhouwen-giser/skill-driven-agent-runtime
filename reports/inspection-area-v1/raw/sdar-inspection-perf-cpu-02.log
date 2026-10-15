@@ -1,0 +1,183 @@
+$ node scripts/test-e2e.mjs packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern 'keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds'
+name: sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance
+services:
+  postgres:
+    build:
+      context: /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+      dockerfile: infra/postgres/Dockerfile.pgvector-hardened
+      args:
+        SOURCE_DATE_EPOCH: "0"
+      provenance: "false"
+      sbom: "false"
+    environment:
+      POSTGRES_DB: sdar
+      POSTGRES_PASSWORD: sdar_local_only
+      POSTGRES_USER: sdar
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      timeout: 3s
+      interval: 2s
+      retries: 30
+      start_period: 5s
+    image: sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+    networks:
+      sdar-local: null
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5432
+        published: "40885"
+        protocol: tcp
+    pull_policy: never
+    restart: "no"
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+        tmpfs:
+          size: "2147483648"
+      - type: bind
+        source: /home/sz/code/skill-driven-agent-runtime-inspect-area-v1/infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql
+        target: /docker-entrypoint-initdb.d/0001_sdar_v1_2_2_baseline.sql
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /home/sz/code/skill-driven-agent-runtime-inspect-area-v1/infra/postgres/seed/0001_sdar_v1_2_2_minimal_seed.sql
+        target: /docker-entrypoint-initdb.d/0002_sdar_v1_2_2_minimal_seed.sql
+        read_only: true
+        bind: {}
+  redis:
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - "60"
+      - "1"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 3s
+      interval: 2s
+      retries: 30
+      start_period: 2s
+    image: redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
+    networks:
+      sdar-local: null
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 6379
+        published: "39457"
+        protocol: tcp
+    restart: "no"
+    volumes:
+      - type: volume
+        source: sdar-redis-data
+        target: /data
+        volume: {}
+networks:
+  sdar-local:
+    name: sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-local
+    driver: bridge
+volumes:
+  sdar-redis-data:
+    name: sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-redis-data
+ Network sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-local Creating 
+ Network sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-local Created 
+ Volume sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-redis-data Creating 
+ Volume sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-redis-data Created 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Creating 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Creating 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Created 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Created 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Starting 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Starting 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Started 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Started 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Waiting 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Waiting 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Healthy 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Healthy 
+21bc791600993a276066613f5daad513bd0dbbbc14337f8ccf8d5a6387777245
+e8d4eee88e8d0323765b4af3a983d437c28585fca36fa5ad3b6c9739ce200ca7
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"phase13.performance.append_raw_metrics","appendP95RawMs":4.301940999999715,"appendSamplesMs":[3.1481000000003405,3.048919000000751,2.9989779999996244,2.863314000000173,3.1133580000005168,3.446437999999034,3.429627999999866,3.1892029999999068,3.1005350000014005,3.0463890000009997,3.4374319999988074,4.103339000001142,4.152876000000106,3.8153000000002066,7.344033000001218,4.04363899999953,3.526839000000109,3.599775000000591,3.4513330000008864,3.9159970000000612,3.5833939999993163,3.956680999999662,4.582785999999032,2.975925000000643,3.564845000000787,3.204955000001064,3.37970100000166,3.4114300000001094,3.3888409999999567,3.2158569999992324,3.165800999999192,3.1276299999990442,3.2129509999995207,3.816440999999031,3.5316900000016176,3.6859300000014628,3.520578999999998,3.2162500000013097,2.6937920000000304,4.32048500000019,3.2107340000002296,3.926127999999153,3.4068810000007943,3.3399400000016612,3.4917179999993095,4.283638999999312,4.301940999999715,2.522208000000319,2.82930800000031,2.9677780000001803,2.995333999999275,2.765126999998756,3.2493070000000444,3.0879559999993944,3.8068940000011935,3.428102999998373,3.581938999999693,3.11333200000081,2.9044770000000426,3.094967999999426,2.910648000000947,2.9310810000006313,3.137373999999909,3.3364780000010796,3.446711000000505,3.3913899999988644,3.1558860000004643,3.202198999999382,3.311007000000245,3.13406600000053,2.8317729999998846,2.938895000001139,2.9536820000012085,3.214459999999235,3.3186530000002676,6.937402999999904,10.72173500000099,4.288282000001345,3.8681569999989733,3.2631769999989046,3.3175929999997607,3.4666269999997894,3.060512000000017,3.177324000000226,3.312567000000854,2.9258480000007694,2.7885839999999007,3.095595000000685,2.69708300000093,3.1350670000010723,3.0764300000009825,3.1953259999991133,2.8186270000005607,3.069719000000987,2.961959999998726,2.792811999999685,2.9634819999992033,3.074678999999378,2.9170839999987948,2.8776299999990442],"appendTailMs":[4.103339000001142,4.152876000000106,4.283638999999312,4.288282000001345,4.301940999999715,4.32048500000019,4.582785999999032,6.937402999999904,7.344033000001218,10.72173500000099],"evidenceOutboxRowCount":"110","forwardReferencePlan":[{"Plan":{"Node Type":"Seq Scan","Parallel Aware":false,"Async Capable":false,"Relation Name":"evidence_outbox","Alias":"evidence_outbox","Startup Cost":0,"Total Cost":13.81,"Plan Rows":1,"Plan Width":32,"Actual Startup Time":0.07,"Actual Total Time":0.07,"Actual Rows":0,"Actual Loops":1,"Filter":"(evidence_refs ? 'phase13-diagnostic-record-id'::text)","Rows Removed by Filter":110,"Shared Hit Blocks":13,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning":{"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Dirtied Blocks":0,"Shared Written Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Dirtied Blocks":0,"Local Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.055,"Triggers":[],"Execution Time":0.077}]}
+{"event":"evidence_projection.items_deferred","failedItems":2,"sourceListingFailures":0,"durableIssueCount":2}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":71,"reconciled":70,"alreadyConverged":0,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":152,"reconciled":81,"alreadyConverged":70,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":3,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":226,"reconciled":75,"alreadyConverged":151,"nonTerminal":0,"missingAuthoritativeTask":0}
+{"event":"phase13.performance.raw_metrics","baselineP95RawMs":556.2684580000059,"evidenceEnabledP95RawMs":559.0091180000018,"regressionRawPercent":0.49268657256777487,"baselineWindowMediansRawMs":[357.61905000000115,397.83624200000486,375.3114615000013],"baselineMedianDriftRawPercent":10.647140188410617,"appendP95RawMs":4.301940999999715,"appendSamplesMs":[3.1481000000003405,3.048919000000751,2.9989779999996244,2.863314000000173,3.1133580000005168,3.446437999999034,3.429627999999866,3.1892029999999068,3.1005350000014005,3.0463890000009997,3.4374319999988074,4.103339000001142,4.152876000000106,3.8153000000002066,7.344033000001218,4.04363899999953,3.526839000000109,3.599775000000591,3.4513330000008864,3.9159970000000612,3.5833939999993163,3.956680999999662,4.582785999999032,2.975925000000643,3.564845000000787,3.204955000001064,3.37970100000166,3.4114300000001094,3.3888409999999567,3.2158569999992324,3.165800999999192,3.1276299999990442,3.2129509999995207,3.816440999999031,3.5316900000016176,3.6859300000014628,3.520578999999998,3.2162500000013097,2.6937920000000304,4.32048500000019,3.2107340000002296,3.926127999999153,3.4068810000007943,3.3399400000016612,3.4917179999993095,4.283638999999312,4.301940999999715,2.522208000000319,2.82930800000031,2.9677780000001803,2.995333999999275,2.765126999998756,3.2493070000000444,3.0879559999993944,3.8068940000011935,3.428102999998373,3.581938999999693,3.11333200000081,2.9044770000000426,3.094967999999426,2.910648000000947,2.9310810000006313,3.137373999999909,3.3364780000010796,3.446711000000505,3.3913899999988644,3.1558860000004643,3.202198999999382,3.311007000000245,3.13406600000053,2.8317729999998846,2.938895000001139,2.9536820000012085,3.214459999999235,3.3186530000002676,6.937402999999904,10.72173500000099,4.288282000001345,3.8681569999989733,3.2631769999989046,3.3175929999997607,3.4666269999997894,3.060512000000017,3.177324000000226,3.312567000000854,2.9258480000007694,2.7885839999999007,3.095595000000685,2.69708300000093,3.1350670000010723,3.0764300000009825,3.1953259999991133,2.8186270000005607,3.069719000000987,2.961959999998726,2.792811999999685,2.9634819999992033,3.074678999999378,2.9170839999987948,2.8776299999990442],"appendTailMs":[4.103339000001142,4.152876000000106,4.283638999999312,4.288282000001345,4.301940999999715,4.32048500000019,4.582785999999032,6.937402999999904,7.344033000001218,10.72173500000099]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":240,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 63 skipped (64)
+   Start at  09:32:40
+   Duration  142.76s (transform 6.52s, setup 0ms, import 9.03s, tests 133.54s, environment 0ms)
+
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Stopping 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Stopping 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Stopped 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Removing 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Stopped 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Removing 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-postgres-1 Removed 
+ Container sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance-redis-1 Removed 
+ Volume sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-redis-data Removing 
+ Network sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-local Removing 
+ Volume sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-redis-data Removed 
+ Network sdar-verify-ab5dac33-be69-4fde-84d1-97eaabe74536-e2e-performance_sdar-local Removed 

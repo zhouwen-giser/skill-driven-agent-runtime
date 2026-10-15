@@ -1,0 +1,24 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Agent execution failed for message b7877424-7667-4420-b775-58f2ffe76a64: A2AMappingError: Formal A2A Capability admission requires exactly one structured data part.
+    at toSubmitTaskCommand (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/a2a-adapter/src/task-mapping.ts:166:11)
+    at TaskServiceAgentExecutor.execute (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/a2a-adapter/src/task-service-executor.ts:98:21)
+    at ObservedRequestHandler._runExecutor (file:///home/sz/code/skill-driven-agent-runtime-inspect-area-v1/node_modules/.pnpm/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/@a2a-js/sdk/dist/server/index.js:851:24)
+    at ObservedRequestHandler.sendMessage (file:///home/sz/code/skill-driven-agent-runtime-inspect-area-v1/node_modules/.pnpm/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/@a2a-js/sdk/dist/server/index.js:1016:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async ObservedRequestHandler.sendMessage (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/a2a-adapter/src/observed-request-handler.ts:35:21)
+    at async file:///home/sz/code/skill-driven-agent-runtime-inspect-area-v1/node_modules/.pnpm/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/@a2a-js/sdk/dist/server/express/index.js:445:20
+    at async file:///home/sz/code/skill-driven-agent-runtime-inspect-area-v1/node_modules/.pnpm/@a2a-js+sdk@1.0.0-beta.0_express@5.2.1/node_modules/@a2a-js/sdk/dist/server/express/index.js:400:9 {
+  code: 'A2A_INPUT_CONTENT_INVALID'
+}
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:155
+  if (!row) throw Error('TASK_REQUIRED');
+                  ^
+
+Error: TASK_REQUIRED
+    at task (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:155:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async until (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:95:12)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:466:5)
+
+Node.js v22.23.2

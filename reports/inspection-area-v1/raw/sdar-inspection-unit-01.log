@@ -1,0 +1,42 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+ ❯ |unit| apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts (12 tests | 1 failed) 177ms
+     × freezes a complete explicit reviewed policy for all 13 Tools 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts > UGV SMPP Provider materialization wrapper > freezes a complete explicit reviewed policy for all 13 Tools
+AssertionError: expected [ 'vehicle_area_recon', …(13) ] to deeply equal [ 'vehicle_area_recon', …(12) ]
+
+- Expected
++ Received
+
+@@ -7,9 +7,10 @@
+    "vehicle_get_payload_status",
+    "vehicle_get_state",
+    "vehicle_get_targets",
+    "vehicle_get_trajectory_evidence",
+    "vehicle_get_trajectory_history",
++   "vehicle_inspect_area",
+    "vehicle_laser_range",
+    "vehicle_navigate",
+    "vehicle_track_target",
+  ]
+
+ ❯ apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts:299:58
+    297|       'vehicle_get_trajectory_evidence',
+    298|     ] as const;
+    299|     expect(Object.keys(UGV_REVIEWED_TOOL_POLICY).sort()).toEqual([...n…
+       |                                                          ^
+    300|     for (const name of names) {
+    301|       const policy = UGV_REVIEWED_TOOL_POLICY[name];
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 46 passed (47)
+   Start at  01:26:54
+   Duration  6.05s (transform 7.65s, setup 0ms, import 10.10s, tests 2.11s, environment 1ms)
+

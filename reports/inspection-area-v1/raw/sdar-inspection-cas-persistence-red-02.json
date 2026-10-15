@@ -1,0 +1,24 @@
+{
+  "name": "sdar-inspection-cas-persistence-red-02",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "integration",
+    "packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts",
+    "--testNamePattern",
+    "commits a CAS lineage alignment"
+  ],
+  "startedAt": "2026-10-15T02:16:45.999Z",
+  "completedAt": "2026-10-15T02:17:02.044Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "b9c33591b113dce2084e8a03d13283bbb45e9b5178bf641b0735ffaa893a329a",
+  "sourceAfter": "b9c33591b113dce2084e8a03d13283bbb45e9b5178bf641b0735ffaa893a329a",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-cas-persistence-red-02.log",
+  "logSha256": "9e0bea9a5287d132a63ba302d0d2f2c81e7899c211e10b3bb6da3e3e03696d37"
+}

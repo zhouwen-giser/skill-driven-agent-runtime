@@ -229,6 +229,37 @@ describe('TaskService', () => {
     ).resolves.toMatchObject({ phase: 'executing', planId: 'plan-deterministic' });
   });
 
+  it('atomically closes deterministic initial admission before recovery can see a queued attempt', async () => {
+    const capability = capabilityService();
+    const preparation = vi.spyOn(capability, 'prepareAcceptance');
+    const harness = createHarness('resumed', false, undefined, capability, {
+      initialAdmissionEnabled: true,
+    });
+    await harness.service.submitDeterministic({
+      messageText: 'Inspect device alpha.',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata: {
+        structured_input: { deviceId: 'alpha' },
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'deterministic-atomic',
+        },
+      },
+      initialAdmission: { idempotencyKey: 'deterministic-atomic' },
+    });
+    expect(preparation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputAttempt: expect.objectContaining({
+          status: 'completed',
+          startedAt: expect.any(String),
+          completedAt: expect.any(String),
+        }),
+      }),
+    );
+    expect(harness.operations.some((value) => value.startsWith('queue:'))).toBe(false);
+  });
+
   it('routes an explicit Capability request through the atomic acceptance store without generic Task writes', async () => {
     let acceptedTask: AgentTask | undefined;
     const taskCapabilities = new RuntimeTaskCapabilityService({

@@ -1,3 +1,9 @@
+import { assertInspectionToolContract } from '../../../packages/domain/src/area-inspection.js';
+import {
+  inspectionSkillInputSchema,
+  inspectionSkillOutputSchema,
+  unwrapInspectionResultSchema,
+} from '../../../packages/domain/src/area-inspection.js';
 import { explicitProviderJsonDictionaries } from './provider-json-schema.js';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
@@ -13,7 +19,6 @@ import {
   hashConfigurationRequest,
   nodeCapabilityEtag,
   type CapabilityImplementationBinding,
-  type A2aExposureVersion,
   type JsonObject,
   type JsonValue,
   type NodeCapabilityDefinitionVersion,
@@ -132,6 +137,16 @@ const GOVERNANCE_SPECS = Object.freeze([
       'vehicle.task.progress',
       'vehicle.task.terminal',
     ]),
+  }),
+  Object.freeze({
+    toolName: 'vehicle_inspect_area',
+    capabilityId: 'embodied.inspect_area',
+    skillId: 'embodied.inspect_area',
+    name: 'Inspect one authorized WGS84 area',
+    summary:
+      'Run one bounded area scan and retain task-correlated discoveries, coverage, source association and missing evidence.',
+    kind: 'long_running_control' as const,
+    evidence: Object.freeze(['inspection.report']),
   }),
   Object.freeze({
     toolName: 'vehicle_track_target',
@@ -1333,6 +1348,7 @@ function validateToolSemantics(spec: GovernanceSpec, tool: Tool, serverId: strin
   requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   if (spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec)
     assertNavigateMissionSchema(tool.inputSchema, spec.missionType);
+  if (spec.toolName === 'vehicle_inspect_area') assertInspectionToolContract(tool);
   if (spec.kind === 'weapon_control') weaponInputSchema(tool.inputSchema, 'vehicle:ugv1');
 }
 
@@ -1519,14 +1535,28 @@ function buildSkillContract(
   usage: Readonly<Record<string, unknown>>;
 }> {
   const inputSchema =
-    spec.kind === 'weapon_control'
-      ? weaponInputSchema(tool.inputSchema, resourceId)
-      : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
-        ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
-        : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
-  const outputSchema = explicitProviderJsonDictionaries(
-    requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+    spec.toolName === 'vehicle_inspect_area'
+      ? inspectionSkillInputSchema(
+          requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
+        )
+      : spec.kind === 'weapon_control'
+        ? weaponInputSchema(tool.inputSchema, resourceId)
+        : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
+          ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
+          : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
+  const rawOutputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
+  const providerOutputSchema = explicitProviderJsonDictionaries(
+    spec.toolName === 'vehicle_inspect_area'
+      ? requireObjectSchema(
+          unwrapInspectionResultSchema(rawOutputSchema),
+          'INSPECTION_TOOL_CONTRACT_INVALID',
+        )
+      : rawOutputSchema,
   );
+  const outputSchema =
+    spec.toolName === 'vehicle_inspect_area'
+      ? inspectionSkillOutputSchema(providerOutputSchema)
+      : providerOutputSchema;
   const readOnly = spec.kind === 'read_only';
   const confirmation = readOnly
     ? []
@@ -1635,7 +1665,11 @@ function buildSkillContract(
     runtimePolicy: Object.freeze({
       autoConfirmPlan: readOnly,
       maxReplans: 0,
-      maxDurationSeconds: readOnly ? 60 : spec.kind === 'emergency_stop' ? 300 : 1800,
+      maxDurationSeconds: readOnly
+        ? 60
+        : spec.kind === 'emergency_stop' || spec.toolName === 'vehicle_inspect_area'
+          ? 300
+          : 1800,
       maxLlmCalls: 0,
       maxMcpCalls:
         spec.toolName === NAVIGATE_TOOL_NAME ? navigateDispatchMaximum(configuration) : 1,
@@ -1787,15 +1821,40 @@ function buildCapability(
     name: spec.name,
     description: spec.summary,
     inputSchema:
-      spec.kind === 'weapon_control'
-        ? weaponInputSchema(tool.inputSchema, resourceId)
-        : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
-          ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
-          : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
-    outputSchema: explicitProviderJsonDictionaries(
-      requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
-    ),
+      spec.toolName === 'vehicle_inspect_area'
+        ? requireObjectSchema(
+            inspectionSkillInputSchema(
+              requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
+            ),
+            'INSPECTION_TOOL_CONTRACT_INVALID',
+          )
+        : spec.kind === 'weapon_control'
+          ? weaponInputSchema(tool.inputSchema, resourceId)
+          : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
+            ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
+            : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
+    outputSchema:
+      spec.toolName === 'vehicle_inspect_area'
+        ? requireObjectSchema(
+            inspectionSkillOutputSchema(
+              explicitProviderJsonDictionaries(
+                requireObjectSchema(
+                  unwrapInspectionResultSchema(
+                    requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+                  ),
+                  'INSPECTION_TOOL_CONTRACT_INVALID',
+                ),
+              ),
+            ),
+            'INSPECTION_TOOL_CONTRACT_INVALID',
+          )
+        : explicitProviderJsonDictionaries(
+            requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+          ),
     successCriteria: [
+      ...(spec.toolName === 'vehicle_inspect_area'
+        ? [{ type: 'inspection_report_outcome', required: true, incompleteOutcome: 'degraded' }]
+        : []),
       Object.freeze({ type: 'output_schema_valid', required: true }),
       Object.freeze({ type: 'resource_identity_matches_request', required: true }),
       Object.freeze({ type: 'required_evidence_complete', required: true }),
@@ -1807,7 +1866,9 @@ function buildCapability(
             Object.freeze({ type: 'remote_terminal_observation_present', required: true }),
             Object.freeze({
               type: 'external_command_dispatch_count',
-              ...(spec.toolName === NAVIGATE_TOOL_NAME ? { minimum: dispatchMaximum } : {}),
+              ...(spec.toolName === NAVIGATE_TOOL_NAME || spec.toolName === 'vehicle_inspect_area'
+                ? { minimum: dispatchMaximum }
+                : {}),
               maximum: dispatchMaximum,
             }),
           ]),
@@ -1818,6 +1879,16 @@ function buildCapability(
     effects: [effectFor(spec)],
     artifacts: [],
     constraints: [
+      ...(spec.toolName === 'vehicle_inspect_area'
+        ? [
+            {
+              type: 'inspection_input_adapter',
+              version: 1,
+              toolName: 'vehicle_inspect_area',
+              maxElapsedMs: 300000,
+            },
+          ]
+        : []),
       Object.freeze({
         type: 'resource_policy',
         identifierAuthority: 'public_smpp_tool_schema',
@@ -1996,6 +2067,7 @@ function executionSemantics(tool: Tool) {
 }
 
 function effectFor(spec: GovernanceSpec): string {
+  if (spec.toolName === 'vehicle_inspect_area') return 'effect.inspection_reported';
   if (spec.kind === 'read_only') return `effect.${spec.capabilityId}.observed`;
   if (spec.kind === 'emergency_stop') return 'effect.vehicle.ugv.stopped';
   return `effect.${spec.capabilityId}.commanded`;
@@ -2083,7 +2155,7 @@ async function ensureCapabilityExposures(
           `/api/v1/a2a-exposures/${encodeURIComponent(exposureId)}/versions/${String(version)}/publish`,
           runKey(configuration.runId, 'exposure-publish', `${exposureId}@${String(version)}`),
           { reason: `Publish exact governed UGV Exposure ${exposureId}@${String(version)}.` },
-          a2aExposureEtag(current as A2aExposureVersion),
+          a2aExposureEtag(current),
           202,
           request,
         ),
@@ -2098,7 +2170,7 @@ async function ensureCapabilityExposures(
         `/api/v1/a2a-exposures/${encodeURIComponent(exposureId)}/versions/${String(prior.version)}/suspend`,
         runKey(configuration.runId, 'exposure-suspend', `${exposureId}@${String(prior.version)}`),
         { reason: `Supersede ${exposureId}@${String(prior.version)} with @${String(version)}.` },
-        a2aExposureEtag(prior as A2aExposureVersion),
+        a2aExposureEtag(prior),
         202,
         request,
       );
@@ -2141,6 +2213,7 @@ function exposureIdFor(spec: GovernanceSpec): string {
   if (spec.skillId === 'ugv.navigate-route') return 'a2a.vehicle.ugv.navigate-route';
   if (spec.skillId === 'ugv.navigate-distance') return 'a2a.vehicle.ugv.navigate-distance';
   if (spec.skillId === 'ugv.return-home') return 'a2a.vehicle.ugv.return-home';
+  if (spec.skillId === 'embodied.inspect_area') return 'a2a.embodied.inspect_area';
   if (spec.skillId === 'ugv.area-recon') return 'a2a.vehicle.ugv.recon';
   if (spec.skillId === 'ugv.track-target') return 'a2a.vehicle.ugv.track-target';
   if (spec.skillId === 'ugv.control-gimbal') return 'a2a.vehicle.ugv.control-gimbal';
@@ -2612,7 +2685,7 @@ async function ensurePointExposure(
         `/api/v1/a2a-exposures/a2a.embodied.move/versions/${String(version)}/publish`,
         runKey(configuration.runId, 'point-exposure-publish', String(version)),
         { reason: 'Publish the append-only point-navigation Exposure successor.' },
-        a2aExposureEtag(current as A2aExposureVersion),
+        a2aExposureEtag(current),
         202,
         request,
       ),
@@ -2627,7 +2700,7 @@ async function ensurePointExposure(
       `/api/v1/a2a-exposures/a2a.embodied.move/versions/${String(prior.version)}/suspend`,
       runKey(configuration.runId, 'point-exposure-suspend', String(prior.version)),
       { reason: `Supersede immutable point Exposure @${String(prior.version)}.` },
-      a2aExposureEtag(prior as A2aExposureVersion),
+      a2aExposureEtag(prior),
       202,
       request,
     );
@@ -2983,7 +3056,7 @@ function runtimeCatalogChecksum(server: RuntimeServer, tools: readonly Tool[]): 
   );
 }
 
-async function controlGet(
+export async function controlGet(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
   path: string,
   request: typeof fetch,
@@ -3025,7 +3098,7 @@ async function runtimePost(
   );
 }
 
-async function controlCommand(
+export async function controlCommand(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
   path: string,
   idempotencyKey: string,
@@ -3049,7 +3122,7 @@ async function controlCommand(
   );
 }
 
-async function controlCreate(
+export async function controlCreate(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
   path: string,
   idempotencyKey: string,
@@ -3073,7 +3146,7 @@ async function controlCreate(
   );
 }
 
-async function controlMutation(
+export async function controlMutation(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
   path: string,
   idempotencyKey: string,

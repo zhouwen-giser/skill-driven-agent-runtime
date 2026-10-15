@@ -1,0 +1,49 @@
+{
+  "status": "FAIL_EXTERNAL_TCK_CLONE",
+  "originalCommandStatus": "FAIL",
+  "originalCommandExitCode": 1,
+  "passedStages": [
+    "format",
+    "verification-runner-contract",
+    "lint",
+    "typecheck",
+    "unit",
+    "contract",
+    "evidence-contract",
+    "evidence-coverage",
+    "architecture",
+    "a2a-baseline",
+    "management-openapi",
+    "node-control-contract",
+    "node-control-implementation-conformance",
+    "smpp-registry-projection",
+    "acceptance",
+    "sources",
+    "protocol",
+    "infra",
+    "project-license",
+    "licenses",
+    "build",
+    "cognitive-replay-no-physical-provider",
+    "clean-baseline-reset-seed",
+    "postgres-redis-integration",
+    "postgres-redis-model-mcp-e2e"
+  ],
+  "passedStageCount": 25,
+  "failedStages": [
+    "official-a2a-tck"
+  ],
+  "pendingStages": [
+    "canonical-evidence-demo",
+    "infrastructure-smoke",
+    "server-console-smoke",
+    "node-control-api-worker-smoke"
+  ],
+  "sourceUnchanged": true,
+  "sourceSha256": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "logSha256": "6e0d5481594bce16365a24217cea35fd90341c34685474fe6f22284289145b4f",
+  "failure": "GitHub TLS handshake ended during git clone; official TCK test execution had not begun.",
+  "notUsedAsCompleteFullGate": true,
+  "retry": "raw/sdar-inspection-gate-15.json",
+  "retryToolingEvidence": "PINNED_TCK_CACHE_GATE15.json"
+}

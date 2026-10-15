@@ -1,0 +1,23 @@
+{
+  "name": "sdar-inspection-timing-static-02",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "eslint",
+    "apps/server/src/composition/execution.ts",
+    "packages/application/src/mcp-registry.ts",
+    "packages/application/test/mcp-registry.unit.test.ts",
+    "packages/domain/src/area-patrol.ts",
+    "packages/domain/test/area-patrol.unit.test.ts"
+  ],
+  "startedAt": "2026-10-15T00:38:30.138Z",
+  "completedAt": "2026-10-15T00:38:44.081Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceAfter": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-timing-static-02.log",
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

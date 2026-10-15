@@ -1,0 +1,173 @@
+$ node scripts/verify-isolated.mjs
+Cloning into bare repository '/tmp/sdar-verify-4031c5e9-5e01-470c-9ce1-41a50cb1c61e-7Qg1Fz/source-history.git'...
+done.
+Isolated verification sdar-verify-4031c5e9-5e01-470c-9ce1-41a50cb1c61e
+Source: /tmp/sdar-verify-4031c5e9-5e01-470c-9ce1-41a50cb1c61e-7Qg1Fz/source
+Evidence: /home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/runtime-semantic-closure/sdar-verify-4031c5e9-5e01-470c-9ce1-41a50cb1c61e
+
+[verification] format: pnpm format:check (limit 300000 ms)
+$ prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json "apps/**/*.{ts,tsx,json}" "packages/**/*.{ts,tsx,json}" "infra/**/*.{ts,tsx,json}"
+Checking formatting...
+All matched files use Prettier code style!
+[verification] format: passed, 38229 ms
+
+[verification] verification-runner-contract: pnpm test:verification (limit 60000 ms)
+$ node scripts/test-verification-isolation.mjs && node scripts/test-verification-runner.mjs
+TAP version 13
+{"event":"test.ready","a2aUrl":"http://127.0.0.1:12345"}
+# Subtest: endpoint readiness comes from the started child, including split stdout records
+ok 1 - endpoint readiness comes from the started child, including split stdout records
+  ---
+  duration_ms: 42.705188
+  type: 'test'
+  ...
+# Subtest: a child that exits before readiness cannot authorize an HTTP probe
+ok 2 - a child that exits before readiness cannot authorize an HTTP probe
+  ---
+  duration_ms: 42.290253
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+# Subtest: service shutdown waits for delayed cleanup before allowing database teardown
+ok 3 - service shutdown waits for delayed cleanup before allowing database teardown
+  ---
+  duration_ms: 130.383403
+  type: 'test'
+  ...
+{"event":"shutdown.ready"}
+{"event":"shutdown.ready"}
+# Subtest: service shutdown rejects nonzero exits and kills timed-out children
+ok 4 - service shutdown rejects nonzero exits and kills timed-out children
+  ---
+  duration_ms: 147.262537
+  type: 'test'
+  ...
+# Subtest: isolated build/config/cleanup always name the owned project and ignore local dotenv
+ok 5 - isolated build/config/cleanup always name the owned project and ignore local dotenv
+  ---
+  duration_ms: 194.151017
+  type: 'test'
+  ...
+# Subtest: isolated verification refuses the shared project before calling Docker
+ok 6 - isolated verification refuses the shared project before calling Docker
+  ---
+  duration_ms: 59.230719
+  type: 'test'
+  ...
+# Subtest: a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+ok 7 - a failed Docker cleanup is recorded and fails the stage while later cleanup can run
+  ---
+  duration_ms: 109.37105
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 734.316671
+TAP version 13
+# Subtest: performance fixtures reject non-isolated operation before Docker or port allocation
+ok 1 - performance fixtures reject non-isolated operation before Docker or port allocation
+  ---
+  duration_ms: 1.996581
+  type: 'test'
+  ...
+# Subtest: outer migration cleanup finds resources after a killed verifier and preserves removal errors
+ok 2 - outer migration cleanup finds resources after a killed verifier and preserves removal errors
+  ---
+  duration_ms: 10.376546
+  type: 'test'
+  ...
+# Subtest: migration cleanup never removes a resource outside its exact ownership set
+ok 3 - migration cleanup never removes a resource outside its exact ownership set
+  ---
+  duration_ms: 3.028997
+  type: 'test'
+  ...
+# Subtest: stage output is persisted before exit; nonzero exit cannot pass
+ok 4 - stage output is persisted before exit; nonzero exit cannot pass
+  ---
+  duration_ms: 454.643717
+  type: 'test'
+  ...
+descendant=1152442
+# Subtest: timeout kills a SIGTERM-resistant descendant, records reason and never passes
+ok 5 - timeout kills a SIGTERM-resistant descendant, records reason and never passes
+  ---
+  duration_ms: 808.685954
+  type: 'test'
+  ...
+# Subtest: successful leader cannot leak a background child or an inherited stdout pipe
+ok 6 - successful leader cannot leak a background child or an inherited stdout pipe
+  ---
+  duration_ms: 49.473644
+  type: 'test'
+  ...
+# Subtest: caller cancellation is retained even when the child exits with zero
+ok 7 - caller cancellation is retained even when the child exits with zero
+  ---
+  duration_ms: 507.423254
+  type: 'test'
+  ...
+# Subtest: missing executable produces a failed stage report
+ok 8 - missing executable produces a failed stage report
+  ---
+  duration_ms: 6.180148
+  type: 'test'
+  ...
+# Subtest: runtime identity ignores progress reports but binds code, tests, assets and lockfile
+ok 9 - runtime identity ignores progress reports but binds code, tests, assets and lockfile
+  ---
+  duration_ms: 19.966106
+  type: 'test'
+  ...
+# Subtest: full gate includes every bootstrap stage with independent limits and no aggregate command
+ok 10 - full gate includes every bootstrap stage with independent limits and no aggregate command
+  ---
+  duration_ms: 0.998295
+  type: 'test'
+  ...
+# Subtest: release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+ok 11 - release reader aggregates split metrics and rejects missing/duplicate/failed current steps
+  ---
+  duration_ms: 1.462765
+  type: 'test'
+  ...
+# Subtest: sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+ok 12 - sibling assets are frozen byte copies with runtime identity and exclude deployment secrets
+  ---
+  duration_ms: 13.941338
+  type: 'test'
+  ...
+# Subtest: nested smoke projects belong to the outer run cleanup allowlist
+ok 13 - nested smoke projects belong to the outer run cleanup allowlist
+  ---
+  duration_ms: 0.677881
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1886.642046
+[verification] verification-runner-contract: passed, 3666 ms
+
+[verification] lint: pnpm lint (limit 1200000 ms)
+$ eslint .
+
+/tmp/sdar-verify-4031c5e9-5e01-470c-9ce1-41a50cb1c61e-7Qg1Fz/source/apps/server/src/composition/execution.ts
+  722:24  error  Unnecessary optional chain on a non-nullish value  @typescript-eslint/no-unnecessary-condition
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.
+[verification] lint: failed, 159571 ms
+[ELIFECYCLE] Command failed with exit code 1.

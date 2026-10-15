@@ -1,0 +1,15 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"completed","databaseReads":1,"wakeLatencyMs":1}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"awaiting_user_input","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"capability_gap","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.single-performance","environment":"vitest-node-local","waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":3,"elapsedMs":252}
+{"event":"a2a.wait.missed-notification-recovery","environment":"vitest-node-local","safetyPollIntervalMs":100,"databaseReads":1,"deterministicTimeoutRelease":true}
+{"event":"a2a.wait.performance","environment":"vitest-node-local","concurrentWaiters":20,"waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":66,"elapsedMs":262,"closeElapsedMs":0}
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  10:48:52
+   Duration  3.85s (transform 2.25s, setup 0ms, import 3.09s, tests 575ms, environment 0ms)
+

@@ -1,0 +1,23 @@
+{
+  "name": "sdar-inspection-regression-07",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "packages/langgraph-runtime/test/workflow-compiler.unit.test.ts",
+    "packages/application/test/skill-call-workflow.unit.test.ts",
+    "packages/application/test/task-business-sync.unit.test.ts",
+    "apps/server/test/ugv-move-binding.unit.test.ts"
+  ],
+  "startedAt": "2026-10-13T22:35:44.071Z",
+  "completedAt": "2026-10-13T22:35:53.498Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "aece8bb68654b113de655475445ca70ac45c4c32ab5b4188db54a7f345c62028",
+  "sourceAfter": "aece8bb68654b113de655475445ca70ac45c4c32ab5b4188db54a7f345c62028",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-regression-07.log",
+  "logSha256": "6def4d2ad98fe628fcde04353eed4431f7a526b41d34c56b0b42c0df1fc370d8"
+}

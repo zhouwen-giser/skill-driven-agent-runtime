@@ -1,0 +1,182 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":7,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"task-binding-embodied.inspect_area-v1","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:25.568Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":8,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:25.723Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":9,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:26.039Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.tool_response","tool":"vehicle_inspect_area","result":{"jsonrpc":"2.0","id":10,"result":{"resultType":"task","taskId":"d659d282-e513-4697-98d3-7f1e43d35a12","status":"working","statusMessage":"Waiting for scheduled start.","createdAt":"2026-10-13T22:57:25.163Z","lastUpdatedAt":"2026-10-13T22:57:25.163Z","ttlMs":259199988,"pollIntervalMs":2000,"_meta":{"io.sdar/taskExecution":{"profileVersion":"1.0","runtimeRevision":"1","substate":"scheduled"}}}}}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-3b979570-25a3-4f10-9f15-b0f48f35a9d4","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":13,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-3b979570-25a3-4f10-9f15-b0f48f35a9d4","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":9,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":6,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":41,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":301,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":21,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+Formal inspection case: findings
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:57:33.591Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:57:33.614Z"}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":60,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"task-binding-embodied.inspect_area-v1","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:34.867Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":61,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:35.008Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":62,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:35.228Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.tool_response","tool":"vehicle_inspect_area","result":{"jsonrpc":"2.0","id":63,"result":{"resultType":"task","taskId":"8728cd6c-0129-4b3f-aaeb-6acec31402b6","status":"working","statusMessage":"Waiting for scheduled start.","createdAt":"2026-10-13T22:57:34.377Z","lastUpdatedAt":"2026-10-13T22:57:34.377Z","ttlMs":259199996,"pollIntervalMs":2000,"_meta":{"io.sdar/taskExecution":{"profileVersion":"1.0","runtimeRevision":"1","substate":"scheduled"}}}}}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"inspection_joint.task_poll","elapsedMs":25,"status":"working"}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-62adbb43-b408-4c04-97f9-728f0934d349","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":28,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":36,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:57:41.519Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:57:41.534Z"}
+Formal inspection case: missing
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":98,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"task-binding-embodied.inspect_area-v1","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:42.814Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":3,"reconciled":2,"alreadyConverged":0,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":103,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:43.985Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":114,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:45.451Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.tool_response","tool":"vehicle_inspect_area","result":{"jsonrpc":"2.0","id":117,"result":{"resultType":"task","taskId":"6f643d31-7435-4e1a-b4a9-192916d4e343","status":"working","statusMessage":"Waiting for scheduled start.","createdAt":"2026-10-13T22:57:44.829Z","lastUpdatedAt":"2026-10-13T22:57:44.829Z","ttlMs":259199967,"pollIntervalMs":2000,"_meta":{"io.sdar/taskExecution":{"profileVersion":"1.0","runtimeRevision":"1","substate":"scheduled"}}}}}
+{"event":"inspection_joint.task_poll","elapsedMs":13,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":10,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":233,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:57:53.823Z"}
+Formal inspection case: partial
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:57:53.836Z"}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":166,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"task-binding-embodied.inspect_area-v1","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:55.026Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":167,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:55.094Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":168,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"usage_task_0","operationName":"vehicle_inspect_area","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:57:55.350Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.tool_response","tool":"vehicle_inspect_area","result":{"jsonrpc":"2.0","id":169,"result":{"resultType":"task","taskId":"0e824884-20a3-4dcc-8992-fc4983f2d20e","status":"working","statusMessage":"Waiting for scheduled start.","createdAt":"2026-10-13T22:57:54.423Z","lastUpdatedAt":"2026-10-13T22:57:54.423Z","ttlMs":259199987,"pollIntervalMs":2000,"_meta":{"io.sdar/taskExecution":{"profileVersion":"1.0","runtimeRevision":"1","substate":"scheduled"}}}}}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"inspection_joint.task_poll","elapsedMs":17,"status":"working"}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-ed7f40a6-c6d0-4cce-9e43-3d8439edca4c","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":19,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"completed"}
+Formal patrol case: full
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:58:01.253Z"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:58:02.816Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":229,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"move-resource","operationName":"vehicle_navigate","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:58:07.733Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":234,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"move-resource","operationName":"vehicle_navigate","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:58:08.706Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":237,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"move-resource","operationName":"vehicle_navigate","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:58:09.033Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":242,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"ugv_navigate","operationName":"vehicle_navigate","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:58:09.370Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":257,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"ugv-governed-control:task-d9da9c16-7c25-4d8e-8173-0f129031ba42:capability-attempt-task-d9da9c16-7c25-4d8e-8173-0f129031ba42-1","operationName":"vehicle_navigate","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:58:12.599Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"a2a_terminal_projection.reconciled","scanned":5,"reconciled":2,"alreadyConverged":2,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"inspection_joint.tool_response","tool":"vehicle_get_state","result":{"jsonrpc":"2.0","id":260,"result":{"resultType":"complete","content":[{"type":"text","text":"UGV_MQTT_TASK_STATE_INVALID"}],"isError":true,"structuredContent":{"outcome":"admission_rejected","reasonCode":"UGV_MQTT_TASK_STATE_INVALID","retryable":false,"completedAt":"2026-10-13T22:58:13.106Z"}}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":263,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"ugv_navigate","operationName":"vehicle_navigate","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:58:14.424Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.availability","method":"io.sdar/taskExecution/checkAvailability","result":{"jsonrpc":"2.0","id":268,"result":{"resultType":"complete","profileVersion":"1.0","results":[{"requestId":"ugv-governed-control:task-d9da9c16-7c25-4d8e-8173-0f129031ba42:capability-attempt-task-d9da9c16-7c25-4d8e-8173-0f129031ba42-1","operationName":"vehicle_navigate","availability":"available","riskLevel":"medium","reasonCode":"UGV_AVAILABLE","description":"UGV_AVAILABLE","validUntil":"2026-10-13T22:58:14.764Z","nextAvailableWindows":[],"estimatedDelayMs":0,"reservationMode":"none","possibleEffects":[]}]}}}
+{"event":"inspection_joint.tool_response","tool":"vehicle_navigate","result":{"jsonrpc":"2.0","id":269,"result":{"resultType":"task","taskId":"a576c4fe-4fc3-4b16-8b48-e7c0c24bf5b5","status":"working","statusMessage":"UNCERTAIN_EXECUTION_STATE","createdAt":"2026-10-13T22:58:14.128Z","lastUpdatedAt":"2026-10-13T22:58:14.128Z","ttlMs":259200000,"pollIntervalMs":2000,"_meta":{"io.sdar/taskExecution":{"profileVersion":"1.0","runtimeRevision":"1","providerRevision":"2","substate":"accepted"}}}}}
+{"event":"inspection_joint.task_poll","elapsedMs":14,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":23,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":34,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":277,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":23,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"inspection_joint.task_poll","elapsedMs":31,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":22,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":14,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":29,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":17,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":27,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":13,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":15,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":11,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"inspection_joint.task_poll","elapsedMs":27,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":220,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":227,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":19,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":256,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":21,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":29,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":9,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":11,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":28,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":17,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":12,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":17,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":22,"status":"failed"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:58:48.798Z"}
+{"event":"workflow_hierarchy.continuation_denied","taskId":"task-d9da9c16-7c25-4d8e-8173-0f129031ba42","summary":"USER_GOAL_PLAN_HAS_NO_READY_SKILL_GOAL"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":2,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}

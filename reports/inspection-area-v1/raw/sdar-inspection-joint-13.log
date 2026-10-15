@@ -1,0 +1,25 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'failed'
+- 'awaiting_plan_confirmation'
+
+    at <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:482:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'failed',
+  expected: 'awaiting_plan_confirmation',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2

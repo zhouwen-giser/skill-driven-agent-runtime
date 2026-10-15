@@ -45,6 +45,9 @@ interface SkillDependencyRow {
   runtime_policy: unknown;
   usage_specification: unknown;
   package_checksum: string | null;
+  input_schema: unknown;
+  output_schema: unknown;
+  outcome_specification: unknown;
 }
 
 interface CurrentBindingAuthorityRepository {
@@ -271,8 +274,12 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
               version.tool_policy_json AS tool_policy,
               version.runtime_policy_json AS runtime_policy,
               version.usage_specification_json AS usage_specification,
+              version.input_schema_json AS input_schema,
+              version.output_schema_json AS output_schema,
+              outcome.specification_json AS outcome_specification,
               package.package_checksum
          FROM skill_version version
+         LEFT JOIN skill_outcome_specification outcome ON outcome.skill_id=version.skill_id AND outcome.skill_version=version.version
          LEFT JOIN runtime_skill_version_governance governance
            ON governance.skill_id=version.skill_id
           AND governance.skill_version=version.version
@@ -348,12 +355,46 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
         toolPolicy: row?.tool_policy,
         runtimePolicy: row?.runtime_policy,
         usageSpecification: row?.usage_specification,
+        inputSchema: row?.input_schema,
+        outputSchema: row?.output_schema,
+        outcomeSpecification: row?.outcome_specification,
       },
     });
     const dynamicAuthorization =
       dependencyAssessment?.decision === 'authorized'
         ? dependencyAssessment.authorization
         : undefined;
+    for (const child of dynamicAuthorization?.childDependencies ?? []) {
+      const facts = await this.#pool.query<{
+        enabled: boolean;
+        status: string;
+        valid_until: Date;
+        snapshot_hash: string;
+      }>(
+        `SELECT COALESCE(governance.lifecycle_status,CASE WHEN version.status='enabled' THEN 'published' ELSE version.status END)='published' AS enabled,
+           snapshot.status,snapshot.valid_until,snapshot.snapshot_hash
+         FROM skill_version version
+         LEFT JOIN runtime_skill_version_governance governance ON governance.skill_id=version.skill_id AND governance.skill_version=version.version
+         JOIN LATERAL (SELECT status,valid_until,snapshot_hash FROM capability_readiness_snapshot WHERE capability_id=$3 AND capability_version=$4 ORDER BY snapshot_version DESC LIMIT 1) snapshot ON TRUE
+         WHERE version.skill_id=$1 AND version.version=$2`,
+        [child.skillId, child.skillVersion, child.capabilityId, child.capabilityVersion],
+      );
+      const fact = facts.rows[0];
+      if (
+        !fact?.enabled ||
+        fact.status !== 'available' ||
+        fact.valid_until.getTime() <= Date.parse(evaluatedAt)
+      ) {
+        requiredUnavailable = true;
+        reasons.push(
+          reason(
+            'COMPOSED_CAPABILITY_DEPENDENCY_UNAVAILABLE',
+            'blocking',
+            `${child.capabilityId}@${String(child.capabilityVersion)}`,
+          ),
+        );
+      } else bindingPolicyParts.push(`child-readiness:${fact.snapshot_hash}`);
+    }
     const dependencyPolicyApplies =
       dependencyAssessment !== undefined && dependencyAssessment.decision !== 'not_applicable';
     if (providerPolicyOverride !== undefined || dependencyPolicyApplies) {

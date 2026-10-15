@@ -15,6 +15,36 @@ import {
 } from '../src/index.js';
 
 describe('RemoteTaskAdmissionRecoveryService', () => {
+  it('preserves the receipt observation time when reconstructing an immutable Provider link', async () => {
+    const recorded = admissionIntent('receipt_recorded');
+    if (recorded.receipt === undefined) throw Error('TEST_RECEIPT_REQUIRED');
+    const logical = uncertainLogicalIntent(recorded);
+    const receiptRecordedAt = '2026-08-13T03:00:00.000Z';
+    const intent = {
+      ...logical,
+      status: 'receipt_recorded' as const,
+      receipt: recorded.receipt,
+      receiptRecordedAt,
+    };
+    const save = vi.fn().mockImplementation((link) => Promise.resolve(link));
+    const service = recoveryService({
+      intents: [intent],
+      providerExecutionLinks: { save, findByBindingId: vi.fn() },
+      admit: vi.fn().mockResolvedValue({
+        binding: { bindingId: intent.envelope.bindingId, version: 1 },
+        created: true,
+        pollScheduled: true,
+      }),
+      recordExternalSnapshot: vi.fn().mockResolvedValue({ applied: true }),
+      markMaterialized: vi
+        .fn()
+        .mockResolvedValue({ applied: true, intent: { ...intent, status: 'materialized' } }),
+    });
+    await expect(service.reconcile()).resolves.toMatchObject({ materialized: 1 });
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ observedAt: receiptRecordedAt, provenance: 'committed_receipt' }),
+    );
+  });
   it('reads only a bounded PostgreSQL recovery batch', async () => {
     const listRecoverable = vi.fn().mockResolvedValue([]);
     const service = new RemoteTaskAdmissionRecoveryService({

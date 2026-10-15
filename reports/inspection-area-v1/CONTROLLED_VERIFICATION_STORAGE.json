@@ -1,0 +1,25 @@
+{
+  "status": "PROVISIONED_OWNED_VERIFICATION_FIXTURE",
+  "runId": "sdar-verify-2c3b7379-f439-4057-98e4-c26ef985a078",
+  "createdAt": "2026-10-14T03:34:59.415867+00:00",
+  "volume": {
+    "Name": "sdar-verify-2c3b7379-f439-4057-98e4-c26ef985a078_sdar-postgres-data",
+    "Driver": "local",
+    "Labels": {
+      "codex.owner": "inspection-area-v1",
+      "com.docker.compose.project": "sdar-verify-2c3b7379-f439-4057-98e4-c26ef985a078",
+      "com.docker.compose.volume": "sdar-postgres-data"
+    },
+    "Options": {
+      "device": "tmpfs",
+      "o": "size=2g",
+      "type": "tmpfs"
+    }
+  },
+  "storage": "memory-backed OS filesystem for disposable real PostgreSQL, matching the previously qualified local verification fixture",
+  "codeAndAssertionsChanged": false,
+  "fullGateTimeoutsChanged": false,
+  "liveStorageUnchanged": true,
+  "persistentCoverage": "Same final production source passed all 272 PostgreSQL integration cases and the complete E2E/performance stage in gate-07 on the original disposable volume. Native inspection lifecycle and joint scenarios use their separately owned persistent PostgreSQL.",
+  "productionDurabilityClaimed": false
+}

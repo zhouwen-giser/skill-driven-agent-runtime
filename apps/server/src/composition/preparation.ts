@@ -1,3 +1,4 @@
+import type { AreaReportInitialAdmission } from '../area-report-initial-admission.js';
 import type { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type {
@@ -78,6 +79,7 @@ import { runtimeErrorCode } from './runtime-support.js';
 import type { RuntimeValueRef } from './runtime-value-ref.js';
 import { TaskPlanningCandidateGenerator } from './task-planning-candidate-generator.js';
 export interface composePreparationDependencies {
+  readonly areaReportInitialAdmission: AreaReportInitialAdmission | undefined;
   readonly cleanupScope: RuntimeCleanupScope;
   options: ServerRuntimeOptions;
   readonly processor: RuntimeValueRef<PlanPreparationProcessor>;
@@ -326,6 +328,8 @@ export function composePreparation(dependencies: composePreparationDependencies)
       : {
           initialAdmission: {
             async admit(task) {
+              const area = await dependencies.areaReportInitialAdmission?.admit(task);
+              if (area !== undefined) return area;
               const binding = await taskCapabilities.findBinding(task.taskId);
               return binding?.requestedCapabilityId === UGV_AGENT_PROFILE_CAPABILITY_ID
                 ? ugvInitialAdmission.admit(task)

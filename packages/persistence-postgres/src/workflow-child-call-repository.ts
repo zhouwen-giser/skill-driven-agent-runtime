@@ -33,7 +33,22 @@ export class PostgresWorkflowChildCallRepository implements WorkflowChildCallRep
           JOIN workflow_plan child ON child.plan_id=$2
         WHERE parent.instance_id=$1 AND ${scope.predicate}
           AND child.device_id IS NOT DISTINCT FROM workflow_plan.device_id
-          AND child.gowm_task_id IS NOT DISTINCT FROM workflow_plan.gowm_task_id
+          AND (child.gowm_task_id IS NOT DISTINCT FROM workflow_plan.gowm_task_id
+               OR EXISTS(SELECT 1 FROM agent_task ct JOIN agent_task pt ON pt.plan_id=workflow_plan.plan_id
+                 JOIN task_capability_binding cb ON cb.task_id=ct.task_id
+                 JOIN task_capability_binding pb ON pb.task_id=pt.task_id
+                 WHERE ct.plan_id=child.plan_id AND child.gowm_task_id=ct.task_id
+                   AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentTaskId'=pt.task_id
+                   AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentPlanId'=workflow_plan.plan_id
+                   AND ct.device_id IS NOT DISTINCT FROM pt.device_id
+                   AND ct.sdar_service_key IS NOT DISTINCT FROM pt.sdar_service_key
+                   AND pb.requested_capability_id='embodied.area_patrol'
+                   AND EXISTS(SELECT 1 FROM jsonb_array_elements(pb.constraint_snapshot) c,
+                     jsonb_array_elements(CASE WHEN c->>'type'='composition_authority_policy' THEN c->'children' ELSE '[]'::jsonb END) s
+                     WHERE s->>'capabilityId'=cb.requested_capability_id
+                       AND s->>'capabilityVersion'=cb.capability_version::text
+                       AND s->>'skillId'=ct.selected_skill_id
+                       AND s->>'skillVersion'=ct.selected_skill_version::text)))
           AND ($3::text IS NULL OR EXISTS(SELECT 1 FROM workflow_instance ci
             WHERE ci.instance_id=$3 AND ci.plan_id=child.plan_id))
         FOR KEY SHARE OF workflow_plan,child`,

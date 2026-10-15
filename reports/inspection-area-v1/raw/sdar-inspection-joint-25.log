@@ -1,0 +1,61 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-e348ac58-c751-405d-bdec-cf651495c7ff","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-e348ac58-c751-405d-bdec-cf651495c7ff","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-e348ac58-c751-405d-bdec-cf651495c7ff","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-e348ac58-c751-405d-bdec-cf651495c7ff","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-e348ac58-c751-405d-bdec-cf651495c7ff","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-e348ac58-c751-405d-bdec-cf651495c7ff","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-e348ac58-c751-405d-bdec-cf651495c7ff","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}]}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:102
+  throw Error('JOINT_WAIT_TIMEOUT:' + JSON.stringify(last) + ':' + stderr.slice(-1500));
+        ^
+
+Error: JOINT_WAIT_TIMEOUT:{"task_id":"bf81bf4c-0d77-4e0c-87e0-d335e6a5a6ce","context_id":"9c8e38cf-26e0-4d9e-aaf3-41e9a51299fb","phase":"executing","plan_id":"plan-task-bf81bf4c-0d77-4e0c-87e0-d335e6a5a6ce-f70d7191-73df-4d45-bdc1-bf02d6fdd792","output_structured":null,"error_code":null,"selected_skill_id":"embodied.inspect_area"}:
+    at until (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:102:9)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:512:22)
+
+Node.js v22.23.2

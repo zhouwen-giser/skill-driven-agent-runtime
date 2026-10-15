@@ -14,6 +14,111 @@ const CATALOG_REVISION = 'catalog-ugv1-profile-v1';
 const CATALOG_CHECKSUM = 'c'.repeat(64);
 
 describe('dynamic Skill Provider dependency readiness', () => {
+  it.each(['current', 'expired', 'suspended', 'missing', 'unavailable'] as const)(
+    'checks the exact composed child freshness and lifecycle: %s',
+    async (state) => {
+      const query = vi.fn((statement: string) => {
+        if (statement.includes('JOIN LATERAL'))
+          return Promise.resolve({
+            rows:
+              state === 'missing'
+                ? []
+                : [
+                    {
+                      enabled: state !== 'suspended',
+                      status: state === 'unavailable' ? 'unavailable' : 'available',
+                      valid_until: new Date(
+                        state === 'expired' ? '2026-08-21T11:00:00Z' : '2026-08-21T13:00:00Z',
+                      ),
+                      snapshot_hash: 'child-hash',
+                    },
+                  ],
+          });
+        if (statement.includes('FROM skill_version version'))
+          return Promise.resolve({
+            rows: [
+              {
+                exists: true,
+                enabled: true,
+                validation_passed: true,
+                tool_policy: { required: [], optional: [], forbidden: [] },
+                runtime_policy: { maxLlmCalls: 0 },
+                usage_specification: { apiVersion: 'exact-usage' },
+                package_checksum: 'a'.repeat(64),
+              },
+            ],
+          });
+        if (statement.includes('FROM stage_model_route'))
+          return Promise.resolve({ rows: [{ available: false, fingerprint: 'none' }] });
+        throw Error('UNEXPECTED_COMPOSITION_QUERY');
+      });
+      const findCurrentAuthority = () =>
+        Promise.resolve({
+          binding: {
+            bindingId: BINDING_ID,
+            revision: 7,
+            localServerId: SERVER_ID,
+            endpointRef: 'https://ugv-profile.example.test/mcp',
+            catalogRevision: CATALOG_REVISION,
+            catalogChecksum: CATALOG_CHECKSUM,
+            operationCount: 2,
+            availabilityStatus: 'available' as const,
+            availabilityValidUntil: '2026-08-21T13:00:00Z',
+          },
+        });
+      const loadCurrentAuthority = () =>
+        Promise.resolve({
+          endpoint: 'https://ugv-profile.example.test/mcp',
+          status: 'enabled' as const,
+          serverUpdatedAt: '2026-08-21T11:59:30Z',
+          snapshotValidUntil: '2026-08-21T13:00:00Z',
+          toolRevision: 12,
+          protocolMode: 'frozen_v1' as const,
+          snapshotToolRevision: 12,
+          catalogRevision: CATALOG_REVISION,
+          catalogChecksum: CATALOG_CHECKSUM,
+          discoveredCatalogChecksum: CATALOG_CHECKSUM,
+          operationCount: 2,
+          toolNames: ['vehicle_get_state', 'vehicle_navigate'],
+        });
+      const repository = new PostgresRuntimeCapabilityReadinessRepository(
+        { query } as unknown as Pool,
+        { findCurrentAuthority },
+        { loadCurrentAuthority },
+        {
+          assess: () => ({
+            decision: 'authorized',
+            authorization: {
+              ...authorization(),
+              childDependencies: [
+                {
+                  skillId: 'embodied.inspect_area',
+                  skillVersion: 1,
+                  capabilityId: 'embodied.inspect_area',
+                  capabilityVersion: 1,
+                },
+              ],
+            },
+          }),
+        },
+      );
+      const [assessment] = await repository.assessImplementations(
+        readinessInput(),
+        '2026-08-21T12:00:00Z',
+      );
+      expect(assessment?.available).toBe(state === 'current');
+      if (state !== 'current')
+        expect(assessment?.reasons).toContainEqual(
+          expect.objectContaining({ code: 'COMPOSED_CAPABILITY_DEPENDENCY_UNAVAILABLE' }),
+        );
+      expect(query).toHaveBeenCalledWith(expect.stringContaining('JOIN LATERAL'), [
+        'embodied.inspect_area',
+        1,
+        'embodied.inspect_area',
+        1,
+      ]);
+    },
+  );
   it.each([
     ['current', true, undefined],
     ['new-binding-revision', true, undefined],

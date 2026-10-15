@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/tmp/smpp-inspection-v1-20261014/deployment/verify-preservation.py", line 23, in <module>
+    mounts=[{'type':m['Type'],'source':m['Source'],'destination':m['Destination'],'rw':m['RW']} for m in row['Mounts']];assert mounts==prior['mounts'],'UPSTREAM_MOUNT_CHANGED:'+prior['name']
+                                                                                                                               ^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: UPSTREAM_MOUNT_CHANGED:gowm-analysis-dev-f3dc6f4b8e-gdps-1

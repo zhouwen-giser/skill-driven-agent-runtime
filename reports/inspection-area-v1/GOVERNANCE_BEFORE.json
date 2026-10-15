@@ -1,0 +1,247 @@
+{
+  "capturedAt": "2026-10-14T03:05:43.918Z",
+  "skills": [
+    {
+      "skillId": "embodied.move_to",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.area-recon",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.control-gimbal",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.emergency-stop",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.get-capabilities",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.get-payload-status",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.get-state",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.get-targets",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.navigate-distance",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.navigate-route",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.return-home",
+      "version": 1,
+      "status": "enabled"
+    },
+    {
+      "skillId": "ugv.track-target",
+      "version": 1,
+      "status": "enabled"
+    }
+  ],
+  "capabilities": [
+    {
+      "capabilityId": "embodied.move",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.control-gimbal",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.emergency-stop",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.navigate-distance",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.navigate-route",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-capabilities",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-payload",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-state",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-targets",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.recon",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.return-home",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "capabilityId": "vehicle.ugv.track-target",
+      "version": 1,
+      "status": "published"
+    }
+  ],
+  "exposures": [
+    {
+      "exposureId": "a2a.embodied.move",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.control-gimbal",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.emergency-stop",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.navigate-distance",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.navigate-route",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-capabilities",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-payload",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-state",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-targets",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.recon",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.return-home",
+      "version": 1,
+      "status": "published"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.track-target",
+      "version": 1,
+      "status": "published"
+    }
+  ],
+  "cardSkills": [
+    {
+      "id": "embodied.move_to",
+      "name": "Move UGV"
+    },
+    {
+      "id": "ugv.area-recon",
+      "name": "Run UGV area reconnaissance"
+    },
+    {
+      "id": "ugv.control-gimbal",
+      "name": "Control UGV gimbal"
+    },
+    {
+      "id": "ugv.emergency-stop",
+      "name": "Emergency-stop UGV"
+    },
+    {
+      "id": "ugv.get-capabilities",
+      "name": "Read UGV capabilities"
+    },
+    {
+      "id": "ugv.get-payload-status",
+      "name": "Read UGV payload status"
+    },
+    {
+      "id": "ugv.get-state",
+      "name": "Read UGV state"
+    },
+    {
+      "id": "ugv.get-targets",
+      "name": "Read UGV targets"
+    },
+    {
+      "id": "ugv.navigate-distance",
+      "name": "Navigate UGV distance"
+    },
+    {
+      "id": "ugv.navigate-route",
+      "name": "Navigate UGV route"
+    },
+    {
+      "id": "ugv.return-home",
+      "name": "Return UGV home"
+    },
+    {
+      "id": "ugv.track-target",
+      "name": "Track a UGV target"
+    }
+  ],
+  "identity": {
+    "SDAR_UGV_BINDING_ID": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+    "SDAR_UGV_SOURCE_ID": "sz-gowm-smpp",
+    "SDAR_UGV_SERVER_ID": "smpp-sz-gowm",
+    "SDAR_UGV_RESOURCE_ID": "vehicle:ugv",
+    "SDAR_UGV_EXTERNAL_PROVIDER_ID": "isr.vehicle.ugv.ugv",
+    "SDAR_UGV_EXTERNAL_SERVER_ID": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1"
+  }
+}

@@ -66,7 +66,9 @@ import { UgvNaturalLanguageCapabilityAdmissionResolver } from '.././ugv-natural-
 import type { ServerRuntimeOptions } from './contracts.js';
 import type { RuntimeCleanupScope } from './runtime-cleanup-scope.js';
 import type { RuntimeValueRef } from './runtime-value-ref.js';
+import type { GovernedChildTaskPort } from '../../../../packages/application/src/governed-child-task.js';
 export interface composeTasksDependencies {
+  readonly governedPatrolChildren: RuntimeValueRef<GovernedChildTaskPort | undefined>;
   readonly cleanupScope: RuntimeCleanupScope;
   options: ServerRuntimeOptions;
   readonly resolveDeviceOwnership:
@@ -279,6 +281,21 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
               });
               return;
             }
+            if (
+              input.task.selectedSkillId === 'embodied.area_patrol' &&
+              (input.task.selectedSkillVersion ?? 0) >= 2
+            ) {
+              const binding = await taskCapabilities.findBinding(input.task.taskId);
+              if (
+                binding?.requestedCapabilityId !== 'embodied.area_patrol' ||
+                binding.constraintSnapshot.filter(
+                  (item) => item['type'] === 'composition_authority_policy',
+                ).length !== 1
+              )
+                throw Error('PATROL_COMPOSITION_CONFIRMATION_AUTHORITY_MISSING');
+              // Each physical child receives its own exact confirmation; parent confirmation permits composition.
+              return;
+            }
             const declaration =
               input.task.selectedSkillId === undefined
                 ? undefined
@@ -327,9 +344,15 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
         }
       : {}),
     planActions: {
-      async confirm(task) {
+      async confirm(task, authority) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        if (await skillCallWorkflowService.confirmPendingForParentPlan(task.planId, task.taskId))
+        if (
+          await skillCallWorkflowService.confirmPendingForParentPlan(
+            task.planId,
+            task.taskId,
+            authority,
+          )
+        )
           return 'nested_skill_plan';
         await workflowExecution.confirm(task.planId, task.taskId);
         return 'task_plan';
@@ -452,6 +475,7 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
       async patchGoal(task, instruction) {
         if (task.goalId === undefined || task.planId === undefined)
           throw new Error('TASK_PLAN_NOT_ATTACHED');
+        await dependencies.governedPatrolChildren.value?.cancelChildren(task.taskId, task.planId);
         await goalPatches.apply({
           goalId: task.goalId,
           sourcePlanId: task.planId,
@@ -480,6 +504,8 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
           });
       },
       async commitRuntimeCancellation(task, reason) {
+        if (task.planId !== undefined)
+          await dependencies.governedPatrolChildren.value?.cancelChildren(task.taskId, task.planId);
         if (
           task.goalId === undefined ||
           task.goalVersion === undefined ||
@@ -507,6 +533,13 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
           active === undefined
             ? undefined
             : await workflowExecution.cancelForPlan(control.currentPlanId);
+        const retainedReport =
+          task.selectedSkillId === 'embodied.area_patrol' && (task.selectedSkillVersion ?? 0) >= 2
+            ? {
+                ...(await taskCapabilities.readPatrolTerminalReport(task.taskId, task.planId)),
+                status: 'cancelled',
+              }
+            : undefined;
         try {
           await userGoalPlanController.adjudicateCancellation({
             outcomeId: `terminal-outcome-task-${task.taskId}`,
@@ -518,6 +551,7 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
               ? {}
               : { finalInstanceId: canceled?.instanceId ?? control.finalInstanceId }),
             summary: reason,
+            ...(retainedReport === undefined ? {} : { retainedReport }),
             eventId: `event-terminal-${task.taskId}`,
             committedAt: clock.now(),
           });
@@ -530,6 +564,7 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
       },
       async cancel(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        await dependencies.governedPatrolChildren.value?.cancelChildren(task.taskId, task.planId);
         if (await skillCallWorkflowService.rejectPendingForParentPlan(task.planId)) return;
         if (task.phase === 'awaiting_plan_confirmation' || task.phase === 'canceled') return;
         await workflowExecution.cancelForPlan(task.planId);
@@ -545,6 +580,8 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
       },
       async cancelGoal(task, reason) {
         if (task.goalId === undefined) throw new Error('TASK_GOAL_NOT_ATTACHED');
+        if (task.planId !== undefined)
+          await dependencies.governedPatrolChildren.value?.cancelChildren(task.taskId, task.planId);
         await goalCancellations.cancel(task.goalId, reason);
       },
     },

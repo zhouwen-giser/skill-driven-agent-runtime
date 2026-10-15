@@ -248,6 +248,16 @@ export function composeMcp(dependencies: composeMcpDependencies) {
           }),
           modes: new SkillModeSelector(),
         });
+  const profileSkillUsage = {
+    assess(
+      skill: Parameters<SkillUsageCandidateAssessor['assess']>[0],
+      context: Parameters<SkillUsageCandidateAssessor['assess']>[1],
+    ) {
+      return ugvSkillUsage !== undefined && isHistoricalUgvPointSkill(skill.skillId, skill.version)
+        ? ugvSkillUsage.assess(skill, context)
+        : skillUsage.assess(skill, context);
+    },
+  };
   const createDeterministicSkillSelection = (
     input: DeterministicCapabilityExecutionInput,
     contract: Pick<ManagedDeterministicReadOnlyAdmission, 'readinessAttributes'>,
@@ -451,6 +461,7 @@ export function composeMcp(dependencies: composeMcpDependencies) {
     taskReadiness,
     mcpRegistry,
     skillUsage,
+    profileSkillUsage,
     skillSelection,
     ugvMoveBindingResolver,
     frozenMcpRegistry,

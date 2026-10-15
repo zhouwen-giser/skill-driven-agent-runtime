@@ -1,0 +1,4 @@
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/src/repositories.ts(2840,17): error TS2339: Property 'selected_skill_id' does not exist on type '{ task_id: string; context_id: string; phase: TaskPhase; goal_id: string | null; goal_version: number | null; }'.
+packages/persistence-postgres/src/repositories.ts(2841,19): error TS2339: Property 'selected_skill_version' does not exist on type '{ task_id: string; context_id: string; phase: TaskPhase; goal_id: string | null; goal_version: number | null; }'.
+[ELIFECYCLE] Command failed with exit code 2.

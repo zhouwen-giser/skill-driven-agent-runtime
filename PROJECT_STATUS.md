@@ -1,5 +1,9 @@
 # Project Status
 
+## 区域检查与巡逻接入（2026-10-15，LOCAL_DEPLOYED_READONLY_ACCEPTED）
+
+SMPP vehicle_inspect_area、SDAR embodied.inspect_area 及巡逻后继版本已完成本次实现和本地只读交付。SMPP 完整门禁、最终 SDAR 30 阶段与清理、八场景真实 PostgreSQL/MQTT/Device MCP 隔离链均通过。19100 提供精确 13 工具；原生同 Provider CAS 目录升级保留绑定身份和旧版本，检查、巡逻及全部 14 项站点清单通过治理发布和只读组合验收。五个目标容器已更新，卷、签名密钥、PMS、绑定及 48 个上游实例保留。失败回执继续保存。交付、源码、镜像和证据哈希见 reports/inspection-area-v1/FINAL_VALIDATION.json；现场巡逻、生产回退演练及全项目生产验收仍为 NOT_RUN/OPEN。下述旧部署记录为历史。
+
 ## Local SMPP integrated deployment (2026-10-14, LOCAL_DEPLOYED_WITH_CAPABILITY_GAP)
 
 Reviewed source `ac7838da` / source hash `066963dd…` is reproducibly packaged and deployed. All 2,921 source-file hashes, generated metadata and revision labels match in Runtime, Control API and Worker. Official PMS/current Telemetry and 13 actual GET checks pass; the exact 12-tool Catalog includes two synchronous read-only trajectory operations and publishes 12 Skills. GOWM owner storage, separate Control database, original volumes, private configuration and binding history are preserved. Snapshot history is excluded from the scoped backup; its original live data remains intact.

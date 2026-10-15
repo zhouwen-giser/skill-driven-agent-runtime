@@ -1,3 +1,9 @@
+import { parseAreaPatrolInput } from '../../domain/src/area-patrol.js';
+import {
+  capabilityDispatchInput,
+  inspectionReportComplete,
+  projectInspectionResult,
+} from '../../domain/src/area-inspection.js';
 import {
   FROZEN_TASK_BUSINESS_OPERATION_POLICY,
   type TaskBusinessOperationPolicy,
@@ -142,6 +148,7 @@ export interface TaskCapabilityPhysicalDispatchEvidence {
     localState: string;
     providerFailureCount: number;
     providerEvidence: readonly unknown[];
+    providerResult?: unknown;
     resultIsError?: boolean;
     lastSafeErrorCode?: string;
     invalidatedAt?: string;
@@ -218,6 +225,7 @@ export class RuntimeTaskCapabilityService {
   readonly #physicalEvidence: TaskCapabilityPhysicalEvidenceSource | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #runtimeProviderBindings: RuntimeMcpProviderBindingAdmissionVerifier | undefined;
+  #patrolEvidence: PatrolCapabilityEvidenceSource | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -435,6 +443,26 @@ export class RuntimeTaskCapabilityService {
     await this.#store.bindInitialPlan(taskId, planId);
   }
 
+  configurePatrolEvidence(reader: PatrolCapabilityEvidenceSource): void {
+    if (this.#patrolEvidence !== undefined) throw Error('PATROL_EVIDENCE_ALREADY_BOUND');
+    this.#patrolEvidence = reader;
+  }
+
+  async readPatrolTerminalReport(
+    taskId: string,
+    planId: string,
+  ): Promise<Readonly<Record<string, unknown>>> {
+    const binding = await this.#store.findBinding(taskId);
+    if (
+      !binding ||
+      !this.#patrolEvidence ||
+      binding.requestedCapabilityId !== 'embodied.area_patrol'
+    )
+      throw Error('PATROL_EVIDENCE_NOT_BOUND');
+    await this.resolveSkillUsageAuthority(taskId);
+    return this.#patrolEvidence.read(taskId, binding, planId);
+  }
+
   /**
    * Projects only context evidence already frozen by Capability admission. The
    * current Provider Binding is re-verified on both Control and Runtime sides;
@@ -533,6 +561,9 @@ export class RuntimeTaskCapabilityService {
               status: 'available' as const,
               evidenceRef: `node-control-provider-binding:${providerBindingId}:revision:${String(authority.binding.revision)}:observed-at:${authority.observedAt}`,
             }),
+            ...(binding.requestedCapabilityId === 'embodied.area_patrol'
+              ? patrolContextObservations(binding)
+              : []),
           ]),
           risk: !sideEffectPolicy['sideEffecting'] ? ('low' as const) : ('high' as const),
           humanConfirmation: confirmationPolicy['required']
@@ -540,7 +571,9 @@ export class RuntimeTaskCapabilityService {
             : ('not_requested' as const),
           taskAvailabilityArguments: Object.freeze({
             unresolved: false as const,
-            value: Object.freeze(structuredClone(input)),
+            value: Object.freeze(
+              structuredClone(capabilityDispatchInput(binding)) as Record<string, unknown>,
+            ),
           }),
           ...(runtimeExecutionContext === undefined ? {} : { runtimeExecutionContext }),
           systemPolicy: Object.freeze({
@@ -657,6 +690,56 @@ export class RuntimeTaskCapabilityService {
       !['prepared', 'running', 'waiting'].includes(latestAttempt.status)
     )
       terminal('Capability completion requires the latest active execution attempt.');
+    if (binding.requestedCapabilityId === 'embodied.area_patrol') {
+      const criteria = binding.successCriteriaSnapshot;
+      const composition = binding.constraintSnapshot.filter(
+        (item) => item['type'] === 'composition_authority_policy',
+      );
+      const confirmation = binding.constraintSnapshot.filter(
+        (item) => item['type'] === 'confirmation_policy',
+      );
+      if (
+        context.outputSchemaValid !== true ||
+        !latestAttempt.planId ||
+        criteria.length !== 2 ||
+        !criteria.some(
+          (item) => item['type'] === 'output_schema_valid' && item['required'] === true,
+        ) ||
+        !criteria.some(
+          (item) =>
+            item['type'] === 'patrol_report_outcome' && item['incompleteOutcome'] === 'degraded',
+        ) ||
+        composition.length !== 1 ||
+        !Array.isArray(composition[0]?.['children']) ||
+        composition[0]['children'].length !== 2 ||
+        confirmation.length !== 1 ||
+        confirmation[0]?.['required'] !== true ||
+        confirmation[0]['autoConfirmPlan'] !== false ||
+        binding.evidenceRequirementSnapshot.length !== 1 ||
+        binding.evidenceRequirementSnapshot[0]?.['type'] !== 'native_patrol_child_reports' ||
+        binding.evidenceRequirementSnapshot[0]['required'] !== true ||
+        exactlyOneSideEffectPolicy(binding.constraintSnapshot)['type'] !==
+          'composed_side_effect_policy' ||
+        exactlyOneSideEffectPolicy(binding.constraintSnapshot)['replay'] !== 'forbidden' ||
+        composition[0]['maximumSubregions'] !== 1 ||
+        composition[0]['requiredTrajectory'] !== 'retained_actual_navigation'
+      )
+        terminal('Patrol requires an exact frozen composition and explicit Plan confirmation.');
+      const expected = await this.readPatrolTerminalReport(taskId, latestAttempt.planId);
+      if (
+        canonical(expected) !== canonical(result) ||
+        !['completed', 'degraded', 'failed'].includes(String(result['status']))
+      )
+        terminal('Patrol report differs from its native child Task evidence.');
+      return Object.freeze({
+        taskId,
+        bindingId: binding.bindingId,
+        bindingHash: binding.bindingHash,
+        attemptId: latestAttempt.attemptId,
+        requestedCapabilityId: binding.requestedCapabilityId,
+        capabilityVersion: binding.capabilityVersion,
+      });
+    }
     const taskInvocations =
       this.#evidence === undefined ? [] : await this.#evidence.listInvocationsByTask(taskId);
     const invocations = taskInvocations.filter(
@@ -924,7 +1007,7 @@ function createPhysicalDispatchProof(
       nonEmpty(invocation.controlArgumentsHash) &&
       nonEmpty(invocation.controlDispatchHash) &&
       invocation.controlArgumentsHash === canonicalHash(invocation.arguments) &&
-      invocation.controlArgumentsHash === canonicalHash(binding.inputSnapshot) &&
+      invocation.controlArgumentsHash === canonicalHash(capabilityDispatchInput(binding)) &&
       confirmation?.confirmationId === invocation.controlConfirmationId &&
       confirmation.consumedInvocationId === invocation.invocationId &&
       confirmation.consumedDispatchHash === invocation.controlDispatchHash &&
@@ -1159,6 +1242,25 @@ function criterionSatisfied(
   context: Readonly<{ outputSchemaValid?: boolean }>,
   physicalDispatches?: PhysicalDispatchProof,
 ) {
+  if (criterion['type'] === 'inspection_report_outcome' && criterion['required'] === true) {
+    if (
+      binding.requestedCapabilityId !== 'embodied.inspect_area' ||
+      physicalDispatches?.valid !== true
+    )
+      return false;
+    const raw = physicalDispatches.dispatches[0]?.evidence.remoteTask?.providerResult;
+    if (!isRecord(raw)) return false;
+    try {
+      const projected = projectInspectionResult(raw);
+      return (
+        canonical(projected) === canonical(result) &&
+        (inspectionReportComplete(result) ||
+          (result['status'] === 'degraded' && criterion['incompleteOutcome'] === 'degraded'))
+      );
+    } catch {
+      return false;
+    }
+  }
   if (criterion['type'] === 'field_equals' && typeof criterion['field'] === 'string')
     return Object.is(result[criterion['field']], criterion['value']);
   if (criterion['type'] === 'coverage' && typeof criterion['minimum'] === 'number')
@@ -1319,6 +1421,20 @@ function constraintSatisfied(
   physicalDispatches: PhysicalDispatchProof | undefined,
   operationPolicy: TaskBusinessOperationPolicy,
 ) {
+  if (constraint['type'] === 'inspection_input_adapter') {
+    try {
+      return (
+        binding.requestedCapabilityId === 'embodied.inspect_area' &&
+        physicalDispatches?.valid === true &&
+        physicalDispatches.dispatches.every(
+          ({ invocation }) =>
+            canonical(invocation.arguments) === canonical(capabilityDispatchInput(binding)),
+        )
+      );
+    } catch {
+      return false;
+    }
+  }
   if (constraint['type'] === 'authorization' || constraint['type'] === 'safety') {
     const evidence = result['policyEvidence'];
     return (
@@ -1710,7 +1826,8 @@ function exactlyOneSideEffectPolicy(
   const matches = constraints.filter(
     (constraint) =>
       constraint['type'] === 'side_effect_policy' ||
-      constraint['type'] === 'physical_side_effect_policy',
+      constraint['type'] === 'physical_side_effect_policy' ||
+      constraint['type'] === 'composed_side_effect_policy',
   );
   const match = matches[0];
   if (matches.length !== 1 || match === undefined)
@@ -1757,4 +1874,24 @@ export class TaskCapabilityError extends Error {
     super(message);
     this.name = 'TaskCapabilityError';
   }
+}
+
+export interface PatrolCapabilityEvidenceSource {
+  read(
+    taskId: string,
+    binding: TaskCapabilityBinding,
+    planId: string,
+  ): Promise<Readonly<Record<string, unknown>>>;
+}
+
+function patrolContextObservations(binding: TaskCapabilityBinding) {
+  parseAreaPatrolInput(binding.inputSnapshot);
+  return ['area-boundary', 'time-window', 'area-partition'].map((requirementId) =>
+    Object.freeze({
+      requirementId,
+      source: 'authoritative_context' as const,
+      status: 'available' as const,
+      evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}:${requirementId}`,
+    }),
+  );
 }

@@ -1,0 +1,474 @@
+{
+  "definition": {
+    "name": "Governed area patrol",
+    "domain": "embodied",
+    "status": "published",
+    "effects": ["effect.patrol_reported"],
+    "version": 1,
+    "artifacts": [],
+    "riskLevel": "medium",
+    "constraints": [
+      {
+        "type": "resource_policy",
+        "selection": "exact_value",
+        "allowedResourceIds": ["vehicle:ugv1"],
+        "identifierAuthority": "public_smpp_tool_schema",
+        "downstreamResourceBinding": "forbidden"
+      },
+      {
+        "type": "provider_binding_policy",
+        "fallback": "deny",
+        "mcpToolName": "vehicle_inspect_area",
+        "taskBehavior": "task_required",
+        "localServerId": "inspection-provider",
+        "requiredStatus": "active",
+        "bindingRevision": 1,
+        "catalogChecksum": "d5b6949b2380449aef7ba82c2fa63ef79cacf178731773876f167daa643e0ede",
+        "catalogRevision": "2.0.0-rc.1:1",
+        "registryChecksum": "cb2f41c399204d8e28437df1a29814f1c0c2769e86c0ed6f0d0b7dd36642d886",
+        "registryRevision": 1,
+        "requiredFreshness": "unexpired",
+        "allowedResourceIds": ["vehicle:ugv1"],
+        "executionSemantics": {
+          "effect": "side_effecting",
+          "replay": "forbidden",
+          "source": "admin_override",
+          "execution": "task_required",
+          "idempotency": "server_managed",
+          "cancellation": "task_cancel"
+        },
+        "mcpProviderBindingId": "inspection-provider-binding",
+        "requiredAvailabilityStatus": "available"
+      },
+      {
+        "type": "exact_skill_version",
+        "skillId": "embodied.area_patrol",
+        "taskType": "embodied.area_patrol",
+        "skillVersion": 2
+      },
+      {
+        "type": "confirmation_policy",
+        "stage": "before_execution",
+        "required": true,
+        "autoConfirmPlan": false
+      },
+      {
+        "type": "composed_side_effect_policy",
+        "replay": "forbidden",
+        "sideEffecting": true,
+        "exactChildConfirmationRequired": true
+      },
+      {
+        "type": "composition_authority_policy",
+        "version": 1,
+        "children": [
+          {
+            "skillId": "embodied.move_to",
+            "exposureId": "a2a.embodied.move",
+            "capabilityId": "embodied.move",
+            "skillVersion": 1,
+            "exposureVersion": 1,
+            "capabilityVersion": 1
+          },
+          {
+            "skillId": "embodied.inspect_area",
+            "exposureId": "a2a.embodied.inspect_area",
+            "capabilityId": "embodied.inspect_area",
+            "skillVersion": 1,
+            "exposureVersion": 1,
+            "capabilityVersion": 1
+          }
+        ],
+        "maximumSubregions": 1,
+        "requiredTrajectory": "retained_actual_navigation"
+      },
+      {
+        "mode": "simulation",
+        "type": "runtime_execution_mode_policy",
+        "simulationId": "uap-p3-b02-inspection-joint-2ce7bf1afa664060b58e641681c554a0"
+      }
+    ],
+    "description": "Treat the admitted legal area as subregion-1, compose exact governed movement and inspection child Tasks, and require retained actual trajectory and scoped coverage for complete success.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["resourceId", "target", "area", "timeWindow"],
+      "properties": {
+        "area": {
+          "type": "object",
+          "required": ["boundary"],
+          "properties": {
+            "frame": {
+              "enum": ["WGS84", "EPSG:4326"],
+              "type": "string"
+            },
+            "boundary": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["x", "y"],
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "maximum": 180,
+                    "minimum": -180
+                  },
+                  "y": {
+                    "type": "number",
+                    "maximum": 90,
+                    "minimum": -90
+                  }
+                },
+                "additionalProperties": false
+              },
+              "maxItems": 257,
+              "minItems": 3
+            },
+            "excludedZones": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "target": {
+          "type": "object",
+          "required": ["x", "y", "frame"],
+          "properties": {
+            "x": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180
+            },
+            "y": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90
+            },
+            "frame": {
+              "type": "string",
+              "const": "WGS84"
+            }
+          },
+          "additionalProperties": false
+        },
+        "resourceId": {
+          "type": "string",
+          "const": "vehicle:ugv1"
+        },
+        "timeWindow": {
+          "type": "object",
+          "required": ["earliestStart", "deadline"],
+          "properties": {
+            "deadline": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "earliestStart": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilityId": "embodied.area_patrol",
+    "outputSchema": {
+      "type": "object",
+      "required": [
+        "status",
+        "coveredSubregions",
+        "missingSubregions",
+        "trajectory",
+        "anomalies",
+        "resourceId",
+        "missingEffects",
+        "missingEvidence",
+        "childTasks",
+        "inspectionReports",
+        "trajectorySourceRefs"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["completed", "degraded", "failed", "cancelled"]
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "maxItems": 256
+        },
+        "childTasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["taskId", "skillId", "skillVersion", "status", "missingEvidence"],
+            "properties": {
+              "status": {
+                "enum": ["completed", "failed", "canceled", "unavailable"]
+              },
+              "taskId": {
+                "type": "string"
+              },
+              "skillId": {
+                "type": "string"
+              },
+              "skillVersion": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "missingEvidence": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 2
+        },
+        "resourceId": {
+          "type": "string",
+          "const": "vehicle:ugv1"
+        },
+        "trajectory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["resourceId", "position"],
+            "properties": {
+              "position": {
+                "type": "object",
+                "required": ["x", "y"],
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "frame": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "resourceId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 4096
+        },
+        "missingEffects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missingEvidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coveredSubregions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inspectionReports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["subregionId", "taskId", "report", "missingEvidence"],
+            "properties": {
+              "report": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "required": [
+                      "version",
+                      "completion",
+                      "targetReportObservedAt",
+                      "targetReportComplete",
+                      "coverageState",
+                      "findingCount",
+                      "truncated",
+                      "artifactRefs"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "const": "1.0"
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      },
+                      "completion": {
+                        "enum": ["complete", "partial", "unavailable"],
+                        "type": "string"
+                      },
+                      "artifactRefs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["kind", "id", "revision"],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "artifact"
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "maximum": 9007199254740991,
+                              "exclusiveMinimum": 0
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "maxItems": 256
+                      },
+                      "findingCount": {
+                        "type": "integer",
+                        "maximum": 9007199254740991,
+                        "minimum": 0
+                      },
+                      "coverageState": {
+                        "enum": ["full", "partial", "none", "unknown"],
+                        "type": "string"
+                      },
+                      "targetReportComplete": {
+                        "type": "boolean"
+                      },
+                      "targetReportObservedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "taskId": {
+                "type": "string"
+              },
+              "subregionId": {
+                "const": "subregion-1"
+              },
+              "missingEvidence": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 1
+        },
+        "missingSubregions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trajectorySourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        }
+      },
+      "additionalProperties": false
+    },
+    "definitionHash": "9208df2b08a30611a97533e01f38dbb5eb5908513d9e28649fa543738136a5c0",
+    "supportedModes": ["plan_confirmed", "composition"],
+    "successCriteria": [
+      {
+        "type": "output_schema_valid",
+        "required": true
+      },
+      {
+        "type": "patrol_report_outcome",
+        "required": true,
+        "incompleteOutcome": "degraded",
+        "fullSuccessRequires": [
+          "native_child_tasks",
+          "scoped_inspection_report",
+          "actual_trajectory"
+        ]
+      }
+    ],
+    "requiredEvidence": [
+      {
+        "type": "native_patrol_child_reports",
+        "required": true,
+        "evidenceType": "patrol.report"
+      }
+    ]
+  },
+  "implementation": {
+    "role": "primary",
+    "status": "active",
+    "priority": 0,
+    "revision": 1,
+    "bindingId": "capability-binding-embodied.area_patrol-v1",
+    "capabilityId": "embodied.area_patrol",
+    "implementationId": "embodied.area_patrol",
+    "capabilityVersion": 1,
+    "implementationType": "skill",
+    "implementationVersion": "2",
+    "providerPolicyOverride": {
+      "selection": "required",
+      "mcpToolName": "vehicle_inspect_area",
+      "denyFallback": true,
+      "localServerId": "inspection-provider",
+      "requireActive": true,
+      "requireAvailable": true,
+      "allowedResourceIds": ["vehicle:ugv1"],
+      "mcpProviderBindingId": "inspection-provider-binding",
+      "requireUnexpiredFreshness": true
+    }
+  }
+}

@@ -2844,7 +2844,7 @@ async function ensureCapability(
         { reason: 'Validate exact embodied.move@2 UGV Profile authority.' },
         200,
         request,
-        nodeCapabilityEtag(current as NodeCapabilityDefinitionVersion),
+        nodeCapabilityEtag(current),
       ),
     );
   }
@@ -2857,7 +2857,7 @@ async function ensureCapability(
         { reason: 'Publish exact embodied.move@2 UGV Profile authority.' },
         202,
         request,
-        nodeCapabilityEtag(current as NodeCapabilityDefinitionVersion),
+        nodeCapabilityEtag(current),
       ),
     );
     current = CapabilitySchema.parse(await controlGet(configuration, path, request));
@@ -3062,7 +3062,7 @@ async function ensureExposure(
         { reason: 'Publish exact a2a.embodied.move@2 Exposure.' },
         202,
         request,
-        a2aExposureEtag(current as A2aExposureVersion),
+        a2aExposureEtag(current),
       ),
     );
     const result = ExposureSchema.parse(operation.result);

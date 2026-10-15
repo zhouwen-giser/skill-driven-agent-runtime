@@ -125,7 +125,7 @@ describe('default capability bootstrap', () => {
       agentSkillId: 'skill',
     };
     const inventory = {
-      skills: [{ skillId: 'skill', status: 'enabled' }],
+      skills: [{ skillId: 'skill', status: 'enabled', version: 1 }],
       capabilities: [{ capabilityId: 'capability', version: 2, status: 'published' }],
       exposures: [exposure],
       card: {
@@ -142,6 +142,16 @@ describe('default capability bootstrap', () => {
     };
     const manifest = { skills: [{ skillId: 'skill', capabilityId: 'capability' }] };
     expect(verifyPublishedInventory(manifest, inventory).blocked).toEqual([]);
+    const successor = {
+      skills: [{ skillId: 'skill', capabilityId: 'capability', minimumVersion: 2 }],
+    };
+    expect(verifyPublishedInventory(successor, inventory).blocked).toEqual([
+      { skillId: 'skill', reasonCode: 'SKILL_NOT_ENABLED' },
+    ]);
+    const reviewed = inventory.skills[0];
+    if (!reviewed) throw Error('TEST_SKILL_REQUIRED');
+    reviewed.version = 2;
+    expect(verifyPublishedInventory(successor, inventory).blocked).toEqual([]);
     entry.exposureHash = 'stale-hash';
     expect(verifyPublishedInventory(manifest, inventory).blocked).toEqual([
       { capabilityId: 'capability', reasonCode: 'PUBLIC_CAPABILITY_MISSING' },
@@ -152,7 +162,7 @@ describe('default capability bootstrap', () => {
     const result = verifyPublishedInventory(
       { skills: [{ skillId: 'expected', capabilityId: 'expected-capability' }] },
       {
-        skills: [{ skillId: 'expected', status: 'enabled' }],
+        skills: [{ skillId: 'expected', status: 'enabled', version: 1 }],
         capabilities: [{ capabilityId: 'expected-capability', version: 2, status: 'published' }],
         exposures: [
           {

@@ -255,6 +255,56 @@ export class PostgresAgentTaskCommandContext {
     return state?.active === true ? state : undefined;
   }
 
+  /** Transfer a parent's cancellation intent only to an independently bound, exact native child.
+   * The parent's Cognitive lease is fenced first; child writers never reuse its Task token. */
+  async runGovernedChildCancellation<T>(
+    input: Readonly<{ parentTaskId: string; parentPlanId: string; childTaskId: string }>,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const command = this.current();
+    if (
+      command &&
+      (command.taskId !== input.parentTaskId ||
+        !['cancel', 'goal-patch'].includes(command.operation))
+    )
+      throw Error('GOVERNED_CHILD_COMMAND_SCOPE_DENIED');
+    const client = await this.#poolForEffect().connect();
+    try {
+      await client.query('BEGIN');
+      await this.fenceTransaction(client, input.parentTaskId);
+      const checked = await client.query(
+        `SELECT ct.task_id FROM agent_task pt
+        JOIN workflow_plan pp ON pp.plan_id=pt.plan_id
+        JOIN task_capability_binding pb ON pb.task_id=pt.task_id
+        JOIN agent_task ct ON ct.task_id=$3
+        JOIN task_capability_binding cb ON cb.task_id=ct.task_id
+        JOIN skill_call_workflow scw ON scw.child_plan_id=ct.plan_id AND scw.parent_plan_id=pp.plan_id
+        WHERE pt.task_id=$1 AND pp.plan_id=$2 AND pp.confirmation_status='confirmed'
+          AND pb.requested_capability_id='embodied.area_patrol'
+          AND pp.definition_json->'skillUsagePolicy'->'skill'->>'skillId'='embodied.area_patrol'
+          AND (pp.definition_json->'skillUsagePolicy'->'skill'->>'skillVersion')::integer>=2
+          AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentTaskId'=pt.task_id
+          AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentPlanId'=pp.plan_id
+          AND EXISTS(SELECT 1 FROM jsonb_array_elements(pb.constraint_snapshot) c,
+            jsonb_array_elements(CASE WHEN c->>'type'='composition_authority_policy' THEN c->'children' ELSE '[]'::jsonb END) s
+            WHERE s->>'capabilityId'=cb.requested_capability_id AND s->>'capabilityVersion'=cb.capability_version::text
+              AND s->>'skillId'=ct.selected_skill_id AND s->>'skillVersion'=ct.selected_skill_version::text)
+        FOR KEY SHARE OF pt,ct,pp,pb,cb`,
+        [input.parentTaskId, input.parentPlanId, input.childTaskId],
+      );
+      if (checked.rowCount !== 1) throw Error('GOVERNED_CHILD_CANCELLATION_AUTHORITY_INVALID');
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    const result = await this.#storage.exit(operation);
+    if (command) await this.recordEffect('governed_child_cancelled', input.childTaskId, input);
+    return result;
+  }
+
   /**
    * Locks and validates the exact Cognitive lease for an additional
    * command-owned PostgreSQL writer. Call only after BEGIN and before taking
@@ -2457,8 +2507,10 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
                 phase: AgentTask['phase'];
                 goal_id: string | null;
                 goal_version: number | null;
+                selected_skill_id: string | null;
+                selected_skill_version: number | null;
               }>(
-                `SELECT task_id,context_id,phase,goal_id,goal_version
+                `SELECT task_id,context_id,phase,goal_id,goal_version,selected_skill_id,selected_skill_version
                  FROM agent_task WHERE task_id=$1 FOR UPDATE`,
                 [input.taskId],
               )
@@ -2783,7 +2835,16 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         );
       let committedTask: AgentTask | undefined;
       if (task !== undefined) {
-        const terminalTask = terminalTaskProjection(kind, input.summary, processed);
+        const retainedReport =
+          kind === 'canceled' ? (input as RuntimeCanceledOutcomeInput).retainedReport : undefined;
+        if (
+          retainedReport !== undefined &&
+          (task.selected_skill_id !== 'embodied.area_patrol' ||
+            (task.selected_skill_version ?? 0) < 2 ||
+            retainedReport['status'] !== 'cancelled')
+        )
+          throw new Error('RUNTIME_CANCELED_REPORT_AUTHORITY_INVALID');
+        const terminalTask = terminalTaskProjection(kind, input.summary, processed, retainedReport);
         const updated = await client.query<TaskRow>(
           `UPDATE agent_task SET phase=$2,phase_message=$3,output_text=$4,
              output_structured=$5::jsonb,error_code=$6,updated_at=$7
@@ -3185,6 +3246,7 @@ function terminalTaskProjection(
   kind: RuntimeTerminalOutcomeKind,
   summary: string,
   processed: ProcessedResultRecord | undefined,
+  retainedReport?: Readonly<Record<string, unknown>>,
 ): Readonly<{
   phase: Extract<AgentTask['phase'], 'completed' | 'failed' | 'canceled'>;
   phaseMessage: string;
@@ -3196,7 +3258,14 @@ function terminalTaskProjection(
     return { phase: 'completed', phaseMessage: 'Task completed.', output: processed.output };
   }
   if (kind === 'canceled')
-    return { phase: 'canceled', phaseMessage: summary, errorCode: 'RUNTIME_CANCELED' };
+    return {
+      phase: 'canceled',
+      phaseMessage: summary,
+      errorCode: 'RUNTIME_CANCELED',
+      ...(retainedReport === undefined
+        ? {}
+        : { output: { text: summary, structured: retainedReport } }),
+    };
   return { phase: 'failed', phaseMessage: summary, errorCode: 'GOAL_UNACHIEVABLE' };
 }
 
@@ -3477,7 +3546,13 @@ const AnalyticsModelInvocationsSchema = z.array(
 const AnalyticsBudgetSchema = z.looseObject({ cost: z.number().nonnegative() });
 const AnalyticsErrorsSchema = z.record(
   z.string(),
-  z.object({ code: z.string(), message: z.string() }).strict(),
+  z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      details: z.record(z.string(), z.json()).optional(),
+    })
+    .strict(),
 );
 
 export class PostgresEvaluationAnalyticsRepository implements EvaluationAnalyticsRepository {
@@ -4105,6 +4180,23 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapTaskRow(row);
+  }
+
+  async listGovernedChildren(
+    parentTaskId: string,
+    parentPlanId?: string,
+  ): Promise<readonly AgentTask[]> {
+    const scope = taskDeviceScopeSql(this.#deviceScope, 3);
+    const result = await this.#pool.query<TaskRow>(
+      `SELECT task_id, context_id, user_id, request_text, request_metadata,
+        phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
+        output_text, output_structured, capability_gap_json, error_code, created_at, updated_at${this.#ownershipColumns}
+        FROM agent_task WHERE request_metadata->'io.sdar/governedChildTask'->>'parentTaskId'=$1
+          AND ($2::text IS NULL OR request_metadata->'io.sdar/governedChildTask'->>'parentPlanId'=$2)
+          AND ${scope.predicate} ORDER BY created_at,task_id LIMIT 128`,
+      [parentTaskId, parentPlanId ?? null, ...scope.values],
+    );
+    return result.rows.map(mapTaskRow);
   }
 
   async list(
@@ -6473,7 +6565,13 @@ interface WorkflowNodeEventRow extends QueryResultRow {
 
 const WorkflowErrorsSchema = z.record(
   z.string(),
-  z.object({ code: z.string(), message: z.string() }).strict(),
+  z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      details: z.record(z.string(), z.json()).optional(),
+    })
+    .strict(),
 );
 const WorkflowSkillVersionsSchema = z.array(
   z.object({ skillId: z.string(), version: z.number().int().positive() }).strict(),
@@ -6547,7 +6645,22 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
              JOIN workflow_plan child ON child.plan_id=$3
            WHERE parent.instance_id=$1 AND parent.plan_id=$2 AND ${scope.predicate}
              AND child.device_id IS NOT DISTINCT FROM workflow_plan.device_id
-             AND child.gowm_task_id IS NOT DISTINCT FROM workflow_plan.gowm_task_id
+             AND (child.gowm_task_id IS NOT DISTINCT FROM workflow_plan.gowm_task_id
+               OR EXISTS(SELECT 1 FROM agent_task ct JOIN agent_task pt ON pt.plan_id=workflow_plan.plan_id
+                 JOIN task_capability_binding cb ON cb.task_id=ct.task_id
+                 JOIN task_capability_binding pb ON pb.task_id=pt.task_id
+                 WHERE ct.plan_id=child.plan_id AND child.gowm_task_id=ct.task_id
+                   AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentTaskId'=pt.task_id
+                   AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentPlanId'=workflow_plan.plan_id
+                   AND ct.device_id IS NOT DISTINCT FROM pt.device_id
+                   AND ct.sdar_service_key IS NOT DISTINCT FROM pt.sdar_service_key
+                   AND pb.requested_capability_id='embodied.area_patrol'
+                   AND EXISTS(SELECT 1 FROM jsonb_array_elements(pb.constraint_snapshot) c,
+                     jsonb_array_elements(CASE WHEN c->>'type'='composition_authority_policy' THEN c->'children' ELSE '[]'::jsonb END) s
+                     WHERE s->>'capabilityId'=cb.requested_capability_id
+                       AND s->>'capabilityVersion'=cb.capability_version::text
+                       AND s->>'skillId'=ct.selected_skill_id
+                       AND s->>'skillVersion'=ct.selected_skill_version::text)))
              AND ($4::text IS NULL OR EXISTS(SELECT 1 FROM workflow_instance ci
                WHERE ci.instance_id=$4 AND ci.plan_id=child.plan_id))
            FOR KEY SHARE OF workflow_plan,child`,

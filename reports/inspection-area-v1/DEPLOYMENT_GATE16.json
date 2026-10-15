@@ -1,0 +1,40 @@
+{
+  "startedAt": "2026-10-15T02:10:01.503630+00:00",
+  "status": "SERVICES_UPDATED_PENDING_NATIVE_BOOTSTRAP",
+  "physicalExecution": "NOT_RUN",
+  "sourceRevision": "e21fbafe7a89f9093fc744839f53d4610d6d8007",
+  "image": "sdar-inspection:e21fbafe7a89-d1cf7a85bc7e",
+  "privateRollback": "/home/sz/.smpp-debug/inspection-area-v1-20261014/backups/sdar-compose.gate10.json",
+  "containers": [
+    {
+      "name": "gowm-analysis-dev-f3dc6f4b8e-smpp-adapter-1",
+      "image": "smpp-inspection/adapter:175cc25943003d8dad31dd2fc946993301e33a28-worktree-dc52023fa084",
+      "imageId": "sha256:5afd83b3dcde5c073b1ac67fd5efe52a64b647db41be5d9ee9cfc2bdfcc49113",
+      "health": "running"
+    },
+    {
+      "name": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "image": "smpp-inspection/runtime:175cc25943003d8dad31dd2fc946993301e33a28-worktree-dc52023fa084",
+      "imageId": "sha256:689d73b2cd984fcf0c2e8f3445cbf949eab8b94b79627703339a1640f14999b0",
+      "health": "running"
+    },
+    {
+      "name": "sdar-sz-gowm-control-api-1",
+      "image": "sdar-inspection:e21fbafe7a89-d1cf7a85bc7e",
+      "imageId": "sha256:ac5025836fd1b7654b8638ddece8a5d35000e5fe8e941cba7a61ea0888fb82ae",
+      "health": "healthy"
+    },
+    {
+      "name": "sdar-sz-gowm-control-worker-1",
+      "image": "sdar-inspection:e21fbafe7a89-d1cf7a85bc7e",
+      "imageId": "sha256:ac5025836fd1b7654b8638ddece8a5d35000e5fe8e941cba7a61ea0888fb82ae",
+      "health": "running"
+    },
+    {
+      "name": "sdar-sz-gowm-runtime-1",
+      "image": "sdar-inspection:e21fbafe7a89-d1cf7a85bc7e",
+      "imageId": "sha256:ac5025836fd1b7654b8638ddece8a5d35000e5fe8e941cba7a61ea0888fb82ae",
+      "health": "healthy"
+    }
+  ]
+}

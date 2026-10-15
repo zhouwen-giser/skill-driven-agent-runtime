@@ -6,7 +6,7 @@ import {
   type AgentExecutionEvent,
 } from '@a2a-js/sdk/server';
 import type { Request as ExpressRequest } from 'express';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   InMemoryTaskStateNotifier,
@@ -111,6 +111,43 @@ describe('TaskServiceAgentExecutor notification wait', () => {
       `${JSON.stringify({ event: 'a2a.wait.missed-notification-recovery', environment: 'vitest-node-local', safetyPollIntervalMs: notifier.waits[0]?.timeoutMs, databaseReads: tasks.getCalls, deterministicTimeoutRelease: true })}\n`,
     );
     executor.close();
+  });
+
+  it('does not add a database poll when the final timer releases one millisecond early', async () => {
+    vi.useFakeTimers();
+    const tasks = new FakeTasks('executing');
+    const notifier: TaskStateNotifier = {
+      publish: vi.fn(),
+      close: vi.fn(),
+      waitForChange: (_taskId, _knownUpdatedAt, timeoutMs) =>
+        new Promise((resolve) =>
+          setTimeout(
+            () => {
+              resolve(undefined);
+            },
+            Math.max(1, timeoutMs - 1),
+          ),
+        ),
+    };
+    const executor = new TaskServiceAgentExecutor({
+      tasks,
+      notifier,
+      safetyPollIntervalMs: MIN_A2A_SAFETY_POLL_INTERVAL_MS,
+      waitTimeoutMs: 250,
+    });
+    try {
+      const { bus, events } = eventCollector();
+      const execution = executor.execute(request('task-early-timer'), bus);
+      await vi.advanceTimersByTimeAsync(249);
+      expect(tasks.getCalls).toBe(2);
+      await vi.advanceTimersByTimeAsync(1);
+      await execution;
+      expect(tasks.getCalls).toBe(3);
+      expect(statuses(events).at(-1)).toBe(TaskState.TASK_STATE_WORKING);
+    } finally {
+      executor.close();
+      vi.useRealTimers();
+    }
   });
 
   it('reduces reads for concurrent waiters and releases them on close', async () => {

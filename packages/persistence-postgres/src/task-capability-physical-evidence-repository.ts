@@ -46,6 +46,7 @@ interface PhysicalDispatchEvidenceRow extends QueryResultRow {
   readonly local_state: string | null;
   readonly provider_failure_count: number | null;
   readonly provider_evidence_json: unknown;
+  readonly provider_result_json: unknown;
   readonly result_is_error: boolean | null;
   readonly last_safe_error_code: string | null;
   readonly invalidated_at: Date | string | null;
@@ -163,6 +164,7 @@ const DISPATCH_EVIDENCE_QUERY = `SELECT
        binding.workflow_instance_id,binding.execution_mode AS remote_execution_mode,
        binding.protocol_status,binding.local_state,binding.provider_failure_count,
        COALESCE(binding.result_snapshot_json->'evidence','[]'::jsonb) AS provider_evidence_json,
+       binding.result_snapshot_json->'structuredContent' AS provider_result_json,
        CASE
          WHEN jsonb_typeof(binding.result_snapshot_json->'isError')='boolean'
          THEN (binding.result_snapshot_json->>'isError')::boolean
@@ -346,6 +348,7 @@ function mapRemoteTask(
     localState: row.local_state,
     providerFailureCount: row.provider_failure_count,
     providerEvidence: Object.freeze(ProviderEvidenceSchema.parse(row.provider_evidence_json)),
+    ...(row.provider_result_json == null ? {} : { providerResult: row.provider_result_json }),
     ...(row.result_is_error === null ? {} : { resultIsError: row.result_is_error }),
     ...(row.last_safe_error_code === null ? {} : { lastSafeErrorCode: row.last_safe_error_code }),
     ...(row.invalidated_at === null ? {} : { invalidatedAt: iso(row.invalidated_at) }),

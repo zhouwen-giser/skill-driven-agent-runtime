@@ -1,0 +1,24 @@
+{
+  "name": "sdar-inspection-failed-debug-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "tsx",
+    "scripts/inspection/joint.mts"
+  ],
+  "startedAt": "2026-10-14T02:25:30.042Z",
+  "completedAt": "2026-10-14T02:26:31.918Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "d8d8ae5f2db7e3015892fdf377f532f610606f606bab160d4b3fbca3725ecfca",
+  "sourceAfter": "d8d8ae5f2db7e3015892fdf377f532f610606f606bab160d4b3fbca3725ecfca",
+  "sourceUnchanged": true,
+  "relatedSource": {
+    "root": "/home/sz/.codex/worktrees/trajectory-history-authority/sdar-mcp-provider-platform",
+    "before": "2ab531b7502ea7851c17e07963991f38365a5a8ce766f8e172315c6135b9622a",
+    "after": "2ab531b7502ea7851c17e07963991f38365a5a8ce766f8e172315c6135b9622a"
+  },
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-failed-debug-01.log",
+  "logSha256": "2daaf1d1bcbef64a21366f62446f29b37d4565c6250b07e1a4c33c344052eaae"
+}

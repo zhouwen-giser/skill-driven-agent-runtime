@@ -208,16 +208,11 @@ export class NodeControlMcpProviderBindingService {
         'MCP_PROVIDER_BINDING_STALE',
         'Rebind Candidate is absent, stale, expired or its endpoint has changed.',
       );
-    if (
+    const sameProviderIdentity =
       prior.binding.smppSourceId === request.smppSourceId &&
       prior.binding.externalProviderId === request.externalProviderId &&
       prior.binding.externalServerId === request.externalServerId &&
-      prior.binding.endpointRef === request.endpointRef
-    )
-      throw new NodeControlMcpBindingError(
-        'MCP_PROVIDER_BINDING_CONFLICT',
-        'Provider contract identity is unchanged; use refresh instead of rebind.',
-      );
+      prior.binding.endpointRef === request.endpointRef;
     const nextRevision = prior.binding.revision + 1;
     const operation = this.operation(
       'mcp_provider_binding.rebind',
@@ -240,6 +235,28 @@ export class NodeControlMcpProviderBindingService {
         'MCP_PROVIDER_BINDING_STALE',
         'Candidate discovery failed; the selected Binding revision was not changed.',
       );
+    }
+    if (sameProviderIdentity && discovery.catalogChecksum === prior.binding.catalogChecksum) {
+      const previous =
+        prior.binding.revision > 1
+          ? await this.#repository.find(bindingId, prior.binding.revision - 1)
+          : undefined;
+      const catalogAdvancedBeforeLineage =
+        previous?.binding.originType === prior.binding.originType &&
+        previous.binding.smppSourceId === prior.binding.smppSourceId &&
+        previous.binding.externalProviderId === prior.binding.externalProviderId &&
+        previous.binding.externalServerId === prior.binding.externalServerId &&
+        previous.binding.endpointRef === prior.binding.endpointRef &&
+        previous.binding.registryRevision === prior.binding.registryRevision &&
+        previous.binding.registryChecksum === prior.binding.registryChecksum &&
+        previous.binding.catalogChecksum !== prior.binding.catalogChecksum &&
+        (request.registryRevision !== prior.binding.registryRevision ||
+          request.registryChecksum !== prior.binding.registryChecksum);
+      if (!catalogAdvancedBeforeLineage)
+        throw new NodeControlMcpBindingError(
+          'MCP_PROVIDER_BINDING_CONFLICT',
+          'Provider identity and Catalog contract are unchanged; use refresh instead of rebind.',
+        );
     }
     const record = createMcpProviderBindingRecord({
       binding: {

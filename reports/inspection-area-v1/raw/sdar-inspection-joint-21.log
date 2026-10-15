@@ -1,0 +1,30 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-13e8268a-ae49-4b85-9fd9-24cae483f16f","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-13e8268a-ae49-4b85-9fd9-24cae483f16f","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-13e8268a-ae49-4b85-9fd9-24cae483f16f","errorCode":"FROZEN_MCP_TRANSPORT_FAILED"}
+{"event":"remote_task_reconcile.failed","error":"The continuation snapshot identity is already bound to different evidence."}
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'failed'
+- 'completed'
+
+    at <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:503:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'failed',
+  expected: 'completed',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2

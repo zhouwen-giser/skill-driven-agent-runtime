@@ -1,0 +1,20 @@
+{
+  "name": "sdar-inspection-retention-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "apps/server/test/patrol-retained-evidence.unit.test.ts"
+  ],
+  "startedAt": "2026-10-14T00:45:18.486Z",
+  "completedAt": "2026-10-14T00:45:22.083Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "b606f56cc5a983ae17d828039cf4d388515d943169befe9615495e3999d5e897",
+  "sourceAfter": "b606f56cc5a983ae17d828039cf4d388515d943169befe9615495e3999d5e897",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-retention-01.log",
+  "logSha256": "3681b25af2e95e242aa59fba9fa6c3b77e05eb34fcbf02c3ac8442c891ba34d5"
+}

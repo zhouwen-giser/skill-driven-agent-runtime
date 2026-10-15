@@ -1,0 +1,15 @@
+{
+  "status": "FAILED_ATTEMPT_RETAINED",
+  "receipt": "raw/sdar-inspection-live-bootstrap-02.json",
+  "code": "CATALOG_AUTHORITY_REVISION_GAP",
+  "deviceCalls": 0,
+  "subsequentRead": "RUNTIME_CATALOG_REVISION_GAP.jsonl",
+  "observedAfterAttempt": {
+    "runtimeToolRevision": 5,
+    "bindingRevision": 5,
+    "bindingCatalogRevision": "2.0.0-rc.1:5",
+    "bindingCatalogChecksum": "4e0c0ccca1233901bee3fa49be1a1c03b432b7489d37ff65066473265ddd569e"
+  },
+  "retry": "Run official bootstrap once after native Runtime/Binding convergence; no direct database changes or manufactured versions.",
+  "productionCodeChanged": false
+}

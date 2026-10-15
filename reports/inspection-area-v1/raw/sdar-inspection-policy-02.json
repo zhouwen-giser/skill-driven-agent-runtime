@@ -1,0 +1,22 @@
+{
+  "name": "sdar-inspection-policy-02",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "packages/runtime-control-application/test/inspection-patrol-policy.unit.test.ts",
+    "packages/runtime-control-persistence-postgres/test/dynamic-skill-provider-readiness.unit.test.ts",
+    "packages/domain/test/area-patrol.unit.test.ts"
+  ],
+  "startedAt": "2026-10-14T00:16:30.542Z",
+  "completedAt": "2026-10-14T00:16:36.734Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "e85926948d76a2ea0051c3328c1455bc32779cc2408180ef0b02f5b8cbb4ecdd",
+  "sourceAfter": "e85926948d76a2ea0051c3328c1455bc32779cc2408180ef0b02f5b8cbb4ecdd",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-policy-02.log",
+  "logSha256": "51ccc4bb3abd2439d7853e34bc1a352a2e3a1a20b1089c48686bcbafd2560acd"
+}

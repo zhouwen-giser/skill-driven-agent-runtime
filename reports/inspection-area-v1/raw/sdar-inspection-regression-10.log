@@ -1,0 +1,29 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+ ❯ |unit| packages/application/test/workflow-execution.unit.test.ts (19 tests | 1 failed) 72ms
+     × keeps a monotonic continuation chain across successive child confirmations 28ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/workflow-execution.unit.test.ts > Workflow execution application service > keeps a monotonic continuation chain across successive child confirmations
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ snapshotParallelJoins packages/domain/src/workflow-continuation.ts:489:12
+    487|   const joinKeys = new Set<string>();
+    488|   return Object.freeze(
+    489|     values.map((value) => {
+       |            ^
+    490|       requireIdentifier(value.joinKey, 'Parallel join');
+    491|       requireIdentifier(value.joinNodeId, 'Parallel join node');
+ ❯ createWorkflowContinuationSnapshot packages/domain/src/workflow-continuation.ts:236:29
+ ❯ WorkflowExecutionService.execute packages/application/src/workflow-execution.ts:315:34
+ ❯ packages/application/test/workflow-execution.unit.test.ts:142:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 68 passed (69)
+   Start at  07:33:34
+   Duration  4.13s (transform 4.51s, setup 0ms, import 5.94s, tests 425ms, environment 1ms)
+

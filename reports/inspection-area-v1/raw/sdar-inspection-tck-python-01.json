@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-tck-python-01",
+  "command": "pnpm",
+  "args": [
+    "test:a2a-tck"
+  ],
+  "startedAt": "2026-10-14T03:29:35.469Z",
+  "completedAt": "2026-10-14T03:31:01.924Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "12c733d8ff2e2608878d70f9ce17766dcb62e11ee038fc72190d7cf7da3563c3",
+  "sourceAfter": "12c733d8ff2e2608878d70f9ce17766dcb62e11ee038fc72190d7cf7da3563c3",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-tck-python-01.log",
+  "logSha256": "f4a4e546965051230bd57e3c71b10ddd2172c229cbb39b0dd0c4ec7a120b6dde"
+}

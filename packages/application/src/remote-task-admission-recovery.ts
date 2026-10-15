@@ -703,7 +703,8 @@ export class RemoteTaskAdmissionRecoveryService {
               intent.reconciliationContract.authoritySnapshot.providerBinding === undefined
                 ? `runtime:${intent.reconciliationContract.authoritySnapshot.runtime.serverUpdatedAt}/catalog:${intent.reconciliationContract.authoritySnapshot.runtime.catalogRevision}`
                 : `binding:${String(intent.reconciliationContract.authoritySnapshot.providerBinding.revision)}/catalog:${intent.reconciliationContract.authoritySnapshot.providerBinding.catalogRevision}`,
-            observedAt: at,
+            observedAt:
+              exactResult === undefined ? (intent.receiptRecordedAt ?? intent.updatedAt) : at,
           }),
         );
       }

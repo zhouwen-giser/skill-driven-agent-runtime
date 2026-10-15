@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "databases": [
+    "sdar_inspection_cas_cd267cc2fc58470d",
+    "sdar_inspection_cas_control_cd267cc2fc58470d"
+  ],
+  "createdFrom": "template0",
+  "ownerChecked": true,
+  "liveDatabasesTouched": 0,
+  "cleanupExitCode": 0
+}

@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-container-source-01",
+  "command": "python3",
+  "args": [
+    "/tmp/smpp-inspection-v1-20261014/deployment/verify-live-source.py"
+  ],
+  "startedAt": "2026-10-15T08:19:13.152Z",
+  "completedAt": "2026-10-15T08:19:15.173Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceAfter": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-container-source-01.log",
+  "logSha256": "53933e999b7110c7f3c813af3189333cb193e920ce5f4f057aabc3254cf1dd8a"
+}

@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "scope": "One deployment README correction after full gate; no production, test, configuration, contract, dependency or migration changes.",
+  "qualifiedGate": "raw/sdar-inspection-gate-18.json",
+  "qualifiedCommit": "ebe1e7ebced304c35448553dba27840af1bb651b",
+  "sourceRevision": "c8a39c8616c5c9574afb104077fb59879c32ea0b",
+  "files": [
+    {
+      "path": "deploy/united/README.md",
+      "beforeSha256": "0a8ab39bf39b5e6cec4ca133e75c11358fb048b068d91921d97bb56b95a63fdd",
+      "afterSha256": "a6df4aed3f61b142e74671da9d4e61979034bdaa09e2769c04325b90875a161f",
+      "classification": "deployment documentation only"
+    }
+  ]
+}

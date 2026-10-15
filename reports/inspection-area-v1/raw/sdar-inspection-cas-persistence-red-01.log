@@ -1,0 +1,39 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+ ❯ |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts (3 tests | 3 skipped) 92ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts [ packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts ]
+Error: SDAR_V122_CLEAN_DATABASE_REQUIRED
+ ❯ applyRuntimeMigrations apps/server/src/composition/runtime-support.ts:595:13
+    593|     }
+    594|     if ((state?.public_table_count ?? 0) !== 0)
+    595|       throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
+       |             ^
+    596|
+    597|     const baseline = await readFile(
+ ❯ packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts:41:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts [ packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts ]
+error: schema "sdar_control" does not exist
+ ❯ node_modules/.pnpm/pg-pool@3.14.0_pg@8.22.0/node_modules/pg-pool/index.js:45:11
+ ❯ packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts:89:3
+     87|   await controlApi?.close();
+     88|   if (registryServer !== undefined) await close(registryServer);
+     89|   await controlPool.query(
+       |   ^
+     90|     `TRUNCATE sdar_control.mcp_provider_catalog_observation,
+     91|               sdar_control.mcp_provider_binding_state,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 skipped (3)
+   Start at  10:15:31
+   Duration  9.39s (transform 6.29s, setup 0ms, import 9.12s, tests 92ms, environment 0ms)
+

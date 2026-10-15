@@ -241,7 +241,9 @@ export class UgvMoveTerminalOutcomeAuthority {
       );
     } catch (error: unknown) {
       if (error instanceof UgvMoveWorkflowEvidenceError)
-        guard('Durable UGV Workflow evidence does not authorize terminal success.');
+        guard(
+          `Durable UGV Workflow evidence does not authorize terminal success: ${error.code}: ${error.message}`,
+        );
       throw error;
     }
   }

@@ -1,0 +1,90 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-45bd182d-91f8-4848-957d-3f03f9f9e604","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":38,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":10,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":30,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":40,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":7,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+Formal inspection case: findings
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:38:26.021Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:38:26.039Z"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-3e8a982d-ecc5-4bf3-b35a-2446dc54f6c2","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":22,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":6,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":6,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+Formal inspection case: missing
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:38:35.002Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:38:35.024Z"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","method":"io.sdar/taskBusiness/context/get","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-4e80bdc6-48c1-44d6-9705-b747cff2a05a","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":26,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"completed"}
+{"event":"a2a_terminal_projection.reconciled","scanned":3,"reconciled":2,"alreadyConverged":0,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:38:43.169Z"}
+Formal inspection case: partial
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:38:43.429Z"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":16,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":295,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":40,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+Formal patrol case: full
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:39:02.551Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:39:02.591Z"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":3,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"remote_task_reconcile.failed","error":"The continuation snapshot identity is already bound to different evidence."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"a2a_terminal_projection.reconciled","scanned":5,"reconciled":2,"alreadyConverged":2,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"workflow.skill_child_denied","skillId":"embodied.move_to","parentNodeId":"usage_child_0","summary":"The authoritative Skill execution record does not exist for this Workflow plan."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"cfbb39e2-8e72-4ae9-88d2-820a592f7704","workflowPlanId":"plan-task-cfbb39e2-8e72-4ae9-88d2-820a592f7704-6d2964e8-75bc-4b66-b21b-2d38a433fa38","errorCode":"TASK_EXECUTION_FAILED","errorSummary":"USER_GOAL_PLAN_HAS_NO_READY_SKILL_GOAL"}
+{"event":"inspection_joint.cleanup_failed","label":"runtime","summary":"One or more tracked background executions failed during runtime shutdown."}
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'failed'
+- 'completed'
+
+    at <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:626:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'failed',
+  expected: 'completed',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2

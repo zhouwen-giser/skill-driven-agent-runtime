@@ -1,0 +1,11 @@
+$ tsc -p tsconfig.json --noEmit
+apps/server/src/governed-patrol-child-tasks.ts(112,25): error TS18048: 'plan' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(113,30): error TS18048: 'plan' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(114,7): error TS18048: 'plan' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(115,7): error TS18048: 'plan' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(116,7): error TS18048: 'plan' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(221,9): error TS18048: 'childBinding' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(222,9): error TS18048: 'childBinding' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(223,9): error TS18048: 'childBinding' is possibly 'undefined'.
+apps/server/src/governed-patrol-child-tasks.ts(225,23): error TS18048: 'childBinding' is possibly 'undefined'.
+[ELIFECYCLE] Command failed with exit code 2.

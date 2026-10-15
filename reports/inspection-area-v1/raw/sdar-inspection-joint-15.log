@@ -1,0 +1,24 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"task_id":"1e216bf1-b304-4d81-8dac-1a88b74ed8c1","context_id":"e0ed20f3-60d4-4eb0-80ec-848929cad36c","phase":"failed","plan_id":null,"output_structured":null,"error_code":null,"selected_skill_id":"embodied.inspect_area"}
++ actual - expected
+
++ 'failed'
+- 'awaiting_plan_confirmation'
+
+    at <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:482:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'failed',
+  expected: 'awaiting_plan_confirmation',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2

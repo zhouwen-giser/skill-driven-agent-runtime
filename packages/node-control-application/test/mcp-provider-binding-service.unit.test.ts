@@ -371,8 +371,18 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
       serverEndpoint: current.binding.endpointRef,
     };
     const repository = new MemoryBindingRepository(current, observedCandidate, events);
+    const discover = vi.fn().mockResolvedValue({
+      ...discovery(),
+      catalogChecksum: current.binding.catalogChecksum,
+    });
+    const service = new NodeControlMcpProviderBindingService({
+      repository,
+      catalog: { discover },
+      clock: { now: () => NOW },
+      ids: { next: () => 'counter-only-rebind' },
+    });
     await expect(
-      createService(repository, events).rebind(
+      service.rebind(
         'binding-home-lab',
         {
           ...rebindRequest(),
@@ -384,7 +394,147 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
       ),
     ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
     expect(events).toEqual(['candidate']);
+    expect(discover).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ bindingRevision: 2, endpointRef: current.binding.endpointRef }),
+    );
     expect(repository.completed).toBeUndefined();
+    expect(repository.current).toEqual(current);
+  });
+
+  it('CAS-selects a changed Catalog on the same Provider while retaining binding identity', async () => {
+    const current = record();
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(
+      current,
+      {
+        ...candidate(),
+        externalServerId: 'server-v1',
+        serverEndpoint: current.binding.endpointRef,
+      },
+      events,
+    );
+    const operation = await createService(repository, events).rebind(
+      'binding-home-lab',
+      {
+        ...rebindRequest(),
+        externalServerId: 'server-v1',
+        endpointRef: current.binding.endpointRef,
+      },
+      'approve-same-provider-catalog-upgrade',
+      'Select the reviewed changed Catalog and exact current Registry lineage.',
+    );
+    expect(operation).toMatchObject({
+      status: 'succeeded',
+      result: { revision: 2, resultCode: 'rebound' },
+    });
+    expect(events).toEqual(['candidate', 'discover', 'complete']);
+    expect(repository.completed?.binding).toMatchObject({
+      ...current.binding,
+      revision: 2,
+      registryRevision: 2,
+      registryChecksum: NEW_CHECKSUM,
+      catalogRevision: discovery().catalogRevision,
+      catalogChecksum: CATALOG_CHECKSUM,
+    });
+    expect(repository.completed?.credentialRef).toBe(current.credentialRef);
+  });
+
+  it('retains an observed Catalog advance while CAS-aligning its Registry lineage', async () => {
+    const previous = record();
+    const current = createMcpProviderBindingRecord({
+      ...previous,
+      binding: {
+        ...previous.binding,
+        revision: 2,
+        catalogRevision: discovery().catalogRevision,
+        catalogChecksum: CATALOG_CHECKSUM,
+      },
+    });
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(
+      current,
+      {
+        ...candidate(),
+        externalServerId: 'server-v1',
+        serverEndpoint: current.binding.endpointRef,
+      },
+      events,
+      [previous, current],
+    );
+    const service = createService(repository, events);
+    await expect(
+      service.rebind(
+        'binding-home-lab',
+        {
+          ...rebindRequest(),
+          expectedRevision: 2,
+          externalServerId: 'server-v1',
+          endpointRef: current.binding.endpointRef,
+        },
+        'align-observed-catalog-with-registry',
+        'The reviewed Catalog already advanced through discovery; align exact current lineage.',
+      ),
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      result: { revision: 3, resultCode: 'rebound' },
+    });
+    expect(repository.completed?.binding).toMatchObject({
+      ...current.binding,
+      revision: 3,
+      registryRevision: 2,
+      registryChecksum: NEW_CHECKSUM,
+    });
+    expect((await service.getBinding('binding-home-lab', 1)).catalogChecksum).toBe(OLD_CHECKSUM);
+    expect((await service.getBinding('binding-home-lab', 2)).catalogChecksum).toBe(
+      CATALOG_CHECKSUM,
+    );
+    expect(events).toEqual(['candidate', 'discover', 'complete']);
+  });
+
+  it.each([
+    { name: 'unchanged Catalog', patch: { catalogChecksum: CATALOG_CHECKSUM } },
+    { name: 'different prior Registry lineage', patch: { registryChecksum: 'd'.repeat(64) } },
+    { name: 'different prior Provider identity', patch: { externalServerId: 'unrelated-server' } },
+  ])('rejects counter-only lineage changes with $name history', async ({ patch }) => {
+    const previous = createMcpProviderBindingRecord({
+      ...record(),
+      binding: { ...record().binding, ...patch },
+    });
+    const current = createMcpProviderBindingRecord({
+      ...record(),
+      binding: {
+        ...record().binding,
+        revision: 2,
+        catalogRevision: discovery().catalogRevision,
+        catalogChecksum: CATALOG_CHECKSUM,
+      },
+    });
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(
+      current,
+      {
+        ...candidate(),
+        externalServerId: 'server-v1',
+        serverEndpoint: current.binding.endpointRef,
+      },
+      events,
+      [previous],
+    );
+    await expect(
+      createService(repository, events).rebind(
+        'binding-home-lab',
+        {
+          ...rebindRequest(),
+          expectedRevision: 2,
+          externalServerId: 'server-v1',
+          endpointRef: current.binding.endpointRef,
+        },
+        'reject-unqualified-history',
+        'History must prove a real Catalog advance on the unchanged old lineage.',
+      ),
+    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
+    expect(repository.completed).toBeUndefined();
+    expect(repository.current).toEqual(current);
   });
 
   it('suspends and removes registration without changing semantic revision or manufacturing health', async () => {
@@ -411,13 +561,20 @@ class MemoryBindingRepository implements NodeControlMcpProviderBindingRepository
     public current: McpProviderBindingRecord,
     readonly currentCandidate: SmppProviderCandidateDirectoryEntry | undefined,
     readonly events: string[],
+    readonly history: readonly McpProviderBindingRecord[] = [],
   ) {}
 
   find(bindingId: string, revision?: number): Promise<McpProviderBindingRecord | undefined> {
     const match =
       bindingId === this.current.binding.bindingId &&
       (revision === undefined || revision === this.current.binding.revision);
-    return Promise.resolve(match ? this.current : undefined);
+    return Promise.resolve(
+      match
+        ? this.current
+        : this.history.find(
+            (item) => item.binding.bindingId === bindingId && item.binding.revision === revision,
+          ),
+    );
   }
 
   findLatestActive(): Promise<McpProviderBindingRecord | undefined> {

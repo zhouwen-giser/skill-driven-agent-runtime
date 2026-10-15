@@ -1,0 +1,22 @@
+{
+  "name": "sdar-inspection-package-09",
+  "command": "pnpm",
+  "args": [
+    "package:joint",
+    "--",
+    "--upstream",
+    "/mnt/data/inspection-area-v1-20261014/smpp-gowm-gdps-gsap-wsgs-telemetry-fe559b1e4ef8bfd8.tar.gz",
+    "--output",
+    "artifacts/inspection-area-v1/united-final-v9"
+  ],
+  "startedAt": "2026-10-15T08:10:27.203Z",
+  "completedAt": "2026-10-15T08:10:36.742Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceAfter": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-package-09.log",
+  "logSha256": "e41469c9e4820e2f430d243b868713b043e7902a087378c607fc1886799d5d84"
+}

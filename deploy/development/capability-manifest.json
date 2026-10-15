@@ -64,12 +64,24 @@
       "toolName": "vehicle_navigate"
     },
     {
+      "skillId": "embodied.inspect_area",
+      "capabilityId": "embodied.inspect_area",
+      "toolName": "vehicle_inspect_area"
+    },
+    {
       "skillId": "embodied.area_patrol",
       "capabilityId": "embodied.area_patrol",
-      "packageRoot": "skills/embodied.area_patrol",
-      "requiredCapabilities": ["embodied.inspect_area"],
-      "requiredSkills": ["embodied.move_to"]
+      "packageRoot": "skills/embodied.area_patrol.v2",
+      "requiredCapabilities": [
+        "embodied.inspect_area"
+      ],
+      "requiredSkills": [
+        "embodied.move_to"
+      ],
+      "minimumVersion": 2
     }
   ],
-  "excludedTools": ["vehicle_fire_weapon"]
+  "excludedTools": [
+    "vehicle_fire_weapon"
+  ]
 }

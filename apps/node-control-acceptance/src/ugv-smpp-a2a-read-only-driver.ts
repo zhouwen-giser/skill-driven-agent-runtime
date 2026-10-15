@@ -1067,7 +1067,7 @@ async function ensureExposure(
       },
       request,
       202,
-      a2aExposureEtag(prior as A2aExposureVersion),
+      a2aExposureEtag(prior),
     );
   }
   const exposure = ExposureSchema.parse(current);

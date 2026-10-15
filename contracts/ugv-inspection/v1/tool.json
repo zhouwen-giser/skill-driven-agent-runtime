@@ -1,0 +1,242 @@
+{
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "resourceId": {
+        "type": "string",
+        "const": "__RESOURCE_ID__"
+      },
+      "area": {
+        "type": "object",
+        "properties": {
+          "boundary": {
+            "minItems": 3,
+            "maxItems": 257,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "frame": {
+            "type": "string",
+            "enum": [
+              "WGS84",
+              "EPSG:4326"
+            ]
+          },
+          "excludedZones": {
+            "maxItems": 128,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        },
+        "required": [
+          "boundary"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "resourceId",
+      "area"
+    ],
+    "additionalProperties": false
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "resourceId",
+      "status",
+      "observedAt",
+      "anomalies",
+      "inspectionReport",
+      "coverage",
+      "correlationStrength",
+      "missingEvidence"
+    ],
+    "properties": {
+      "resourceId": {
+        "type": "string",
+        "const": "__RESOURCE_ID__"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "completed",
+          "failed",
+          "cancelled",
+          "timeout"
+        ]
+      },
+      "observedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "anomalies": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "inspectionReport": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "1.0"
+          },
+          "completion": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ]
+          },
+          "targetReportObservedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetReportComplete": {
+            "type": "boolean"
+          },
+          "coverageState": {
+            "type": "string",
+            "enum": [
+              "full",
+              "partial",
+              "none",
+              "unknown"
+            ]
+          },
+          "findingCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "artifactRefs": {
+            "maxItems": 256,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "artifact"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "version",
+          "completion",
+          "targetReportObservedAt",
+          "targetReportComplete",
+          "coverageState",
+          "findingCount",
+          "truncated",
+          "artifactRefs"
+        ],
+        "additionalProperties": false
+      },
+      "coverage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": true
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "correlationStrength": {
+        "type": "string",
+        "enum": [
+          "STRICT_CORRELATED",
+          "INFERRED_CURRENT_EXECUTION",
+          "WEAK_UNCORRELATED",
+          "MISMATCH",
+          "UNKNOWN"
+        ]
+      },
+      "missingEvidence": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

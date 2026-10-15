@@ -10,7 +10,6 @@ import {
 import {
   nodeCapabilityEtag,
   smppSourceEtag,
-  type NodeCapabilityDefinitionVersion,
   type SmppRegistrySource,
 } from '../../../packages/node-control-domain/src/index.js';
 
@@ -438,7 +437,7 @@ export async function assertUgvB02AuthorityRunway(
   assertReadinessEtag(readiness, values[4].etag);
   assertExactEtag(
     values[5].etag,
-    nodeCapabilityEtag(capability as unknown as NodeCapabilityDefinitionVersion),
+    nodeCapabilityEtag(capability),
     'UGV_B02_CAPABILITY_ETAG_MISMATCH',
     'Capability body and its formal strong ETag differ.',
   );

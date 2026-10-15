@@ -1,0 +1,19 @@
+{
+  "name": "sdar-inspection-joint-12",
+  "command": "node",
+  "args": [
+    "--import",
+    "tsx",
+    "scripts/inspection/joint.mts"
+  ],
+  "startedAt": "2026-10-13T21:04:33.524Z",
+  "completedAt": "2026-10-13T21:05:03.628Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "c939d7bf8d6918532a337e1ddeade15643a3c075e7c08d3ade110a86e0f68b86",
+  "sourceAfter": "c939d7bf8d6918532a337e1ddeade15643a3c075e7c08d3ade110a86e0f68b86",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-joint-12.log",
+  "logSha256": "0cc2f66e1572f1c5eb21ceee128a1786a6b9be5716dab5c8f6717b1dfd1e2e1e"
+}

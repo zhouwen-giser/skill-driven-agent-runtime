@@ -64,6 +64,17 @@ export interface WorkflowExecutionEvent {
 }
 
 export interface WorkflowRuntimePorts {
+  /** Composition-root output adapter; never dispatches or changes the immutable graph. */
+  readonly projectResult?: (
+    input: Readonly<{
+      executionId: string;
+      nodeId: string;
+      result: unknown;
+      input: unknown;
+      outputs: Readonly<Record<string, unknown>>;
+      errors: WorkflowExecutionState['errors'];
+    }>,
+  ) => Promise<unknown>;
   readonly executeLlm: (
     input: Readonly<{
       executionId: string;
@@ -101,6 +112,14 @@ export interface WorkflowRuntimePorts {
       executionContext: RuntimeExecutionContext;
     }>,
   ) => Promise<SkillCallExecutionResult>;
+  /** Trusted composition root attests that an exact child uses a compiled procedure. */
+  readonly isDeterministicSkillCall?: (
+    input: Readonly<{
+      skillId: string;
+      parentExecutionId: string;
+      parentNodeId: string;
+    }>,
+  ) => Promise<boolean>;
   readonly executeSubworkflow: (
     input: Readonly<{
       workflowDefinitionId: string;
@@ -122,6 +141,7 @@ export interface WorkflowRuntimePorts {
   ) => Promise<boolean>;
   readonly decideExecutionError: (
     input: Readonly<{
+      executionId?: string;
       handledNodeId: string;
       error: Readonly<{ code: string; message: string }>;
       allowedStrategies: readonly ('terminate' | 'continue' | 'goto')[];
@@ -1348,7 +1368,14 @@ async function executeNode(
     }
     case 'skill_call': {
       const reservationPending = runtimeContext.control.pendingSkillReservations.has(node.nodeId);
-      if (!reservationPending) budgetMeter.reserve('skill');
+      if (!reservationPending) {
+        const deterministic = await ports.isDeterministicSkillCall?.({
+          skillId: node.skillId,
+          parentExecutionId: state.executionId,
+          parentNodeId: node.nodeId,
+        });
+        budgetMeter.reserve('skill', deterministic === true);
+      }
       const callSignal = budgetMeter.signal(signal);
       const inputSnapshot = resolveWorkflowBoundValue(node.input, state);
       let result = await ports.executeSkill({
@@ -1549,7 +1576,18 @@ async function executeNode(
       };
     }
     case 'result': {
-      const result = evaluateWorkflowExpression(node.value, state);
+      const evaluated = evaluateWorkflowExpression(node.value, state);
+      const result =
+        ports.projectResult === undefined
+          ? evaluated
+          : await ports.projectResult({
+              executionId: state.executionId,
+              nodeId: node.nodeId,
+              result: evaluated,
+              input: state.input,
+              outputs: state.outputs,
+              errors: state.errors,
+            });
       return { result, outputs: { [node.nodeId]: result } };
     }
     case 'condition': {
@@ -1638,6 +1676,7 @@ async function executeNode(
           : strategy === 'continue';
       });
       const decision = await ports.decideExecutionError({
+        executionId: state.executionId,
         handledNodeId: node.handledNodeId,
         error: handledError,
         allowedStrategies,
@@ -2482,9 +2521,9 @@ class WorkflowBudgetMeter {
       );
   }
 
-  reserve(kind: MeteredCallKind): void {
+  reserve(kind: MeteredCallKind, deterministicSkill = false): void {
     this.assertDuration();
-    const llmIncrement = kind === 'llm' || kind === 'skill' ? 1 : 0;
+    const llmIncrement = kind === 'llm' || (kind === 'skill' && !deterministicSkill) ? 1 : 0;
     const mcpIncrement = kind === 'mcp' ? 1 : 0;
     if (this.#llmCalls + llmIncrement > this.#limits.maxLlmCalls)
       throw new WorkflowBudgetExceededError(

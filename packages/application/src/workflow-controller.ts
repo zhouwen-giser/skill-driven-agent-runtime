@@ -31,6 +31,8 @@ import type { UserGoalPlanController } from './user-goal-plan-controller.js';
 import type { UserGoalRecoveryService } from './progress-recovery.js';
 
 export interface StartWorkflowControlInput {
+  readonly initialInstanceId?: string;
+  readonly onStarted?: (instance: WorkflowInstance) => Promise<void>;
   readonly controlId: string;
   readonly contextId: string;
   readonly goalId: string;
@@ -251,7 +253,10 @@ export class WorkflowControllerService {
       updatedAt: timestamp,
     };
     await this.#controls.save(control);
-    return this.#advanceOrFail(control);
+    return this.#advanceOrFail(control, undefined, {
+      ...(input.initialInstanceId === undefined ? {} : { instanceId: input.initialInstanceId }),
+      ...(input.onStarted === undefined ? {} : { onStarted: input.onStarted }),
+    });
   }
 
   async continueAfterConfirmation(controlId: string): Promise<WorkflowControlRecord> {
@@ -418,9 +423,13 @@ export class WorkflowControllerService {
   async #advanceOrFail(
     control: WorkflowControlRecord,
     resumedInstance?: WorkflowInstance,
+    initialExecution?: Readonly<{
+      instanceId?: string;
+      onStarted?: (instance: WorkflowInstance) => Promise<void>;
+    }>,
   ): Promise<WorkflowControlRecord> {
     try {
-      return await this.#advance(control, resumedInstance);
+      return await this.#advance(control, resumedInstance, initialExecution);
     } catch (error: unknown) {
       const latest = (await this.#controls.find(control.controlId)) ?? control;
       if (isTerminalWorkflowControlStatus(latest.status)) throw error;
@@ -433,6 +442,10 @@ export class WorkflowControllerService {
   async #advance(
     initial: WorkflowControlRecord,
     resumedInstance?: WorkflowInstance,
+    initialExecution?: Readonly<{
+      instanceId?: string;
+      onStarted?: (instance: WorkflowInstance) => Promise<void>;
+    }>,
   ): Promise<WorkflowControlRecord> {
     let control = initial;
     let continuationResult = resumedInstance;
@@ -455,6 +468,7 @@ export class WorkflowControllerService {
         );
       const instanceId =
         continuationResult?.instanceId ??
+        initialExecution?.instanceId ??
         this.#ids.nextInstanceId(control.controlId, control.roundCount);
       let instance: WorkflowInstance;
       if (continuationResult !== undefined) {
@@ -482,6 +496,9 @@ export class WorkflowControllerService {
             input: control.input,
             skillIds: control.skillIds,
             replanCount: control.replanCount,
+            ...(initialExecution?.onStarted === undefined
+              ? {}
+              : { onStarted: initialExecution.onStarted }),
             ...(executionContext === undefined ? {} : { executionContext }),
             ...(control.taskId === undefined
               ? {}
@@ -498,6 +515,7 @@ export class WorkflowControllerService {
           if (failed?.status !== 'failed') throw error;
           instance = failed;
         }
+      initialExecution = undefined;
       while (instance.status === 'paused') {
         const pending = instance.pendingConfirmation;
         if (pending?.kind === 'skill_confirmation' && control.taskId !== undefined) {

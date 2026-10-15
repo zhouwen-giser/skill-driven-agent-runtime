@@ -1,3 +1,4 @@
+import { capabilityDispatchInput } from '../../domain/src/area-inspection.js';
 import {
   GovernedControlAuthorityError,
   HARD_DENIED_CONTROL_TOOLS,
@@ -195,7 +196,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       sideEffectPolicy['remoteTaskIdentityRequired'] !== true ||
       sideEffectPolicy['terminalObservationRequired'] !== true ||
       sideEffectPolicy['redispatchAfterUncertain'] !== false ||
-      canonicalHash(binding.inputSnapshot) !== argumentsHash ||
+      canonicalHash(capabilityDispatchInput(binding)) !== argumentsHash ||
       binding.evidenceRequirementSnapshot.length === 0 ||
       readiness.workflowPlanId !== plan.planId ||
       readiness.checkPhase !== 'pre_invocation' ||

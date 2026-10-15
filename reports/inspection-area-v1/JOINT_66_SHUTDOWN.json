@@ -1,0 +1,7 @@
+{
+  "status": "NOT_PASS",
+  "assertions": "PASS",
+  "reason": "All eight scenario assertions and terminal Task checks passed, but process shutdown did not finish after more than eight minutes. Terminated only the owned isolated test processes; this does not qualify as a passing command.",
+  "runId": "uap-p3-b02-inspection-joint-3997da0166164bffaad73bac23d3ab5e",
+  "physicalExecution": "NOT_RUN"
+}

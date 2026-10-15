@@ -1,0 +1,14 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"CAPABILITY_READINESS_RECALCULATION_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  10:20:11
+   Duration  12.90s (transform 5.44s, setup 0ms, import 7.85s, tests 4.86s, environment 0ms)
+

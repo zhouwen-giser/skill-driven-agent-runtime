@@ -1,0 +1,72 @@
+{
+  "visibility": {
+    "userSelectable": true,
+    "composable": true,
+    "internalOnly": false
+  },
+  "normative": {
+    "constraints": [
+      "Patrol only inside the authorized area boundary and time window.",
+      "Preserve Provider authority for resource availability, reservation, execution state, and results.",
+      "A degraded subregion must identify missing coverage, effects, and evidence."
+    ],
+    "forbiddenActions": [
+      "Cross an excluded or forbidden area.",
+      "Silently omit a required subregion.",
+      "Project degraded or incomplete coverage as full success.",
+      "Treat a final position, transport acceptance, absent target stream or an incomplete inspection as a complete patrol."
+    ],
+    "requiredConfirmations": [
+      "Confirm the patrol plan and any refreshed risk escalation before external execution."
+    ],
+    "noApplicableSkill": "reject"
+  },
+  "contextRequirements": [
+    {
+      "requirementId": "public-resource-id",
+      "description": "Exact public resource frozen by Capability admission.",
+      "required": true,
+      "sourceOrder": [
+        "authoritative_context",
+        "user_input"
+      ]
+    },
+    {
+      "requirementId": "provider-binding-freshness",
+      "description": "Current, available, unexpired exact Provider Binding.",
+      "required": true,
+      "sourceOrder": [
+        "authoritative_context",
+        "user_input"
+      ]
+    },
+    {
+      "requirementId": "area-boundary",
+      "description": "Legal admitted WGS84 boundary; x=longitude and y=latitude; unresolved exclusions are rejected.",
+      "required": true,
+      "sourceOrder": [
+        "authoritative_context",
+        "user_input"
+      ]
+    },
+    {
+      "requirementId": "time-window",
+      "description": "Frozen earliest start and deadline.",
+      "required": true,
+      "sourceOrder": [
+        "authoritative_context",
+        "user_input"
+      ]
+    },
+    {
+      "requirementId": "area-partition",
+      "description": "The legal requested polygon deterministically forms subregion-1.",
+      "required": true,
+      "sourceOrder": [
+        "authoritative_context",
+        "user_input"
+      ]
+    }
+  ],
+  "taskBindings": []
+}

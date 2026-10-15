@@ -1,3 +1,4 @@
+import { assertInspectionToolContract } from '../../../packages/domain/src/area-inspection.js';
 import { createHash } from 'node:crypto';
 
 import { z } from 'zod';
@@ -23,6 +24,7 @@ export interface SmppExecutionSemanticsValues {
 }
 
 export interface SmppExpectedTool {
+  readonly wireContract?: 'ugv.inspection/1.0';
   readonly taskBehavior: SmppTaskBehavior;
   readonly executionSemantics: SmppExecutionSemanticsValues;
 }
@@ -931,6 +933,16 @@ function validateRuntimeCatalogStructure(
       tool.taskExecutionProfile.taskBehavior !== contract.taskBehavior
     )
       fail('CATALOG_TOOL_CONTRACT_MISMATCH', `Runtime Tool contract mismatch for ${toolName}.`);
+    if (contract.wireContract === 'ugv.inspection/1.0') {
+      try {
+        assertInspectionToolContract(tool);
+      } catch {
+        fail(
+          'CATALOG_TOOL_CONTRACT_MISMATCH',
+          `Reviewed inspection contract mismatch for ${toolName}.`,
+        );
+      }
+    }
   }
 }
 

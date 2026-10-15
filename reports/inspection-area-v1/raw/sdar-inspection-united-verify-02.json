@@ -1,0 +1,19 @@
+{
+  "name": "sdar-inspection-united-verify-02",
+  "command": "python3",
+  "args": [
+    "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/deploy/united/bundle.py",
+    "verify",
+    "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/artifacts/inspection-area-v1/united/sdar-united-e38022d9cc190ca33dbd/sdar-united-e38022d9cc190ca33dbd.tar.gz"
+  ],
+  "startedAt": "2026-10-14T03:34:35.506Z",
+  "completedAt": "2026-10-14T03:34:39.151Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "12c733d8ff2e2608878d70f9ce17766dcb62e11ee038fc72190d7cf7da3563c3",
+  "sourceAfter": "12c733d8ff2e2608878d70f9ce17766dcb62e11ee038fc72190d7cf7da3563c3",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-united-verify-02.log",
+  "logSha256": "5fc6b60ce7c81cafc32a5509e141f8328ccd1a0bf518831fe9d80d19f41a86c7"
+}

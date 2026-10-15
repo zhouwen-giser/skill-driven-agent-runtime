@@ -258,8 +258,18 @@ function deriveAuthority(
     providerBindingId,
     serverId,
     toolName,
-    arguments: row.input_snapshot,
-    argumentsHash: canonicalHash(row.input_snapshot),
+    arguments: capabilityDispatchInput({
+      capabilityId: row.capability_id,
+      inputSnapshot: row.input_snapshot,
+      constraintSnapshot: constraints,
+    }),
+    argumentsHash: canonicalHash(
+      capabilityDispatchInput({
+        capabilityId: row.capability_id,
+        inputSnapshot: row.input_snapshot,
+        constraintSnapshot: constraints,
+      }),
+    ),
   });
 }
 
@@ -457,3 +467,4 @@ function iso(value: Date | string): string {
   if (!Number.isFinite(date.valueOf())) invalidAuthority();
   return date.toISOString();
 }
+import { capabilityDispatchInput } from '../../domain/src/area-inspection.js';

@@ -1,0 +1,26 @@
+{
+  "name": "sdar-inspection-generic-patrol-01",
+  "command": "node",
+  "args": [
+    "/tmp/smpp-inspection-v1-20261014/deployment/sdar-owned-tests.mjs",
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "e2e",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "--testNamePattern",
+    "rejects ungoverned recursive embodied.area_patrol"
+  ],
+  "startedAt": "2026-10-14T04:00:23.857Z",
+  "completedAt": "2026-10-14T04:00:45.074Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "85bad3ef1c55f87f943cc72e9d914d056a7381c36492468daecb57705478c0d7",
+  "sourceAfter": "85bad3ef1c55f87f943cc72e9d914d056a7381c36492468daecb57705478c0d7",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-generic-patrol-01.log",
+  "logSha256": "06594706ce6b1c663b9b8df50b22b5ccce5d62c57d0193cb5347f937cea43ce3"
+}

@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-10-15T08:19:14.347506+00:00",
+  "containers": [
+    {
+      "container": "sdar-sz-gowm-runtime-1",
+      "sourceRevision": "c8a39c8616c5c9574afb104077fb59879c32ea0b",
+      "imageId": "sha256:5b90c86bf52efc7a0aeb944d1265a3cbefa109a65b6c026723efe8f022123d88",
+      "checked": 2947,
+      "mismatches": []
+    },
+    {
+      "container": "sdar-sz-gowm-control-api-1",
+      "sourceRevision": "c8a39c8616c5c9574afb104077fb59879c32ea0b",
+      "imageId": "sha256:5b90c86bf52efc7a0aeb944d1265a3cbefa109a65b6c026723efe8f022123d88",
+      "checked": 2947,
+      "mismatches": []
+    },
+    {
+      "container": "sdar-sz-gowm-control-worker-1",
+      "sourceRevision": "c8a39c8616c5c9574afb104077fb59879c32ea0b",
+      "imageId": "sha256:5b90c86bf52efc7a0aeb944d1265a3cbefa109a65b6c026723efe8f022123d88",
+      "checked": 2947,
+      "mismatches": []
+    },
+    {
+      "container": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "sourceRevision": "175cc25943003d8dad31dd2fc946993301e33a28-worktree-dc52023fa084",
+      "imageId": "sha256:689d73b2cd984fcf0c2e8f3445cbf949eab8b94b79627703339a1640f14999b0",
+      "verification": "exact qualified image identity, freshly recreated; packaged compiled input parity recorded separately"
+    },
+    {
+      "container": "gowm-analysis-dev-f3dc6f4b8e-smpp-adapter-1",
+      "sourceRevision": "175cc25943003d8dad31dd2fc946993301e33a28-worktree-dc52023fa084",
+      "imageId": "sha256:5afd83b3dcde5c073b1ac67fd5efe52a64b647db41be5d9ee9cfc2bdfcc49113",
+      "verification": "exact qualified image identity, freshly recreated; packaged compiled input parity recorded separately"
+    }
+  ],
+  "sourceArchiveSha256": "406625efa8be7ce4b94ce5db73bdc9c0163b4f14b8618eb05f16908b59a54c4b",
+  "smppSourceArchiveSha256": "e0ce60827f0557a6de81e77b906f6a9107e07507373237778a665dfe405eba02"
+}
