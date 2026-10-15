@@ -2,6 +2,8 @@
 
 ## 2026-10-15 — inspection dispatch timing review
 
+- Recheck a genuine retained Catalog advance inside the PostgreSQL Binding transaction before aligning Registry lineage; retain counter-only rejection, history and idempotency.
+
 - Propagate timing recomputed after the dispatch fence through readiness, Provider Task Profile and recovery evidence, retaining the original invocation identity.
 - Bound patrol navigation by its parent deadline; retain the separate 300-second limit for inspection scans.
 

@@ -9,7 +9,10 @@ import {
   type NodeControlApiRuntime,
 } from '../../../apps/node-control-api/src/runtime.js';
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
-import { NodeControlSmppRegistryService } from '../../node-control-application/src/index.js';
+import {
+  NodeControlSmppRegistryService,
+  NodeControlMcpProviderBindingService,
+} from '../../node-control-application/src/index.js';
 import {
   computeSmppSnapshotChecksum,
   smppCandidateIdentity,
@@ -19,7 +22,11 @@ import {
   EnvironmentSmppCredentialResolver,
   HttpSmppRegistryClient,
 } from '../../smpp-registry-adapter/src/index.js';
-import { applyControlMigrations, PostgresNodeControlSmppRegistryRepository } from '../src/index.js';
+import {
+  applyControlMigrations,
+  PostgresNodeControlSmppRegistryRepository,
+  PostgresNodeControlMcpProviderBindingRepository,
+} from '../src/index.js';
 
 const runtimeConnectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ??
@@ -362,6 +369,132 @@ describe('P04 SMPP Registry federation', { concurrent: false }, () => {
       [sourceId],
     );
     expect(stored.rows).toEqual([{ credential_ref: 'unauthenticated://none' }]);
+  });
+  it('commits a CAS lineage alignment after a persisted Catalog advance and rejects counter-only successors', async () => {
+    const sourceId = 'source-catalog-lineage',
+      bindingId = 'binding-catalog-lineage';
+    const externalProviderId = 'provider-catalog-lineage',
+      externalServerId = 'server-catalog-lineage';
+    const endpointRef = `https://${sourceId}.example.test/mcp`;
+    registry.setSnapshot(sourceId, 1, externalProviderId, externalServerId);
+    await createSource(sourceId, 'allow_unexpired');
+    await sync(sourceId, 'catalog-lineage-sync-1');
+    const repository = new PostgresNodeControlMcpProviderBindingRepository(controlPool);
+    let catalogChecksum = 'a'.repeat(64),
+      operationCount = 12;
+    const service = new NodeControlMcpProviderBindingService({
+      repository,
+      catalog: {
+        discover: () =>
+          Promise.resolve({
+            catalogRevision: operationCount === 12 ? '1:1' : '1:2',
+            catalogChecksum,
+            operationCount,
+            availabilityStatus: 'available' as const,
+            observedAt: new Date().toISOString(),
+            availabilityValidUntil: new Date(Date.now() + 3600000).toISOString(),
+          }),
+      },
+      clock: { now: () => new Date().toISOString() },
+      ids: { next: () => randomUUID() },
+    });
+    await service.importBinding(
+      {
+        bindingId,
+        localServerId: externalServerId,
+        originType: 'smpp_registry',
+        smppSourceId: sourceId,
+        externalProviderId,
+        externalServerId,
+        registryRevision: 1,
+        registryChecksum: registry.checksum(sourceId),
+        endpointRef,
+        credentialRef: 'unauthenticated://none',
+      },
+      'catalog-lineage-import',
+      'Register initial twelve-tool contract.',
+    );
+    const original = await repository.find(bindingId, 1);
+    catalogChecksum = 'b'.repeat(64);
+    operationCount = 13;
+    await service.refresh(
+      bindingId,
+      'catalog-lineage-observe',
+      'Observe the actual thirteen-tool Catalog before Registry refresh.',
+    );
+    const observed = await repository.find(bindingId, 2);
+    expect(observed).toMatchObject({
+      binding: { revision: 2, registryRevision: 1, catalogChecksum },
+      operationCount: 13,
+    });
+    registry.setSnapshot(sourceId, 2, externalProviderId, externalServerId);
+    await sync(sourceId, 'catalog-lineage-sync-2');
+    const request = {
+      expectedRevision: 2,
+      smppSourceId: sourceId,
+      externalProviderId,
+      externalServerId,
+      registryRevision: 2,
+      registryChecksum: registry.checksum(sourceId),
+      endpointRef,
+    };
+    const operation = await service.rebind(
+      bindingId,
+      request,
+      'catalog-lineage-align',
+      'Align current Registry lineage using the persisted Catalog predecessor.',
+    );
+    expect(operation).toMatchObject({
+      status: 'succeeded',
+      result: { revision: 3, operationCount: 13 },
+    });
+    expect(
+      await service.rebind(
+        bindingId,
+        request,
+        'catalog-lineage-align',
+        'Align current Registry lineage using the persisted Catalog predecessor.',
+      ),
+    ).toEqual(operation);
+    expect(await repository.find(bindingId)).toMatchObject({
+      binding: {
+        bindingId,
+        localServerId: externalServerId,
+        externalProviderId,
+        externalServerId,
+        revision: 3,
+        registryRevision: 2,
+        registryChecksum: request.registryChecksum,
+        catalogChecksum,
+      },
+      credentialRef: 'unauthenticated://none',
+      operationCount: 13,
+    });
+    expect(await repository.find(bindingId, 1)).toEqual(original);
+    expect(await repository.find(bindingId, 2)).toEqual(observed);
+    registry.setSnapshot(sourceId, 3, externalProviderId, externalServerId);
+    await sync(sourceId, 'catalog-lineage-sync-3');
+    await expect(
+      service.rebind(
+        bindingId,
+        {
+          ...request,
+          expectedRevision: 3,
+          registryRevision: 3,
+          registryChecksum: registry.checksum(sourceId),
+        },
+        'catalog-lineage-counter-only',
+        'Reject a Registry counter without another Catalog change.',
+      ),
+    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
+    expect(await repository.find(bindingId)).toMatchObject({
+      binding: { revision: 3, registryRevision: 2 },
+    });
+    const count = await controlPool.query(
+      'SELECT count(*)::int AS count FROM sdar_control.mcp_provider_binding WHERE binding_id=$1',
+      [bindingId],
+    );
+    expect(count.rows).toEqual([{ count: 3 }]);
   });
 });
 

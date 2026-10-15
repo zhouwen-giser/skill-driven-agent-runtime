@@ -35,3 +35,5 @@ EP-INSPECTION-AREA-V1 与 reports/inspection-area-v1 固定两仓库源码、原
 本地原生升级发现既有 Binding 仅允许 Provider 身份变化的 CAS rebind，导致同一 Provider 的真实工具目录升级无法选取新的 Registry 谱系。现有命令与冻结 Schema 保持不变：先校验 expectedRevision 与精确当前 Candidate，再执行只读目录发现；同一 Provider 仅在目录 checksum 确实变化时创建后继绑定版本。只有观察计数或目录 revision 变化、checksum 不变时继续拒绝，不制造语义版本。反向用例使用真正未变的目录 checksum，保留无持久变更及旧绑定完整断言；正向用例验证身份、凭据引用、CAS 与新谱系。
 
 后台目录刷新可能先生成新目录版本、尚未对齐 Registry 谱系。CAS rebind 还可读取紧邻的不可变绑定前驱：仅当前驱与当前绑定的 Provider 身份和旧 Registry 谱系完全一致、目录 checksum 确实已变化，且请求选择不同的精确当前 Registry 谱系时，允许保留已观察目录并生成后继版本。无变化、不同身份或不同旧谱系的历史不能作为证明；原计数-only 拒绝保持。该修复不增加命令字段或修改冻结 Schema，旧版本继续可读。
+
+2026-10-15 原生验收补充：真实 PostgreSQL 的 completeRevision 也必须在 Binding 锁与精确 Candidate 锁内重新核验紧邻不可变前驱，允许已观察的真实目录变化随后对齐 Registry 谱系。只有 Provider/Source/endpoint/凭据和旧 Registry 均一致、前驱目录 checksum 确实不同、当前精确 Registry 谱系发生变化时成立；单纯计数、同目录前驱、其他身份或过期 Candidate 仍拒绝。全局“Registry 观察计数不是语义变化”的合同保持原值，不改迁移或 API。真实 PostgreSQL 回归保留旧版本及幂等回放，并拒绝下一次纯计数推进。

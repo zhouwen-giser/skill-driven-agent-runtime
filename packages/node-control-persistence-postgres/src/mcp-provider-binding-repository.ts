@@ -317,11 +317,32 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
           'MCP_PROVIDER_BINDING_CONFLICT',
           'MCP Provider Binding revisions must be contiguous.',
         );
-      if (sameMcpProviderBindingContract(prior, record))
-        throw new NodeControlMcpBindingError(
-          'MCP_PROVIDER_BINDING_CONFLICT',
-          'Only a semantic Provider contract change can create a Binding revision.',
-        );
+      if (sameMcpProviderBindingContract(prior, record)) {
+        // Recheck the immutable Catalog predecessor under the Binding lock. A Catalog
+        // observation may have advanced the contract before its Registry lineage arrived.
+        const previous =
+          scope === 'mcp-binding:rebind' && prior.binding.revision > 1
+            ? await findRecord(client, prior.binding.bindingId, prior.binding.revision - 1)
+            : undefined;
+        const retainedCatalogAdvance =
+          previous?.binding.localServerId === prior.binding.localServerId &&
+          previous.binding.originType === prior.binding.originType &&
+          previous.binding.smppSourceId === prior.binding.smppSourceId &&
+          previous.binding.externalProviderId === prior.binding.externalProviderId &&
+          previous.binding.externalServerId === prior.binding.externalServerId &&
+          previous.binding.endpointRef === prior.binding.endpointRef &&
+          previous.credentialRef === prior.credentialRef &&
+          previous.binding.registryRevision === prior.binding.registryRevision &&
+          previous.binding.registryChecksum === prior.binding.registryChecksum &&
+          previous.binding.catalogChecksum !== prior.binding.catalogChecksum &&
+          (record.binding.registryRevision !== prior.binding.registryRevision ||
+            record.binding.registryChecksum !== prior.binding.registryChecksum);
+        if (!retainedCatalogAdvance)
+          throw new NodeControlMcpBindingError(
+            'MCP_PROVIDER_BINDING_CONFLICT',
+            'Only a semantic Provider contract change can create a Binding revision.',
+          );
+      }
       await insertRecord(client, record, context.occurredAt);
       await upsertBindingState(client, record, context.occurredAt);
       return finish(client, operation, context, record, resultCode, scope);
