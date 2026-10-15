@@ -1,0 +1,20 @@
+{
+  "name": "sdar-inspection-catalog-rebind-static-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "eslint",
+    "packages/node-control-application/src/mcp-provider-binding-service.ts",
+    "packages/node-control-application/test/mcp-provider-binding-service.unit.test.ts"
+  ],
+  "startedAt": "2026-10-14T13:46:48.202Z",
+  "completedAt": "2026-10-14T13:46:59.898Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "f2ce4d7e81c43bebd7310c7444aa1f5b3dbb71580f71a3496c4394dfd934a692",
+  "sourceAfter": "f2ce4d7e81c43bebd7310c7444aa1f5b3dbb71580f71a3496c4394dfd934a692",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-catalog-rebind-static-01.log",
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

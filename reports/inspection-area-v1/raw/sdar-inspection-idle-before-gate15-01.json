@@ -1,0 +1,20 @@
+{
+  "name": "sdar-inspection-idle-before-gate15-01",
+  "command": "docker",
+  "args": [
+    "exec",
+    "sdar-sz-gowm-runtime-1",
+    "node",
+    "deploy/development/upgrade-preflight.mjs"
+  ],
+  "startedAt": "2026-10-15T01:06:41.302Z",
+  "completedAt": "2026-10-15T01:06:42.691Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceAfter": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-idle-before-gate15-01.log",
+  "logSha256": "586f3ce8794282c8cf014e7d94221586208332e1d6db1035dc0c69d99508de3d"
+}

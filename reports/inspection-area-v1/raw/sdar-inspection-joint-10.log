@@ -1,0 +1,47 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+{"event":"capability_catalog_refresh.deferred","errorCode":"TASK_EXECUTION_FAILED","summary":"UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID"}
+{"event":"capability_catalog_refresh.failed","errorCode":"TASK_EXECUTION_FAILED","summary":"UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID"}
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.ts:373
+      capability = capabilitySchema.parse(
+                                    ^
+
+ZodError: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "definitionHash"
+    ],
+    "message": "Invalid input: expected string, received undefined"
+  },
+  {
+    "expected": "record",
+    "code": "invalid_type",
+    "path": [
+      "inputSchema"
+    ],
+    "message": "Invalid input: expected record, received undefined"
+  },
+  {
+    "expected": "record",
+    "code": "invalid_type",
+    "path": [
+      "outputSchema"
+    ],
+    "message": "Invalid input: expected record, received undefined"
+  },
+  {
+    "expected": "array",
+    "code": "invalid_type",
+    "path": [
+      "constraints"
+    ],
+    "message": "Invalid input: expected array, received undefined"
+  }
+]
+    at governUgvAreaPatrol (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.ts:373:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:405:5)
+
+Node.js v22.23.2

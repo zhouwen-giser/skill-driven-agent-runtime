@@ -1,0 +1,22 @@
+{
+  "name": "sdar-inspection-package-03",
+  "command": "pnpm",
+  "args": [
+    "package:joint",
+    "--",
+    "--upstream",
+    "/home/sz/.codex/worktrees/trajectory-history-authority/sdar-mcp-provider-platform/artifacts/inspection-area-v1/telemetry-final-v4/smpp-gowm-gdps-gsap-wsgs-telemetry-73cc27f5adb9ef52.tar.gz",
+    "--output",
+    "artifacts/inspection-area-v1/united-final-v3"
+  ],
+  "startedAt": "2026-10-14T13:12:25.508Z",
+  "completedAt": "2026-10-14T13:12:36.150Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceAfter": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-package-03.log",
+  "logSha256": "cae103ca617cb956f98ed13df5d19fa07f8f555165447ed4740500562e953735"
+}

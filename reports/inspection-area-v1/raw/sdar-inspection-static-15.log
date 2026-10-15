@@ -1,0 +1,20 @@
+$ eslint .
+$ tsc -p tsconfig.json --noEmit
+packages/persistence-postgres/src/repositories.ts(6880,7): error TS2322: Type 'Record<string, { code: string; message: string; details?: Record<string, JSONType> | undefined; }>' is not assignable to type 'Readonly<Record<string, Readonly<{ code: string; message: string; details?: Readonly<Record<string, unknown>>; }>>>'.
+  'string' index signatures are incompatible.
+    Type '{ code: string; message: string; details?: Record<string, JSONType> | undefined; }' is not assignable to type 'Readonly<{ code: string; message: string; details?: Readonly<Record<string, unknown>>; }>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+      Types of property 'details' are incompatible.
+        Type 'Record<string, JSONType> | undefined' is not assignable to type 'Readonly<Record<string, unknown>>'.
+          Type 'undefined' is not assignable to type 'Readonly<Record<string, unknown>>'.
+packages/persistence-postgres/src/repositories.ts(7356,5): error TS2322: Type 'Record<string, { code: string; message: string; details?: Record<string, JSONType> | undefined; }>' is not assignable to type 'Readonly<Record<string, Readonly<{ code: string; message: string; details?: Readonly<Record<string, unknown>>; }>>>'.
+  'string' index signatures are incompatible.
+    Type '{ code: string; message: string; details?: Record<string, JSONType> | undefined; }' is not assignable to type 'Readonly<{ code: string; message: string; details?: Readonly<Record<string, unknown>>; }>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+      Types of property 'details' are incompatible.
+        Type 'Record<string, JSONType> | undefined' is not assignable to type 'Readonly<Record<string, unknown>>'.
+          Type 'undefined' is not assignable to type 'Readonly<Record<string, unknown>>'.
+packages/runtime-control-application/test/inspection-patrol-policy.unit.test.ts(37,5): error TS2542: Index signature in type 'JsonObject' only permits reading.
+packages/runtime-control-application/test/inspection-patrol-policy.unit.test.ts(124,72): error TS2345: Argument of type '{ definition: { constraints: JsonObject[] | undefined; capabilityId: string; version: number; domain: string; name: string; description: string; inputSchema: JsonObject; ... 11 more ...; createdAt?: string; }; skill: { ...; }; implementations: readonly CapabilityImplementationBinding[]; implementation: CapabilityImp...' is not assignable to parameter of type 'RuntimeSkillProviderDependencyPolicyInput'.
+  The types of 'definition.constraints' are incompatible between these types.
+    Type 'JsonObject[] | undefined' is not assignable to type 'readonly JsonObject[]'.
+      Type 'undefined' is not assignable to type 'readonly JsonObject[]'.
+[ELIFECYCLE] Command failed with exit code 2.

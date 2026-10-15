@@ -1,0 +1,41 @@
+{
+  "binding": {
+    "bindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+    "localServerId": "smpp-sz-gowm",
+    "originType": "smpp_registry",
+    "smppSourceId": "sz-gowm-smpp",
+    "externalProviderId": "isr.vehicle.ugv.ugv",
+    "externalServerId": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+    "registryRevision": 4,
+    "registryChecksum": "2c7431c1ffcb7923bd05943f661740875da08365b098a3a4bb1e3807c25783b0",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "bd8257d627435f6f16839234e7def3a6beff2599a213ac8f5bf665626a6c1aaa",
+    "status": "active",
+    "availabilityStatus": "available",
+    "revision": 2,
+    "availabilityValidUntil": "2026-10-14T14:13:51.040Z",
+    "catalogObservedAt": "2026-10-14T13:13:51.040Z",
+    "operationCount": 12
+  },
+  "candidates": [
+    {
+      "smppSourceId": "sz-gowm-smpp",
+      "externalProviderId": "isr.vehicle.ugv.ugv",
+      "externalServerId": "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "compositeIdentity": "sz-gowm-smpp::isr.vehicle.ugv.ugv::gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1",
+      "catalogRevision": "3",
+      "labels": {
+        "environment": "development",
+        "protocolMode": "frozen_v1"
+      },
+      "registryRevision": 5,
+      "registryChecksum": "3393961fdd8af04b8006579d72dfcc0a06c2af71c9dc30ec1ddddf76f8973e28",
+      "registryEtag": "\"3393961fdd8af04b8006579d72dfcc0a06c2af71c9dc30ec1ddddf76f8973e28\"",
+      "registryValidUntil": "2026-10-14T13:47:51.393Z",
+      "nativeRegistryRevision": 5,
+      "nativeRegistryChecksum": "b2f774a11a3055282041f8ef70725184c4452c3f66f159250172d0b36a6faea7",
+      "registryProjectionContract": "sdar-registry-v1"
+    }
+  ],
+  "endpointUnchanged": true
+}

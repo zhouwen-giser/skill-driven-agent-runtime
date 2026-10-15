@@ -1,7 +1,7 @@
 {
-  "gateInputSha256": "91fad4fe37091c323982b42ae3305324cef1a2b0d5e339860f8802834b0e3c32",
-  "gateBaselineSha256": "1c0b3a6f3a638b4d38e534463935e73d3ad1e9d789775305fa23ab3457067ee7",
-  "gateInputManifest": "reports/runtime-semantic-closure/sdar-verify-7013fc86-144c-41a6-adb9-cc164d4cfccf/inputs.json",
+  "gateInputSha256": "c01c7839a283f08e43b3b4019b103c9b00c958c2b7d7c394d68f1bb0873cca52",
+  "gateBaselineSha256": "039ba2558b8dea528a45b6855e23c99e4c19f45f4f298bed8a558b61e5141816",
+  "gateInputManifest": "reports/inspection-area-v1/final-gate-18/inputs.json",
   "files": [
     {
       "path": ".agents/skills/sdar-acceptance-auditor/SKILL.md",
@@ -715,7 +715,7 @@
     },
     {
       "path": "apps/server/src/composition/execution.ts",
-      "sha256": "5440f998422a1149f8e77f5dae7def26ebaa8d5f11d61943609ca04d37bc1f3e",
+      "sha256": "58a9bf198f89b1234cd3803f296063b530e0245811865580bb0f683b4c6e4bc3",
       "classification": "runtime"
     },
     {
@@ -4145,7 +4145,7 @@
     },
     {
       "path": "packages/application/src/mcp-registry.ts",
-      "sha256": "8e13606d76f12d432c0dec61b977101dd27dfcabcbb8a6a9d9f6573fb3b76d33",
+      "sha256": "532d4b6250e70866863a5a8aa7ec8f63325439d3280ee548900c0b6ef2800982",
       "classification": "runtime"
     },
     {
@@ -4830,7 +4830,7 @@
     },
     {
       "path": "packages/application/test/mcp-registry.unit.test.ts",
-      "sha256": "aa1b51120b64ec655b04759ae4650ee9df875c63699763e2f83bd974ca23bdbb",
+      "sha256": "22da79c625b6897af5a940877bf931d962a9c8cf3b2c27e45971478baf74ef0b",
       "classification": "runtime"
     },
     {
@@ -5215,7 +5215,7 @@
     },
     {
       "path": "packages/domain/src/area-patrol.ts",
-      "sha256": "4fefdb5495f5d18e5f662139115e4c83327b8f1039b46f2cf4c97f857a2155e1",
+      "sha256": "9410d99a803752d25e6b5985dbfeade260d3d60e729ddf5392c34770bea3170a",
       "classification": "runtime"
     },
     {
@@ -5790,7 +5790,7 @@
     },
     {
       "path": "packages/domain/test/area-patrol.unit.test.ts",
-      "sha256": "57e5254118afee020f5e6323f7bb9ae6cba11780e14c668d4806f08ecc7583a5",
+      "sha256": "3f2a85b5f15fa3d75412b21ebe5686a0cc0b73f4179a84c0618d0caecbb5a7b6",
       "classification": "runtime"
     },
     {
@@ -6355,7 +6355,7 @@
     },
     {
       "path": "packages/node-control-application/src/mcp-provider-binding-service.ts",
-      "sha256": "f61236e7e91d5c1e8232b000f6852ba9e6846b0a5277d46f36e4d20763a3997d",
+      "sha256": "35f4ef7a79e3aa0def89191c188f517f683325f050752479a098663f3ee05b74",
       "classification": "runtime"
     },
     {
@@ -6400,7 +6400,7 @@
     },
     {
       "path": "packages/node-control-application/test/mcp-provider-binding-service.unit.test.ts",
-      "sha256": "f6acc7f7e2008b88da9eda8c5dc6d8aaea2417fdcc200add54652c6611959c88",
+      "sha256": "3eaf5672cfbf9d3aeb018470c5622065b8035e41d953ee4fbf13d5f56f6d18ac",
       "classification": "runtime"
     },
     {
@@ -6565,7 +6565,7 @@
     },
     {
       "path": "packages/node-control-persistence-postgres/src/mcp-provider-binding-repository.ts",
-      "sha256": "2dc35d8f2400283f064b3dfcd4ab9781f3993fa50a434fd908f0d2058f02864f",
+      "sha256": "feca2bc47a1ae50b94ba943f2d79040721112115ec58a524b03c5488bbcef773",
       "classification": "runtime"
     },
     {
@@ -6620,7 +6620,7 @@
     },
     {
       "path": "packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts",
-      "sha256": "918675ddc2e3158f4899c2da0284abd4735625a436be6bb359ec2d72fca54b1c",
+      "sha256": "7f0b421a83c42431f107b5279cdbe349ff7ab21425280c8f034edb4fcc0cce5e",
       "classification": "runtime"
     },
     {
@@ -10363,5 +10363,21 @@
       "sha256": "377bdd1f2b1151c20c8f718c1de34b06ad4872f5dcad8f84303b4d2fc558e649",
       "classification": "runtime"
     }
-  ]
+  ],
+  "postGateDocumentation": {
+    "status": "PASS",
+    "scope": "One deployment README correction after full gate; no production, test, configuration, contract, dependency or migration changes.",
+    "qualifiedGate": "raw/sdar-inspection-gate-18.json",
+    "qualifiedCommit": "ebe1e7ebced304c35448553dba27840af1bb651b",
+    "sourceRevision": "c8a39c8616c5c9574afb104077fb59879c32ea0b",
+    "files": [
+      {
+        "path": "deploy/united/README.md",
+        "beforeSha256": "0a8ab39bf39b5e6cec4ca133e75c11358fb048b068d91921d97bb56b95a63fdd",
+        "afterSha256": "a6df4aed3f61b142e74671da9d4e61979034bdaa09e2769c04325b90875a161f",
+        "classification": "deployment documentation only"
+      }
+    ]
+  },
+  "originalGateInputManifest": "reports/runtime-semantic-closure/sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb/inputs.json"
 }

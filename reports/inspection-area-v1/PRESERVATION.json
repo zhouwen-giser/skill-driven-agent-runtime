@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-10-15T08:19:11.366148+00:00",
+  "serviceMountsPortsNetworksPreserved": 5,
+  "unchangedUpstreamContainers": 48,
+  "signingKeyAndPmsConfigurationBytesPreserved": true,
+  "bindingIdentityPreserved": true,
+  "sdarEnvironmentChangedKeys": [
+    "SDAR_UGV_CATALOG_PROFILE"
+  ],
+  "containerEnvironmentChangedKeys": {
+    "gowm-analysis-dev-f3dc6f4b8e-smpp-runtime-1": [],
+    "gowm-analysis-dev-f3dc6f4b8e-smpp-adapter-1": [
+      "UGV_INSPECTION_ENABLED"
+    ],
+    "sdar-sz-gowm-runtime-1": [],
+    "sdar-sz-gowm-control-api-1": [],
+    "sdar-sz-gowm-control-worker-1": []
+  },
+  "liveDataVolumesPreserved": true,
+  "pmsHealthy": true
+}

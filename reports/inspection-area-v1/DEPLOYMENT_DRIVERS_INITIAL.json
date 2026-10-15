@@ -1,0 +1,45 @@
+{
+  "status": "SYNTAX_CHECKED",
+  "files": [
+    {
+      "name": "prepare-update.py",
+      "sha256": "c977c2aa2ae2cfe487d961bb4ec3147c3f5e08a5e32c84173e2b4b7701b549f3",
+      "mode": "0o600"
+    },
+    {
+      "name": "apply-update.py",
+      "sha256": "8ce970c78275492871ca0a734c6d498e05772ba8d3b923ce8db8c4ea34557601",
+      "mode": "0o600"
+    },
+    {
+      "name": "verify-preservation.py",
+      "sha256": "561324a00478de7d3296881a56bdf99b7a57350c3b4ebbfb475e863e4012fe6a",
+      "mode": "0o600"
+    },
+    {
+      "name": "build-sdar.py",
+      "sha256": "f381671f430524a74f1b63da023ddaed3c3ca4ffae53f5b506f4214dcbacb436",
+      "mode": "0o600"
+    },
+    {
+      "name": "finalize-smpp.py",
+      "sha256": "edc548a1d5dc989bbe50fc693e02f28bf57cc12d6ad820a774a92f0814ab0d86",
+      "mode": "0o600"
+    },
+    {
+      "name": "verify-publication.mjs",
+      "sha256": "e74639e7fe540d2c74a540bf3dc8a8315f73e4499034022b0e8bde2c57b05d57",
+      "mode": "0o600"
+    },
+    {
+      "name": "snapshot-tools.mjs",
+      "sha256": "6383d6fc100bf24e8b7785edd1cca05abb1cd5c954e964ecdf54d46b73b260f3",
+      "mode": "0o600"
+    },
+    {
+      "name": "smpp-idle-core.mjs",
+      "sha256": "88a805e0c0052c1c6955b701e6f8ee869366a2512bb700f902225a6da412371b",
+      "mode": "0o600"
+    }
+  ]
+}

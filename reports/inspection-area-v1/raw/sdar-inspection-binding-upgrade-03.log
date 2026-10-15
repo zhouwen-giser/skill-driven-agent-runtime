@@ -1,0 +1,14 @@
+file:///app/dist/apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.js:589
+    throw new UgvSmppSourceBootstrapError(code, message);
+          ^
+
+UgvSmppSourceBootstrapError: Exact Source synchronization audit is missing.
+    at fail (file:///app/dist/apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.js:589:11)
+    at requireSyncAuditOutcome (file:///app/dist/apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.js:361:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async bootstrapUgvSmppSource (file:///app/dist/apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.js:145:33)
+    at async file:///app/[eval1]:6:14 {
+  code: 'SOURCE_SYNC_AUDIT_NOT_EXACT'
+}
+
+Node.js v22.23.1

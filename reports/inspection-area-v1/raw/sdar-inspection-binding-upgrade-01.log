@@ -1,0 +1,10 @@
+file:///app/[eval1]:8
+async function request(path,body,key){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{authorization:'Bearer '+c.SDAR_CONTROL_API_TOKEN,...(body?{'content-type':'application/json','idempotency-key':key}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});if(!r.ok)throw Error('NATIVE_BINDING_COMMAND_'+r.status);return r.json();}
+                                                                                                                                                                                                                                                                                                                            ^
+
+Error: NATIVE_BINDING_COMMAND_409
+    at request (file:///app/[eval1]:8:317)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///app/[eval1]:12:691
+
+Node.js v22.23.1

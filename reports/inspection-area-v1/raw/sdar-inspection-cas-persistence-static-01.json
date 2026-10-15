@@ -1,0 +1,20 @@
+{
+  "name": "sdar-inspection-cas-persistence-static-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "eslint",
+    "packages/node-control-persistence-postgres/src/mcp-provider-binding-repository.ts",
+    "packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts"
+  ],
+  "startedAt": "2026-10-15T02:18:47.431Z",
+  "completedAt": "2026-10-15T02:19:00.068Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "35f128f00ce54883a2e41b47ce3f10ea9b328d88e746be134c872f47e623e14a",
+  "sourceAfter": "35f128f00ce54883a2e41b47ce3f10ea9b328d88e746be134c872f47e623e14a",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-cas-persistence-static-01.log",
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

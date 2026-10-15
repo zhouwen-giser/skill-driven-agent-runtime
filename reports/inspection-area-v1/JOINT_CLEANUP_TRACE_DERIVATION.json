@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "originalSource": "scripts/inspection/joint.mts",
+  "originalSha256": "6ecd3b7f92c9842bcbfea11611ffd19e05a98b356a1aabd03cbc27960b92aa17",
+  "derivedSource": "artifacts/inspection-area-v1/debug/joint-cleanup-trace.mts",
+  "derivedSha256": "c2932fac0aee605dddb0e2f01c3af2190b0dc72b51cb27ec4cf11ea6cc3eac75",
+  "changes": [
+    "Relative imports resolve to the same absolute repository modules.",
+    "Emit start/end labels around each existing cleanup action; all scenario assertions, timeouts, gates and cleanup calls remain unchanged."
+  ],
+  "qualifyingCommand": "sdar-inspection-joint-68",
+  "preservedDerivedSource": "raw/joint-cleanup-trace.mts",
+  "allEightScenariosPassed": true,
+  "cleanupStages": 9,
+  "cleanupErrors": 0,
+  "qualifyingReceipt": "raw/sdar-inspection-joint-68.json",
+  "priorShutdownFailureRetained": "JOINT_66_SHUTDOWN.json"
+}

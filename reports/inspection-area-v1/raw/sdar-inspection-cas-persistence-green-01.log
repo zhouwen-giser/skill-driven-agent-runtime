@@ -1,0 +1,36 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"CAPABILITY_READINESS_RECALCULATION_FAILED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+ ❯ |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts (3 tests | 1 failed) 4849ms
+     × atomically federates isolated sources and preserves LKG and a running Runtime Task 170ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts > P04 SMPP Registry federation > atomically federates isolated sources and preserves LKG and a running Runtime Task
+AssertionError: expected [ { …(14) }, { …(14) }, { …(14) } ] to have a length of 2 but got 3
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ❯ packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts:262:29
+    260|     expect(firstB).toMatchObject({ status: 'succeeded' });
+    261|     const firstCandidates = await candidates();
+    262|     expect(firstCandidates).toHaveLength(2);
+       |                             ^
+    263|     expect(new Set(firstCandidates.map((item) => item['compositeIdenti…
+    264|     expect(firstCandidates.map((item) => item['externalProviderId'])).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  10:18:31
+   Duration  13.57s (transform 6.05s, setup 0ms, import 8.52s, tests 4.85s, environment 0ms)
+

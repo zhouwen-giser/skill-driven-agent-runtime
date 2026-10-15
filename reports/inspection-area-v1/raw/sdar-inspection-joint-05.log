@@ -1,0 +1,16 @@
+Native source, Provider and Capability publication
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:3397
+  throw new UgvSmppCapabilityGovernanceError(code, message);
+        ^
+
+UgvSmppCapabilityGovernanceError: Point-navigation successor readiness is not exact and available.
+    at fail (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:3397:9)
+    at evaluatePointReadiness (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:2622:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async ensureHistoricalPointNavigationSuccessor (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:2564:3)
+    at async governUgvSmppCapabilities (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts:701:36)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:382:17) {
+  code: 'POINT_NAVIGATION_READINESS_NOT_AVAILABLE'
+}
+
+Node.js v22.23.2

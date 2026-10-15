@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-10-14T13:38:37.030712+00:00",
+  "smppCore": {
+    "activeTasks": 0,
+    "pendingAdmissions": 0,
+    "pendingCommands": 0,
+    "status": "idle"
+  },
+  "smppAdapter": {
+    "active": 0,
+    "status": "idle"
+  },
+  "sdar": {
+    "tasks": 0,
+    "remote_tasks": 0,
+    "pending_dispatch": 0,
+    "activeQueue": 0,
+    "leases": 0,
+    "aof": "enabled/writable",
+    "status": "idle"
+  }
+}

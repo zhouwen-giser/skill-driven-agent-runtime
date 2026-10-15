@@ -1,0 +1,8 @@
+$ tsc -p tsconfig.json --noEmit
+apps/server/src/composition/execution.ts(1129,15): error TS2339: Property 'confirmationStatus' does not exist on type '"" | WorkflowPlanRecord'.
+  Property 'confirmationStatus' does not exist on type '""'.
+apps/server/src/composition/execution.ts(1130,14): error TS2339: Property 'definition' does not exist on type '"" | WorkflowPlanRecord'.
+  Property 'definition' does not exist on type '""'.
+apps/server/src/composition/execution.ts(1131,14): error TS2339: Property 'definition' does not exist on type '"" | WorkflowPlanRecord'.
+  Property 'definition' does not exist on type '""'.
+[ELIFECYCLE] Command failed with exit code 2.

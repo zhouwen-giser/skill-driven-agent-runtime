@@ -1,0 +1,21 @@
+{
+  "runId": "sdar-verify-572db185-2638-4ebf-9c5e-00ceb4688eee",
+  "scope": "owned disposable real PostgreSQL verification only",
+  "storage": "local tmpfs 2GiB with PostgreSQL WAL; not a production durability claim",
+  "testLogicChanged": false,
+  "thresholdsChanged": false,
+  "volume": {
+    "Name": "sdar-verify-572db185-2638-4ebf-9c5e-00ceb4688eee_sdar-postgres-data",
+    "Driver": "local",
+    "Options": {
+      "device": "tmpfs",
+      "o": "size=2g",
+      "type": "tmpfs"
+    },
+    "Labels": {
+      "codex.owner": "inspection-area-v1",
+      "com.docker.compose.project": "sdar-verify-572db185-2638-4ebf-9c5e-00ceb4688eee",
+      "com.docker.compose.volume": "sdar-postgres-data"
+    }
+  }
+}

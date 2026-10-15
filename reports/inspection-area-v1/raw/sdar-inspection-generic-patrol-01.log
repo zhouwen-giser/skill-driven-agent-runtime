@@ -1,0 +1,16 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+{"event":"knowledge_projection_rebuild.deferred","errorCode":"MODEL_STAGE_NOT_CONFIGURED","summary":"No enabled model is configured for stage goal."}
+{"event":"experience_startup_reconcile.failed","errorCode":"MODEL_STAGE_NOT_CONFIGURED"}
+{"event":"workflow.skill_child_denied","skillId":"embodied.move_to","parentNodeId":"usage_child_0","summary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"be309b5b-8b3c-4087-be0d-84d27774ac18","workflowPlanId":"plan-task-be309b5b-8b3c-4087-be0d-84d27774ac18-7c75dec4-fd73-487f-bc73-93f6ec261880","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"workflow.skill_child_denied","skillId":"embodied.move_to","parentNodeId":"usage_child_0","summary":"Side-effecting Tool invocation requires exact governed Task authority."}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"a1644471-eaab-462c-a58a-41454c01c6dd","workflowPlanId":"plan-task-a1644471-eaab-462c-a58a-41454c01c6dd-a5c47eda-1319-46e5-b7ac-67ae28f77ab0","errorCode":"MCP_CONTROL_AUTHORITY_REQUIRED","errorSummary":"Side-effecting Tool invocation requires exact governed Task authority."}
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 62 skipped (64)
+   Start at  12:00:25
+   Duration  19.32s (transform 5.87s, setup 0ms, import 8.17s, tests 10.95s, environment 0ms)
+

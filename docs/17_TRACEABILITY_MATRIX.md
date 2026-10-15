@@ -1670,3 +1670,5 @@ INSPECT-05 原生升级补充：`mcp-provider-binding-service` 的既有 CAS reb
 INSPECT-01/02 时序审查回归：area-patrol.unit.test.ts 验证导航超过五分钟、未来开始及父期限；mcp-registry.unit.test.ts 验证 fence 延迟超过 30 秒及一次 READINESS_STALE 后的最新传输/恢复时间窗、同一调用身份和一次 Provider 派发。失败复现与修复回执见 reports/inspection-area-v1/raw/sdar-inspection-timing-regression-*，门限、确认及重放策略保持。
 
 INSPECT-05 数据库提交回归：node-control-persistence-postgres/test/smpp-registry.integration.test.ts 通过真实 Source Snapshot、Binding 服务和 PostgreSQL 验证已观察目录变化后 CAS 对齐、历史版本完整、同键幂等，以及随后纯计数推进拒绝。存储提交在既有锁内重新验证证据；不改冻结 Schema。证据见 cas-persistence-red-02 与 green 回执。
+
+INSPECT-01–06 本次交付验收：SMPP gate-11、最终 SDAR gate-18 全 30 阶段及清理、joint-68 四项检查及四项巡逻均 PASS。原生 CAS 目录升级、13 工具、14 项发布/组合清单、五容器和三份源码对比以及原卷、密钥、PMS、绑定历史和 48 个上游实例保留均 PASS。对应证据为 reports/inspection-area-v1/FINAL_VALIDATION.json 与其逐项证据索引；现场设备巡逻及实际生产回退演练 NOT_RUN。此段只记录授权扩展的结果，不改需求正文或冻结合同。

@@ -1,0 +1,20 @@
+{
+  "name": "sdar-inspection-idle-after-update-01",
+  "command": "docker",
+  "args": [
+    "exec",
+    "sdar-sz-gowm-runtime-1",
+    "node",
+    "deploy/development/upgrade-preflight.mjs"
+  ],
+  "startedAt": "2026-10-15T08:19:16.076Z",
+  "completedAt": "2026-10-15T08:19:17.483Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceAfter": "54715fe16c76aaa81bcadb1a10f37a0b3ca729f4e451399266b85036ac4a3980",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-idle-after-update-01.log",
+  "logSha256": "586f3ce8794282c8cf014e7d94221586208332e1d6db1035dc0c69d99508de3d"
+}

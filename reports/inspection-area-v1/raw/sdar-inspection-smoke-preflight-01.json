@@ -1,0 +1,18 @@
+{
+  "name": "sdar-inspection-smoke-preflight-01",
+  "command": "bash",
+  "args": [
+    "-c",
+    "pnpm build && node /tmp/smpp-inspection-v1-20261014/deployment/sdar-owned-tests.mjs pnpm smoke:infra && node /tmp/smpp-inspection-v1-20261014/deployment/sdar-owned-tests.mjs pnpm smoke:server && pnpm smoke:node-control"
+  ],
+  "startedAt": "2026-10-14T13:02:14.986Z",
+  "completedAt": "2026-10-14T13:04:03.515Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceAfter": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-smoke-preflight-01.log",
+  "logSha256": "46c1fb18ac56126845e3cbebd1730cf0cc41432cc20bfb4b52ead0b12a161e4e"
+}

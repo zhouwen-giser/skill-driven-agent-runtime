@@ -1,0 +1,14 @@
+{
+  "status": "FAIL",
+  "receipt": "raw/sdar-inspection-binding-upgrade-03.json",
+  "phase": "Source bootstrap, before any Binding refresh",
+  "reason": "Reusing an earlier operational runId replayed an old Source synchronization operation; exact audit reader searches only the current bounded audit page.",
+  "resolution": "Use a fresh operation runId for each Source verification, as official bootstrap already does; Binding refresh idempotency key remains derived from expected Binding revision and exact payload.",
+  "productionCodeChanged": false,
+  "nextReceipt": "raw/sdar-inspection-binding-upgrade-04.json",
+  "priorOperationalDriver": {
+    "path": "raw/deployment-drivers/history/rebind-current-catalog-before-runid.mjs",
+    "sha256": "ee5c2acd32ea7cf4d52ff3a4bcd5876b173eeefd0232669f9370ca912e1645a0",
+    "preservation": "Exact prior text reconstructed by reversing the two documented runId-only edits."
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-10-15T00:42:09.797157+00:00",
+  "unchangedUpstreamContainers": 48,
+  "changedContainers": [],
+  "scope": "Read-only check before final SDAR update; final complete preservation check still required."
+}

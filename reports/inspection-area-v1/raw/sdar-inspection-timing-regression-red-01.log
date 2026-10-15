@@ -1,0 +1,110 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+ ❯ |unit| packages/domain/test/area-patrol.unit.test.ts (7 tests | 1 failed) 45ms
+     × allows navigation longer than five minutes while preserving the parent deadline 7ms
+ ❯ |unit| packages/application/test/mcp-registry.unit.test.ts (81 tests | 1 failed) 130ms
+     × uses refreshed timing after a delayed fence and readiness retry for transport and recovery 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/mcp-registry.unit.test.ts > MCP Registry invocation boundary > uses refreshed timing after a delayed fence and readiness retry for transport and recovery
+AssertionError: expected "vi.fn()" to be called once with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   ObjectContaining {
++   {
++     "arguments": {
++       "area": {
++         "boundary": [
++           {
++             "x": 116,
++             "y": 39,
++           },
++           {
++             "x": 117,
++             "y": 39,
++           },
++           {
++             "x": 117,
++             "y": 40,
++           },
++         ],
++       },
++       "resourceId": "vehicle:ugv1",
++     },
++     "endpoint": "https://provider.test/mcp",
++     "headers": {
++       "X-SDAR-Execution-Mode": "live",
++       "authorization": "Bearer provider-secret",
++     },
++     "outputSchema": {
++       "type": "object",
++     },
++     "outputValidator": {
++       "checkSchema": [Function checkSchema],
++       "validate": [Function validate],
++     },
++     "signal": AbortSignal {
++       Symbol(kEvents): Map {},
++       Symbol(events.maxEventTargetListeners): 0,
++       Symbol(events.maxEventTargetListenersWarned): false,
++       Symbol(kHandlers): Map {},
++       Symbol(kAborted): false,
++       Symbol(kReason): undefined,
++       Symbol(kComposite): false,
++     },
+      "taskCallProfile": {
+        "idempotencyKey": "mcp-logical-4ef584f743e17e3e9cefb303f7e9fc97145d0a030a9377d20abba17de0f2cfc8",
+        "profileVersion": "1.0",
+        "timing": {
+-         "maxElapsedMs": 15000,
++         "maxElapsedMs": 60000,
+          "start": {
+            "mode": "scheduled",
+-           "scheduledAt": "2026-08-11T01:00:45.000Z",
+-           "startToleranceMs": 14999,
++           "scheduledAt": "2026-08-11T01:00:00.000Z",
++           "startToleranceMs": 30000,
+          },
+        },
+      },
++     "toolName": "vehicle_inspect_area",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ packages/application/test/mcp-registry.unit.test.ts:742:26
+    740|     expect(profile.timing?.start).toMatchObject({ scheduledAt: now, st…
+    741|     expect(profile.timing?.maxElapsedMs).toBe(15000);
+    742|     expect(fixture.call).toHaveBeenCalledExactlyOnceWith(expect.object…
+       |                          ^
+    743|     expect(markDispatching).toHaveBeenCalledExactlyOnceWith(expect.obj…
+    744|       invocationId: 'invocation-delayed-inspection',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |unit| packages/domain/test/area-patrol.unit.test.ts > Source-qualified patrol aggregation > allows navigation longer than five minutes while preserving the parent deadline
+TypeError: patrolNavigationTaskExecution is not a function
+ ❯ packages/domain/test/area-patrol.unit.test.ts:75:12
+     73|       timeWindow: { ...input.timeWindow, deadline: '2026-10-14T01:00:0…
+     74|     };
+     75|     expect(patrolNavigationTaskExecution(long, '2026-10-14T00:01:00Z')…
+       |            ^
+     76|       start: {
+     77|         mode: 'scheduled',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 86 passed (88)
+   Start at  08:35:32
+   Duration  1.81s (transform 1.30s, setup 0ms, import 1.75s, tests 176ms, environment 0ms)
+

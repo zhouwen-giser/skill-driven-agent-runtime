@@ -1,0 +1,170 @@
+{
+  "status": "PREPARED_WIDE_NUMA",
+  "node": 1,
+  "hostCpus": [
+    13,
+    14,
+    15,
+    16,
+    20,
+    21,
+    22,
+    23,
+    37,
+    38,
+    39,
+    40,
+    44,
+    45,
+    46,
+    47
+  ],
+  "databaseCpus": [
+    17,
+    18,
+    19,
+    12
+  ],
+  "nodeCpus": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47
+  ],
+  "selection": [
+    {
+      "node": 1,
+      "core": 13,
+      "cpus": [
+        13,
+        37
+      ],
+      "busyPercent": 39.08629441624365
+    },
+    {
+      "node": 1,
+      "core": 22,
+      "cpus": [
+        22,
+        46
+      ],
+      "busyPercent": 39.59390862944162
+    },
+    {
+      "node": 1,
+      "core": 17,
+      "cpus": [
+        17,
+        41
+      ],
+      "busyPercent": 39.898989898989896
+    },
+    {
+      "node": 1,
+      "core": 18,
+      "cpus": [
+        18,
+        42
+      ],
+      "busyPercent": 43.81443298969072
+    },
+    {
+      "node": 1,
+      "core": 19,
+      "cpus": [
+        19,
+        43
+      ],
+      "busyPercent": 44.16243654822335
+    },
+    {
+      "node": 1,
+      "core": 12,
+      "cpus": [
+        12,
+        36
+      ],
+      "busyPercent": 44.44444444444444
+    },
+    {
+      "node": 1,
+      "core": 15,
+      "cpus": [
+        15,
+        39
+      ],
+      "busyPercent": 45.91836734693877
+    },
+    {
+      "node": 1,
+      "core": 16,
+      "cpus": [
+        16,
+        40
+      ],
+      "busyPercent": 49.746192893401016
+    },
+    {
+      "node": 1,
+      "core": 23,
+      "cpus": [
+        23,
+        47
+      ],
+      "busyPercent": 68.34170854271356
+    },
+    {
+      "node": 1,
+      "core": 21,
+      "cpus": [
+        21,
+        45
+      ],
+      "busyPercent": 68.71794871794872
+    },
+    {
+      "node": 1,
+      "core": 14,
+      "cpus": [
+        14,
+        38
+      ],
+      "busyPercent": 69.65174129353234
+    },
+    {
+      "node": 1,
+      "core": 20,
+      "cpus": [
+        20,
+        44
+      ],
+      "busyPercent": 73.60406091370558
+    }
+  ],
+  "scope": "Only owned test processes and exact owned performance PostgreSQL/Redis containers. Other workloads are unchanged.",
+  "reason": "Keep the same NUMA node while retaining eight physical Node/V8 cores; the two-core trial stabilized drift but constrained parallel Evidence work.",
+  "testsChanged": false,
+  "thresholdsChanged": false,
+  "frequencyGovernorChanged": false,
+  "narrowTrial": "raw/sdar-inspection-perf-cpu-01.json"
+}

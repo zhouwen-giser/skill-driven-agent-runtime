@@ -1,0 +1,18 @@
+{
+  "name": "sdar-inspection-binding-upgrade-02",
+  "command": "bash",
+  "args": [
+    "-c",
+    "docker exec -i sdar-sz-gowm-runtime-1 node --input-type=module - < /tmp/smpp-inspection-v1-20261014/deployment/rebind-current-catalog.mjs"
+  ],
+  "startedAt": "2026-10-15T02:12:05.631Z",
+  "completedAt": "2026-10-15T02:12:06.993Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceAfter": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-binding-upgrade-02.log",
+  "logSha256": "de8efb3c442f6e9a7c88443216e3aa10b5395ca1b99080a9abb70d5830458504"
+}

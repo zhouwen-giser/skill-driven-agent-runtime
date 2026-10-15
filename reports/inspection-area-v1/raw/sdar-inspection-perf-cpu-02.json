@@ -1,0 +1,20 @@
+{
+  "name": "sdar-inspection-perf-cpu-02",
+  "command": "pnpm",
+  "args": [
+    "test:e2e",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "--testNamePattern",
+    "keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds"
+  ],
+  "startedAt": "2026-10-15T01:32:25.581Z",
+  "completedAt": "2026-10-15T01:35:11.643Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceAfter": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-perf-cpu-02.log",
+  "logSha256": "7c927a97e7a2cd14f7510d0eea27c867c008f4f6dac6da5ec080caf1e252c700"
+}

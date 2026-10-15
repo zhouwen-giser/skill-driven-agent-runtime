@@ -1,0 +1,13 @@
+Native source, Provider and Capability publication
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:208
+      throw new UgvSmppProviderMaterializationError(error.code, error.message);
+            ^
+
+UgvSmppProviderMaterializationError: Reviewed inspection contract mismatch for vehicle_inspect_area.
+    at materializeUgvSmppProvider (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:208:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:330:5) {
+  code: 'CATALOG_TOOL_CONTRACT_MISMATCH'
+}
+
+Node.js v22.23.2

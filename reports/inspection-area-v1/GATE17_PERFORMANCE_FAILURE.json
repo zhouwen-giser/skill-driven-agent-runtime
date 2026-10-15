@@ -1,0 +1,25 @@
+{
+  "status": "FAIL",
+  "receipt": "raw/sdar-inspection-gate-17.json",
+  "sourceUnchanged": true,
+  "metrics": {
+    "baselineP95RawMs": 689.0736690000049,
+    "evidenceEnabledP95RawMs": 571.4705390000017,
+    "regressionRawPercent": -17.06684427089933,
+    "baselineWindowMediansRawMs": [
+      317.30922250000003,
+      369.69266900000366,
+      351.99697500000184
+    ],
+    "baselineMedianDriftRawPercent": 15.249869657747034,
+    "appendP95RawMs": 3.8111950000002253
+  },
+  "failure": "Baseline median drift 15.249869657747034 exceeds unchanged maximum 15; regression and append limits passed.",
+  "nextRun": "raw/sdar-inspection-gate-18.json",
+  "nextRunCondition": "Same source and thresholds, exclusive own verification workload, same documented CPU affinity and isolated PostgreSQL. No image build or joint suite runs concurrently.",
+  "verificationSourceOrTestsChanged": false,
+  "diagnostic": {
+    "path": "raw/sdar-gate17-performance-diagnostic.json",
+    "sha256": "30939b232276f92a5d8a4c81bdf213eb723a68f595278212ea7d598e5696b5b1"
+  }
+}

@@ -1,0 +1,3 @@
+$ tsc -p tsconfig.json --noEmit
+apps/server/src/area-report-terminal.ts(7,15): error TS2459: Module '"../../../packages/application/src/task-capability.js"' declares 'RuntimeTaskCapabilityTerminalProof' locally, but it is not exported.
+[ELIFECYCLE] Command failed with exit code 2.

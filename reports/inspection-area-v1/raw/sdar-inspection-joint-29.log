@@ -1,0 +1,101 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+Formal inspection case: full
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-00fb9d1c-9101-4e2a-94d1-ac59bd0ac98a","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":62,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":50,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-00fb9d1c-9101-4e2a-94d1-ac59bd0ac98a","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}]}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-00fb9d1c-9101-4e2a-94d1-ac59bd0ac98a","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+Formal inspection case: findings
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:13:53.798Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:13:53.830Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":23,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":14,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-d44da34e-ceeb-431b-9eb2-5cb837e1f819","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":6,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"inspection_joint.task_poll","elapsedMs":18,"status":"working"}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-d44da34e-ceeb-431b-9eb2-5cb837e1f819","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":25,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-d44da34e-ceeb-431b-9eb2-5cb837e1f819","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:13:58.585Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:13:58.599Z"}
+Formal inspection case: missing
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":35,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-45fdc554-ca57-4b23-bfdc-e6994a48d569","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":3,"status":"completed"}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-45fdc554-ca57-4b23-bfdc-e6994a48d569","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":4,"failedItems":1,"sourceListingFailures":0,"durableIssueCount":1}
+Formal inspection case: partial
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:14:03.376Z"}
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:14:03.396Z"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Capability not supported.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"BUSINESS_EXECUTION_NOT_BOUND"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-90926651-3285-47f2-9879-c0196d3dcd96","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"inspection_joint.task_poll","elapsedMs":20,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":8,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":5,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":23,"status":"working"}
+{"event":"inspection_joint.task_poll","elapsedMs":4,"status":"completed"}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"task_business.hydration_failed","bindingId":"remote-task-binding-mcp-invocation-90926651-3285-47f2-9879-c0196d3dcd96","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"}
+{"event":"runtime.enhancement.warning","source":"evaluation_memory","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:14:07.624Z"}
+Formal patrol case: full
+{"event":"runtime.enhancement.warning","source":"task_quality","code":"MODEL_INVOCATION_FAILED","message":"Configured stage model invocation failed.","occurredAt":"2026-10-13T22:14:07.642Z"}
+{"event":"a2a_terminal_projection.reconciled","scanned":5,"reconciled":4,"alreadyConverged":0,"nonTerminal":1,"missingAuthoritativeTask":0}
+{"event":"evidence_projection.seal_deferred","reason":"canonical_backlog_not_quiescent","attemptedItems":0,"failedItems":0,"sourceListingFailures":0,"durableIssueCount":0}
+{"level":"error","event":"task_confirmed_execution_failed","taskId":"20404bea-4824-4cc1-972a-eea68777474e","workflowPlanId":"plan-task-20404bea-4824-4cc1-972a-eea68777474e-eb37089f-fa65-4c33-9c47-635ccdfbbc9b","errorCode":"TASK_EXECUTION_FAILED","errorSummary":"USER_GOAL_PLAN_HAS_NO_READY_SKILL_GOAL"}
+{"event":"inspection_joint.mcp_read_denied","status":400,"error":{"code":-32602,"message":"Business request unavailable.","data":{"profileVersion":"1.0-rc2","schemaVersion":"sdar.task-business-operation-profile/1.0-rc2","reasonCode":"ARTIFACT_NOT_AVAILABLE"}}}
+{"event":"inspection_joint.mcp_transport_failed","method":"server/discover","elapsedMs":0,"summary":"This operation was aborted"}
+{"event":"task_business.refresh_failures","failures":[{"bindingId":"remote-task-binding-mcp-invocation-00fb9d1c-9101-4e2a-94d1-ac59bd0ac98a","errorCode":"FROZEN_MCP_HTTP_STATUS_INVALID"},{"bindingId":"remote-task-binding-mcp-invocation-45fdc554-ca57-4b23-bfdc-e6994a48d569","errorCode":"FROZEN_MCP_TRANSPORT_FAILED"}]}
+{"event":"evidence_projection.seal_deferred","reason":"projection_failed","attemptedItems":46,"failedItems":7,"sourceListingFailures":0,"durableIssueCount":7}
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/composition/http.ts:1203
+          throw new AggregateError(
+                ^
+
+AggregateError: One or more tracked background executions failed during runtime shutdown.
+    at Object.close (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/composition/http.ts:1203:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:686:3) {
+  [errors]: [
+    ModelRuntimeError: Configured stage model invocation failed.
+        at ModelRuntimeService.#invokeStructured (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/model-runtime.ts:240:11)
+        at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+        at async ModelRuntimeService.generateStructured (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/model-runtime.ts:113:13)
+        at async MemoryService.#refineData (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/memory-service.ts:349:9)
+        at async MemoryService.refine (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/memory-service.ts:219:21)
+        at async TaskService.fail (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/task-service.ts:1407:5)
+        at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/composition/tasks.ts:457:11) {
+      code: 'MODEL_INVOCATION_FAILED'
+    }
+  ]
+}
+
+Node.js v22.23.2

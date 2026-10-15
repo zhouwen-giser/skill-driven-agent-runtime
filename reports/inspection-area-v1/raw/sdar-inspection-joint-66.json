@@ -1,0 +1,24 @@
+{
+  "name": "sdar-inspection-joint-66",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "tsx",
+    "scripts/inspection/joint.mts"
+  ],
+  "startedAt": "2026-10-15T00:39:08.792Z",
+  "completedAt": "2026-10-15T00:50:50.458Z",
+  "exitCode": 143,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceAfter": "be24eb6104fe76fdb19503cbea5f2b606f1a52c62756b8fb3d97ab17e08684ce",
+  "sourceUnchanged": true,
+  "relatedSource": {
+    "root": "/home/sz/.codex/worktrees/trajectory-history-authority/sdar-mcp-provider-platform",
+    "before": "f84566d8948fb116a43b7cab324b5e63b8ddade33f0f99f8c5e45d1e1e4239c0",
+    "after": "f84566d8948fb116a43b7cab324b5e63b8ddade33f0f99f8c5e45d1e1e4239c0"
+  },
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-joint-66.log",
+  "logSha256": "4417e8564fc7e77e3b660fe2f7c4048f90c5726c2f506492009fbf8c204f173a"
+}

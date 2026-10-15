@@ -1,0 +1,8 @@
+$ eslint .
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/server/src/patrol-evidence-reader.ts
+  98:25  error  Unnecessary conditional, the types have no overlap  @typescript-eslint/no-unnecessary-condition
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

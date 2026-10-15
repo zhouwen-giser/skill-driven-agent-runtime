@@ -1,0 +1,76 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 612B done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+#2 DONE 0.5s
+
+#3 [internal] load .dockerignore
+#3 transferring context:
+#3 transferring context: 122B done
+#3 DONE 0.2s
+
+#4 [internal] load build context
+#4 DONE 0.0s
+
+#5 [build 1/8] FROM docker.io/library/node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+#5 resolve docker.io/library/node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 0.1s done
+#5 DONE 0.1s
+
+#4 [internal] load build context
+#4 transferring context: 28.79MB 0.9s done
+#4 DONE 1.1s
+
+#6 [build 2/8] WORKDIR /app
+#6 CACHED
+
+#7 [build 3/8] RUN npm install --global pnpm@11.7.0
+#7 CACHED
+
+#8 [build 4/8] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+#8 CACHED
+
+#9 [build 5/8] COPY apps/console/package.json apps/console/package.json
+#9 CACHED
+
+#10 [build 6/8] RUN pnpm install --frozen-lockfile
+#10 CACHED
+
+#11 [build 7/8] COPY . .
+#11 DONE 15.2s
+
+#12 [build 8/8] RUN pnpm build
+#12 1.582 $ tsc -p tsconfig.build.json && pnpm --dir apps/console build
+#12 43.66 $ tsc -b && vite build
+#12 49.69 vite v8.1.4 building client environment for production...
+#12 49.71 [2Ktransforming...✓ 34 modules transformed.
+#12 50.27 rendering chunks...
+#12 50.40 computing gzip size...
+#12 50.43 dist/index.html                   0.47 kB │ gzip:  0.30 kB
+#12 50.43 dist/assets/index-BK6QD3zY.css   14.52 kB │ gzip:  3.95 kB
+#12 50.43 dist/assets/index-D243sISy.js   324.45 kB │ gzip: 91.68 kB │ map: 1,242.32 kB
+#12 50.43 
+#12 50.43 ✓ built in 732ms
+#12 DONE 59.7s
+
+#6 [build 2/8] WORKDIR /app
+#6 CACHED
+
+#13 [stage-1 3/3] COPY --from=build /app /app
+#13 DONE 11.3s
+
+#14 exporting to image
+#14 exporting layers
+#14 exporting layers 13.2s done
+#14 exporting manifest sha256:7fdac3c867b30d8c58d42d3f8096b79e2a99a76d1ac99a1e3036614c6a929a91 0.1s done
+#14 exporting config sha256:75d18f50d8992be8e4b1b938e27b35138288d12bf8de81c38939b1668b895f27
+#14 exporting config sha256:75d18f50d8992be8e4b1b938e27b35138288d12bf8de81c38939b1668b895f27 0.2s done
+#14 exporting attestation manifest sha256:9b9b37f7bd38b1f612f8747a4120f9dbe1431ce593d72e71f42bd629e5f2534b
+#14 exporting attestation manifest sha256:9b9b37f7bd38b1f612f8747a4120f9dbe1431ce593d72e71f42bd629e5f2534b 0.1s done
+#14 exporting manifest list sha256:5b90c86bf52efc7a0aeb944d1265a3cbefa109a65b6c026723efe8f022123d88 0.0s done
+#14 naming to docker.io/library/sdar-inspection:c8a39c8616c5-9a7e9302eea6 done
+#14 unpacking to docker.io/library/sdar-inspection:c8a39c8616c5-9a7e9302eea6
+#14 unpacking to docker.io/library/sdar-inspection:c8a39c8616c5-9a7e9302eea6 6.6s done
+#14 DONE 20.2s

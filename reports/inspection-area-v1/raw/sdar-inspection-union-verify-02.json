@@ -1,0 +1,19 @@
+{
+  "name": "sdar-inspection-union-verify-02",
+  "command": "python3",
+  "args": [
+    "deploy/united/bundle.py",
+    "verify",
+    "artifacts/inspection-area-v1/united-final-v2/sdar-united-53c71b087d6f583b0c20/sdar-united-53c71b087d6f583b0c20.tar.gz"
+  ],
+  "startedAt": "2026-10-14T12:56:38.921Z",
+  "completedAt": "2026-10-14T12:56:42.731Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceAfter": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-union-verify-02.log",
+  "logSha256": "af9475407e50bd033e605ff4c83dd65874d5e02e21d3fcacd8b9eada7fc6ef5c"
+}

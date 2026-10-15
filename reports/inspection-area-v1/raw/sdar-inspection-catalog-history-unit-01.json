@@ -1,0 +1,22 @@
+{
+  "name": "sdar-inspection-catalog-history-unit-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/node-control-application/test/mcp-provider-binding-service.unit.test.ts"
+  ],
+  "startedAt": "2026-10-14T14:24:59.436Z",
+  "completedAt": "2026-10-14T14:25:05.222Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "4ebf1c7b80b6476cf135b0795d9eca2f93508180c4f296ed24fa17956f4dd93d",
+  "sourceAfter": "4ebf1c7b80b6476cf135b0795d9eca2f93508180c4f296ed24fa17956f4dd93d",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-catalog-history-unit-01.log",
+  "logSha256": "fa405a96ec405c4fa06719773c11f4ace0915602f0913e1f99ad9a5daa2e44c0"
+}

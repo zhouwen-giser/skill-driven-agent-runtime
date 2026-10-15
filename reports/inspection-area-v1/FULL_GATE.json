@@ -1,0 +1,347 @@
+{
+  "status": "PASS",
+  "gateReceipt": "raw/sdar-inspection-gate-18.json",
+  "runId": "sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb",
+  "steps": 30,
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "runtimeInputSha256": "c01c7839a283f08e43b3b4019b103c9b00c958c2b7d7c394d68f1bb0873cca52",
+  "baselineSha256": "039ba2558b8dea528a45b6855e23c99e4c19f45f4f298bed8a558b61e5141816",
+  "files": [
+    {
+      "path": "final-gate-18/cleanup.json",
+      "sha256": "96cd9eb4e5910ae9dcf97c7b97c32e44f87c635ac42bf5286634cbc5135d5b3b",
+      "bytes": 2027
+    },
+    {
+      "path": "final-gate-18/git-snapshot.json",
+      "sha256": "9db6cfd6b8781d0af28227f0cac58248068e1f57da36089f3a79be0d2c70031c",
+      "bytes": 224
+    },
+    {
+      "path": "final-gate-18/inputs.json",
+      "sha256": "720b15d9e338101fe8bc8259be84b8ce7a3eb9704d9a076f6ee77ce65f68810c",
+      "bytes": 1796326
+    },
+    {
+      "path": "final-gate-18/run.json",
+      "sha256": "875a4f88ccbb110a4d42a45f6827a6c615f09af9aaafffba73ec6a848f9c1a5f",
+      "bytes": 2670
+    },
+    {
+      "path": "final-gate-18/verification/a2a-baseline.json",
+      "sha256": "1a1530a84d982f16f925742a21b1b032c2a82d25f84b0d51d856d495771e7f71",
+      "bytes": 586
+    },
+    {
+      "path": "final-gate-18/verification/acceptance.json",
+      "sha256": "30496cedbd31de8b5aea3df99256ad142a93914b406440c9a76561a5ce1533ed",
+      "bytes": 580
+    },
+    {
+      "path": "final-gate-18/verification/architecture.json",
+      "sha256": "ce99d2e9daa5961dee53b9a4c95ae02d0a5053f908a176e8d352191b914c3e58",
+      "bytes": 588
+    },
+    {
+      "path": "final-gate-18/verification/build.json",
+      "sha256": "4f8034664de6c2f4f406a9f4131d7f470b16fed9b56a44b737768577be53f78f",
+      "bytes": 563
+    },
+    {
+      "path": "final-gate-18/verification/canonical-evidence-demo.json",
+      "sha256": "604817f10441a685a6b5165a5b70e47d28f8ea708f1a14f3e526049487ca0bea",
+      "bytes": 613
+    },
+    {
+      "path": "final-gate-18/verification/clean-baseline-reset-seed.json",
+      "sha256": "696143ccbd242045e48e4922378047930449e5e3877917307e52813c593a0170",
+      "bytes": 644
+    },
+    {
+      "path": "final-gate-18/verification/cognitive-replay-no-physical-provider.json",
+      "sha256": "8ffa08e19fa4c63205d7815413601538889762280f93b99a1e4eaae4f6d92e0f",
+      "bytes": 641
+    },
+    {
+      "path": "final-gate-18/verification/contract.json",
+      "sha256": "81ec14e64dc649b743962a7267a833d8f8ff0971862973c3d2bb570cbe38f56c",
+      "bytes": 618
+    },
+    {
+      "path": "final-gate-18/verification/evidence-contract.json",
+      "sha256": "d3ce7d21e088a0b0624c4b0c5b6c91ff13bbb031296ae68d41fd0fb8716784c0",
+      "bytes": 603
+    },
+    {
+      "path": "final-gate-18/verification/evidence-coverage.json",
+      "sha256": "f51243d6fa1d1a4a8899a1d5af150c1efda9665bcf26602283d9c97219968320",
+      "bytes": 601
+    },
+    {
+      "path": "final-gate-18/verification/format.json",
+      "sha256": "e4d27af8dccc36d43f84704ead408c2aff73cbc8b9164b86224b1037a5dcbe45",
+      "bytes": 571
+    },
+    {
+      "path": "final-gate-18/verification/infra.json",
+      "sha256": "6a689c7532b447f4cf7d273d2a7377e288886ffd1bdc1a23fc7658d7488d5e7c",
+      "bytes": 565
+    },
+    {
+      "path": "final-gate-18/verification/infrastructure-smoke.json",
+      "sha256": "6b6a625bde6a836f2d3e90007605427306b989a78fd710761541d2a13e56d713",
+      "bytes": 598
+    },
+    {
+      "path": "final-gate-18/verification/licenses.json",
+      "sha256": "d40d7389d623b0634c27bcf897ad4a4b45a1b3360452cc055ff0f976e065ab6d",
+      "bytes": 574
+    },
+    {
+      "path": "final-gate-18/verification/lint.json",
+      "sha256": "494ecb377f693d23fa2487922ed0202d66ae5b197a5cbe6cb1df20b7cb759daf",
+      "bytes": 563
+    },
+    {
+      "path": "final-gate-18/verification/management-openapi.json",
+      "sha256": "0200539345d6cd9f487ef524e9515268babb65b02ebf5d6f1fbdaaf08b67e244",
+      "bytes": 636
+    },
+    {
+      "path": "final-gate-18/verification/node-control-api-worker-smoke.json",
+      "sha256": "62fa46540377152a921ba0150d60778e9d4086dc7edd66b54cd186483a66a9d5",
+      "bytes": 627
+    },
+    {
+      "path": "final-gate-18/verification/node-control-contract.json",
+      "sha256": "b47d9f91143a8319ce06433a77bb5bd9e426d61c70bdf70b5aa2b0888b78e05a",
+      "bytes": 613
+    },
+    {
+      "path": "final-gate-18/verification/node-control-implementation-conformance.json",
+      "sha256": "8c05b054497bc8aac97b79bf7124c74713e3b170f573533cc81aaa71ada15beb",
+      "bytes": 669
+    },
+    {
+      "path": "final-gate-18/verification/official-a2a-tck.json",
+      "sha256": "a6171ed3f63c0fea7d0a910f1060a038fc010c8f4c5493dbd6b76d1d0ad4d275",
+      "bytes": 592
+    },
+    {
+      "path": "final-gate-18/verification/performance-fixture.json",
+      "sha256": "74dbc0e0aae7de1e4ac5465be46ce83abfee0b0ab9c0a57ea91955e296911af6",
+      "bytes": 3345
+    },
+    {
+      "path": "final-gate-18/verification/postgres-redis-integration.json",
+      "sha256": "01c03c89782524a86b79f71b3f3ef6098137580e3ec290646f17886b7ddb395f",
+      "bytes": 659
+    },
+    {
+      "path": "final-gate-18/verification/postgres-redis-model-mcp-e2e.json",
+      "sha256": "cf2fd4837c413bb7bb596a1527187ba8d7813464b79e72b2ad3215adf0bccd9f",
+      "bytes": 653
+    },
+    {
+      "path": "final-gate-18/verification/project-license.json",
+      "sha256": "4b595a018868c1c66f39c1413121558e49c58da436ec1f70aaad911285837c9b",
+      "bytes": 595
+    },
+    {
+      "path": "final-gate-18/verification/protocol.json",
+      "sha256": "5b8dcd315c15635f817e2c3b8ff843c40ad881fb6914a825ff2b3687b16d6822",
+      "bytes": 574
+    },
+    {
+      "path": "final-gate-18/verification/raw/a2a-baseline.log",
+      "sha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f",
+      "bytes": 312
+    },
+    {
+      "path": "final-gate-18/verification/raw/acceptance.log",
+      "sha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788",
+      "bytes": 181
+    },
+    {
+      "path": "final-gate-18/verification/raw/architecture.log",
+      "sha256": "0689a18dcf6a72d1d1ba8f133361664407929c49d9eabc4b242ed23c0c2ea3b9",
+      "bytes": 480
+    },
+    {
+      "path": "final-gate-18/verification/raw/build.log",
+      "sha256": "2b9c9424b9acbd6ad8b35a036257e9d604da85b9de9a8126094d0de5a3c0dead",
+      "bytes": 458
+    },
+    {
+      "path": "final-gate-18/verification/raw/canonical-evidence-demo.log",
+      "sha256": "eb36ac1e1c0dba8ccc43ef6b8dc1ec3ac58ddd2bc631f2ff023d636d3459d2ef",
+      "bytes": 14227
+    },
+    {
+      "path": "final-gate-18/verification/raw/clean-baseline-reset-seed.log",
+      "sha256": "73ac9016306d4fb4bc8587ed6ad76391c629c55435e1a6dc651a4b4955798b57",
+      "bytes": 4476
+    },
+    {
+      "path": "final-gate-18/verification/raw/cognitive-replay-no-physical-provider.log",
+      "sha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2",
+      "bytes": 140
+    },
+    {
+      "path": "final-gate-18/verification/raw/contract.log",
+      "sha256": "523fe9027841830ce1e4533a15dd2062fca27144836f70f4db33a92e19cbbd74",
+      "bytes": 7671
+    },
+    {
+      "path": "final-gate-18/verification/raw/evidence-contract.log",
+      "sha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4",
+      "bytes": 438
+    },
+    {
+      "path": "final-gate-18/verification/raw/evidence-coverage.log",
+      "sha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634",
+      "bytes": 175
+    },
+    {
+      "path": "final-gate-18/verification/raw/format.log",
+      "sha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641",
+      "bytes": 302
+    },
+    {
+      "path": "final-gate-18/verification/raw/infra.log",
+      "sha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d",
+      "bytes": 136
+    },
+    {
+      "path": "final-gate-18/verification/raw/infrastructure-smoke.log",
+      "sha256": "b4012c53ac4072cb6545be5c05995b13faa3922bcbaf73cce701a4a45442b2e1",
+      "bytes": 5641
+    },
+    {
+      "path": "final-gate-18/verification/raw/licenses.log",
+      "sha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c",
+      "bytes": 163
+    },
+    {
+      "path": "final-gate-18/verification/raw/lint.log",
+      "sha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1",
+      "bytes": 11
+    },
+    {
+      "path": "final-gate-18/verification/raw/management-openapi.log",
+      "sha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a",
+      "bytes": 100
+    },
+    {
+      "path": "final-gate-18/verification/raw/node-control-api-worker-smoke.log",
+      "sha256": "b14311c7def2f2e9a5cc510d876482398816fc90b14891c1641b4b69dbd4ac09",
+      "bytes": 13622
+    },
+    {
+      "path": "final-gate-18/verification/raw/node-control-contract.log",
+      "sha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab",
+      "bytes": 148
+    },
+    {
+      "path": "final-gate-18/verification/raw/node-control-implementation-conformance.log",
+      "sha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b",
+      "bytes": 198
+    },
+    {
+      "path": "final-gate-18/verification/raw/official-a2a-tck.log",
+      "sha256": "f1f03462692e074cad30f0b51416c194b57120f1ae9feb002cd42d7507cc0266",
+      "bytes": 2563
+    },
+    {
+      "path": "final-gate-18/verification/raw/postgres-redis-integration.log",
+      "sha256": "bfc01fb1c8fd766000a638f2b79f7d35dce70df73fd56c32b89d920bc1e36566",
+      "bytes": 31539
+    },
+    {
+      "path": "final-gate-18/verification/raw/postgres-redis-model-mcp-e2e.log",
+      "sha256": "12ecacc78b40ce00d6818c5ac622d127967a60f63806923b20be2e1e5fec8519",
+      "bytes": 38318
+    },
+    {
+      "path": "final-gate-18/verification/raw/project-license.log",
+      "sha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861",
+      "bytes": 109
+    },
+    {
+      "path": "final-gate-18/verification/raw/protocol.log",
+      "sha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27",
+      "bytes": 172
+    },
+    {
+      "path": "final-gate-18/verification/raw/server-console-smoke.log",
+      "sha256": "1eb24e57ef5497a33728ac721ee5475d962e7834d10a247691c04be6829a4c79",
+      "bytes": 6366
+    },
+    {
+      "path": "final-gate-18/verification/raw/smpp-registry-projection.log",
+      "sha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab",
+      "bytes": 641
+    },
+    {
+      "path": "final-gate-18/verification/raw/sources.log",
+      "sha256": "a382d8438c8da8d0e65f5155682361a1be32937cfef504dc8228567d4b4e49cc",
+      "bytes": 88
+    },
+    {
+      "path": "final-gate-18/verification/raw/typecheck.log",
+      "sha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "bytes": 32
+    },
+    {
+      "path": "final-gate-18/verification/raw/unit.log",
+      "sha256": "5288d4a2b72812d3aef0ae89fb2d89e2f6714cf78691d4344435c0f617c3cf70",
+      "bytes": 33128
+    },
+    {
+      "path": "final-gate-18/verification/raw/verification-runner-contract.log",
+      "sha256": "afdb555135cbe8b74b7ec4eb56d7e25bbd60bb6866d3bc4226543e58b1bcdf91",
+      "bytes": 4977
+    },
+    {
+      "path": "final-gate-18/verification/server-console-smoke.json",
+      "sha256": "dbf85a76df0db3550f73bf77a8f2b4c6910b30691d743e4449f964a9cefd17c7",
+      "bytes": 600
+    },
+    {
+      "path": "final-gate-18/verification/smpp-registry-projection.json",
+      "sha256": "80fb1ec02137288bcac0c023ae2455990a077f3e40527d84b386b539fa037520",
+      "bytes": 622
+    },
+    {
+      "path": "final-gate-18/verification/sources.json",
+      "sha256": "cc1a77b741831566bad555d8f411b27f0bfc965d908b2c028c6171a5889f5e8a",
+      "bytes": 571
+    },
+    {
+      "path": "final-gate-18/verification/summary.json",
+      "sha256": "7e853e0c36c117c0c670d228a42b6c6558ef6d390931923a7a748e2f777fa6ea",
+      "bytes": 21378
+    },
+    {
+      "path": "final-gate-18/verification/summary.md",
+      "sha256": "8dd38c445cae61225964ff8646e1e2d376813193bbc976d1419d3c0f28b8acc2",
+      "bytes": 2411
+    },
+    {
+      "path": "final-gate-18/verification/typecheck.json",
+      "sha256": "85c5f630f243efee9ebc6bec578b9c82eadb88cce8abb8aad3d300c761fedcab",
+      "bytes": 576
+    },
+    {
+      "path": "final-gate-18/verification/unit.json",
+      "sha256": "1381b8bbbeba451047e27c03697c595e84d9fa47426699c02e821b34cb34a291",
+      "bytes": 611
+    },
+    {
+      "path": "final-gate-18/verification/verification-runner-contract.json",
+      "sha256": "2b9d6c159c373126ab44711658458c0f161967cf49af778c11f7d2b9d9589882",
+      "bytes": 617
+    }
+  ]
+}

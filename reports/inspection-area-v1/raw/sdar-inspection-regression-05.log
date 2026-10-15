@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+
+ Test Files  4 passed (4)
+      Tests  49 passed (49)
+   Start at  05:28:09
+   Duration  6.54s (transform 7.17s, setup 0ms, import 9.77s, tests 1.41s, environment 1ms)
+

@@ -1,10 +1,8 @@
 # Project Status
 
-2026-10-15：补齐 PR #41 的派发时间窗刷新和导航期限隔离回归，保持物理确认、禁止重放和检查 300 秒限制。gate-16 全 30 阶段与清理通过，e21fbafe 三容器更新成功；本地 CAS 验收定位到 PostgreSQL 提交门禁的历史证明缺口，已补齐真实数据库回归，正在重新固定最终源码验证。现场执行 NOT_RUN。
+## 区域检查与巡逻接入（2026-10-15，LOCAL_DEPLOYED_READONLY_ACCEPTED）
 
-## 区域检查与巡逻接入（2026-10-14，原生目录升级验收）
-
-检查与巡逻核心八场景联合验证、SMPP 完整门禁及 SDAR gate-10 的 30 阶段均已通过，原始失败保留。本地五个容器已更新，19100 实际提供精确 13 工具；首次原生 bootstrap 因旧绑定的 Registry 谱系漂移安全停止，设备调用为 0。同一 Provider 真实目录升级及后台先行刷新时序的 CAS rebind 已补齐，20 项绑定回归覆盖目录先行刷新及历史证明；正在验证；保持身份、凭据引用、冻结 Schema 与观察计数不制造语义版本。正在重新验证完整门禁、生成 SDAR 后继镜像并完成原生发布。整体交付仍未完成；现场执行 NOT_RUN。下文保留历史部署记录。
+SMPP vehicle_inspect_area、SDAR embodied.inspect_area 及巡逻后继版本已完成本次实现和本地只读交付。SMPP 完整门禁、最终 SDAR 30 阶段与清理、八场景真实 PostgreSQL/MQTT/Device MCP 隔离链均通过。19100 提供精确 13 工具；原生同 Provider CAS 目录升级保留绑定身份和旧版本，检查、巡逻及全部 14 项站点清单通过治理发布和只读组合验收。五个目标容器已更新，卷、签名密钥、PMS、绑定及 48 个上游实例保留。失败回执继续保存。交付、源码、镜像和证据哈希见 reports/inspection-area-v1/FINAL_VALIDATION.json；现场巡逻、生产回退演练及全项目生产验收仍为 NOT_RUN/OPEN。下述旧部署记录为历史。
 
 ## Local SMPP integrated deployment (2026-10-14, LOCAL_DEPLOYED_WITH_CAPABILITY_GAP)
 

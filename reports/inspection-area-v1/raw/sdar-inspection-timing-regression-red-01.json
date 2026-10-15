@@ -1,0 +1,23 @@
+{
+  "name": "sdar-inspection-timing-regression-red-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/domain/test/area-patrol.unit.test.ts",
+    "packages/application/test/mcp-registry.unit.test.ts"
+  ],
+  "startedAt": "2026-10-15T00:35:30.965Z",
+  "completedAt": "2026-10-15T00:35:34.909Z",
+  "exitCode": 1,
+  "signal": null,
+  "status": "FAIL",
+  "sourceBefore": "77becd6dbe96320bc22d048d7d9492ee845cbf6c54fadd4263d9741a05cc2590",
+  "sourceAfter": "77becd6dbe96320bc22d048d7d9492ee845cbf6c54fadd4263d9741a05cc2590",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-timing-regression-red-01.log",
+  "logSha256": "cecaf86e7402de6b209192dded1ded4664acae370db50dcf5e065dd624a2ad77"
+}

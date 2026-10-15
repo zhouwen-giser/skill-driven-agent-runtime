@@ -1,0 +1,17 @@
+{
+  "name": "sdar-inspection-gate-10",
+  "command": "pnpm",
+  "args": [
+    "verify:isolated"
+  ],
+  "startedAt": "2026-10-14T12:55:30.079Z",
+  "completedAt": "2026-10-14T13:31:03.052Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceAfter": "2077436723439adec6ab33e33c3ba4e6a410e17b6b846e721ff5723f70aabd97",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-gate-10.log",
+  "logSha256": "2fc488ad2e0c8e87d0cef968e6f4a4c1f45565d9605265a2c084d67b5b54b2a5"
+}

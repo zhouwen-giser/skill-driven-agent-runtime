@@ -1,0 +1,29 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+ ❯ |unit| packages/application/test/workflow-execution.unit.test.ts (19 tests | 1 failed) 73ms
+     × keeps a monotonic continuation chain across successive child confirmations 29ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| packages/application/test/workflow-execution.unit.test.ts > Workflow execution application service > keeps a monotonic continuation chain across successive child confirmations
+DomainError: Workflow continuation failed state must be boolean.
+ ❯ continuationError packages/domain/src/workflow-continuation.ts:765:10
+    763|   message: string,
+    764| ): DomainError {
+    765|   return new DomainError(code, message);
+       |          ^
+    766| }
+    767|
+ ❯ createWorkflowContinuationSnapshot packages/domain/src/workflow-continuation.ts:243:11
+ ❯ WorkflowExecutionService.execute packages/application/src/workflow-execution.ts:315:34
+ ❯ packages/application/test/workflow-execution.unit.test.ts:143:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 68 passed (69)
+   Start at  07:34:38
+   Duration  4.20s (transform 4.69s, setup 0ms, import 5.96s, tests 444ms, environment 0ms)
+

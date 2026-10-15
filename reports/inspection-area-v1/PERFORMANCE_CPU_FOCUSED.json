@@ -1,0 +1,103 @@
+{
+  "status": "APPLIED",
+  "runId": "sdar-verify-b1df2d68-1ef1-450f-9b18-30f563c9989b",
+  "project": "sdar-verify-b1df2d68-1ef1-450f-9b18-30f563c9989b-e2e-performance",
+  "hostCpus": [
+    13,
+    22
+  ],
+  "databaseCpus": [
+    17,
+    18,
+    19,
+    12
+  ],
+  "ownedContainers": {
+    "7e09f8db04f3": {
+      "name": "sdar-verify-b1df2d68-1ef1-450f-9b18-30f563c9989b-e2e-performance-redis-1",
+      "beforeCpuset": "",
+      "cpuset": "17,18,19,12"
+    },
+    "ef89ca0c72a4": {
+      "name": "sdar-verify-b1df2d68-1ef1-450f-9b18-30f563c9989b-e2e-performance-postgres-1",
+      "beforeCpuset": "",
+      "cpuset": "17,18,19,12"
+    }
+  },
+  "ownedTestProcesses": {
+    "374455": {
+      "beforeCpus": [
+        13,
+        22
+      ],
+      "afterCpus": [
+        13,
+        22
+      ]
+    },
+    "374443": {
+      "beforeCpus": [
+        13,
+        22
+      ],
+      "afterCpus": [
+        13,
+        22
+      ]
+    },
+    "374367": {
+      "beforeCpus": [
+        13,
+        22
+      ],
+      "afterCpus": [
+        13,
+        22
+      ]
+    },
+    "378233": {
+      "beforeCpus": [
+        13,
+        22
+      ],
+      "afterCpus": [
+        13,
+        22
+      ]
+    },
+    "378392": {
+      "beforeCpus": [
+        13,
+        22
+      ],
+      "afterCpus": [
+        13,
+        22
+      ]
+    },
+    "420335": {
+      "beforeCpus": [
+        13,
+        22
+      ],
+      "afterCpus": [
+        13,
+        22
+      ]
+    },
+    "420365": {
+      "beforeCpus": [
+        13,
+        22
+      ],
+      "afterCpus": [
+        13,
+        22
+      ]
+    }
+  },
+  "testsChanged": false,
+  "thresholdsChanged": false,
+  "commandStatus": "FAIL",
+  "completedAt": "2026-10-15T01:32:10.794551+00:00"
+}

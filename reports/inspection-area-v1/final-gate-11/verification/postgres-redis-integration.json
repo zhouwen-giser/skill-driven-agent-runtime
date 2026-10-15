@@ -1,0 +1,24 @@
+{
+  "name": "postgres-redis-integration",
+  "command": "pnpm test:integration",
+  "status": "passed",
+  "startedAt": "2026-10-14T13:57:56.782Z",
+  "finishedAt": "2026-10-14T14:04:49.037Z",
+  "timeoutMs": 660000,
+  "logPath": "reports/verification/raw/postgres-redis-integration.log",
+  "outputSha256": "c9bc3797366a0ed71f776ea1d77b3264919f4049ffd1383ef81becbef2b4fcae",
+  "metrics": {
+    "testFiles": 44,
+    "tests": 272
+  },
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 412255,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 412,
+    "peakRssBytes": 1721798656,
+    "peakProcesses": 9
+  },
+  "cleanupErrors": []
+}

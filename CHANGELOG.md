@@ -9,6 +9,8 @@
 
 ## 2026-10-14 — 区域检查与巡逻组合
 
+- 本地 19100 和 SDAR 五个目标容器已更新；精确 13 工具、14 项正式清单、绑定历史与上游保留检查通过。最终 SDAR 30 阶段和八场景联合验收通过；现场执行 NOT_RUN，见 FINAL_VALIDATION.json。
+
 - 同一 Provider 的真实目录 checksum 变化可通过既有 CAS rebind 生成后继绑定版本；不改变冻结命令 Schema、绑定身份或凭据引用，纯观察变化仍拒绝。
 
 - 新增默认关闭的 SMPP vehicle_inspect_area 任务及精确 13/14 工具目录，发布对应检查 Skill/Capability 和巡逻 v2 组合。

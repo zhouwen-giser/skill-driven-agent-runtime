@@ -1,0 +1,31 @@
+
+ RUN  v4.1.10 /home/sz/code/skill-driven-agent-runtime-inspect-area-v1
+
+{"event":"capability_readiness.expiry_recalculation_failed","errorCode":"CAPABILITY_READINESS_RECALCULATION_FAILED"}
+{"event":"node_control.evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+{"event":"node_control.telemetry_evidence_projection_failed","errorCode":"EVIDENCE_PROJECTION_ISSUE_PERSISTENCE_FAILED"}
+ ❯ |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts (3 tests | 1 failed | 2 skipped) 5544ms
+     × commits a CAS lineage alignment after a persisted Catalog advance and rejects counter-only successors 347ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts > P04 SMPP Registry federation > commits a CAS lineage alignment after a persisted Catalog advance and rejects counter-only successors
+NodeControlMcpBindingError: Only a semantic Provider contract change can create a Binding revision.
+ ❯ packages/node-control-persistence-postgres/src/mcp-provider-binding-repository.ts:321:15
+    319|         );
+    320|       if (sameMcpProviderBindingContract(prior, record))
+    321|         throw new NodeControlMcpBindingError(
+       |               ^
+    322|           'MCP_PROVIDER_BINDING_CONFLICT',
+    323|           'Only a semantic Provider contract change can create a Bindi…
+ ❯ PostgresNodeControlMcpProviderBindingRepository.transaction packages/node-control-persistence-postgres/src/mcp-provider-binding-repository.ts:427:21
+ ❯ packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts:149:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  10:16:47
+   Duration  13.70s (transform 5.57s, setup 0ms, import 7.97s, tests 5.54s, environment 0ms)
+

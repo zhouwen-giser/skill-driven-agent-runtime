@@ -1,0 +1,22 @@
+{
+  "name": "sdar-inspection-catalog-rebind-unit-01",
+  "command": "pnpm",
+  "args": [
+    "exec",
+    "vitest",
+    "run",
+    "--project",
+    "unit",
+    "packages/node-control-application/test/mcp-provider-binding-service.unit.test.ts"
+  ],
+  "startedAt": "2026-10-14T13:45:35.843Z",
+  "completedAt": "2026-10-14T13:45:42.132Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "PASS",
+  "sourceBefore": "d45d7cfa0bdbcc63285d49e36666bee85ab283ebf5c13e21ffc4a6f0c0e3705e",
+  "sourceAfter": "d45d7cfa0bdbcc63285d49e36666bee85ab283ebf5c13e21ffc4a6f0c0e3705e",
+  "sourceUnchanged": true,
+  "log": "/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/reports/inspection-area-v1/raw/sdar-inspection-catalog-rebind-unit-01.log",
+  "logSha256": "1232ac7147313542fc542a1accbf8dfb1a28401a9a2ae2add723a958aac0fb06"
+}

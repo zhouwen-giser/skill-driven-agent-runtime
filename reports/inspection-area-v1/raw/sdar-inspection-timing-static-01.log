@@ -1,0 +1,6 @@
+
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/packages/application/src/mcp-registry.ts
+  61:55  error  void is not valid as a constituent in a union type  @typescript-eslint/no-invalid-void-type
+
+✖ 1 problem (1 error, 0 warnings)
+

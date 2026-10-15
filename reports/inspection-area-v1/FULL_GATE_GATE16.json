@@ -1,0 +1,347 @@
+{
+  "status": "PASS",
+  "gateReceipt": "raw/sdar-inspection-gate-16.json",
+  "runId": "sdar-verify-80076a87-df84-478d-a711-aba2723fbc90",
+  "steps": 30,
+  "exitCode": 0,
+  "cleanupExitCode": 0,
+  "runtimeInputSha256": "0a518c52faaa5f8421db85071c894e9da21cc189f28eea141a5de1ca0a05332c",
+  "baselineSha256": "bfe3e8bd87251bdc5bc2d5c1c3059690b9b011a9818701b6319dbdee118c0bd7",
+  "files": [
+    {
+      "path": "final-gate-16/cleanup.json",
+      "sha256": "a31b18490c0a2fba6809bc83e2dabd05e153b0eb941a22fef35852f7b0bf7438",
+      "bytes": 2026
+    },
+    {
+      "path": "final-gate-16/git-snapshot.json",
+      "sha256": "ffeb931a0ad35ec73944892cbe74cc4beafbbb081bb6748b51d815558f705667",
+      "bytes": 224
+    },
+    {
+      "path": "final-gate-16/inputs.json",
+      "sha256": "1ae79bcb93da27566adab153580d5f10e82a25a755c52723c602341c8eb2003d",
+      "bytes": 1783888
+    },
+    {
+      "path": "final-gate-16/run.json",
+      "sha256": "32ae19f91f415412ea0c69e5bf1104def0fda51416a0d51df2bf4ab88806d808",
+      "bytes": 2676
+    },
+    {
+      "path": "final-gate-16/verification/a2a-baseline.json",
+      "sha256": "6e5ae9f9590d5082318dac7c65fea70a76e243504c3a15a1730d19ead5a9f77e",
+      "bytes": 586
+    },
+    {
+      "path": "final-gate-16/verification/acceptance.json",
+      "sha256": "dd819cb77098f1f3663a1b163bd69a9af59acc42a7044c82ee6e651f92714475",
+      "bytes": 580
+    },
+    {
+      "path": "final-gate-16/verification/architecture.json",
+      "sha256": "1afe9eb351076c30755144ecf073838e404db0f6caa86da7497446c0eb260c77",
+      "bytes": 588
+    },
+    {
+      "path": "final-gate-16/verification/build.json",
+      "sha256": "ed32b6700b16fb62157edba65af0ae36f7eb59042a77e7483f66ed28456bb34b",
+      "bytes": 563
+    },
+    {
+      "path": "final-gate-16/verification/canonical-evidence-demo.json",
+      "sha256": "e2674e584dd0f4515e1bd1c056e86b9f8ce928959fbf0c12ab730b354fc14531",
+      "bytes": 613
+    },
+    {
+      "path": "final-gate-16/verification/clean-baseline-reset-seed.json",
+      "sha256": "d3eefadc9a405b1c8e4c0b2e05500f17bc52e9615606f7e78b4ad83b92f0d563",
+      "bytes": 642
+    },
+    {
+      "path": "final-gate-16/verification/cognitive-replay-no-physical-provider.json",
+      "sha256": "3b53e285f0f3cfcf781a42a9a28d50e6de8985da4ffb33b841ff800c4c9d1c3e",
+      "bytes": 640
+    },
+    {
+      "path": "final-gate-16/verification/contract.json",
+      "sha256": "d1208aba9cd815c2a83c28faebc3f31ee74943fe045120f89a1a0eae17bc558b",
+      "bytes": 618
+    },
+    {
+      "path": "final-gate-16/verification/evidence-contract.json",
+      "sha256": "882ffc3992e4c4472979a7a5ab4becaa6c0d0796152722c84f802ea18c12ac6f",
+      "bytes": 603
+    },
+    {
+      "path": "final-gate-16/verification/evidence-coverage.json",
+      "sha256": "3f5d11e59bb546fbea43f0153fdb6b0d167ca73d55218586d35a61d5df88a067",
+      "bytes": 601
+    },
+    {
+      "path": "final-gate-16/verification/format.json",
+      "sha256": "982e7794c2993839cba391aff9fca50e8426c50ba3e3a2edf074746812437f97",
+      "bytes": 571
+    },
+    {
+      "path": "final-gate-16/verification/infra.json",
+      "sha256": "345bc310ef7238b543704a830ccfb81144094ce20fae65c438e9c3e4e84e6b7d",
+      "bytes": 565
+    },
+    {
+      "path": "final-gate-16/verification/infrastructure-smoke.json",
+      "sha256": "8d4639767dfc6cecb13d012a0d178f3aa3287a287a575cc40084a6a6f0a7e22b",
+      "bytes": 598
+    },
+    {
+      "path": "final-gate-16/verification/licenses.json",
+      "sha256": "0ff5b9d9d9b6ad7807a9d1bdb3afa553d4bc9c6c7d7cb403188e25578dc772ed",
+      "bytes": 574
+    },
+    {
+      "path": "final-gate-16/verification/lint.json",
+      "sha256": "ec32d5bcaeb4fddae407c0b81f87c030e00ec16be317ec1b07d39fb40853ffe0",
+      "bytes": 563
+    },
+    {
+      "path": "final-gate-16/verification/management-openapi.json",
+      "sha256": "932e113fcc4df088232c4c8ffd55be017ce5cbeb6760edcccb0ec378f353ec56",
+      "bytes": 636
+    },
+    {
+      "path": "final-gate-16/verification/node-control-api-worker-smoke.json",
+      "sha256": "8c54c99b49f564705ed52c8183c880fd1e63685a5e0dacd3a679d942545070cc",
+      "bytes": 627
+    },
+    {
+      "path": "final-gate-16/verification/node-control-contract.json",
+      "sha256": "9e40604472481ab0cf07b2bbccd0343777e566b12e03c2f5db650c133b1ef97a",
+      "bytes": 613
+    },
+    {
+      "path": "final-gate-16/verification/node-control-implementation-conformance.json",
+      "sha256": "593233e0d9ba1548fb638ed13247ae96e11d0f325a00819e8b168171e406cecf",
+      "bytes": 669
+    },
+    {
+      "path": "final-gate-16/verification/official-a2a-tck.json",
+      "sha256": "ada630278ccd0a2eee461c0ce21ea116621611f544460e43036f017101ef5f21",
+      "bytes": 592
+    },
+    {
+      "path": "final-gate-16/verification/performance-fixture.json",
+      "sha256": "3ae1b224347f292515e1f8d17128a924c1ad3eb0cdd6cbcfb74ea7b3b1787ac8",
+      "bytes": 3345
+    },
+    {
+      "path": "final-gate-16/verification/postgres-redis-integration.json",
+      "sha256": "62431881d08f3c05ebb42b74e982d23192646bcdcd662ea8785a2a66a45ae159",
+      "bytes": 659
+    },
+    {
+      "path": "final-gate-16/verification/postgres-redis-model-mcp-e2e.json",
+      "sha256": "33c8969521434da4ead8a78ee0fd4e8376358035714cf1bbcdd260aafb2e2285",
+      "bytes": 653
+    },
+    {
+      "path": "final-gate-16/verification/project-license.json",
+      "sha256": "9d1ca82ab635d6616c06a2a3304091b762517dd956f6b177a031953dcc1f8f0d",
+      "bytes": 595
+    },
+    {
+      "path": "final-gate-16/verification/protocol.json",
+      "sha256": "8208386c449c374e47e7f4e86db05a226de7ed84c7f59a1524c059a16249281f",
+      "bytes": 575
+    },
+    {
+      "path": "final-gate-16/verification/raw/a2a-baseline.log",
+      "sha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f",
+      "bytes": 312
+    },
+    {
+      "path": "final-gate-16/verification/raw/acceptance.log",
+      "sha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788",
+      "bytes": 181
+    },
+    {
+      "path": "final-gate-16/verification/raw/architecture.log",
+      "sha256": "0689a18dcf6a72d1d1ba8f133361664407929c49d9eabc4b242ed23c0c2ea3b9",
+      "bytes": 480
+    },
+    {
+      "path": "final-gate-16/verification/raw/build.log",
+      "sha256": "1558f7ad274219836dfa8ab7c828fc708581a26147361b4d4b1178670440b20a",
+      "bytes": 458
+    },
+    {
+      "path": "final-gate-16/verification/raw/canonical-evidence-demo.log",
+      "sha256": "5100208e878036756867bdeef1f69aad26521f95a2bf1359c83c473e7dcc2320",
+      "bytes": 14301
+    },
+    {
+      "path": "final-gate-16/verification/raw/clean-baseline-reset-seed.log",
+      "sha256": "6095e4e6fb1603e6117ee51bbdf533cab3d6c53f72db56e5c72eeb6e5ac92529",
+      "bytes": 4219
+    },
+    {
+      "path": "final-gate-16/verification/raw/cognitive-replay-no-physical-provider.log",
+      "sha256": "0919bdd9413b3a39e5a8b46f8e6a4a41dff307ddef5269fa00ea04bb5c90a1b2",
+      "bytes": 140
+    },
+    {
+      "path": "final-gate-16/verification/raw/contract.log",
+      "sha256": "b852a91ed458c9d8e1b61e3380ea657623156fd12fe55a40637fa1d633b5d8fa",
+      "bytes": 8009
+    },
+    {
+      "path": "final-gate-16/verification/raw/evidence-contract.log",
+      "sha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4",
+      "bytes": 438
+    },
+    {
+      "path": "final-gate-16/verification/raw/evidence-coverage.log",
+      "sha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634",
+      "bytes": 175
+    },
+    {
+      "path": "final-gate-16/verification/raw/format.log",
+      "sha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641",
+      "bytes": 302
+    },
+    {
+      "path": "final-gate-16/verification/raw/infra.log",
+      "sha256": "49842141f43fb1d5757f0fa45eea88f83e3d412fcf80f11f8b3b389e0673894d",
+      "bytes": 136
+    },
+    {
+      "path": "final-gate-16/verification/raw/infrastructure-smoke.log",
+      "sha256": "9331fcb6952e3def4f7e882e9a1b903866c4d7b2bc7d0573c1eaf321ee7e5e34",
+      "bytes": 5714
+    },
+    {
+      "path": "final-gate-16/verification/raw/licenses.log",
+      "sha256": "95ab9975c1ad5ebecff93c57cd63695f568e622c389b142d3fb171160046a16c",
+      "bytes": 163
+    },
+    {
+      "path": "final-gate-16/verification/raw/lint.log",
+      "sha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1",
+      "bytes": 11
+    },
+    {
+      "path": "final-gate-16/verification/raw/management-openapi.log",
+      "sha256": "d51f3467f4d2c8dfafbb1e892734ede51b02d440d1f2227c1a1d5337f237888a",
+      "bytes": 100
+    },
+    {
+      "path": "final-gate-16/verification/raw/node-control-api-worker-smoke.log",
+      "sha256": "7c345a2b5faee9794cf6f48bc04c5436d7bdcadc56e7f67652fadefc3204292f",
+      "bytes": 13665
+    },
+    {
+      "path": "final-gate-16/verification/raw/node-control-contract.log",
+      "sha256": "b308fc64632fbf19d874b19f63fe850752fed2cbdce625258333905238ea3dab",
+      "bytes": 148
+    },
+    {
+      "path": "final-gate-16/verification/raw/node-control-implementation-conformance.log",
+      "sha256": "6ba8a7328603451b474fe61d9b56dacc4c1e169a173e787f4c344f5363edd29b",
+      "bytes": 198
+    },
+    {
+      "path": "final-gate-16/verification/raw/official-a2a-tck.log",
+      "sha256": "bcde3e2072f69688f4c6170e65377f5b0e2b4d6ccecd32ca6bcce46242e1b1b5",
+      "bytes": 2563
+    },
+    {
+      "path": "final-gate-16/verification/raw/postgres-redis-integration.log",
+      "sha256": "1de3dd036df7aedfa713f9d3e441ef00d366526a86c32ebebf03c371de6055e9",
+      "bytes": 32336
+    },
+    {
+      "path": "final-gate-16/verification/raw/postgres-redis-model-mcp-e2e.log",
+      "sha256": "0a67e473ff25094aeaf2722ccfab61eb26e65450c011902442fe7fcff68d511a",
+      "bytes": 40008
+    },
+    {
+      "path": "final-gate-16/verification/raw/project-license.log",
+      "sha256": "11054109617d351d51b769f4e2056b1de2c82f26806ad3ad3aed6d5b4db71861",
+      "bytes": 109
+    },
+    {
+      "path": "final-gate-16/verification/raw/protocol.log",
+      "sha256": "58603e97baca9e3264e4334e177b35057bbbe8c95353d8789e44f50eec698a27",
+      "bytes": 172
+    },
+    {
+      "path": "final-gate-16/verification/raw/server-console-smoke.log",
+      "sha256": "73ac7567dd55f88a579504626a3cda1d16a4a8257ab9ce9cabb0867e6a898516",
+      "bytes": 6291
+    },
+    {
+      "path": "final-gate-16/verification/raw/smpp-registry-projection.log",
+      "sha256": "f879a101de0cbded93d5a34cf6a315f29f9b59e4a1195c6e8931ab7efb3cbcab",
+      "bytes": 641
+    },
+    {
+      "path": "final-gate-16/verification/raw/sources.log",
+      "sha256": "a382d8438c8da8d0e65f5155682361a1be32937cfef504dc8228567d4b4e49cc",
+      "bytes": 88
+    },
+    {
+      "path": "final-gate-16/verification/raw/typecheck.log",
+      "sha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "bytes": 32
+    },
+    {
+      "path": "final-gate-16/verification/raw/unit.log",
+      "sha256": "b1f8d295cd01e7eaa9db1aef92ea0b167172dc5a60bfb2d4389db6da058b9793",
+      "bytes": 33134
+    },
+    {
+      "path": "final-gate-16/verification/raw/verification-runner-contract.log",
+      "sha256": "d04c7b2c02357d7c4d1a4963b216d3fb1e6eb6de285c3a4b09263b6bba5a61b3",
+      "bytes": 4975
+    },
+    {
+      "path": "final-gate-16/verification/server-console-smoke.json",
+      "sha256": "1be7f21d02a7a0b5ce448b6bc8b03f428f657ab9063f620a53e21f49c076bd71",
+      "bytes": 600
+    },
+    {
+      "path": "final-gate-16/verification/smpp-registry-projection.json",
+      "sha256": "296c04bf942d68ca473ad7a8268f5ba17b309d56d3f13934189d1ac9c3fec5e1",
+      "bytes": 622
+    },
+    {
+      "path": "final-gate-16/verification/sources.json",
+      "sha256": "78d967783df353cae67662f3311c37057e19dfe4038c049f74a38da8b9a3b6ac",
+      "bytes": 571
+    },
+    {
+      "path": "final-gate-16/verification/summary.json",
+      "sha256": "c66960d2b3983551bd9ffb0d37ef444b09de93a525c7718b108561c46aa7d7c8",
+      "bytes": 21376
+    },
+    {
+      "path": "final-gate-16/verification/summary.md",
+      "sha256": "d6e6527d582b0b58324d44028919807a8683624c3fd153296044f7bb4e9d822d",
+      "bytes": 2411
+    },
+    {
+      "path": "final-gate-16/verification/typecheck.json",
+      "sha256": "565c3f0ecd36cc25ad50b9a3b534cb5a9275acc2e58739ee7b6bd260f384527e",
+      "bytes": 576
+    },
+    {
+      "path": "final-gate-16/verification/unit.json",
+      "sha256": "0c9d5953a7df6f638fb34c6966e198101e954b2d25dca5cd499024f2348512f9",
+      "bytes": 611
+    },
+    {
+      "path": "final-gate-16/verification/verification-runner-contract.json",
+      "sha256": "d867c36efaf8a2b635f1c35f98db85470d973ad3e4928eb57948a50b6db19d14",
+      "bytes": 617
+    }
+  ]
+}

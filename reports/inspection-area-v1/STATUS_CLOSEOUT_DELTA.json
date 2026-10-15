@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "reason": "Post-gate acceptance status only; qualified runtime inputs are unchanged.",
+  "files": [
+    {
+      "path": "PROJECT_STATUS.md",
+      "beforeSha256": "e06e9fd2cf6f9272dc0019f5e54eee3500f4140f38959669762b230c5bc25dc1",
+      "afterSha256": "f7b3190f6ccd79d8318232deae76dcac4ec80dd7476e48b751daa2b1f36a1c20"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "beforeSha256": "0fbc191a3c88f42c2bc013cb38c12ac8e468b1245eba743d61d7a5512c15acb9",
+      "afterSha256": "5b60a8d052d1b0fdc065696c7db4334ea1e4902ea113b88c50e23895bd23af63"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "beforeSha256": "a131b3a8fb8751bb7ff72a4030b137dfc72cf55de8468378a5b18809cf2a618d",
+      "afterSha256": "c919d0d24e59b1756192a086a04180c6a09064e58e0ec17679cff1c1c2d580b6"
+    },
+    {
+      "path": "execplans/EP-INSPECTION-AREA-V1.md",
+      "beforeSha256": "d676ea00f19c83c0777c708e857cdfb61ec1ee2e83d3675c9f01b14a47edd895",
+      "afterSha256": "78683a3d8c2e463af4ac8916f7bccf260c4e8c4fceb9371434a941a11d17ffc6"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "reason": "Remote main advances only historical acceptance documentation and evidence; preserve inspection appendix and all upstream records. No runtime, requirements or accepted ADR implementation changed.",
+  "upstreamMain": "75613a80979c1c94ad17b2e4d393c47cb890ff1a",
+  "gateRuntimeInputSha256": "2023cec041cd694fd211391a8cdded78aeea6ec932ff87748d28e85bffebce1e",
+  "all2072RuntimeInputsUnchanged": true,
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "gateSha256": "d0233cee934c61981dc69dd35da9a22eee82101889f6cfbf0a14e283e3156a4f",
+      "afterSha256": "2d58fb7b9ecb6a7077ee9f3da2c1018cfc8b99be94f95fa106b0b928877241b4"
+    },
+    {
+      "path": "PROJECT_STATUS.md",
+      "gateSha256": "1e1ec7ddfb384ffc3e5e1e08b19c291f9bacc1d49ef566f6cf5ffad7d5f9a128",
+      "afterSha256": "c436903be017d34f85c65dcd6b619b42e89249548d86eb1338958c33b88959b1"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "gateSha256": "20629456424ed076f345712a12311679a72e5d192a13d83c8d056cbe45098470",
+      "afterSha256": "d38d966ad733b751894f206dbb3f3fdc99c8a8b98af90fabd1e28438580d1915"
+    },
+    {
+      "path": "execplans/EP-LOCAL-SMPP-INTEGRATED-DEPLOYMENT.md",
+      "gateSha256": "fd62a50b1fb685d4cec2e780e4ed9b657d6afda0ffaffe7eecc1344404e55a03",
+      "afterSha256": "f1d3c4458f0015f3cff8450f3c52b5447fff4e57b9a460e397dd2f0c0bc393c4"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{"event":"model_runtime.bootstrap_reconciled","providerId":"inspection-guard-model","providerRegistered":true,"routeCountCreated":21}
+Native source, Provider and Capability publication
+{"event":"capability_catalog_refresh.deferred","errorCode":"TASK_EXECUTION_FAILED","summary":"UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID"}
+{"event":"capability_catalog_refresh.failed","errorCode":"TASK_EXECUTION_FAILED","summary":"UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID"}
+/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.ts:454
+    throw Error('PATROL_READINESS_NOT_AVAILABLE:' + JSON.stringify(readiness.reasons));
+          ^
+
+Error: PATROL_READINESS_NOT_AVAILABLE:[{"code":"MCP_PROVIDER_BINDING_POLICY_INVALID","severity":"blocking","dependencyRef":"embodied.area_patrol@2"}]
+    at governUgvAreaPatrol (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.ts:454:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/home/sz/code/skill-driven-agent-runtime-inspect-area-v1/scripts/inspection/joint.mts:405:5)
+
+Node.js v22.23.2

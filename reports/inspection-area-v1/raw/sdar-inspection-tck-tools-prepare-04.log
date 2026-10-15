@@ -1,0 +1,39 @@
+Collecting uv==0.11.28
+  Using cached uv-0.11.28-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)
+Using cached uv-0.11.28-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (27.1 MB)
+Installing collected packages: uv
+Successfully installed uv-0.11.28
+Using CPython 3.12.14 interpreter at: /home/sz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
+Creating virtual environment at: .venv
+   Building a2a-tck @ file:///tmp/sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb/a2a-tck
+      Built a2a-tck @ file:///tmp/sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb/a2a-tck
+Prepared 1 package in 4.59s
+Installed 27 packages in 9ms
+ + a2a-tck==1.0.0 (from file:///tmp/sdar-verify-26a47098-e4fb-400d-a7b5-9d33148f78cb/a2a-tck)
+ + anyio==4.12.1
+ + attrs==25.4.0
+ + certifi==2026.1.4
+ + gherkin-official==39.0.0
+ + googleapis-common-protos==1.72.0
+ + grpcio==1.78.0
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpx==0.28.1
+ + idna==3.11
+ + iniconfig==2.3.0
+ + jinja2==3.1.6
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + markupsafe==3.0.3
+ + packaging==26.0
+ + pluggy==1.6.0
+ + protobuf==6.33.5
+ + pygments==2.19.2
+ + pytest==9.0.2
+ + pytest-asyncio==1.3.0
+ + pytest-html==4.2.0
+ + pytest-metadata==3.1.1
+ + referencing==0.37.0
+ + rpds-py==0.30.0
+ + typing-extensions==4.15.0
+{"status": "PASS", "pinnedTck": "5996b79f9cefa6fc390980e383e358a66fb9e49e", "uv": "0.11.28", "trackedWorktreeClean": true, "testsExecuted": false, "scope": "Prepare fresh isolated tooling only; full gate still executes official TCK normally."}

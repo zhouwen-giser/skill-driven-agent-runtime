@@ -3343,7 +3343,7 @@
       },
       {
         "name": "vehicle_get_trajectory_history",
-        "description": "Read trajectory reception history v1.0. Provider retained ranges are distinct from device-generation history. Pin Ed25519 key 729abef5c010b50a9d1b7fc706d7afb6bb0509681232343f8ae1e7d2068c0a93 separately.",
+        "description": "Read trajectory reception history v1.0. Provider retained ranges are distinct from device-generation history. Pin Ed25519 key 716c1e21b18b588c1247b3ab1f312943d49dc75b9573977497655e11f88908e1 separately.",
         "inputSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
@@ -4196,7 +4196,7 @@
       },
       {
         "name": "vehicle_get_trajectory_evidence",
-        "description": "Read version 1.0 immutable coordinate-to-reception evidence for an authorized navigation Artifact. Legacy point times remain unknown. Pin Ed25519 key 729abef5c010b50a9d1b7fc706d7afb6bb0509681232343f8ae1e7d2068c0a93 separately.",
+        "description": "Read version 1.0 immutable coordinate-to-reception evidence for an authorized navigation Artifact. Legacy point times remain unknown. Pin Ed25519 key 716c1e21b18b588c1247b3ab1f312943d49dc75b9573977497655e11f88908e1 separately.",
         "inputSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
