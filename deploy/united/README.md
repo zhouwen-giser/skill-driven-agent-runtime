@@ -35,4 +35,10 @@ python3 <解包目录>/bundle.py verify /absolute/path/sdar-united-<摘要>.tar.
 
 本包通过打包、解包与源码验证不等于全栈新机部署验收。历史现场验证见 DEPLOYMENT_HISTORY.md。
 
-内置巡逻 `embodied.area_patrol` 当前等待后续 GOWM 提供 `embodied.inspect_area`，保留明确阻塞；其他 12 项已在 sz-gowm 公开。完整清单验收仍未完成。包内不携带 PMS 或 SDAR 离线镜像。
+## 区域检查与巡逻接入
+
+本源码包含 SMPP `vehicle_inspect_area`、SDAR `embodied.inspect_area@1` 及 `embodied.area_patrol` 后继版本。检查输入采用 WGS84，`area.boundary` 中 `x=经度、y=纬度`；未解析的排除区会在设备派发前拒绝。单次扫描预算不超过父任务剩余期限与 300 秒中的较小值，沿用物理操作确认和禁止重放策略。
+
+SMPP 的 `UGV_INSPECTION_ENABLED` 默认关闭。启用前须具备区域侦察南向合同、PostgreSQL TaskBusiness 和业务事件链。SDAR 使用 `SDAR_UGV_CATALOG_PROFILE=ugv-inspect-v1-13`；包含测距工具时使用 `ugv-inspect-v1-14`。正式目录必须精确匹配对应的 13/14 工具合同、Provider、资源和 Task Profile；未知、缺失或不匹配的工具会阻止装配。更新时保留绑定身份与历史，通过原生 CAS 对齐 Registry 谱系后运行正式 bootstrap，读取目录与治理关系验收。
+
+检查报告包含发现、完整性、覆盖证据、来源关联强度与 `missingEvidence`；来源缺失或覆盖不足时降级。巡逻只有具备真实覆盖与轨迹证据才能完整成功。源码打包和只读目录验收均不等同于现场设备执行，现场巡逻状态以独立验收记录为准。包内不携带 PMS 或 SDAR 离线镜像。
