@@ -3,6 +3,7 @@ import net from 'node:net';
 import process from 'node:process';
 import { verificationProjects } from './lib/verification-projects.mjs';
 import { recordVerificationCleanupFailure } from './lib/verification-cleanup.mjs';
+import { withVerificationNetwork } from './lib/verification-network.mjs';
 
 const root = process.cwd();
 const runId = `${String(process.pid)}-${Date.now().toString(36)}`;
@@ -279,7 +280,7 @@ try {
 }
 
 function runDocker(args, timeout, environment, ignoreFailure = false) {
-  const result = spawnSync('docker', args, {
+  const result = spawnSync('docker', withVerificationNetwork(args, environment), {
     cwd: root,
     env: environment,
     stdio: 'inherit',
@@ -296,7 +297,7 @@ function runDocker(args, timeout, environment, ignoreFailure = false) {
 }
 
 function runDockerCapture(args, timeout, environment) {
-  const result = spawnSync('docker', args, {
+  const result = spawnSync('docker', withVerificationNetwork(args, environment), {
     cwd: root,
     env: environment,
     encoding: 'utf8',

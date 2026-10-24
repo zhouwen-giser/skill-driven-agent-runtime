@@ -19,3 +19,4 @@ export * from './ugv-simulation-qualification.js';
 export * from './ugv-unknown-availability-policy.js';
 export * from './ugv-initial-workflow-planning.js';
 export * from './ugv-task-business-operation-policy.js';
+export * from './zmq-provider-profile.js';

@@ -20,9 +20,16 @@ import { runVerificationProcess, verificationProcessPassed } from './lib/verific
 import { copyExternalVerificationInputs } from './lib/verification-external-inputs.mjs';
 import { verificationProjects } from './lib/verification-projects.mjs';
 import { cleanupVerificationMigrations } from './lib/verification-cleanup.mjs';
+import {
+  withVerificationNetwork,
+  writeDefaultBridgeOverrides,
+} from './lib/verification-network.mjs';
 
 const root = process.cwd();
 const dependencyMode = process.argv.includes('--frozen') ? 'frozen' : 'reuse';
+const networkMode = process.argv.includes('--docker-default-bridge')
+  ? 'default_bridge'
+  : 'project_bridge';
 const controller = new globalThis.AbortController();
 const cancel = () => controller.abort();
 process.on('SIGINT', cancel);
@@ -99,6 +106,7 @@ await writeFile(
       runId,
       commit,
       dependencyMode,
+      networkMode,
       inputSha256,
       baselineSha256,
       snapshot,
@@ -131,6 +139,24 @@ const [postgresPort, redisPort, a2aPort, managementPort] = await availablePorts(
     throw error;
   },
 );
+const networkOverrides =
+  networkMode === 'default_bridge' ? await writeDefaultBridgeOverrides(directory) : [];
+await writeFile(
+  join(reports, 'network.json'),
+  JSON.stringify(
+    {
+      networkMode,
+      overrides: networkOverrides.map(({ path, content }) => ({
+        path,
+        sha256: createHash('sha256').update(content).digest('hex'),
+      })),
+      hostReadinessRequired: true,
+      thresholdsChanged: false,
+    },
+    null,
+    2,
+  ),
+);
 const environment = {
   PATH: process.env.PATH,
   HOME: process.env.HOME,
@@ -143,6 +169,7 @@ const environment = {
   SDAR_VERIFY_INPUT_SHA256: inputSha256,
   SDAR_VERIFY_BASELINE_SHA256: baselineSha256,
   SDAR_VERIFY_DEPENDENCY_MODE: dependencyMode,
+  ...(networkMode === 'default_bridge' ? { SDAR_VERIFY_DEFAULT_BRIDGE_DIRECTORY: directory } : {}),
   SDAR_POSTGRES_PORT: String(postgresPort),
   SDAR_REDIS_PORT: String(redisPort),
   SDAR_REDIS_HOST: '127.0.0.1',
@@ -194,16 +221,19 @@ try {
   for (const project of verificationProjects(runId)) {
     const cleanup = await runVerificationProcess({
       command: 'docker',
-      args: [
-        'compose',
-        '--project-name',
-        project.name,
-        '-f',
-        project.file,
-        'down',
-        '--volumes',
-        '--remove-orphans',
-      ],
+      args: withVerificationNetwork(
+        [
+          'compose',
+          '--project-name',
+          project.name,
+          '-f',
+          project.file,
+          'down',
+          '--volumes',
+          '--remove-orphans',
+        ],
+        environment,
+      ),
       cwd: snapshot,
       env: environment,
       timeoutMs: 60_000,
@@ -237,6 +267,7 @@ try {
       {
         runId,
         dependencyMode,
+        networkMode,
         inputSha256,
         baselineSha256,
         inputUnchanged,

@@ -704,3 +704,10 @@ GOWM Temporary Skill device attribution and auxiliary-link ownership are repaire
 Ordinary Skill evolution supports complete synchronous recorded Tool workflows. Missing retained error/boundary inputs, explicit native contracts or policy authority keep a candidate unpublished. Remote/provider evidence, LLM execution, child/subworkflow and human-confirmation recordings remain unimplemented; UGV/home/device-scoped profiles retain explicit deferral. This is a scoped FR-EVO implementation, not full evolution or release certification. New Skill policy is an internal induction proposal bounded by existing source Tool authority and server budgets. Corrections are durably retained and included in subsequent induction for that candidate.
 
 `embodied.area_patrol` still requires real upstream `embodied.inspect_area` capability/provider. Frozen SMPP evidence still cannot supply missing per-sample trajectory timestamps/full-history authority. No local fixture is accepted as proof of these physical/source capabilities. Field operations and deployment remain NOT_RUN.
+
+## ZMQ phase-5 qualification (2026-10-24)
+
+The native 12-tool catalog has incompatible area/result semantics with the legacy inspection Skill.
+The new exact consumer is a non-executable candidate. SDAR formal governance, native child-task
+execution and a patrol successor are still open; source G0 qualification and real footprints/trajectory
+are unavailable. The readonly formal SMPP catalog probe does not close those acceptance items.

@@ -1723,3 +1723,15 @@ SDAR/SMPP v1.3 upgrade update (2026-10-11): M2 COMPLETE, all 30 isolated stages 
 M3/M4 IN_PROGRESS: formal initial-plan publication order and transaction pool deadlock regression
 repairs, native Skill policy round-trip and Task-scoped full evidence export are under validation.
 Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
+
+## 2026-10-24 ZMQ phase 5
+
+EP-ZMQ-05 in progress. Added a separate exact 12-tool ZMQ consumer candidate, bounded deterministic
+input/timing adapter and evidence degradation. Legacy governed Skills remain readable. Formal SDAR
+publication, native task-chain/patrol successor and field qualification are not yet accepted.
+This update does not mark EP-INSPECTION-AREA-V1 or field patrol complete.
+
+2026-10-25: shared JSON Schema validation now stays behind the existing application port and
+approved adapter boundary. The full gate reached integration and found host connectivity failure
+on newly created Compose bridges. An explicit default-bridge fixture option passed real
+PostgreSQL/Redis host readiness and 21 isolation/runner regression cases; full rerun pending.

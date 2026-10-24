@@ -9,6 +9,7 @@ import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 import pg from 'pg';
 import { verificationProjects } from './verification-projects.mjs';
+import { withVerificationNetwork } from './verification-network.mjs';
 
 const file = 'compose.verification-performance.yaml';
 
@@ -45,16 +46,19 @@ export async function startIsolatedPerformanceInfrastructure() {
     containers: [],
   };
   const command = (args) => {
-    const argv = [
-      'compose',
-      '--env-file',
-      emptyEnvironment,
-      '--project-name',
-      project.name,
-      '-f',
-      file,
-      ...args,
-    ];
+    const argv = withVerificationNetwork(
+      [
+        'compose',
+        '--env-file',
+        emptyEnvironment,
+        '--project-name',
+        project.name,
+        '-f',
+        file,
+        ...args,
+      ],
+      environment,
+    );
     const result = spawnSync('docker', argv, {
       env: environment,
       encoding: 'utf8',

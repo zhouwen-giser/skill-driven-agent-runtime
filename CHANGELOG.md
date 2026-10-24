@@ -2566,3 +2566,13 @@ Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
 - Consume the GOWM owner forward repair for terminal Temporary Skill provenance and device/service-scoped Provider execution links. Consumer startup remains DDL-free.
 - Add Workflow visual node creation/removal, type and parameter editing, preserve unrelated draft values, and require immutable revision before confirming edits.
 - Add real PostgreSQL ownership/terminal regressions and focused Console tests. Full current-source verification in progress; no field deployment.
+
+### 2026-10-24 — ZMQ consumer candidate
+
+- Add strict zmq_v1_12 catalog/schema/profile/lineage matching and readonly SMPP probe.
+- Preserve explicit parent timing, required plan confirmation and forbidden physical replay in candidates.
+- Keep incomplete native inspection reports degraded and legacy patrol substitution blocked.
+- Publication and field task-chain acceptance remain pending (ADR-166 / EP-ZMQ-05).
+- Keep native parameter validation behind the existing JsonSchemaValidator port.
+- Add an explicit default-bridge option to isolated verification for this host; retain project
+  ownership, real readiness checks, unchanged thresholds and cleanup (21 runner/isolation cases).

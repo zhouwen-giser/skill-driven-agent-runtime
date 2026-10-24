@@ -14,6 +14,10 @@ import { bootstrapVerificationResult } from './lib/verification-summary.mjs';
 import { verificationProjects } from './lib/verification-projects.mjs';
 import { startIsolatedPerformanceInfrastructure } from './lib/performance-infrastructure.mjs';
 import {
+  withVerificationNetwork,
+  writeDefaultBridgeOverrides,
+} from './lib/verification-network.mjs';
+import {
   cleanupVerificationMigrations,
   migrationVerificationResources,
 } from './lib/verification-cleanup.mjs';
@@ -334,3 +338,51 @@ test('nested smoke projects belong to the outer run cleanup allowlist', () => {
   assert.throws(() => verificationProjects('sdar'), /PROJECT_ROOT_INVALID/u);
   assert.throws(() => verificationProjects('../sdar-verify-contract'), /PROJECT_ROOT_INVALID/u);
 });
+
+test('default bridge is explicit, fixture-only and applies to every owned startup/cleanup', () =>
+  fixture(async ({ cwd }) => {
+    const overlays = await writeDefaultBridgeOverrides(cwd);
+    assert.equal(overlays.length, 2);
+    assert.match(
+      await readFile(join(cwd, 'runtime.compose.yaml'), 'utf8'),
+      /networks: !reset \[\]/u,
+    );
+    assert.match(await readFile(join(cwd, 'control.compose.yaml'), 'utf8'), /control-postgres:/u);
+    const environment = {
+      SDAR_VERIFY_ISOLATED: 'true',
+      SDAR_VERIFY_COMPOSE_PROJECT: 'sdar-verify-contract',
+      SDAR_VERIFY_DEFAULT_BRIDGE_DIRECTORY: cwd,
+    };
+    for (const project of verificationProjects('sdar-verify-contract')) {
+      for (const command of ['up', 'down', 'config']) {
+        const args = ['compose', '-p', project.name, '-f', project.file, command];
+        const result = withVerificationNetwork(args, environment);
+        const overlay = join(
+          cwd,
+          project.file === 'compose.node-control.yaml'
+            ? 'control.compose.yaml'
+            : 'runtime.compose.yaml',
+        );
+        assert.deepEqual(result, [...args.slice(0, 5), '-f', overlay, command]);
+        assert.deepEqual(withVerificationNetwork(result, environment), result);
+        assert.deepEqual(withVerificationNetwork(args, {}), args);
+      }
+    }
+    assert.throws(
+      () =>
+        withVerificationNetwork(['compose', '-p', 'sdar', '-f', 'compose.yaml', 'up'], environment),
+      /NETWORK_PROJECT_REQUIRED/u,
+    );
+    assert.throws(
+      () => withVerificationNetwork(['compose'], { ...environment, SDAR_VERIFY_ISOLATED: 'false' }),
+      /NETWORK_ISOLATION_REQUIRED/u,
+    );
+    assert.throws(
+      () =>
+        withVerificationNetwork(['compose'], {
+          ...environment,
+          SDAR_VERIFY_DEFAULT_BRIDGE_DIRECTORY: '../relative',
+        }),
+      /NETWORK_ISOLATION_REQUIRED/u,
+    );
+  }));

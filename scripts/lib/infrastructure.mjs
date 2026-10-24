@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { recordVerificationCleanupFailure } from './verification-cleanup.mjs';
+import { withVerificationNetwork } from './verification-network.mjs';
 
 if (process.env.SDAR_VERIFY_ISOLATED !== 'true') loadLocalEnvironment();
 
@@ -262,6 +263,9 @@ function isNodeError(error) {
 }
 
 function isolatedComposeArgs(args) {
-  if (args[0] !== 'compose' || args.includes('--project-name')) return args;
-  return ['compose', '--project-name', composeProject, ...args.slice(1)];
+  const owned =
+    args[0] !== 'compose' || args.includes('--project-name')
+      ? args
+      : ['compose', '--project-name', composeProject, ...args.slice(1)];
+  return withVerificationNetwork(owned);
 }
