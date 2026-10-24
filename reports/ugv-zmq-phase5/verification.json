@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "sdar.zmq-phase5-verification/1",
+  "sourceCommit": "9cd615b4da06f91386067dec92d0116a5f77dd95",
+  "smppSourceCommit": "2f4eeb1f57343742bec3886847e8a4892cc185ed",
+  "candidateOnly": true,
+  "governancePublication": false,
+  "fieldQualified": false,
+  "fullGate": {
+    "runId": "sdar-verify-d392206e-dc0d-4ad9-ad43-f58fb94f85c2",
+    "exitCode": 0,
+    "inputSha256": "c55c9427a82490990217dc69e4949ffcd8d50a1979341ae6477ea644ab4a12ec",
+    "baselineSha256": "e0e9c246b2c40bf26d27f2a604361035d333cf15161ebeb717a97e2f2bb39cbf",
+    "inputUnchanged": true,
+    "baselineUnchanged": true,
+    "networkMode": "default_bridge",
+    "testProcessCpuAffinity": {
+      "mode": "inherited_test_process_cpu_affinity",
+      "socket": 0,
+      "cpus": [
+        3,
+        4,
+        8,
+        29,
+        30,
+        31,
+        33,
+        34
+      ],
+      "exclusive": false,
+      "otherProcessesChanged": false,
+      "thresholdsChanged": false,
+      "sampleWindowSeconds": 1
+    },
+    "cleanupExitCode": 0
+  },
+  "files": [
+    {
+      "path": "reports/ugv-zmq-phase5/raw/docker-source-proof-qualified.json",
+      "bytes": 5248,
+      "sha256": "2025e5099631e53154f3428430a3c5b8d8d97096b516d164d4cc57647bc2f76b"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/formal-frozen.log.gz",
+      "bytes": 220,
+      "sha256": "dde56bcd512a5a28092931c009e04153024df53c0f261046082b4ea8964631f9"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/formal-proof-frozen.json",
+      "bytes": 342,
+      "sha256": "536d5bde0a0ea86530bd30d1bbc93f7bf23c8218a54aeb2c613ce57d390723e7"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-failed-baseline-drift-run.json",
+      "bytes": 2687,
+      "sha256": "ebe806ea030d6d61d404f7c489ab8192e41295220a08b72a30069cbf01553609"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-failed-network-run.json",
+      "bytes": 2649,
+      "sha256": "10dc851fc08bb15e0304ac770572230a41ffd87d0d70a02d57119c690d773c07"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-failed-toolchain-run.json",
+      "bytes": 2687,
+      "sha256": "aad9ffa936562346129a1aa48ba36122a374ed6b0f91b7fd8e79ef2a4c2cb13e"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-full-summary.json",
+      "bytes": 21373,
+      "sha256": "073332af5008e0cc9e7e41b5d460b0791fbae159dcf80f3a06080705df3391d4"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-full-summary.md",
+      "bytes": 2409,
+      "sha256": "c7ae34752bf2cfbc0e93062ceb6e6ce0ad519ac1198511feb49eb1e74eb00177"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-full.log.gz",
+      "bytes": 29587,
+      "sha256": "afc1f0637f0f5f92168bc0dbd7557b191ba83de74d05049ee63dce23ce28355e"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-inputs.json.gz",
+      "bytes": 387308,
+      "sha256": "bc0e94ed1dfc4a615a1fb1f478f94f196f25e23ae4c30e0bcb9ebdae39c585fc"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-isolation.log.gz",
+      "bytes": 618,
+      "sha256": "db7684f7b81939eb0c26599633576c73cf1ba31b1c4f6d38831c1be6fa5377b3"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-network.json",
+      "bytes": 511,
+      "sha256": "0243738919910ebb6f6750eafce570b7ad27f4ae22b366ccd3c473812f785c4e"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-run.json",
+      "bytes": 2685,
+      "sha256": "5b98a1f23c3059e710c7971c8784d2da079dec57b904b99f6227a8088032137d"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-runner.log.gz",
+      "bytes": 997,
+      "sha256": "5132b27c8c7a01afd2b6ab87f69a141442047b5cec9947763ce21162e3f44497"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/a2a-baseline.log.gz",
+      "bytes": 243,
+      "sha256": "4f1379b5e1996a18ce75bcf4cea6c43e6bdc0babf4da9bae27fc24801248754a"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/acceptance.log.gz",
+      "bytes": 149,
+      "sha256": "a242dce08b09fc93c2ec48dd18ad7ff6a153b68560bc363a70d0a6aefd1c95ca"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/architecture.log.gz",
+      "bytes": 311,
+      "sha256": "325c50e5613fd30fed36195ad3ebf676fb0d95b383006e664a63c31f9332ed84"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/build.log.gz",
+      "bytes": 304,
+      "sha256": "ff8a2dfe9a46c241b67bb399c94a1f4c23b0a14396061f45e9177d89f5c0cede"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/canonical-evidence-demo.log.gz",
+      "bytes": 2051,
+      "sha256": "209770e494754278703430c7b7d23e40518d02bdd443763cba4800feb83c4de8"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/clean-baseline-reset-seed.log.gz",
+      "bytes": 1486,
+      "sha256": "71e74e065a19d3f3cd230f034dfc116492d2cb6f346af96ddd5bfd88add60147"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/cognitive-replay-no-physical-provider.log.gz",
+      "bytes": 129,
+      "sha256": "e41245fe39381ca0b9589f72a8b557b0247e26be4024632649b6af5eeb14c3ae"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/contract.log.gz",
+      "bytes": 1703,
+      "sha256": "ace98fe3ed4bf69f1ea733a777deb26ad93fb1f3f7fbdf56999fa149bc0db846"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/evidence-contract.log.gz",
+      "bytes": 320,
+      "sha256": "3f98314b8e357cc368fa974576a3845f440556645f66f3cf62e65063ad547bd2"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/evidence-coverage.log.gz",
+      "bytes": 157,
+      "sha256": "e895c431e920f8bcc73684df3172437626cc9f091ae922e56a92a781d775bd9a"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/format.log.gz",
+      "bytes": 199,
+      "sha256": "66c02c5835a2bc3d8f0a9a00d778ec83ea242e13ef1877274d83400e21fe69d5"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/infra.log.gz",
+      "bytes": 119,
+      "sha256": "e1692692cd991aaf2ef61a6f7d2295e65f15a9b0a98370d726dc50d34ba29df9"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/infrastructure-smoke.log.gz",
+      "bytes": 1430,
+      "sha256": "b3e9ff7b0656d91a5a4a3c381d80f69a3acb10808d77887f083e733b99ebd20b"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/licenses.log.gz",
+      "bytes": 145,
+      "sha256": "0fd55b6fb1e1063d256cd5f349cdc9380a90704a2a21b05cdcbf6a275e11cef7"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/lint.log.gz",
+      "bytes": 31,
+      "sha256": "a3fc63b15eb42f707fa9d63b0a9a9628dd72eaec4b6f4cd626a9cf98d67ebe19"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/management-openapi.log.gz",
+      "bytes": 105,
+      "sha256": "341fb6c1232c6e65869f73efb7d85afb3f34b9a82443978118d9cd45f71e7db8"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/node-control-api-worker-smoke.log.gz",
+      "bytes": 2240,
+      "sha256": "f8b49f76c173e88577de8f6ec95ef2e5861b8c4575deff83446a349957b7b918"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/node-control-contract.log.gz",
+      "bytes": 134,
+      "sha256": "dadf517cfae4e3905e31e5ec2cc2d5ee61e2d80ed71472ef114d048c891b9510"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/node-control-implementation-conformance.log.gz",
+      "bytes": 187,
+      "sha256": "dbdf4b3b3c7fb3f62c6324d13918c293281ad9c0ddd8c2319e7a425f4f2180b8"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/official-a2a-tck.log.gz",
+      "bytes": 1384,
+      "sha256": "c4e3b18b6b68f44305282479a47664730b23d2bacf2c22a7859f92005d20a8f8"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/postgres-redis-integration.log.gz",
+      "bytes": 8953,
+      "sha256": "08494396af235c1602fc77f9d12c0b2890aa50fb3890fe4b0b792374aadba36a"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/postgres-redis-model-mcp-e2e.log.gz",
+      "bytes": 7532,
+      "sha256": "3aea356c75fbf1bbff434692e14c3eb6bff5480a1b79884cd7cccf26ad9ab9c9"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/project-license.log.gz",
+      "bytes": 117,
+      "sha256": "d8c8fb372f50aa866b81d1026031cac3b1e8291f5c8885ef1d8da77e26927f0f"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/protocol.log.gz",
+      "bytes": 143,
+      "sha256": "08d928ef6ad4b24404bd2c85cd8d5e24bbeda58602dee0ccc11b7c09a21ed10e"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/server-console-smoke.log.gz",
+      "bytes": 1799,
+      "sha256": "851f8d99580e39a6122b0fe249ce8e7d4c81d8c99dff60f1e9ea3c7957b90f2b"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/smpp-registry-projection.log.gz",
+      "bytes": 427,
+      "sha256": "a68d9c1c8dba59c9f2b270298465f6d59cfca3ba8694ac78f2d37af91b783fdf"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/sources.log.gz",
+      "bytes": 103,
+      "sha256": "6ac4e8c737717a7704e709d7cbd8ba9bb1b99bd6e2aacd2ad6f3118d1235a2f4"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/typecheck.log.gz",
+      "bytes": 49,
+      "sha256": "5b091cfa84f153e454772c0c86ea561333701b98e8aa9ac99687a1b460087dea"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/unit.log.gz",
+      "bytes": 5701,
+      "sha256": "360169fa3a0850734837140afb7c8eb56583a1746cb99b4cea003a417748baa8"
+    },
+    {
+      "path": "reports/ugv-zmq-phase5/raw/sdar-steps/verification-runner-contract.log.gz",
+      "bytes": 1462,
+      "sha256": "db8f3a6ca120e72d22154ee15c3d017fac931ad1f7284fd0d1513d55b2596c1f"
+    }
+  ]
+}

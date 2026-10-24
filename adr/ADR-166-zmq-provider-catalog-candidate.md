@@ -42,3 +42,8 @@ G0 现场身份、时钟、坐标/高程、相机限制、实现版本及金帧�
 
 packages/ugv-profile/test/zmq-provider-profile.unit.test.ts；scripts/ugv-zmq/verify-smpp-catalog.mts；
 reports/ugv-zmq-phase5。完整门禁结果以本次报告为准，不引用历史通过关闭新增缺口。
+
+2026-10-25：验证源码 `9cd615b4` 的完整运行
+`sdar-verify-d392206e-dc0d-4ad9-ad43-f58fb94f85c2` 通过全部 30 门禁及清理，输入未改写。
+工具链使用带 ensurepip 的独立 Python，测试进程固定八核亲和性；未改断言或性能阈值。
+原失败测量及逐阶段日志哈希保留。此结果验证隔离候选实现，未扩展本 ADR 的发布/现场范围。

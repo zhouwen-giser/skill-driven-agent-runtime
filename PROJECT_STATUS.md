@@ -1734,4 +1734,11 @@ This update does not mark EP-INSPECTION-AREA-V1 or field patrol complete.
 2026-10-25: shared JSON Schema validation now stays behind the existing application port and
 approved adapter boundary. The full gate reached integration and found host connectivity failure
 on newly created Compose bridges. An explicit default-bridge fixture option passed real
-PostgreSQL/Redis host readiness and 21 isolation/runner regression cases; full rerun pending.
+PostgreSQL/Redis host readiness and 21 isolation/runner regression cases.
+
+Full run `sdar-verify-d392206e-dc0d-4ad9-ad43-f58fb94f85c2` passed all 30 stages and cleanup,
+with runtime/baseline inputs unchanged. Python 3.12.14 repairs the ensurepip prerequisite; fixed
+eight-core test-process affinity yields baseline drift 4.872%, P95 regression -0.406%, append P95
+2.423ms under the unchanged 15%/10%/20ms gates. Original failed attempts are retained.
+The first isolated increment is verified; EP-ZMQ-05 remains open for governance/native Skill
+execution, complete GOWM owner deployment qualification and field handoff. See reports/ugv-zmq-phase5.

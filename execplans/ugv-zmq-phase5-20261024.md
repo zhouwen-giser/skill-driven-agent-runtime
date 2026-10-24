@@ -30,9 +30,12 @@ its existing managed worktree. This repository uses a separate worktree; existin
 ## Progress
 
 - [x] 2026-10-24 Read AGENTS.md and PLANS.md; create isolated phase-5 worktree from efeb543f.
-- [ ] Implement catalog contract, candidate/adapters and strict rejection tests.
-- [ ] Verify SMPP catalog parity and frozen protocol compatibility.
-- [ ] Record ADR, traceability, gaps, project state, changelog and required full gate.
+- [x] Implement catalog contract, candidate/adapters and strict rejection tests (11 unit cases).
+- [x] Verify SMPP catalog parity and frozen protocol compatibility through the actual isolated
+      formal Runtime and frozen discovery adapter; no control calls in this probe.
+- [x] Record ADR, traceability, gaps, project state, changelog and required full gate.
+- [ ] Accept actual CAS publication and the native Skill task chain / patrol successor.
+- [ ] Accept G0 source facts, GOWM owner deployment and field handoff/execution.
 
 ## Discoveries and Surprises
 
@@ -71,5 +74,14 @@ reports/ugv-zmq-phase5; execplans/ugv-zmq-phase5-20261024.md; pinned public cata
 
 ## Outcomes and Retrospective
 
-In progress. Real release and field patrol remain unqualified until source identity, time/geometry,
+The first isolated consumer increment is verified. Phase 5 remains in progress. Real release and field patrol remain unqualified until source identity, time/geometry,
 limits, original implementation/golden frames and single-writer handoff are independently accepted.
+
+Full verification `sdar-verify-d392206e-dc0d-4ad9-ad43-f58fb94f85c2`: all 30 stages passed,
+runtime/baseline inputs unchanged, cleanup exit 0. Runtime input SHA-256:
+`c55c9427a82490990217dc69e4949ffcd8d50a1979341ae6477ea644ab4a12ec`.
+Use explicit fixture default-bridge routing, independent Python 3.12.14 and inherited eight-core
+test-process affinity. Retain bridge/ensurepip failures and the 19.064% unstable-baseline attempt;
+final drift 4.872%, relative P95 -0.406%, append P95 2.423ms satisfy unchanged 15%/10%/20ms gates.
+Reports and individual stage hashes are in reports/ugv-zmq-phase5. Delivery receipt records final
+commit/push identities. Governance/field acceptance is separate and remains open.

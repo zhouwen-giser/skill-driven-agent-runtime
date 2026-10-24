@@ -2576,3 +2576,5 @@ Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
 - Keep native parameter validation behind the existing JsonSchemaValidator port.
 - Add an explicit default-bridge option to isolated verification for this host; retain project
   ownership, real readiness checks, unchanged thresholds and cleanup (21 runner/isolation cases).
+- Verify all 30 full stages on the fixed source with independent Python tooling and test-process
+  CPU affinity; retain failed environment/baseline attempts and per-stage source/log hashes.
