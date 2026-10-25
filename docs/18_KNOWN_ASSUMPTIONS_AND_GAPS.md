@@ -707,10 +707,11 @@ Ordinary Skill evolution supports complete synchronous recorded Tool workflows. 
 ## ZMQ phase-5 qualification (2026-10-24)
 
 The native 12-tool catalog has incompatible area/result semantics with the legacy inspection Skill.
-The new exact consumer is a non-executable candidate. SDAR formal governance, native child-task
-execution and a patrol successor are still open; source G0 qualification and real footprints/trajectory
-are unavailable. The readonly formal SMPP catalog probe does not close those acceptance items.
+The first increment's exact consumer was a non-executable candidate; its readonly formal SMPP
+catalog probe did not close governance or task-chain acceptance. The separate native increment
+below now verifies actual governance and execution. A patrol successor, source G0 qualification
+and real footprints/trajectory remain unavailable.
 
 ## ZMQ governed native increment (2026-10-25 / ADR-167)
 
-The separate 12-tool native profile now has real CAS/Skill task-chain implementation and isolated validation. It does not replace legacy inspection/patrol contracts. Spatial reports always degrade absent actual trajectory, footprints and complete producer history. Native patrol successor, G0 source facts, owner deployment and field controls remain unqualified. The current source still requires its new full gate; prior passing gates do not certify it. Large Agent Card evidence uses a Node Control ArtifactRef resolved through the existing authenticated revision API, separately from Runtime task-business Artifact routes.
+The separate 12-tool native profile now has real CAS/Skill task-chain implementation and isolated validation. It does not replace legacy inspection/patrol contracts. Spatial reports always degrade absent actual trajectory, footprints and complete producer history. Native patrol successor, G0 source facts, owner deployment and field controls remain unqualified. Current repair source 93cada52 passes all 30 stages and cleanup in sdar-verify-90b419a7-c47d-481c-9195-77fb58fd8b0a, with unchanged inputs; earlier failed attempts remain preserved. Large Agent Card evidence uses a Node Control ArtifactRef resolved through explicit versioned media negotiation on the existing authenticated revision API, separately from Runtime task-business Artifact routes. See reports/ugv-zmq-phase5/governance-20261025; this closes only the second isolated increment.

@@ -1,8 +1,8 @@
 # Project Status
 
-## ZMQ 原生治理与任务链（2026-10-25，ISOLATED_VALIDATING）
+## ZMQ 原生治理与任务链（2026-10-25，ISOLATED_VERIFIED）
 
-12 工具的独立 Skill、Capability、Exposure 已通过实际隔离 CAS 发布与重复装配；正式 A2A → Skill → MCP → gRPC → ZeroMQ → PostgreSQL 链路已验证只读、有效空报告、来源缺失、取消和失败。修复 revision 0 首次绑定、零预算失败收敛及证据关联；最终归档与 30 阶段完整门禁正在进行。ADR-167 和 EP-ZMQ-05 记录具体范围。G0、原生巡逻后继、完整 GOWM 站点资格和现场执行仍开放，19100/19101 未切换。
+12 工具的独立 Skill、Capability、Exposure 已通过实际隔离 CAS 发布与重复装配；正式 A2A → Skill → MCP → gRPC → ZeroMQ → PostgreSQL 链路已验证只读、有效空报告、来源缺失、取消和失败。修复 revision 0 首次绑定、启动取消、零预算失败收敛及证据关联；固定源码 `93cada52` 的 30 阶段完整门禁和清理均通过（2777 unit / 556 contract / 275 integration / 77 E2E），运行 `sdar-verify-90b419a7-c47d-481c-9195-77fb58fd8b0a` 输入未变化。四个候选镜像构建、离线加载及回导通过，2327 个打包文件匹配本地构建。命令、哈希和失败记录见 reports/ugv-zmq-phase5/governance-20261025。ADR-167 和 EP-ZMQ-05 记录具体范围。第五阶段整体、G0、原生巡逻后继、完整 GOWM 站点资格和现场执行仍开放，19100/19101 未切换。
 
 ## 区域检查与巡逻接入（2026-10-15，LOCAL_DEPLOYED_READONLY_ACCEPTED）
 

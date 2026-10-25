@@ -2579,9 +2579,10 @@ Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
 - Verify all 30 full stages on the fixed source with independent Python tooling and test-process
   CPU affinity; retain failed environment/baseline attempts and per-stage source/log hashes.
 
-### 2026-10-25 — governed native ZMQ Skills (isolated validation)
+### 2026-10-25 — governed native ZMQ Skills (isolated verified)
 
 - Add exact pre-Binding admission and real CAS publication of 12 separate native Skills/Capabilities/Exposures; deterministic input and parent-bound timing.
 - Run native tasks through existing A2A/Goal/Skill/DSL/MCP authority, confirmation and no-replay rules. Preserve degraded inspection reports and retained evidence.
 - Pin native public catalog 1.0.1 without overwriting 1.0.0; settle zero-budget unachievable tasks, preserve same-transaction audit lineage and bound large Agent Card evidence by readable immutable ArtifactRefs.
-- Keep field qualification, native patrol successor and 19100/19101 cutover open. Full current-source gate/evidence pending closeout.
+- Verify repair 93cada52 through all 30 frozen stages and cleanup; preserve prior HTTP-contract and declaration-build failures. Current joint chain, four image builds/round-trip and 2327 compiled-file hashes pass; receipts are archived in reports/ugv-zmq-phase5/governance-20261025.
+- Keep field qualification, native patrol successor and 19100/19101 cutover open. Publication is accepted only for the isolated simulator domain.

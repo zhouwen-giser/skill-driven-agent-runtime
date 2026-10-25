@@ -1675,6 +1675,9 @@ INSPECT-01–06 本次交付验收：SMPP gate-11、最终 SDAR gate-18 全 30 �
 
 ## ZMQ migration phase 5 (2026-10-24)
 
+The table below records the historical first increment. The verified native governance successor
+is recorded in the 2026-10-25 section.
+
 | Requirement                                                      | Implementation                                                              | Verification                                                                                   | State                                                                                                  |
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | FR-MCP-001/003; EP-INSPECTION-AREA-V1 exact contracts            | ugv-profile/zmq-provider-profile; pinned zmq_v1_12 catalog                  | zmq-provider-profile.unit; read-only formal SMPP catalog verifier                              | Candidate implemented; governance publication pending                                                  |
@@ -1689,6 +1692,9 @@ INSPECT-01–06 本次交付验收：SMPP gate-11、最终 SDAR gate-18 全 30 �
 | FR-MCP exact authority; FR-SKL governance                | zmq-provider-materialization; zmq-skill-governance; complete 12-tool catalog 1.0.1              | actual CAS publication/repetition and drift rejected before Binding; isolated only                                              |
 | FR-WFL deterministic execution; confirmation / no replay | zmq-capability; zmq-workflow; existing server preparation/execution/controller                  | formal A2A readonly, empty/missing reports, cancel and failure; zero pre-confirm dispatch; zero control-generation model stages |
 | FR-RST incomplete source reports                         | projectNativeZmqResult; TaskCapability terminal guard                                           | valid empty frames remain degraded; missing footprints/trajectory/source completeness explicit                                  |
-| Canonical Evidence / bounded payloads                    | exact audit lineage; requirement IDs; immutable card ArtifactRef and authenticated revision API | focused unit/real PG regressions and joint evidence; final full gate pending                                                    |
+| Canonical Evidence / bounded payloads                    | exact audit lineage; requirement IDs; immutable card ArtifactRef and authenticated revision API | focused unit/real PG regressions, joint integrity and all 30 frozen gates passed; 131 operations retained                       |
 
 Evidence: reports/ugv-zmq-phase5/governance-20261025. Native patrol successor, G0 source qualification, full GOWM owner deployment and field execution remain open.
+Frozen run `sdar-verify-90b419a7-c47d-481c-9195-77fb58fd8b0a`: 2777 unit, 556 contract,
+275 integration, 77 E2E; source/baseline unchanged, exit and cleanup 0. Four candidate images
+build and round-trip; 2327 packaged files match their local compiled authority.

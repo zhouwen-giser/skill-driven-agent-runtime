@@ -58,3 +58,7 @@ simulationId、本地服务和 Binding 身份来自实际隔离实例，不能�
 未指定此媒体类型时仍返回冻结的版本元数据。响应包含 `revision`、`card`、`sourceArtifactRef`，
 设置 `Vary: Accept` 和私有不缓存策略。冻结的 131 项操作、原认证/RBAC 与 application/json
 合同保持原语义；这是有版本标识的可选读取格式，不新增操作路径。
+
+当前隔离验收、源码/镜像身份及命令回执见
+`reports/ugv-zmq-phase5/governance-20261025/REPORT.md`。治理和任务链通过不解除 G0、
+原生巡逻后继、完整 GOWM 站点资格及现场交接要求。

@@ -33,8 +33,8 @@ Evidence 仅允许 `authorizationContextHash` 的精确公开 Schema 声明
 
 超过 64 KiB 的完整 Agent Card 使用 `artifact://node-control/v1/agent-card/<nodeId>/<revision>/card`。
 Evidence 的 `card` 明确标记 `source_artifact_ref` 并携带完整 ArtifactRef；内联上限不变。
-原卡片仍在所有者的不可变 revision 中。授权服务可通过受限 PostgreSQL resolver，或新增
-认证 `GET /api/v1/a2a-agent-card-revisions/:revision` 的 `card` 字段读取，再校验规范 JSON 的
+原卡片仍在所有者的不可变 revision 中。授权服务可通过受限 PostgreSQL resolver，或既有
+认证 `GET /api/v1/a2a-agent-card-revisions/:revision` 的显式版本内容格式读取 `card`，再校验规范 JSON 的
 SHA-256、字节数、nodeId 和 revision。这不是 Runtime task-business Artifact 的地址。
 
 ## Verification and limits
@@ -51,3 +51,7 @@ SHA-256、字节数、nodeId 和 revision。这不是 Runtime task-business Arti
 未指定此媒体类型时仍返回冻结的版本元数据。响应包含 `revision`、`card`、`sourceArtifactRef`，
 设置 `Vary: Accept` 和私有不缓存策略。冻结的 131 项操作、原认证/RBAC 与 application/json
 合同保持原语义；这是有版本标识的可选读取格式，不新增操作路径。
+
+冻结修复 `93cada52` 在 `sdar-verify-90b419a7-c47d-481c-9195-77fb58fd8b0a` 通过全部
+30 项门禁和清理，源码/基线输入未变化；实际联合治理、任务链及 ArtifactRef 完整性再次通过。
+保留操作目录和声明生成的失败回执，未放宽上限或断言。该结论仅关闭第二隔离实现增量。

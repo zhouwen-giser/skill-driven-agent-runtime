@@ -34,9 +34,10 @@ its existing managed worktree. This repository uses a separate worktree; existin
 - [x] Verify SMPP catalog parity and frozen protocol compatibility through the actual isolated
       formal Runtime and frozen discovery adapter; no control calls in this probe.
 - [x] Record ADR, traceability, gaps, project state, changelog and required full gate.
-- [x] 2026-10-25 Implement strict native CAS Provider materialization, governed Skill packages and the isolated task chain; final frozen acceptance receipts pending.
+- [x] 2026-10-25 Implement strict native CAS Provider materialization, governed Skill packages and the isolated task chain; frozen acceptance receipts archived.
 - [x] 2026-10-25 Exercise actual CAS publication/repetition and native readonly/inspection/cancel/failure Task chains.
-- [ ] Complete final frozen gate/evidence delivery and accept a separate native patrol successor.
+- [x] Complete the second increment's frozen gate and evidence delivery.
+- [ ] Accept a separate native patrol successor.
 - [ ] Accept G0 source facts, GOWM owner deployment and field handoff/execution.
 
 ## Discoveries and Surprises
@@ -121,3 +122,17 @@ the private WorkflowNodeBase interface (TS4058). Preserve the failure and cleanu
 native workflow adapter now explicitly returns the existing PreparedSkillUsagePlan interface;
 its runtime behavior and strictness are unchanged. Verify declaration emission before starting
 another full gate, then rerun all required stages on the frozen repair commit.
+
+### Second increment closeout — 2026-10-25
+
+Frozen repair `93cada52ef1ec2e60d232a36064d4823d5524b86` passes all 30 stages in
+`sdar-verify-90b419a7-c47d-481c-9195-77fb58fd8b0a`: unit 2777, contract 556,
+integration 275, E2E 77; exit/cleanup 0, runtime and baseline inputs unchanged.
+Input SHA-256 `07c960b0ae139ffa7753e8268c0a72f176f61e7c521db18456ecf90f2bf25106`.
+Baseline drift 8.249%, relative P95 2.859%, append P95 2.239ms pass unchanged
+15%/10%/20ms limits. The actual CAS and five native task chains, large-card integrity and
+zero unresolved projection issues pass again with SMPP `8b8f44c6`. Four candidate images
+build, load offline and round-trip with unchanged IDs; 2327 packaged files match local builds.
+See reports/ugv-zmq-phase5/governance-20261025 for commands, hashes and preserved failures.
+Subsequent closeout changes are documentation/evidence only. Native patrol, G0, full owner
+deployment and field execution remain open; no 19100/19101 cutover is claimed.
