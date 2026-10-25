@@ -13,6 +13,8 @@ import {
   type NodeControlMcpProviderBindingService,
   type NodeControlCapabilityService,
   type NodeControlEvidenceExportService,
+  type NodeControlA2aExposureService,
+  NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE,
   type ConfigurationReference,
   type NodeControlConfigurationRepository,
   type NodeControlFoundationRepository,
@@ -31,6 +33,7 @@ import {
 } from '../../../packages/node-control-domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { createNodeControlHttpApp } from '../src/http-endpoint.js';
+import { buildNodeControlCardArtifact } from '../../../packages/domain/src/index.js';
 
 const token = 'p01-node-control-contract-token-0000000000000000';
 const organizationToken = 'p12-organization-read-token-000000000000000';
@@ -45,6 +48,82 @@ afterEach(async () => {
 });
 
 describe('Node Control HTTP frozen contract', () => {
+  it('negotiates immutable card content on the existing authenticated revision operation', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-10-25T00:00:00.000Z' },
+      ids: { next: () => 'card-content-audit' },
+    });
+    await service.bootstrapNodeProfile({
+      nodeId: 'card-node',
+      nodeType: 'sdar-runtime',
+      displayName: 'Card node',
+      environment: 'test',
+      runtimeEndpointRef: 'http://127.0.0.1:9998',
+    });
+    const configurations = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-10-25T00:00:00.000Z' },
+      ids: { next: () => 'card-content-operation' },
+    });
+    const metadata = {
+      revision: 1,
+      nodeId: 'card-node',
+      exposureRefs: [],
+      contentHash: 'a'.repeat(64),
+      capabilityCatalogHash: 'b'.repeat(64),
+      status: 'active',
+      generatedAt: '2026-10-25T00:00:00.000Z',
+    };
+    const card = { name: 'Complete immutable card', skills: [{ id: 'read-state' }] };
+    const content = {
+      revision: metadata,
+      card,
+      sourceArtifactRef: buildNodeControlCardArtifact('card-node', 1, card).artifactRef,
+    };
+    const getContent = vi.fn((revision: number) =>
+      Promise.resolve(revision === 1 ? content : undefined),
+    );
+    server = await listen(
+      createNodeControlHttpApp(service, configurations, {
+        bearerToken: token,
+        runtimeServiceToken: `${token}-runtime`,
+        nodeControlApiUrl: 'http://127.0.0.1:10080',
+        nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
+        a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+        a2aExposure: {
+          getAgentCard: () => Promise.resolve(metadata),
+          getAgentCardContent: getContent,
+        } as unknown as NodeControlA2aExposureService,
+      }),
+    );
+    const url = `${address(server)}/api/v1/a2a-agent-card-revisions/1`;
+    expect(
+      (await fetch(url, { headers: { accept: NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE } })).status,
+    ).toBe(401);
+    const legacy = await fetch(url, {
+      headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+    });
+    expect(legacy.status).toBe(200);
+    expect(await legacy.json()).toEqual(metadata);
+    expect(getContent).not.toHaveBeenCalled();
+    const response = await fetch(url, {
+      headers: { authorization: `Bearer ${token}`, accept: NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain(NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE);
+    expect(response.headers.get('vary')).toContain('Accept');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(await response.json()).toEqual(content);
+    const missing = await fetch(`${address(server)}/api/v1/a2a-agent-card-revisions/2`, {
+      headers: { authorization: `Bearer ${token}`, accept: NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE },
+    });
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ code: 'AGENT_CARD_CONTENT_NOT_FOUND' });
+  });
+
   it('opens developer public management without opening internal service credentials', async () => {
     const repository = new MemoryRepository();
     const service = new NodeControlFoundationService({

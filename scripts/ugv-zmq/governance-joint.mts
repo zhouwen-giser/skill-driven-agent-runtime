@@ -31,6 +31,7 @@ import {
   cancelA2ATestTaskAtUrl,
 } from '../../packages/a2a-adapter/test-support/client.js';
 import { bootstrapUgvSmppSource } from '../../apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.js';
+import { NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE } from '../../packages/node-control-application/src/index.js';
 import { governNativeZmqSkills } from '../../apps/node-control-acceptance/src/zmq-skill-governance.js';
 import { materializeZmqProvider } from '../../apps/node-control-acceptance/src/zmq-provider-materialization.js';
 import { zmqCapabilityId } from '../../packages/domain/src/zmq-capability.js';
@@ -668,14 +669,16 @@ try {
     });
     const resolved = await source.resolveCardArtifact(ref);
     const cardUrl =
-      governance.nodeControlBaseUrl +
-      `/api/v1/a2a-agent-card-revisions/${String(ref.version)}/card`;
+      governance.nodeControlBaseUrl + `/api/v1/a2a-agent-card-revisions/${String(ref.version)}`;
     assert.equal((await originalFetch(cardUrl, { redirect: 'manual' })).status, 401);
     const response = await originalFetch(cardUrl, {
-      headers: { authorization: 'Bearer ' + token },
+      headers: { authorization: 'Bearer ' + token, accept: NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE },
       redirect: 'manual',
     });
     assert.equal(response.status, 200);
+    assert.ok(
+      response.headers.get('content-type')?.startsWith(NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE),
+    );
     const revision = object.parse(await response.json());
     verifyNodeControlCardArtifact(
       ref,
@@ -688,8 +691,14 @@ try {
     assert.equal(
       (
         await originalFetch(
-          governance.nodeControlBaseUrl + '/api/v1/a2a-agent-card-revisions/2147483647/card',
-          { headers: { authorization: 'Bearer ' + token }, redirect: 'manual' },
+          governance.nodeControlBaseUrl + '/api/v1/a2a-agent-card-revisions/2147483647',
+          {
+            headers: {
+              authorization: 'Bearer ' + token,
+              accept: NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE,
+            },
+            redirect: 'manual',
+          },
         )
       ).status,
       404,

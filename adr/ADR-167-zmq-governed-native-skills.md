@@ -34,7 +34,7 @@ Evidence 仅允许 `authorizationContextHash` 的精确公开 Schema 声明
 超过 64 KiB 的完整 Agent Card 使用 `artifact://node-control/v1/agent-card/<nodeId>/<revision>/card`。
 Evidence 的 `card` 明确标记 `source_artifact_ref` 并携带完整 ArtifactRef；内联上限不变。
 原卡片仍在所有者的不可变 revision 中。授权服务可通过受限 PostgreSQL resolver，或新增
-认证 `GET /api/v1/a2a-agent-card-revisions/:revision/card` 的 `card` 字段读取，再校验规范 JSON 的
+认证 `GET /api/v1/a2a-agent-card-revisions/:revision` 的 `card` 字段读取，再校验规范 JSON 的
 SHA-256、字节数、nodeId 和 revision。这不是 Runtime task-business Artifact 的地址。
 
 ## Verification and limits
@@ -46,3 +46,8 @@ SHA-256、字节数、nodeId 和 revision。这不是 Runtime task-business Arti
 
 原生巡逻后继组合、完整 GOWM 所有者部署、G0 来源资格和真实设备执行仍开放。
 19100/19101 的切换、现场功能通过和原有服务可回退性均不由本 ADR 的隔离结果证明。
+
+完整卡片使用原版本路径和显式 `Accept: application/vnd.sdar.agent-card-content.v1+json`；
+未指定此媒体类型时仍返回冻结的版本元数据。响应包含 `revision`、`card`、`sourceArtifactRef`，
+设置 `Vary: Accept` 和私有不缓存策略。冻结的 131 项操作、原认证/RBAC 与 application/json
+合同保持原语义；这是有版本标识的可选读取格式，不新增操作路径。

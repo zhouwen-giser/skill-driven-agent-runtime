@@ -53,3 +53,8 @@ simulationId、本地服务和 Binding 身份来自实际隔离实例，不能�
 `SMPP_ZMQ_GOVERNANCE_EVIDENCE_ROOT`；配置文件权限 0600，证据目录 0700。
 夹具只创建自己拥有的数据库、回环端口和 Schema，结束导出证据并清理。
 回退时通过既有 CAS suspend 本次 Exposure/Capability，重建卡片；保留版本、任务及报告。
+
+完整卡片使用原版本路径和显式 `Accept: application/vnd.sdar.agent-card-content.v1+json`；
+未指定此媒体类型时仍返回冻结的版本元数据。响应包含 `revision`、`card`、`sourceArtifactRef`，
+设置 `Vary: Accept` 和私有不缓存策略。冻结的 131 项操作、原认证/RBAC 与 application/json
+合同保持原语义；这是有版本标识的可选读取格式，不新增操作路径。

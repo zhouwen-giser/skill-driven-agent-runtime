@@ -107,3 +107,10 @@ zero confirmation-before-dispatch violations, no control-generation model stages
 Canonical Evidence projection issues, and full large-card PostgreSQL/HTTP artifact integrity.
 Unauthorized content requests reject and missing revisions return 404. SMPP additionally verifies
 cancel-before-start and cancel-during-delayed-ACK without redispatch. Frozen rerun/gates follow.
+
+The first frozen second-increment gate (`sdar-full-30-final`, df639088) passed format/lint/types/unit
+and rejected an additional `/card` route at the 131-operation conformance contract. Retain that
+failed run unchanged. The repaired implementation negotiates the explicit v1 card-content media
+type on the existing authenticated revision GET; default JSON remains frozen metadata, with the
+same RBAC and operation inventory. Dedicated HTTP and inventory regressions pass 15 cases. Run
+a fresh complete gate; do not reuse prior stage success to close it.

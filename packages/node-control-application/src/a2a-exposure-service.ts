@@ -87,6 +87,8 @@ interface RegisteredAgentCardProjection {
 export const SDAR_CAPABILITY_EXPOSURE_CATALOG_EXTENSION_URI =
   'io.sdar/capabilityExposureCatalog' as const;
 export const SDAR_CAPABILITY_EXPOSURE_CATALOG_VERSION = '1.0' as const;
+export const NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE =
+  'application/vnd.sdar.agent-card-content.v1+json' as const;
 
 export class NodeControlA2aExposureService {
   readonly #repository: NodeControlA2aExposureRepository;
