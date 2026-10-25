@@ -1,4 +1,5 @@
 import process from 'node:process';
+import { zmqToolForSkill, zmqCapabilityId } from '../../../packages/domain/src/zmq-capability.js';
 import type {
   GoalEvaluator,
   JsonSchemaValidator,
@@ -18,9 +19,14 @@ import {
 
 export function isAreaReportSkill(skillId: string, version: number): boolean {
   return (
+    zmqToolForSkill(skillId) !== undefined ||
     (skillId === 'embodied.inspect_area' && version >= 1) ||
     (skillId === 'embodied.area_patrol' && version >= 2)
   );
+}
+function reportCapability(skillId: string): string {
+  const name = zmqToolForSkill(skillId);
+  return name === undefined ? skillId : zmqCapabilityId(name);
 }
 
 /** A validated reporting Workflow may finish with incomplete physical evidence. */
@@ -74,7 +80,7 @@ export class AreaReportGoalEvaluator implements GoalEvaluator {
     if (
       !binding ||
       skill?.status !== 'enabled' ||
-      binding.requestedCapabilityId !== selected.skillId ||
+      binding.requestedCapabilityId !== reportCapability(selected.skillId) ||
       input.instance.status !== 'succeeded' ||
       !areaReportErrorsAllowed(selected.skillId, input.instance) ||
       !input.instance.completedAt ||
@@ -171,7 +177,7 @@ export function verifiedAreaReportOutcomeRefs(
     !outcome ||
     !isAreaReportSkill(skill.skillId, skill.version) ||
     proof.taskId !== task.taskId ||
-    proof.requestedCapabilityId !== skill.skillId ||
+    proof.requestedCapabilityId !== reportCapability(skill.skillId) ||
     selected?.skillId !== skill.skillId ||
     selected.version !== skill.version ||
     task.selectedSkillId !== skill.skillId ||

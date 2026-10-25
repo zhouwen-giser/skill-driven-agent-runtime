@@ -277,6 +277,24 @@ describe('Workflow outer controller', () => {
     expect(fixture.goals.goal.status).toBe('unachievable');
   });
 
+  it('commits an unachievable zero-budget attempt without scheduling a replacement', async () => {
+    const fixture = createFixture({ maxReplans: 0, autoConfirm: true });
+    fixture.evaluator.decisions.push({
+      decision: 'unachievable',
+      summary: 'Confirmed native failure; replay is forbidden.',
+    });
+    const result = await fixture.controller.start(startInput());
+    expect(result).toMatchObject({
+      status: 'replan_budget_exhausted',
+      roundCount: 1,
+      replanCount: 0,
+    });
+    expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
+    expect(fixture.planner.plan).not.toHaveBeenCalled();
+    expect(fixture.goals.goal.status).toBe('unachievable');
+    expect(fixture.taskOutcomes.continueUserGoalPlan).not.toHaveBeenCalled();
+  });
+
   it('can replan after a failed immutable instance using only its persisted latest state', async () => {
     const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
     fixture.execution.execute.mockResolvedValueOnce({

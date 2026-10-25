@@ -672,6 +672,7 @@ export async function startServerRuntime(
         clock,
       });
     composePreparation({
+      schemaValidator,
       areaReportInitialAdmission,
       cleanupScope,
       options,

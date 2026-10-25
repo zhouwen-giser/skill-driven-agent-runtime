@@ -1,4 +1,5 @@
 import inspectionContract from './area-inspection-tool-contract.json' with { type: 'json' };
+import { nativeZmqDispatchInput, zmqToolForCapability } from './zmq-capability.js';
 import { normalizeTaskTimestamp } from './mcp-task-availability.js';
 import type { ResolvedMcpTaskExecution } from './mcp-task-availability.js';
 
@@ -129,6 +130,10 @@ export function capabilityDispatchInput(
     constraintSnapshot: readonly Readonly<Record<string, unknown>>[];
   }>,
 ): unknown {
+  if (
+    zmqToolForCapability(binding.requestedCapabilityId ?? binding.capabilityId ?? '') !== undefined
+  )
+    return nativeZmqDispatchInput(binding);
   const adapters = binding.constraintSnapshot.filter(
     (item) => item['type'] === 'inspection_input_adapter',
   );

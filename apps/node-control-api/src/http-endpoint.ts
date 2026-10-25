@@ -1117,6 +1117,27 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get('/api/v1/a2a-agent-card-revisions/:revision/card', async (request, response, next) => {
+    try {
+      const candidate = await requiredA2aExposure(configuration).getAgentCardContent(
+        positiveRevision(request.params.revision),
+      );
+      if (!candidate) {
+        response.status(404).type('application/problem+json').json({
+          type: 'https://errors.sdar.io/agent-card-content-not-found',
+          title: 'Agent Card content not found',
+          status: 404,
+          code: 'AGENT_CARD_CONTENT_NOT_FOUND',
+          detail: 'No immutable card exists at this revision.',
+        });
+        return;
+      }
+      response.status(200).json(candidate);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post('/api/v1/a2a-agent-card-revisions/rebuild', async (request, response, next) => {
     try {
       const command = parseCommand(request.body);
@@ -2981,7 +3002,7 @@ function organizationOperationAllowed(
     /^\/api\/v1\/node-capabilities(?:\/[^/]+\/versions\/\d+)?$/u,
     /^\/api\/v1\/capability-readiness(?:\/[^/]+\/\d+)?$/u,
     /^\/api\/v1\/a2a-exposures(?:\/[^/]+\/versions\/\d+)?$/u,
-    /^\/api\/v1\/a2a-agent-card-revisions\/\d+$/u,
+    /^\/api\/v1\/a2a-agent-card-revisions\/\d+(?:\/card)?$/u,
     /^\/api\/v1\/tasks(?:\/[^/]+(?:\/capability-binding)?)?$/u,
     /^\/api\/v1\/management-operations\/[^/]+$/u,
     /^\/api\/v1\/events$/u,

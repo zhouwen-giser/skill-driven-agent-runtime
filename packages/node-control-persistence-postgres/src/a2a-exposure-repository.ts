@@ -189,6 +189,16 @@ export class PostgresNodeControlA2aExposureRepository implements NodeControlA2aE
     return result.rows[0] === undefined ? undefined : mapCard(result.rows[0]);
   }
 
+  async findAgentCardContent(revision: number): Promise<RuntimeAgentCardCandidate | undefined> {
+    const result = await this.#pool.query<CardRow & { card: JsonObject }>(
+      `SELECT revision,node_id,exposure_refs,content_hash,capability_catalog_hash,status,
+       generated_at,activated_at,rejection_code,card FROM sdar_control.agent_card_revision WHERE revision=$1`,
+      [revision],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : { revision: mapCard(row), card: row.card };
+  }
+
   async saveCandidate(candidate: RuntimeAgentCardCandidate) {
     await this.#pool.query(
       `INSERT INTO sdar_control.agent_card_revision(

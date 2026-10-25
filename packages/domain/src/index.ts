@@ -1,4 +1,5 @@
 export * from './area-inspection.js';
+export * from './zmq-capability.js';
 export * from './conversation-context.js';
 export * from './cognitive/index.js';
 export {

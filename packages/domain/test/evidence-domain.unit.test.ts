@@ -564,6 +564,27 @@ describe('canonical evidence Domain', () => {
     );
   });
 
+  it('admits only the public authorization hash schema declaration, never inline values', () => {
+    const schema = { type: 'string', pattern: '^[a-f0-9]{64}$' };
+    expect(() =>
+      canonicalizeEvidenceJson({ properties: { authorizationContextHash: schema } }),
+    ).not.toThrow();
+    for (const value of [
+      'inline',
+      'a'.repeat(64),
+      { type: 'string' },
+      { ...schema, default: 'inline' },
+      { ...schema, examples: ['inline'] },
+      { type: 'string', pattern: '.*' },
+    ])
+      expect(() => canonicalizeEvidenceJson({ authorizationContextHash: value })).toThrow(
+        expect.objectContaining({ code: 'EVIDENCE_FORBIDDEN_FIELD' }),
+      );
+    expect(() => canonicalizeEvidenceJson({ authorization: schema })).toThrow(
+      expect.objectContaining({ code: 'EVIDENCE_FORBIDDEN_FIELD' }),
+    );
+  });
+
   it('rejects cycles, excessive depth, excessive bytes and duplicate references', () => {
     const cyclic: Record<string, unknown> = {};
     cyclic['self'] = cyclic;

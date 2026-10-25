@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { buildNodeControlCardArtifact } from '../../domain/src/index.js';
 
 import {
   a2aExposureEtag,
@@ -41,6 +42,7 @@ export interface NodeControlA2aExposureRepository {
   ): Promise<AgentCardRevision>;
   listAgentCards(limit: number): Promise<readonly AgentCardRevision[]>;
   findAgentCard(revision: number): Promise<AgentCardRevision | undefined>;
+  findAgentCardContent?(revision: number): Promise<RuntimeAgentCardCandidate | undefined>;
   transitionOperation(
     operation: ManagementOperation,
     command: A2aCommandContext,
@@ -181,6 +183,22 @@ export class NodeControlA2aExposureService {
     const card = await this.#repository.findAgentCard(revision);
     if (card === undefined) throw new Error('AGENT_CARD_REVISION_NOT_FOUND');
     return card;
+  }
+
+  async getAgentCardContent(revision: number) {
+    if (!this.#repository.findAgentCardContent) throw new Error('AGENT_CARD_CONTENT_UNAVAILABLE');
+    const candidate = await this.#repository.findAgentCardContent(revision);
+    if (!candidate) return undefined;
+    if (candidate.revision.nodeId !== this.#nodeId)
+      throw new Error('AGENT_CARD_CONTENT_SCOPE_MISMATCH');
+    return {
+      ...candidate,
+      sourceArtifactRef: buildNodeControlCardArtifact(
+        candidate.revision.nodeId,
+        candidate.revision.revision,
+        candidate.card,
+      ).artifactRef,
+    };
   }
 
   rebuild(idempotencyKey: string, reason: string): Promise<ManagementOperation> {

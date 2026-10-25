@@ -413,6 +413,9 @@ function canonicalize(value: unknown, depth: number, active: Set<object>, path: 
 
 function isForbiddenEvidenceField(key: string, value: unknown): boolean {
   const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/gu, '');
+  // Public JSON Schema metadata declares this hash's format; it contains no authorization value.
+  // Only the exact declaration is admitted. Values, defaults, examples and additional keys reject.
+  if (normalized === 'authorizationcontexthash' && isSha256HashSchema(value)) return false;
   // This is an availability enum from the Control authority, never secret material or a locator.
   if (
     normalized === 'secretstatus' &&
@@ -425,6 +428,16 @@ function isForbiddenEvidenceField(key: string, value: unknown): boolean {
   if (normalized.endsWith('credentialref') || normalized.endsWith('secretref')) return false;
   return /(?:credential|password|passwd|accesstoken|refreshtoken|secret|authorization|apikey|privatekey|chainofthought|privatereasoning|reasoningcontent|hiddenreasoning)/u.test(
     normalized,
+  );
+}
+
+function isSha256HashSchema(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const descriptor = value as Readonly<Record<string, unknown>>;
+  return (
+    Object.keys(descriptor).sort().join(',') === 'pattern,type' &&
+    descriptor['type'] === 'string' &&
+    descriptor['pattern'] === '^[a-f0-9]{64}$'
   );
 }
 

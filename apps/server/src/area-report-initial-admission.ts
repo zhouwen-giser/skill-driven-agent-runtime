@@ -15,6 +15,11 @@ import {
 } from '../../../packages/domain/src/index.js';
 import { parseAreaInspectionInput } from '../../../packages/domain/src/area-inspection.js';
 import { parseAreaPatrolInput } from '../../../packages/domain/src/area-patrol.js';
+import {
+  nativeZmqDispatchInput,
+  zmqToolForCapability,
+  ZMQ_NATIVE_CONTROLS,
+} from '../../../packages/domain/src/zmq-capability.js';
 
 /** A frozen explicit area Capability enters the existing Goal/Skill scheduler without model input inference. */
 export function createAreaReportInitialAdmission(
@@ -32,7 +37,10 @@ export function createAreaReportInitialAdmission(
       const binding = await dependencies.capabilities.findBinding(task.taskId);
       if (
         !binding ||
-        !['embodied.inspect_area', 'embodied.area_patrol'].includes(binding.requestedCapabilityId)
+        (!['embodied.inspect_area', 'embodied.area_patrol'].includes(
+          binding.requestedCapabilityId,
+        ) &&
+          zmqToolForCapability(binding.requestedCapabilityId) === undefined)
       )
         return undefined;
       const raw = binding.inputSnapshot;
@@ -40,11 +48,14 @@ export function createAreaReportInitialAdmission(
         throw Error('AREA_REPORT_INPUT_AUTHORITY_INVALID');
       const input = raw as Record<string, unknown>;
       if (binding.requestedCapabilityId === 'embodied.area_patrol') parseAreaPatrolInput(raw);
-      parseAreaInspectionInput({
-        resourceId: input['resourceId'],
-        area: input['area'],
-        timeWindow: input['timeWindow'],
-      });
+      if (zmqToolForCapability(binding.requestedCapabilityId) !== undefined)
+        nativeZmqDispatchInput(binding);
+      else
+        parseAreaInspectionInput({
+          resourceId: input['resourceId'],
+          area: input['area'],
+          timeWindow: input['timeWindow'],
+        });
       const usage = await dependencies.capabilities.resolveSkillUsageAuthority(task.taskId);
       const authority = await dependencies.authority.resolve(task.taskId);
       if (!usage || !authority) throw Error('AREA_REPORT_INITIAL_AUTHORITY_INVALID');
@@ -55,7 +66,10 @@ export function createAreaReportInitialAdmission(
         description: `Return the source-qualified ${binding.requestedCapabilityId} report for the exact admitted resource and region; retain complete, degraded, failed and canceled outcomes.`,
         constraints: [
           `authority.task-capability-binding-hash=sha256:${binding.bindingHash}`,
-          'policy.confirmation=required',
+          ...(zmqToolForCapability(binding.requestedCapabilityId) !== undefined &&
+          !ZMQ_NATIVE_CONTROLS.has(zmqToolForCapability(binding.requestedCapabilityId) ?? '')
+            ? ['policy.side_effect=read_only']
+            : ['policy.confirmation=required']),
           'physical_replay=forbidden',
         ],
         successCriteria: [

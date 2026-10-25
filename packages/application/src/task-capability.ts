@@ -1,5 +1,10 @@
 import { parseAreaPatrolInput } from '../../domain/src/area-patrol.js';
 import {
+  nativeZmqDispatchInput,
+  projectNativeZmqResult,
+  zmqToolForCapability,
+} from '../../domain/src/zmq-capability.js';
+import {
   capabilityDispatchInput,
   inspectionReportComplete,
   projectInspectionResult,
@@ -1242,6 +1247,30 @@ function criterionSatisfied(
   context: Readonly<{ outputSchemaValid?: boolean }>,
   physicalDispatches?: PhysicalDispatchProof,
 ) {
+  if (criterion['type'] === 'zmq_report_outcome' && criterion['required'] === true) {
+    const name = zmqToolForCapability(binding.requestedCapabilityId);
+    const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
+    const raw =
+      physicalDispatches?.valid === true
+        ? physicalDispatches.dispatches[0]?.evidence.remoteTask?.providerResult
+        : invocations.length === 1 &&
+            invocations[0]?.status === 'succeeded' &&
+            isRecord(invocations[0].result) &&
+            invocations[0].result['isError'] === false
+          ? invocations[0].result['structuredContent']
+          : undefined;
+    if (!name || typeof input?.['resourceId'] !== 'string' || !isRecord(raw)) return false;
+    try {
+      const expected = projectNativeZmqResult(name, raw, input['resourceId']);
+      return (
+        expected.status !== 'failed' &&
+        canonical(expected) === canonical(result) &&
+        (expected.status === 'completed' || criterion['incompleteOutcome'] === 'degraded')
+      );
+    } catch {
+      return false;
+    }
+  }
   if (criterion['type'] === 'inspection_report_outcome' && criterion['required'] === true) {
     if (
       binding.requestedCapabilityId !== 'embodied.inspect_area' ||
@@ -1421,6 +1450,22 @@ function constraintSatisfied(
   physicalDispatches: PhysicalDispatchProof | undefined,
   operationPolicy: TaskBusinessOperationPolicy,
 ) {
+  if (constraint['type'] === 'zmq_input_adapter') {
+    try {
+      const args = nativeZmqDispatchInput(binding),
+        name = zmqToolForCapability(binding.requestedCapabilityId);
+      return (
+        name !== undefined &&
+        invocations.length === 1 &&
+        invocations.every(
+          (invocation) =>
+            invocation.toolName === name && canonical(invocation.arguments) === canonical(args),
+        )
+      );
+    } catch {
+      return false;
+    }
+  }
   if (constraint['type'] === 'inspection_input_adapter') {
     try {
       return (

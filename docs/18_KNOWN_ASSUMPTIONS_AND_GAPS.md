@@ -696,7 +696,6 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - Local TaskBusiness closure is distinct from project release readiness. The working tree is
   intentionally uncommitted and no remote push, merge or deployment was authorized.
 
-
 ## 2026-10-11 functional closure scope (ADR-162 / ADR-163)
 
 GOWM Temporary Skill device attribution and auxiliary-link ownership are repaired in owner delivery commit `dca0fcd`; current consumer contracts and focused restricted-role PostgreSQL checks match it. Full final-source acceptance is pending.
@@ -711,3 +710,7 @@ The native 12-tool catalog has incompatible area/result semantics with the legac
 The new exact consumer is a non-executable candidate. SDAR formal governance, native child-task
 execution and a patrol successor are still open; source G0 qualification and real footprints/trajectory
 are unavailable. The readonly formal SMPP catalog probe does not close those acceptance items.
+
+## ZMQ governed native increment (2026-10-25 / ADR-167)
+
+The separate 12-tool native profile now has real CAS/Skill task-chain implementation and isolated validation. It does not replace legacy inspection/patrol contracts. Spatial reports always degrade absent actual trajectory, footprints and complete producer history. Native patrol successor, G0 source facts, owner deployment and field controls remain unqualified. The current source still requires its new full gate; prior passing gates do not certify it. Large Agent Card evidence uses a Node Control ArtifactRef resolved through the existing authenticated revision API, separately from Runtime task-business Artifact routes.

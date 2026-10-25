@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
 import type { JsonSchemaValidator } from '../../application/src/ports.js';
 import catalog from './zmq-catalog-contract.json' with { type: 'json' };
+import { nativeZmqTaskExecution } from '../../domain/src/zmq-capability.js';
 import { deriveFrozenMcpCatalogAuthority } from '../../domain/src/mcp-catalog-authority.js';
 import { normalizeTaskTimestamp } from '../../domain/src/mcp-task-availability.js';
 import type { McpTool } from '../../domain/src/mcp.js';
 import type { McpProtocolDiscoverySnapshot } from '../../domain/src/mcp-frozen-protocol.js';
 
-export const ZMQ_CATALOG_PROFILE = 'zmq_v1_12';
+export const ZMQ_CATALOG_PROFILE = 'zmq_v1_0_1_12';
 export const ZMQ_REVIEWED_TOOL_NAMES = Object.freeze(catalog.tools.map((t) => t.name).sort());
 const controls = new Set(
   catalog.tools
@@ -120,12 +121,18 @@ export function buildZmqConsumerCandidate(
   now: string,
 ) {
   requireAuthority(authority, now);
+  if (
+    discovery.protocolVersion !== '2026-07-28' ||
+    discovery.providerCatalog?.providerType !== 'isr.vehicle.ugv.zmq' ||
+    tools.some((tool) => tool.serverId !== authority.localServerId)
+  )
+    fail('ZMQ_PROVIDER_AUTHORITY_MISMATCH');
   assertZmqCatalogContract(tools, authority.resourceId);
   const current = deriveFrozenMcpCatalogAuthority(discovery, tools, authority.bindingRevision);
   if (
     current.catalogChecksum !== authority.catalogChecksum ||
     current.catalogRevision !== authority.catalogRevision ||
-    discovery.providerCatalog?.providerId !== authority.providerId
+    discovery.providerCatalog.providerId !== authority.providerId
   )
     fail('ZMQ_CATALOG_AUTHORITY_MISMATCH');
   return {
@@ -176,32 +183,7 @@ export function buildZmqConsumerCandidate(
 }
 /** Parent deadline is anchored; confirmation, preparation and pause consume the same budget. */
 export function zmqTaskExecution(timeWindow: unknown, now: string) {
-  if (
-    !record(timeWindow) ||
-    Object.keys(timeWindow).sort().join(',') !== 'deadline,earliestStart' ||
-    typeof timeWindow['earliestStart'] !== 'string' ||
-    typeof timeWindow['deadline'] !== 'string'
-  )
-    fail('ZMQ_TIME_WINDOW_INVALID');
-  const start = Math.max(
-      Date.parse(normalizeTaskTimestamp(timeWindow['earliestStart'])),
-      Date.parse(normalizeTaskTimestamp(now)),
-    ),
-    end = Date.parse(normalizeTaskTimestamp(timeWindow['deadline'])),
-    remaining = end - start;
-  if (!Number.isSafeInteger(remaining) || remaining <= 0) fail('ZMQ_DEADLINE_EXPIRED');
-  return {
-    protocolMode: 'frozen_v1',
-    availabilityCheck: 'required',
-    timing: {
-      start: {
-        mode: 'scheduled',
-        scheduledAt: new Date(start).toISOString(),
-        startToleranceMs: Math.min(30000, remaining - 1),
-      },
-      maxElapsedMs: Math.min(300000, remaining),
-    },
-  } as const;
+  return nativeZmqTaskExecution(timeWindow, now);
 }
 export function zmqToolArguments(
   toolName: string,

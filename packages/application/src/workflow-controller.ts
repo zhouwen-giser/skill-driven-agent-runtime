@@ -612,7 +612,10 @@ export class WorkflowControllerService {
                 goalId: control.goalId,
                 goalVersion: control.goalVersion,
                 controlId: control.controlId,
-                controlStatus: 'unachievable',
+                controlStatus:
+                  control.replanCount >= instance.budgetLimits.maxReplans
+                    ? 'replan_budget_exhausted'
+                    : 'unachievable',
                 round,
                 workflowOutcome,
                 summary: evaluation.summary,

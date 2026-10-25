@@ -24,6 +24,7 @@ import type {
   WorkflowControllerService,
   WorkflowExecutionService,
   WorkflowPlannerService,
+  JsonSchemaValidator,
 } from '../../../../packages/application/src/index.js';
 import {
   CognitiveEntryRouter,
@@ -88,6 +89,7 @@ export interface composePreparationDependencies {
   readonly clock: { now: () => string };
   readonly ids: { nextId: (kind: 'context' | 'task' | 'event') => string };
   readonly taskCapabilities: RuntimeTaskCapabilityService;
+  readonly schemaValidator: JsonSchemaValidator;
   readonly modelRuntime: ModelRuntimeService;
   readonly memories: MemoryService;
   readonly goalService: GoalService;
@@ -174,6 +176,7 @@ export function composePreparation(dependencies: composePreparationDependencies)
     clock,
     ids,
     taskCapabilities,
+    schemaValidator,
     modelRuntime,
     memories,
     goalService,
@@ -226,6 +229,7 @@ export function composePreparation(dependencies: composePreparationDependencies)
         moveBinding: ugvMoveBindingResolver,
         scope: ugvWorkflowCandidateGuard,
         clock,
+        schemas: schemaValidator,
       })
     : undefined;
   const taskPlanningCandidates = new TaskPlanningCandidateGenerator({

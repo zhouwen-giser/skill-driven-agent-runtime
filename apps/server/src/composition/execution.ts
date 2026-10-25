@@ -1,6 +1,14 @@
 import type { GovernedChildTaskPort } from '../../../../packages/application/src/governed-child-task.js';
 import { areaReportChildExecutionStatus } from '../area-report-terminal.js';
 import {
+  nativeZmqTaskExecution,
+  projectNativeZmqResult,
+  zmqToolForSkill,
+  zmqCapabilityId,
+  ZMQ_NATIVE_CONTROLS,
+} from '../../../../packages/domain/src/zmq-capability.js';
+import { zmqToolArguments } from '../../../../packages/ugv-profile/src/zmq-provider-profile.js';
+import {
   parseAreaPatrolInput,
   patrolNavigationTaskExecution,
 } from '../../../../packages/domain/src/area-patrol.js';
@@ -237,6 +245,21 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
       const instance = await workflowInstances.findInstance(executionId);
       const plan =
         instance === undefined ? undefined : await workflowPlans.findPlan(instance.planId);
+      const nativeTool = zmqToolForSkill(plan?.definition?.skillUsagePolicy?.skill.skillId ?? '');
+      if (nativeTool !== undefined && result !== false) {
+        const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
+        const binding =
+          task === undefined ? undefined : await taskCapabilities.findBinding(task.taskId);
+        if (
+          binding?.requestedCapabilityId !== zmqCapabilityId(nativeTool) ||
+          !isRecord(binding.inputSnapshot) ||
+          typeof binding.inputSnapshot['resourceId'] !== 'string' ||
+          !isRecord(instance?.input) ||
+          canonicalJson(instance.input['skillInput']) !== canonicalJson(binding.inputSnapshot)
+        )
+          throw Error('ZMQ_RESULT_INPUT_AUTHORITY_INVALID');
+        return projectNativeZmqResult(nativeTool, result, binding.inputSnapshot['resourceId']);
+      }
       if (
         plan?.definition?.skillUsagePolicy?.skill.skillId === 'embodied.inspect_area' &&
         result !== false
@@ -301,6 +324,41 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         );
       const plan =
         instance === undefined ? undefined : await workflowPlans.findPlan(instance.planId);
+      const nativeTool = zmqToolForSkill(plan?.definition?.skillUsagePolicy?.skill.skillId ?? '');
+      let nativeTiming: (() => ReturnType<typeof nativeZmqTaskExecution>) | undefined;
+      if (nativeTool !== undefined) {
+        const binding =
+          task === undefined ? undefined : await taskCapabilities.findBinding(task.taskId);
+        if (
+          !binding ||
+          nativeTool !== tool.toolName ||
+          binding.requestedCapabilityId !== zmqCapabilityId(nativeTool) ||
+          !isRecord(binding.inputSnapshot) ||
+          typeof binding.inputSnapshot['resourceId'] !== 'string' ||
+          !isRecord(instance?.input) ||
+          canonicalJson(instance.input['skillInput']) !== canonicalJson(binding.inputSnapshot) ||
+          executionContext.mode !== 'simulation' ||
+          !executionContext.simulationId ||
+          canonicalJson(
+            zmqToolArguments(
+              nativeTool,
+              binding.inputSnapshot,
+              binding.inputSnapshot['resourceId'],
+              schemaValidator,
+            ),
+          ) !== canonicalJson(arguments_)
+        )
+          throw Error('ZMQ_FROZEN_INPUT_AUTHORITY_INVALID');
+        if (ZMQ_NATIVE_CONTROLS.has(nativeTool))
+          nativeTiming = () =>
+            nativeZmqTaskExecution(
+              binding.inputSnapshot && isRecord(binding.inputSnapshot)
+                ? binding.inputSnapshot['timeWindow']
+                : undefined,
+              clock.now(),
+            );
+      } else if (ZMQ_NATIVE_CONTROLS.has(tool.toolName))
+        throw Error('ZMQ_NATIVE_SKILL_AUTHORITY_REQUIRED');
       const skillCallLink =
         instance === undefined
           ? undefined
@@ -366,11 +424,12 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
           throw new Error('INSPECTION_FROZEN_INPUT_AUTHORITY_INVALID');
       }
       const areaTaskExecution =
-        inspectionInput !== undefined
+        nativeTiming ??
+        (inspectionInput !== undefined
           ? () => inspectionTaskExecution(inspectionInput, clock.now())
           : patrolTimingInput !== undefined
             ? () => patrolNavigationTaskExecution(patrolTimingInput, clock.now())
-            : undefined;
+            : undefined);
       const effectiveTaskExecution =
         areaTaskExecution === undefined
           ? (taskExecution ??

@@ -34,7 +34,9 @@ its existing managed worktree. This repository uses a separate worktree; existin
 - [x] Verify SMPP catalog parity and frozen protocol compatibility through the actual isolated
       formal Runtime and frozen discovery adapter; no control calls in this probe.
 - [x] Record ADR, traceability, gaps, project state, changelog and required full gate.
-- [ ] Accept actual CAS publication and the native Skill task chain / patrol successor.
+- [x] 2026-10-25 Implement strict native CAS Provider materialization, governed Skill packages and the isolated task chain; final frozen acceptance receipts pending.
+- [x] 2026-10-25 Exercise actual CAS publication/repetition and native readonly/inspection/cancel/failure Task chains.
+- [ ] Complete final frozen gate/evidence delivery and accept a separate native patrol successor.
 - [ ] Accept G0 source facts, GOWM owner deployment and field handoff/execution.
 
 ## Discoveries and Surprises
@@ -54,6 +56,11 @@ ZMQ is a separate explicit consumer profile; do not mutate the frozen legacy con
 candidate generation as completed governance/publication. ADR records actual supported scope.
 
 ## Implementation Steps
+
+Second increment: extend the shared materializer with a pre-Binding exact-contract guard (no
+semantics override for the native profile); add a loopback-only simulation wrapper. Derive native
+Skill packages from current persisted authority, use the existing import/publish/CAS APIs, and
+exercise retained task results through an isolated Runtime. Keep legacy identities and field gates.
 
 Pin public catalog only (no credentials/endpoints), implement full schema/profile equality,
 bind candidate identity and timing; test drift, deadlines and degraded/late results. Update docs.
@@ -85,3 +92,18 @@ test-process affinity. Retain bridge/ensurepip failures and the 19.064% unstable
 final drift 4.872%, relative P95 -0.406%, append P95 2.423ms satisfy unchanged 15%/10%/20ms gates.
 Reports and individual stage hashes are in reports/ugv-zmq-phase5. Delivery receipt records final
 commit/push identities. Governance/field acceptance is separate and remains open.
+
+### Second increment discoveries — 2026-10-25
+
+- Actual CAS validation rejects untyped empty JSON Schema dictionaries; normalize them to the existing finite JSON definition without changing accepted JSON values.
+- Frozen Runtime reserves root result fields; preserve raw native DTOs internally and append catalog 1.0.1, retaining the original pin.
+- Native revision-zero scheduled ACK was skipped before binding; SMPP now permits exactly the first claimed binding and verifies real cancellation/release.
+- Zero replan budget plus unachievable evaluation previously left a layered task executing; submit the exhausted terminal outcome.
+- Audit references may follow authority in the same committed mutation. Public authorization-hash schema metadata requires an exact declaration exception, never inline authorization values.
+- Add requirement IDs and full-card ArtifactRef handling; current-source full gate and final joint evidence remain pending. Exploratory failures are retained separately.
+
+2026-10-25 exploratory joint run `zmqgov-1eccc345ef7f-6e84d949` passes all five native task cases,
+zero confirmation-before-dispatch violations, no control-generation model stages, no unresolved
+Canonical Evidence projection issues, and full large-card PostgreSQL/HTTP artifact integrity.
+Unauthorized content requests reject and missing revisions return 404. SMPP additionally verifies
+cancel-before-start and cancel-during-delayed-ACK without redispatch. Frozen rerun/gates follow.

@@ -7,6 +7,8 @@ import {
   createManagementOperation,
   createNodeProfile,
   createNodeProfileRevision,
+  createNodeCapabilityDefinition,
+  createSmppRegistrySource,
   transitionManagementOperation,
   type ControlAuditEvent,
   type ManagementOperation,
@@ -21,6 +23,8 @@ import {
   PostgresNodeControlEventRepository,
   PostgresNodeControlEvidenceSource,
   PostgresNodeControlFoundationRepository,
+  PostgresNodeControlCapabilityRepository,
+  PostgresNodeControlSmppRegistryRepository,
   PostgresNodeControlMcpProviderBindingRepository,
   PostgresNodeHealthObservationProducer,
   rollbackLatestControlMigration,
@@ -881,6 +885,75 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
       expect(cancel).toMatchObject({ status: 'fulfilled', value: { status: 'canceled' } });
       expect(start).toMatchObject({ status: 'fulfilled', value: { status: 'canceled' } });
     }
+  });
+
+  it('links the exact committed audit appended after its Capability authority observation', async () => {
+    const capability = createNodeCapabilityDefinition({
+      capabilityId: 'capability.audit-order.' + randomUUID(),
+      version: 1,
+      domain: 'test',
+      name: 'Audit order',
+      description: 'An atomic mutation appends authority before its audit.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      successCriteria: [{ type: 'completed' }],
+      requiredEvidence: [{ type: 'provider_result' }],
+      riskLevel: 'low',
+      status: 'draft',
+    });
+    const capabilities = new PostgresNodeControlCapabilityRepository(pool);
+    await capabilities.createDraft(capability, context('e', 'f', '2026-08-13T04:00:00.000Z'));
+    const source = new PostgresNodeControlEvidenceSource(pool, undefined, evidenceReadPrincipal());
+    const partition = (await source.pendingPartitions(200)).find(
+      (p) =>
+        p.recordType === 'node_control.capability_revision' &&
+        p.sourceRecordId === capability.capabilityId + ':1',
+    );
+    if (!partition) throw Error('CAPABILITY_AUTHORITY_REQUIRED');
+    const snapshot = await source.load(partition);
+    expect(snapshot?.references).toHaveLength(1);
+    expect(snapshot?.references[0]?.recordType).toBe('node_control.audit_event');
+    const audit = await pool.query<{ observation_sequence: string }>(
+      'SELECT observation_sequence::text FROM sdar_control.node_control_evidence_observation WHERE record_type=$1 AND source_record_id=$2',
+      ['node_control.audit_event', snapshot?.references[0]?.sourceRecordId],
+    );
+    expect(BigInt(audit.rows[0]?.observation_sequence ?? '0')).toBeGreaterThan(
+      BigInt(partition.observationSequence),
+    );
+  });
+
+  it('retains Source audit authority without adding a reference forbidden by its frozen catalog', async () => {
+    const config = createSmppRegistrySource({
+      smppSourceId: 'source-audit-' + randomUUID(),
+      registryEndpoint: 'http://127.0.0.1:1/registry',
+      credentialRef: 'unauthenticated://none',
+      environment: 'integration',
+      syncMode: 'manual',
+      snapshotTtlSeconds: 60,
+      lkgPolicy: 'deny_when_unavailable',
+      status: 'draft',
+      revision: 1,
+    });
+    await new PostgresNodeControlSmppRegistryRepository(pool).createSource(
+      config,
+      context('1', '2', '2026-08-13T04:01:00.000Z'),
+    );
+    const source = new PostgresNodeControlEvidenceSource(pool, undefined, evidenceReadPrincipal());
+    const partition = (await source.pendingPartitions(200)).find(
+      (p) =>
+        p.recordType === 'node_control.smpp_source_revision' &&
+        p.sourceRecordId === config.smppSourceId + ':1',
+    );
+    if (!partition) throw Error('SOURCE_AUTHORITY_REQUIRED');
+    expect((await source.load(partition))?.references).toEqual([]);
+    expect(
+      (
+        await pool.query(
+          'SELECT audit_id FROM sdar_control.control_audit_event WHERE aggregate_type=$1 AND aggregate_id=$2',
+          ['smpp_source', config.smppSourceId],
+        )
+      ).rows,
+    ).toHaveLength(1);
   });
 
   it('projects durable health and published telemetry without skipping or leaking credentials', async () => {

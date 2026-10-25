@@ -1,6 +1,15 @@
 import type { Pool, PoolClient } from 'pg';
 
-import { hashCanonicalEvidenceJson, type EvidenceJsonValue } from '../../domain/src/index.js';
+import {
+  hashCanonicalEvidenceJson,
+  canonicalizeEvidenceJson,
+  getEvidenceCatalogEntry,
+  buildNodeControlCardArtifact,
+  nodeControlCardArtifactAddress,
+  verifyNodeControlCardArtifact,
+  type ArtifactRef,
+  type EvidenceJsonValue,
+} from '../../domain/src/index.js';
 import type {
   NodeControlEvidenceProjectionPartition,
   NodeControlEvidenceReadPrincipal,
@@ -169,7 +178,27 @@ export class PostgresNodeControlEvidenceSource implements NodeControlEvidenceSou
       assertAuthorityReadAllowed(this.#principal, row);
       const context = { client, row };
       await assertAggregateRevisionNoRegression(context);
-      const payload = await payloadFor(context);
+      let payload = await payloadFor(context);
+      const artifactRefs: string[] = [];
+      if (
+        row.record_type === 'node_control.agent_card_revision' &&
+        Buffer.byteLength(canonicalizeEvidenceJson(payload), 'utf8') >
+          getEvidenceCatalogEntry(row.record_type).maximumInlineBytes
+      ) {
+        const artifact = buildNodeControlCardArtifact(
+          text(row.authority_payload, 'node_id'),
+          integer(row.authority_payload, 'revision'),
+          json(row.authority_payload, 'card'),
+        );
+        payload = Object.freeze({
+          ...payload,
+          card: {
+            representation: 'source_artifact_ref',
+            sourceArtifactRef: { ...artifact.artifactRef },
+          },
+        });
+        artifactRefs.push(artifact.artifactRef.uri);
+      }
       assertAuthorityScopePreserved(row, payload);
       const references = await referencesFor(context, payload);
       const scope = scopeFor(row, payload);
@@ -181,6 +210,7 @@ export class PostgresNodeControlEvidenceSource implements NodeControlEvidenceSou
         references,
         scope,
         observationGeneration: 0,
+        ...(artifactRefs.length ? { artifactRefs } : {}),
       });
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
@@ -188,6 +218,30 @@ export class PostgresNodeControlEvidenceSource implements NodeControlEvidenceSou
     } finally {
       client.release();
     }
+  }
+
+  async resolveCardArtifact(ref: ArtifactRef) {
+    authorizeEvidenceReadPrincipal(this.#principal);
+    const address = nodeControlCardArtifactAddress(ref);
+    if (address.nodeId !== this.#principal.nodeId)
+      throw new NodeControlEvidenceSourceError(
+        'NODE_CONTROL_EVIDENCE_SCOPE_MISMATCH',
+        'card_artifact',
+      );
+    const result = await this.#control.query<{ card: EvidenceJsonValue }>(
+      'SELECT card FROM sdar_control.agent_card_revision WHERE node_id=$1 AND revision=$2',
+      [address.nodeId, address.revision],
+    );
+    const card = result.rows[0]?.card;
+    if (!card)
+      throw new NodeControlEvidenceSourceError(
+        'NODE_CONTROL_EVIDENCE_AUTHORITY_INVALID',
+        'card_artifact_missing',
+      );
+    return {
+      ...verifyNodeControlCardArtifact(ref, address.nodeId, address.revision, card),
+      value: card,
+    };
   }
 
   async #sequenceBounds(cursor: NodeControlEvidenceSourceCursor | undefined): Promise<{
@@ -716,17 +770,6 @@ async function referencesFor(
       );
       return refs(reference);
     }
-    case 'node_control.smpp_source_revision':
-      return refs(
-        await auditReference(
-          context.client,
-          'smpp_source',
-          text(row, 'smpp_source_id'),
-          integer(row, 'revision'),
-          context.row.occurred_at,
-          context.row.observation_sequence,
-        ),
-      );
     case 'node_control.skill_governance':
     case 'node_control.plan_template_governance':
       return refs(
@@ -745,7 +788,6 @@ async function referencesFor(
           text(row, 'capability_id'),
           integer(row, 'version'),
           context.row.occurred_at,
-          context.row.observation_sequence,
         ),
       );
     case 'node_control.capability_readiness': {
@@ -905,8 +947,10 @@ async function auditReference(
   aggregateId: string,
   revision: number,
   authorityOccurredAt: Date | string,
-  maximumSequence: string,
 ) {
+  // Authority and audit are appended in that order in the same committed mutation. Their
+  // exact aggregate/revision/timestamp relation may therefore point to a later ledger ordinal.
+  // Other authority references retain their as-of bound; ambiguous audit matches still reject.
   const result = await client.query<ObservationRow>(
     `SELECT observation_sequence::text,record_type,source_record_id,authority_payload,occurred_at
        FROM sdar_control.node_control_evidence_observation
@@ -914,15 +958,8 @@ async function auditReference(
         AND authority_payload->>'aggregate_type'=$1 AND authority_payload->>'aggregate_id'=$2
         AND COALESCE(authority_payload->>'result_revision',authority_payload->>'expected_revision')=$3
         AND (authority_payload->>'created_at')::timestamptz=$4::timestamptz
-        AND observation_sequence<=$5::bigint
       ORDER BY node_control_evidence_observation.observation_sequence DESC LIMIT 2`,
-    [
-      aggregateType,
-      aggregateId,
-      String(revision),
-      iso(authorityOccurredAt, 'occurred_at'),
-      maximumSequence,
-    ],
+    [aggregateType, aggregateId, String(revision), iso(authorityOccurredAt, 'occurred_at')],
   );
   if (result.rows.length > 1)
     throw new NodeControlEvidenceSourceError(

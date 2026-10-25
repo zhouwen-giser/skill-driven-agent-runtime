@@ -10,6 +10,11 @@ export function explicitProviderJsonDictionaries(schema: JsonObject): JsonObject
     typeof value === 'object' && value !== null && !Array.isArray(value);
   const visit = (value: unknown): void => {
     if (!isRecord(value)) return;
+    if (Object.keys(value).length === 0) {
+      value['$ref'] = ref.$ref;
+      changed.push(value);
+      return;
+    }
     if (
       value['type'] === 'object' &&
       !Object.hasOwn(value, 'properties') &&

@@ -20,3 +20,5 @@ export * from './ugv-unknown-availability-policy.js';
 export * from './ugv-initial-workflow-planning.js';
 export * from './ugv-task-business-operation-policy.js';
 export * from './zmq-provider-profile.js';
+export * from './zmq-skill.js';
+export * from './zmq-workflow.js';

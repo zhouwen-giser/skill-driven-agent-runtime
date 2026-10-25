@@ -1675,9 +1675,20 @@ INSPECT-01–06 本次交付验收：SMPP gate-11、最终 SDAR gate-18 全 30 �
 
 ## ZMQ migration phase 5 (2026-10-24)
 
-| Requirement | Implementation | Verification | State |
-| --- | --- | --- | --- |
-| FR-MCP-001/003; EP-INSPECTION-AREA-V1 exact contracts | ugv-profile/zmq-provider-profile; pinned zmq_v1_12 catalog | zmq-provider-profile.unit; read-only formal SMPP catalog verifier | Candidate implemented; governance publication pending |
-| FR-EXE-003/004; deterministic parent timing, confirmation/replay | zmqTaskExecution; candidate explicit confirmation and no replay constraints | deadline/expiry and lineage drift unit tests | Adapter verified in isolation; not dispatch authority |
-| FR-RST-003/004; evidence-driven area reporting | projectZmqInspection; patrol substitution refused | complete-looking empty report remains degraded | Spatial/field completeness unavailable |
-| Verification environment ownership/readiness | explicit isolated default-bridge overlays; approved schema adapter port | 21 runner/isolation cases, actual host readiness and all 30 full gates; reports/ugv-zmq-phase5 | Verified in isolation; default bridge is not network tenancy isolation; governance/field still pending |
+| Requirement                                                      | Implementation                                                              | Verification                                                                                   | State                                                                                                  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| FR-MCP-001/003; EP-INSPECTION-AREA-V1 exact contracts            | ugv-profile/zmq-provider-profile; pinned zmq_v1_12 catalog                  | zmq-provider-profile.unit; read-only formal SMPP catalog verifier                              | Candidate implemented; governance publication pending                                                  |
+| FR-EXE-003/004; deterministic parent timing, confirmation/replay | zmqTaskExecution; candidate explicit confirmation and no replay constraints | deadline/expiry and lineage drift unit tests                                                   | Adapter verified in isolation; not dispatch authority                                                  |
+| FR-RST-003/004; evidence-driven area reporting                   | projectZmqInspection; patrol substitution refused                           | complete-looking empty report remains degraded                                                 | Spatial/field completeness unavailable                                                                 |
+| Verification environment ownership/readiness                     | explicit isolated default-bridge overlays; approved schema adapter port     | 21 runner/isolation cases, actual host readiness and all 30 full gates; reports/ugv-zmq-phase5 | Verified in isolation; default bridge is not network tenancy isolation; governance/field still pending |
+
+## 2026-10-25 ZMQ governed native task increment (ADR-167)
+
+| Requirement                                              | Implementation                                                                                  | Verification / status                                                                                                           |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| FR-MCP exact authority; FR-SKL governance                | zmq-provider-materialization; zmq-skill-governance; complete 12-tool catalog 1.0.1              | actual CAS publication/repetition and drift rejected before Binding; isolated only                                              |
+| FR-WFL deterministic execution; confirmation / no replay | zmq-capability; zmq-workflow; existing server preparation/execution/controller                  | formal A2A readonly, empty/missing reports, cancel and failure; zero pre-confirm dispatch; zero control-generation model stages |
+| FR-RST incomplete source reports                         | projectNativeZmqResult; TaskCapability terminal guard                                           | valid empty frames remain degraded; missing footprints/trajectory/source completeness explicit                                  |
+| Canonical Evidence / bounded payloads                    | exact audit lineage; requirement IDs; immutable card ArtifactRef and authenticated revision API | focused unit/real PG regressions and joint evidence; final full gate pending                                                    |
+
+Evidence: reports/ugv-zmq-phase5/governance-20261025. Native patrol successor, G0 source qualification, full GOWM owner deployment and field execution remain open.

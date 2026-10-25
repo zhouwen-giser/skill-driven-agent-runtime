@@ -38,6 +38,24 @@ describe('Provider JSON dictionary publication', () => {
       expect(validator.validate(normalized, value).valid).toBe(false);
     expect(original.properties.facts.additionalProperties).toBe(true);
   });
+  it('preserves an empty dictionary schema as finite JSON without inventing required fields', () => {
+    const original = {
+      type: 'object',
+      required: ['data'],
+      additionalProperties: false,
+      properties: { data: { type: 'object', additionalProperties: {} } },
+    };
+    const normalized = explicitProviderJsonDictionaries(original);
+    expect(skillSchemaContractErrors(normalized, 'output')).toEqual([]);
+    const validator = new AjvJsonSchemaValidator();
+    for (const data of [{}, { nested: [1, null, false, 'x', {}] }, null, [], 1])
+      expect(validator.validate(normalized, { data }).valid).toBe(
+        validator.validate(original, { data }).valid,
+      );
+    expect(validator.validate(normalized, {}).valid).toBe(false);
+    expect(original.properties.data.additionalProperties).toEqual({});
+  });
+
   it('does not alter already explicit contracts or overwrite Provider definitions', () => {
     const source = { type: 'object', properties: { status: { type: 'string' } } };
     expect(explicitProviderJsonDictionaries(source)).toEqual(source);

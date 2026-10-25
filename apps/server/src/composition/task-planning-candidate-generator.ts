@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { zmqToolForSkill } from '../../../../packages/domain/src/zmq-capability.js';
 import type {
   McpRegistryRepository,
   SkillCompositionPlanner,
@@ -187,7 +188,8 @@ export class TaskPlanningCandidateGenerator {
       ...(selectedTaskOperation !== undefined ||
       (preparedUsage?.deterministicDefinition !== undefined &&
         ((skill?.skillId === 'embodied.inspect_area' && skill.version >= 1) ||
-          (skill?.skillId === 'embodied.area_patrol' && skill.version >= 2)))
+          (skill?.skillId === 'embodied.area_patrol' && skill.version >= 2) ||
+          zmqToolForSkill(skill?.skillId ?? '') !== undefined))
         ? { deterministicOnly: true as const }
         : {}),
       ...(preparedUsage === undefined

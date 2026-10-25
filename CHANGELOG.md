@@ -2578,3 +2578,10 @@ Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
   ownership, real readiness checks, unchanged thresholds and cleanup (21 runner/isolation cases).
 - Verify all 30 full stages on the fixed source with independent Python tooling and test-process
   CPU affinity; retain failed environment/baseline attempts and per-stage source/log hashes.
+
+### 2026-10-25 — governed native ZMQ Skills (isolated validation)
+
+- Add exact pre-Binding admission and real CAS publication of 12 separate native Skills/Capabilities/Exposures; deterministic input and parent-bound timing.
+- Run native tasks through existing A2A/Goal/Skill/DSL/MCP authority, confirmation and no-replay rules. Preserve degraded inspection reports and retained evidence.
+- Pin native public catalog 1.0.1 without overwriting 1.0.0; settle zero-budget unachievable tasks, preserve same-transaction audit lineage and bound large Agent Card evidence by readable immutable ArtifactRefs.
+- Keep field qualification, native patrol successor and 19100/19101 cutover open. Full current-source gate/evidence pending closeout.

@@ -1,4 +1,12 @@
+import {
+  ZMQ_NATIVE_TOOLS,
+  ZMQ_NATIVE_CONTROLS,
+  zmqSkillId,
+  zmqCapabilityId,
+  type ZmqNativeTool,
+} from '../../domain/src/zmq-capability.js';
 export type UgvReviewedToolName =
+  | ZmqNativeTool
   | 'vehicle_get_state'
   | 'vehicle_get_capabilities'
   | 'vehicle_get_payload_status'
@@ -186,11 +194,30 @@ export const UGV_REVIEWED_TOOL_NAMES = Object.freeze(
 );
 
 export const UGV_PUBLIC_SKILL_IDS = Object.freeze(
-  [...new Set(UGV_AGENT_CAPABILITY_CATALOG.map(({ skillId }) => skillId))].sort(),
+  [
+    ...new Set([
+      ...UGV_AGENT_CAPABILITY_CATALOG.map(({ skillId }) => skillId),
+      ...ZMQ_NATIVE_TOOLS.map(zmqSkillId),
+    ]),
+  ].sort(),
 );
 
 export function ugvCapabilityForSkill(skillId: string): UgvAgentCapabilityDeclaration | undefined {
-  return UGV_AGENT_CAPABILITY_CATALOG.find((item) => item.skillId === skillId);
+  return (
+    UGV_AGENT_CAPABILITY_CATALOG.find((item) => item.skillId === skillId) ??
+    ZMQ_NATIVE_TOOLS.map((name) =>
+      declaration(
+        name,
+        zmqSkillId(name),
+        zmqCapabilityId(name),
+        `zmq.${name}`,
+        `Isolated ZMQ ${name}`,
+        [],
+        ZMQ_NATIVE_CONTROLS.has(name) ? 'physical_control' : 'read_only',
+        ZMQ_NATIVE_CONTROLS.has(name) ? 'physical' : 'none',
+      ),
+    ).find((item) => item.skillId === skillId)
+  );
 }
 
 export function isHistoricalUgvPointSkill(skillId: string, version: number): boolean {

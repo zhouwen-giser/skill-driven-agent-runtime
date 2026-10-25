@@ -1,3 +1,4 @@
+import { zmqToolForSkill } from '../../../../packages/domain/src/zmq-capability.js';
 import { UGV_TASK_BUSINESS_OPERATION_POLICY } from '../../../../packages/ugv-profile/src/ugv-task-business-operation-policy.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -1535,7 +1536,8 @@ export async function composeKnowledge(dependencies: composeKnowledgeDependencie
           resolve(input: Parameters<typeof skillInputResolution.resolve>[0]) {
             return isHistoricalUgvPointSkill(input.skill.skillId, input.skill.version)
               ? ugvExactSkillInputResolver.resolve(input)
-              : ['embodied.inspect_area', 'embodied.area_patrol'].includes(input.skill.skillId)
+              : ['embodied.inspect_area', 'embodied.area_patrol'].includes(input.skill.skillId) ||
+                  zmqToolForSkill(input.skill.skillId) !== undefined
                 ? new CapabilityBoundSkillInputResolver(
                     taskCapabilities,
                     skillInputResolution,

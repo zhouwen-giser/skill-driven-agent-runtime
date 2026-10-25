@@ -1,8 +1,10 @@
+import { canonicalHash } from '../../application/src/mcp-task-readiness.js';
 import type { AsyncLocalStorage } from 'node:async_hooks';
 import type {
   Clock,
   RuntimeTaskCapabilityService,
   SkillInputResolutionRepository,
+  JsonSchemaValidator,
 } from '../../application/src/index.js';
 import type {
   TaskPlanningProfilePolicy,
@@ -16,6 +18,8 @@ import { assertUgvAgentProfileMoveInputAuthority } from './ugv-agent-profile-adm
 import { isHistoricalUgvPointSkill } from './ugv-agent-profile-catalog.js';
 import type { UgvMoveTaskBindingResolver } from './ugv-move-binding.js';
 import { UgvMoveWorkflowCandidateGuard, prepareUgvMoveWorkflowPlan } from './ugv-move-workflow.js';
+import { prepareNativeZmqWorkflow } from './zmq-workflow.js';
+import { zmqToolForSkill, zmqCapabilityId } from '../../domain/src/index.js';
 
 /** UGV admission and constraint scope only; formal Workflow/Task writers are absent. */
 export class UgvInitialWorkflowPlanningPolicy implements TaskPlanningProfilePolicy {
@@ -25,6 +29,7 @@ export class UgvInitialWorkflowPlanningPolicy implements TaskPlanningProfilePoli
     moveBinding: Pick<UgvMoveTaskBindingResolver, 'resolve'> | undefined;
     scope: AsyncLocalStorage<UgvMoveWorkflowCandidateGuard>;
     clock: Clock;
+    schemas?: Pick<JsonSchemaValidator, 'validate'>;
   }>;
   constructor(dependencies: UgvInitialWorkflowPlanningPolicyDependencies) {
     this.#dependencies = dependencies;
@@ -33,6 +38,34 @@ export class UgvInitialWorkflowPlanningPolicy implements TaskPlanningProfilePoli
     input: Parameters<TaskPlanningProfilePolicy['prepareUsage']>[0],
   ): Promise<TaskPlanningUsageEvidence | undefined> {
     const { skill, candidate, interpretation, workflowDefinitionId, workflowVersion, task } = input;
+    const nativeTool = zmqToolForSkill(skill.skillId);
+    if (nativeTool !== undefined) {
+      const { schemas, bindings, inputs, clock } = this.#dependencies;
+      const binding = await bindings.findBinding(task.task.taskId),
+        resolution = task.skillInputResolution;
+      if (
+        !schemas ||
+        !binding ||
+        !resolution ||
+        binding.requestedCapabilityId !== zmqCapabilityId(nativeTool)
+      )
+        throw Error('ZMQ_SKILL_INPUT_AUTHORITY_REQUIRED');
+      const persisted = await inputs.find(resolution.resolutionId);
+      if (
+        !persisted ||
+        canonicalHash(persisted.structuredInput) !== canonicalHash(binding.inputSnapshot) ||
+        canonicalHash(resolution.structuredInput) !== canonicalHash(binding.inputSnapshot)
+      )
+        throw Error('ZMQ_SKILL_INPUT_AUTHORITY_CONFLICT');
+      const executionContext = await bindings.resolveRuntimeExecutionContext(task.task.taskId);
+      if (executionContext?.mode !== 'simulation' || !executionContext.simulationId)
+        throw Error('ZMQ_SIMULATION_CONTEXT_REQUIRED');
+      return {
+        applicabilityStatus: candidate.applicability.status,
+        prepared: prepareNativeZmqWorkflow(input, binding.inputSnapshot, schemas, clock.now()),
+        executionContext,
+      };
+    }
     if (!isHistoricalUgvPointSkill(skill.skillId, skill.version)) return undefined;
     const taskCapabilities = this.#dependencies.bindings;
     const skillInputResolutionRepository = this.#dependencies.inputs;
@@ -109,4 +142,5 @@ export interface UgvInitialWorkflowPlanningPolicyDependencies {
   readonly moveBinding: Pick<UgvMoveTaskBindingResolver, 'resolve'> | undefined;
   readonly scope: AsyncLocalStorage<UgvMoveWorkflowCandidateGuard>;
   readonly clock: Clock;
+  readonly schemas?: Pick<JsonSchemaValidator, 'validate'>;
 }

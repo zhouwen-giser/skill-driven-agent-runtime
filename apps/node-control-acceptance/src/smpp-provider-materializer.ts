@@ -7,6 +7,7 @@ import {
   deriveFrozenMcpCatalogAuthority,
   type McpTaskExecutionProfile,
   type McpTool,
+  type McpProtocolDiscoverySnapshot,
 } from '../../../packages/domain/src/index.js';
 
 const CHECKSUM = /^[a-f0-9]{64}$/u;
@@ -251,11 +252,26 @@ type NativeRegistryLineage = Readonly<{
   registryProjectionContract: typeof REGISTRY_PROJECTION_CONTRACT;
 }>;
 
+/** A reviewed profile may refuse discovery before Binding import or catalog approval. */
+export interface SmppCatalogAdmission {
+  readonly providerKey: string;
+  readonly serverId: string;
+  readonly endpoint: string;
+  readonly discovery: Readonly<{
+    protocolVersion: string;
+    serverInfo: Readonly<Record<string, unknown>>;
+    providerCatalog?: NonNullable<McpProtocolDiscoverySnapshot['providerCatalog']>;
+  }>;
+  readonly tools: readonly McpTool[];
+}
+
 export async function materializeSmppProviders(
   input: SmppProviderMaterializationConfiguration,
   dependencies: Readonly<{
     fetch?: typeof fetch;
     now?: () => string;
+    assertSourceEndpoint?: (endpoint: string) => void;
+    assertCatalog?: (catalog: SmppCatalogAdmission) => void;
   }> = {},
 ): Promise<SmppProviderMaterializationReport> {
   const configuration = validateConfiguration(input);
@@ -283,6 +299,7 @@ export async function materializeSmppProviders(
         `The ${provider.providerKey} Source Candidate is missing.`,
       );
     const endpoint = safeEndpoint(candidate.serverEndpoint, 'SOURCE_CANDIDATE_ENDPOINT_INVALID');
+    dependencies.assertSourceEndpoint?.(endpoint);
     requireFresh(candidate.registryValidUntil, observedAt, 'SOURCE_CANDIDATE_EXPIRED');
     return Object.freeze({ provider, candidate, endpoint });
   });
@@ -355,6 +372,38 @@ export async function materializeSmppProviders(
         'RUNTIME_ENDPOINT_DRIFT_REQUIRES_GOVERNED_REBIND',
         `Runtime endpoint drift was detected for ${provider.providerKey}.`,
       );
+    const assertCatalog = () =>
+      dependencies.assertCatalog?.({
+        providerKey: provider.providerKey,
+        serverId: provider.localServerId,
+        endpoint,
+        discovery: {
+          protocolVersion: runtime.snapshot.protocolVersion,
+          serverInfo: runtime.snapshot.serverInfo,
+          ...(runtime.snapshot.providerCatalog === undefined
+            ? {}
+            : { providerCatalog: runtime.snapshot.providerCatalog }),
+        },
+        tools: runtime.tools.map((tool) => {
+          const { supportsPauseResume, ...profile } = tool.taskExecutionProfile;
+          return {
+            serverId: tool.serverId,
+            toolName: tool.toolName,
+            inputSchema: tool.inputSchema,
+            outputSchema: tool.outputSchema,
+            protocolMode: tool.protocolMode,
+            executionSemantics: tool.executionSemantics,
+            ...(tool.title === undefined ? {} : { title: tool.title }),
+            ...(tool.description === undefined ? {} : { description: tool.description }),
+            taskExecutionProfile: {
+              ...profile,
+              ...(supportsPauseResume === undefined ? {} : { supportsPauseResume }),
+            },
+            discoveredAt: runtime.snapshot.discoveredAt,
+          };
+        }),
+      });
+    assertCatalog();
     runtime = await reconcileRuntimeToolExecutionSemantics(
       configuration,
       provider.providerKey,
@@ -386,6 +435,7 @@ export async function materializeSmppProviders(
           'Runtime Server and current Snapshot Tool revisions do not match.',
         );
     }
+    assertCatalog();
     const governedCatalogChecksum = runtimeCatalogChecksum(runtime);
 
     // A Binding snapshots the already-materialized Runtime authority. Explicit governed semantics
@@ -495,6 +545,7 @@ export async function materializeSmppProviders(
       fail('CATALOG_OPERATION_COUNT_MISMATCH', 'Control and Runtime operation counts differ.');
 
     validateRuntimeCatalog(provider.providerKey, provider.localServerId, provider.tools, runtime);
+    assertCatalog();
     requireFresh(runtime.snapshot.validUntil, observedAt, 'RUNTIME_DISCOVERY_EXPIRED');
     const catalogChecksum = runtimeCatalogChecksum(runtime);
     if (catalogChecksum !== binding.catalogChecksum)
