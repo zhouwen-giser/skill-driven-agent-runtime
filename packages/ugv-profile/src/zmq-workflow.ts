@@ -1,4 +1,8 @@
-import { prepareSkillUsagePlan, type JsonSchemaValidator } from '../../application/src/index.js';
+import {
+  prepareSkillUsagePlan,
+  type JsonSchemaValidator,
+  type PreparedSkillUsagePlan,
+} from '../../application/src/index.js';
 import {
   nativeZmqTaskExecution,
   zmqToolForSkill,
@@ -12,7 +16,7 @@ export function prepareNativeZmqWorkflow(
   skillInput: unknown,
   schemas: Pick<JsonSchemaValidator, 'validate'>,
   now: string,
-) {
+): PreparedSkillUsagePlan {
   const name = zmqToolForSkill(input.skill.skillId);
   if (
     !name ||

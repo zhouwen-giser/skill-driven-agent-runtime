@@ -114,3 +114,10 @@ failed run unchanged. The repaired implementation negotiates the explicit v1 car
 type on the existing authenticated revision GET; default JSON remains frozen metadata, with the
 same RBAC and operation inventory. Dedicated HTTP and inventory regressions pass 15 cases. Run
 a fresh complete gate; do not reuse prior stage success to close it.
+
+The second frozen gate (`sdar-full-30-media-final`, c20855a9) passed the repaired frozen HTTP
+contracts and reached production build, which rejected an inferred exported return type containing
+the private WorkflowNodeBase interface (TS4058). Preserve the failure and cleanup receipts. The
+native workflow adapter now explicitly returns the existing PreparedSkillUsagePlan interface;
+its runtime behavior and strictness are unchanged. Verify declaration emission before starting
+another full gate, then rerun all required stages on the frozen repair commit.
