@@ -457,9 +457,9 @@ function aggregateRevisionDescriptor(row: ObservationRow): AggregateRevisionDesc
     case 'node_control.mcp_provider_binding_revision':
       return revisionDescriptor(value, ['binding_id'], 'revision');
     case 'node_control.capability_revision':
-      return revisionDescriptor(value, ['capability_id'], 'version');
+      return immutableVersionDescriptor(value, 'capability_id', 'version');
     case 'node_control.a2a_exposure':
-      return revisionDescriptor(value, ['exposure_id'], 'version');
+      return immutableVersionDescriptor(value, 'exposure_id', 'version');
     case 'node_control.agent_card_revision':
       // Each immutable card revision has its own lifecycle. Activating revision 2
       // legitimately appends a later superseded observation for revision 1.
@@ -469,11 +469,39 @@ function aggregateRevisionDescriptor(row: ObservationRow): AggregateRevisionDesc
         revision: integer(value, 'revision'),
       };
     case 'node_control.node_event':
+      if (['node_capability', 'a2a_exposure'].includes(text(value, 'aggregate_type'))) {
+        // Audit revisions identify immutable definition versions, whose lifecycle
+        // transitions may interleave after a successor has been created.
+        const revision = integer(value, 'aggregate_revision');
+        return {
+          key: {
+            aggregate_type: text(value, 'aggregate_type'),
+            aggregate_id: text(value, 'aggregate_id'),
+            aggregate_revision: revision,
+          },
+          revisionField: 'aggregate_revision',
+          revision,
+        };
+      }
+      return revisionDescriptor(value, ['aggregate_type', 'aggregate_id'], 'aggregate_revision');
     case 'node_control.capability_readiness':
       return revisionDescriptor(value, ['aggregate_type', 'aggregate_id'], 'aggregate_revision');
     default:
       return undefined;
   }
+}
+
+function immutableVersionDescriptor(
+  value: Readonly<Record<string, unknown>>,
+  idField: string,
+  versionField: string,
+): AggregateRevisionDescriptor {
+  const version = integer(value, versionField);
+  return {
+    key: { [idField]: text(value, idField), [versionField]: version },
+    revisionField: versionField,
+    revision: version,
+  };
 }
 
 function revisionDescriptor(

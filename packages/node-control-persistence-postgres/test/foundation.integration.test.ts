@@ -1176,6 +1176,131 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     });
   });
 
+  it('retains late lifecycle transitions and audits for immutable Capability and Exposure versions', async () => {
+    await bootstrapEvidenceProfile();
+    const capabilityId = 'historical-capability-' + randomUUID();
+    const exposureId = 'historical-exposure-' + randomUUID();
+    const capabilities = new PostgresNodeControlCapabilityRepository(pool);
+    for (const version of [1, 2]) {
+      const time = `2026-08-13T04:10:0${String(version)}.000Z`;
+      await capabilities.createDraft(
+        createNodeCapabilityDefinition({
+          capabilityId,
+          version,
+          domain: 'test',
+          name: 'Versioned history',
+          description: 'Each immutable version retains its lifecycle.',
+          inputSchema: { type: 'object' },
+          outputSchema: { type: 'object' },
+          successCriteria: [{ type: 'completed' }],
+          requiredEvidence: [{ type: 'provider_result' }],
+          riskLevel: 'low',
+          status: 'draft',
+        }),
+        context(String(version), String(version + 2), time),
+      );
+      await pool.query(
+        `INSERT INTO sdar_control.a2a_exposure_version
+        (exposure_id,version,capability_id,capability_version,agent_skill_id,name,description,
+         tags,examples,input_modes,output_modes,request_schema,result_schema,visibility,
+         readiness_publication_policy,status,exposure_hash,created_at,updated_at)
+        VALUES($1,$2,$3,$2,$1,'Versioned history','Retain immutable history','[]','[]','[]','[]','{}','{}',
+         'public','publish_when_available','published',$4,$5,$5)`,
+        [exposureId, version, capabilityId, sha256(exposureId + String(version)), time],
+      );
+      await pool.query(
+        `INSERT INTO sdar_control.control_audit_event
+        (audit_id,actor_id,action,aggregate_type,aggregate_id,result_revision,reason,request_hash,result_code,created_at)
+        VALUES($1,'integration-test','a2a.exposure_created','a2a_exposure',$2,$3,'Create immutable version',$4,'a2a.exposure_created',$5)`,
+        [randomUUID(), exposureId, version, sha256(exposureId + String(version)), time],
+      );
+    }
+    const occurredAt = '2026-08-13T04:10:04.000Z';
+    for (const [type, id, table, idColumn, status] of [
+      [
+        'node_capability',
+        capabilityId,
+        'node_capability_definition_version',
+        'capability_id',
+        'retired',
+      ],
+      ['a2a_exposure', exposureId, 'a2a_exposure_version', 'exposure_id', 'suspended'],
+    ] as const) {
+      await pool.query(
+        `UPDATE sdar_control.${table} SET status=$2,updated_at=$3 WHERE ${idColumn}=$1 AND version=1`,
+        [id, status, occurredAt],
+      );
+      await pool.query(
+        `INSERT INTO sdar_control.control_audit_event
+        (audit_id,actor_id,action,aggregate_type,aggregate_id,result_revision,reason,request_hash,result_code,created_at)
+        VALUES($1,'integration-test',$6,$2,$3,1,'Preserve earlier version',$4,'version_retired',$5)`,
+        [
+          randomUUID(),
+          type,
+          id,
+          sha256(id),
+          occurredAt,
+          type === 'node_capability' ? 'node_capability.command' : 'a2a.exposure_suspended',
+        ],
+      );
+    }
+    const source = new PostgresNodeControlEvidenceSource(pool, undefined, evidenceReadPrincipal());
+    const partitions = await source.pendingPartitions(200);
+    for (const [recordType, id, status] of [
+      ['node_control.capability_revision', capabilityId, 'retired'],
+      ['node_control.a2a_exposure', exposureId, 'suspended'],
+    ] as const) {
+      const partition = partitions.find(
+        (p) => p.recordType === recordType && p.sourceRecordId === id + ':1',
+      );
+      if (!partition) throw Error('HISTORICAL_VERSION_PARTITION_REQUIRED');
+      const latest = (
+        await pool.query<{ sequence: string }>(
+          `SELECT observation_sequence::text AS sequence
+        FROM sdar_control.node_control_evidence_observation WHERE record_type=$1 AND source_record_id=$2
+        ORDER BY observation_sequence DESC LIMIT 1`,
+          [recordType, id + ':1'],
+        )
+      ).rows[0]?.sequence;
+      if (!latest) throw Error('HISTORICAL_VERSION_OBSERVATION_REQUIRED');
+      await expect(
+        source.load({ ...partition, observationSequence: latest, sourceRevision: latest }),
+      ).resolves.toMatchObject({ payload: { version: 1, status } });
+    }
+    const lateAudits = partitions.filter((p) => p.recordType === 'node_control.node_event');
+    for (const partition of lateAudits) await expect(source.load(partition)).resolves.toBeDefined();
+    expect(lateAudits.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('still rejects decreasing revisions in ordinary Node events', async () => {
+    await bootstrapEvidenceProfile();
+    const aggregateId = 'event-regression-' + randomUUID();
+    const regressedAuditId = randomUUID();
+    for (const revision of [2, 1])
+      await pool.query(
+        `INSERT INTO sdar_control.control_audit_event
+      (audit_id,actor_id,action,aggregate_type,aggregate_id,result_revision,reason,request_hash,result_code,created_at)
+      VALUES($1,'integration-test','node.profile.revision','node_profile',$2,$3,'Detect real regression',$4,'revision_changed',clock_timestamp())`,
+        [
+          revision === 1 ? regressedAuditId : randomUUID(),
+          aggregateId,
+          revision,
+          sha256(aggregateId + String(revision)),
+        ],
+      );
+    const source = new PostgresNodeControlEvidenceSource(pool, undefined, evidenceReadPrincipal());
+    const partitions = await source.pendingPartitions(200);
+    const partition = partitions.find(
+      (p) =>
+        p.recordType === 'node_control.node_event' &&
+        p.sourceRecordId === 'audit:' + regressedAuditId,
+    );
+    if (!partition) throw Error('REGRESSED_EVENT_REQUIRED');
+    await expect(source.load(partition)).rejects.toMatchObject({
+      code: 'NODE_CONTROL_EVIDENCE_REVISION_REGRESSION',
+    });
+  });
+
   it('rejects a reused Runtime Event identity without advancing the Control cursor', async () => {
     await pool.query(
       `UPDATE sdar_control.node_event_source_cursor
@@ -1375,6 +1500,32 @@ function context(idempotency: string, request: string, occurredAt: string) {
     idempotencyKeyHash: idempotency.repeat(64),
     requestHash: request.repeat(64),
     occurredAt,
+  });
+}
+
+async function bootstrapEvidenceProfile() {
+  const timestamp = '2026-08-13T04:09:00.000Z';
+  const profile = createNodeProfile(
+    {
+      nodeId: 'node-phase9',
+      nodeType: 'sdar-runtime',
+      displayName: 'Historical evidence',
+      environment: 'integration',
+      runtimeEndpointRef: 'http://127.0.0.1:9998',
+    },
+    timestamp,
+  );
+  await repository.bootstrapNodeProfile(profile, {
+    auditId: randomUUID(),
+    actorId: 'integration-test',
+    action: 'node.profile.bootstrap',
+    aggregateType: 'node_profile',
+    aggregateId: profile.nodeId,
+    resultRevision: 1,
+    reason: 'Prepare real history authority',
+    requestHash: sha256('history-profile'),
+    resultCode: 'NODE_PROFILE_BOOTSTRAPPED',
+    createdAt: timestamp,
   });
 }
 

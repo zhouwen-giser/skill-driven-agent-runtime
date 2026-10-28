@@ -147,3 +147,16 @@ remain retained. Full frozen SDAR gate is running; no field or formal control co
 
 Software full-gate completion, latest candidate image, formal PMS Binding, field confirmation,
 production queue handoff and promotion remain open until their evidence receipts exist.
+
+## Immutable definition lifecycle evidence (2026-10-28)
+
+Actual control13 → PMS readonly13 → control13 governance exposed late suspension observations for
+older Exposure versions. Version numbers identify independent immutable definitions, while their
+statuses can change after a successor exists. Capability/Exposure source descriptors and their exact
+node_capability/a2a_exposure audit aggregates now include the immutable version in their identity.
+Ordinary Profile/Source/Binding/event revisions keep the existing regression guard.
+
+Real PostgreSQL foundation verification passes 21 tests, including interleaved version lifecycles,
+late audit projection and a decreasing ordinary Node event rejection. Two earlier fixture failures
+remain recorded; the original revision-regression test is unchanged. Final complete gate and candidate
+projection clearance must be recorded for the successor source before marking software complete.

@@ -1716,3 +1716,9 @@ Lifecycle rejection regression: TaskServiceAgentExecutor + ObservedRequestHandle
 separate A2A Message receipts, unchanged working Task and canonical GET in blocking/streaming
 modes. Joint driver asserts zero extra MCP resume requests. Existing evidence-domain tests preserve
 hash redaction while exact Schema properties metadata is admitted. Full gate remains pending.
+
+Immutable definition lifecycle follow-up: node-control-evidence-source scopes Capability/Exposure
+versions and matching audit families separately. Real PostgreSQL foundation suite: 21 PASS, including
+late older-version status/audit reads and rejection of ordinary Node event revision regression.
+Actual candidate direct control14 and real PMS readonly7 governance receipts remain separate from
+production-storage promotion and physical acceptance.

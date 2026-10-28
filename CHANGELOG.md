@@ -10,7 +10,8 @@ SMPP anonymous candidate and real isolated cross-project task chains pass, inclu
 restart without motion redispatch, cancellation, timeout and evidence projection. Full SDAR gate and
 field acceptance remain pending. Invalid lifecycle commands return a separate A2A rejection Message
 without failing the existing physical Task. Restrict hash-schema metadata exceptions to Schema
-properties; retain actual-value redaction. Independent candidate publishes 14 governed entries.
+properties; retain actual-value redaction. Independent candidate publishes 14 governed entries. Preserve late lifecycle observations for
+immutable Capability/Exposure versions and their exact audits; ordinary revision regression remains rejected.
 
 ## 2026-10-15 — inspection dispatch timing review
 
