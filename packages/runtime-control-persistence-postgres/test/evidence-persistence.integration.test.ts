@@ -13,6 +13,10 @@ import {
   type EvidenceQualityIssue,
 } from '../../domain/src/index.js';
 import { PostgresEvidenceStore } from '../src/index.js';
+import {
+  EvidenceQualityEvaluator,
+  type EvidenceQualityFinding,
+} from '../../runtime-control-application/src/index.js';
 
 const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ??
@@ -39,6 +43,67 @@ afterAll(async () => {
 });
 
 describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }, () => {
+  it('rotates export ACK-gap issues with immutable receipts and resolves prior partition findings', async () => {
+    let finding: EvidenceQualityFinding | undefined = {
+      ruleId: 'export_ack_gap',
+      identity: 'export-partition:site:runtime-core:task',
+      sourceSystem: 'runtime',
+      sourceTable: 'evidence_export_ack',
+      sourceRecordId: 'batch-first',
+      recordType: 'evidence.export_status',
+      detail: { firstSequence: '1', lastSequence: '3' },
+    };
+    const evaluator = new EvidenceQualityEvaluator({
+      source: {
+        findings: (ruleId) =>
+          Promise.resolve(ruleId === 'export_ack_gap' && finding ? [finding] : []),
+      },
+      writer: store,
+      clock: { now: () => baseTime },
+    });
+    const first = await evaluator.evaluate();
+    expect((await evaluator.evaluate()).issueIds).toEqual(first.issueIds);
+    finding = { ...finding, sourceRecordId: 'ack-next', detail: { ackDisposition: 'partial' } };
+    const next = await evaluator.evaluate();
+    expect(first.issueIds).toHaveLength(1);
+    expect(next.issueIds).toHaveLength(1);
+    expect(next.issueIds).not.toEqual(first.issueIds);
+    const rows = await pool.query<{ source_record_id: string; resolved_at: Date | null }>(
+      'SELECT source_record_id,resolved_at FROM evidence_quality_issue ORDER BY source_record_id',
+    );
+    expect(rows.rows).toEqual([
+      { source_record_id: 'ack-next', resolved_at: null },
+      { source_record_id: 'batch-first', resolved_at: new Date(baseTime) },
+    ]);
+    // The persistence guard still rejects mutation of an existing issue's source.
+    const saved = await pool.query<{ issue_id: string }>(
+      "SELECT issue_id FROM evidence_quality_issue WHERE source_record_id='ack-next'",
+    );
+    await expect(
+      store.recordQualityIssue(
+        {
+          issueId: saved.rows[0]?.issue_id ?? 'missing',
+          issueCode: 'ack_invalid',
+          severity: 'blocking',
+          sourceSystem: 'runtime',
+          sourceTable: 'evidence_export_ack',
+          sourceRecordId: 'forged-receipt',
+          detail: {},
+          createdAt: baseTime,
+        },
+        'export_ack_gap',
+      ),
+    ).rejects.toMatchObject({ code: 'EVIDENCE_ISSUE_IDENTITY_CONFLICT' });
+    finding = undefined;
+    expect((await evaluator.evaluate()).openIssues).toBe(0);
+    expect(
+      (
+        await pool.query(
+          'SELECT count(*)::int n FROM evidence_quality_issue WHERE resolved_at IS NULL',
+        )
+      ).rows[0],
+    ).toEqual({ n: 0 });
+  });
   it('cleanly retires legacy telemetry tables and creates all nine constrained authorities', async () => {
     const result = await pool.query<{
       old_configuration: string | null;

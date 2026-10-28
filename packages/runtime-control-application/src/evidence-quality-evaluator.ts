@@ -90,7 +90,7 @@ export class EvidenceQualityEvaluator {
         identities.add(finding.identity);
         // Canonicalization is also the sensitive-field/depth/size gate for adapter-produced detail.
         hashCanonicalEvidenceJson(finding.detail);
-        const issueId = qualityIssueId(ruleId, finding.identity);
+        const issueId = qualityIssueId(ruleId, finding);
         const policy = rulePolicy[ruleId];
         const issue: EvidenceQualityIssue = Object.freeze({
           issueId,
@@ -144,8 +144,21 @@ const rulePolicy: Readonly<
   export_ack_gap: { issueCode: 'ack_invalid', severity: 'blocking' },
 });
 
-function qualityIssueId(ruleId: EvidenceQualityRule, identity: string): string {
-  return `quality_${hashCanonicalEvidenceJson({ ruleId, identity }).slice('sha256:'.length)}`;
+function qualityIssueId(ruleId: EvidenceQualityRule, finding: EvidenceQualityFinding): string {
+  const identity = finding.identity;
+  // A partition can advance from one batch/ACK to another. Each immutable source
+  // receipt needs its own issue; the rule resolver closes the superseded finding.
+  // Other rule identities and already persisted issue hashes remain unchanged.
+  const source =
+    ruleId === 'export_ack_gap'
+      ? {
+          identityVersion: 2,
+          sourceSystem: finding.sourceSystem,
+          sourceTable: finding.sourceTable,
+          sourceRecordId: finding.sourceRecordId,
+        }
+      : {};
+  return `quality_${hashCanonicalEvidenceJson({ ruleId, identity, ...source }).slice('sha256:'.length)}`;
 }
 
 function assertFinding(ruleId: EvidenceQualityRule, finding: EvidenceQualityFinding): void {

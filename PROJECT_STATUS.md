@@ -1766,3 +1766,11 @@ It now uses the preserved runtime service name, with two exact API→Runtime 109
 Current tagged rule set has 50 rules. Internal fetch and all formal health endpoints return 200;
 Agent Card advertises only the four original readonly ugv.* Skills, zero new ZMQ entries, and
 registration reconciliation has zero errors after restart. Credentials, storage and owner binding stay intact.
+
+### 2026-10-29 UGV binding successor and real-storage fixes (in progress)
+
+Authorized exact UGV task-history cleanup and a stable owner binding successor are applied.
+Restricted-role MCP invocation succeeds; readonly report attestation repair is in SMPP.
+Fix export ACK-gap issue identity across changing immutable batch/ACK receipts, preserving all
+source guards. PostgreSQL regression and the complete SDAR gate precede readonly promotion.
+Physical controls, patrol acceptance and raw-observation deletion remain unapproved/unqualified.

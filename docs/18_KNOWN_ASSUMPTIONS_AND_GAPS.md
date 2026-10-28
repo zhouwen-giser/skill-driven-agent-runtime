@@ -732,3 +732,26 @@ MCP_TASK_SERVER_BINDING_MISMATCH. Do not weaken readGowmMcpOwner or rewrite old 
 Owner-governed successor binding versions, with original rows/reports retained, require explicit
 operator direction because the plan preserves the original binding. Trial production publications
 are suspended and original services restored. Software gates PASS do not close this integration gap.
+
+## Binding reset and real storage follow-up (2026-10-29)
+
+User authorization now permits successor owner bindings without old binding/Task compatibility.
+Offline owner administration rehearsed and committed the exact 155,096-row UGV task-history
+purge with foreign keys enabled, two delete guards restored before commit, and non-target hashes
+unchanged. Binding 0ab6028b-f367-4953-819f-ecca220a9a71 authorizes stable Server smpp-zmq-site;
+SMPP configurations pin the successor. Old bindings are closed. Physical deletion of binding anchors
+would additionally remove about 31 million raw trajectory receptions / 65 GB, beyond Task history;
+that scope question remains pending and observations are preserved.
+
+Seven new exact PMS readonly publications use smpp-zmq-site-readonly-13. Restricted-role Task
+22ffd9b5-6055-482d-ae53-2b85ad5b9719 passes ownership and persists a successful anonymous live MCP
+invocation, but its report evidence gate fails because the old readonly Provider emits no native
+report attestation. SMPP is adding content-bound evidence without declaring physical coverage.
+
+A real-storage background failure independently reproduces export_ack_gap identity reuse: the
+partition stays constant while immutable batch/ACK source_record_id advances. Scope only this
+rule's future issue IDs to the source receipt (identityVersion 2); resolve superseded findings through
+the existing rule resolver. Preserve old hashes and the persistence source-identity guard. A real
+PostgreSQL regression must prove rotation, idempotence, resolution and forged-source rejection.
+Run the complete SDAR gate, then use its fixed image for readonly cutover and revalidate A2A.
+Physical controls and patrol remain NOT_RUN until operator-confirmed inputs and actual results.

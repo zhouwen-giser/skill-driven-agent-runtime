@@ -1706,11 +1706,11 @@ build and round-trip; 2327 packaged files match their local compiled authority.
 | Anonymous site identity / management boundary             | SMPP site_anonymous; SDAR unauthenticated credential; exact site materialization                  | SMPP 19-command gate PASS; 19110 anonymous real catalog/state PASS, invalid JWT 401; no field action                                                                                |
 | Service network and real source freshness                 | deploy/zmq-site/network-policy and reconcile                                                      | 46 exact tagged rules, three host health 200 checks, two source refreshes; evidence /mnt/data/ugv-zmq-anonymous-patrol-20261028/network-two-refreshes.json                          |
 | FR-MCP exact catalog / identity / history                 | zmq-catalogs, zmq-site-profile, zmq-site-capability, native adapters                              | two profile and drift unit cases PASS; real isolated CAS/governance/task chain PASS; legacy pins preserved                                                                          |
-| FR-SKL governed publication and renewal                   | zmq-skill-governance, zmq-site-materialization, zmq-site-renewal, site config/CLI                 | full approved authority checks, no renewal approval/import; direct candidate 14 governed publications; formal PMS publication PENDING                                                                                         |
+| FR-SKL governed publication and renewal                   | zmq-skill-governance, zmq-site-materialization, zmq-site-renewal, site config/CLI                 | full approved authority checks, no renewal approval/import; direct candidate 14 governed publications; formal PMS publication PENDING                                               |
 | FR-WFL / FR-EXE deterministic single region and no replay | zmq-area-patrol, zmq-patrol-contract, zmq-patrol-workflow, governed child Tasks                   | four LangGraph navigation outcome paths PASS; original deadline, invalid region and retained evidence cases PASS; PostgreSQL/Redis/MCP/native-wire task chain PASS (joint c256fbc8) |
 | Physical confirmation and scope                           | immutable composition-only parent confirmation, exact child inheritance, native task confirmation | exact plan/child/input scope and existing expiry; isolated pause/resume/restart/cancel/timeout PASS; field confirmation PENDING                                                     |
 | FR-RST truthful results                                   | aggregateZmqPatrol and PatrolEvidenceReader                                                       | scan execution distinct from degraded report; actual trajectory required; current protocol lacks complete target stream/coverage footprints                                         |
-| Deployment and field acceptance                           | candidate ports and HTTP console, existing storage and queue scope, readonly rollback             | SMPP candidate and HTTP login/report PASS; independent SDAR candidate health/direct governance PASS; full gate/formal promotion/field actions PENDING                                                                 |
+| Deployment and field acceptance                           | candidate ports and HTTP console, existing storage and queue scope, readonly rollback             | SMPP candidate and HTTP login/report PASS; independent SDAR candidate health/direct governance PASS; full gate/formal promotion/field actions PENDING                               |
 
 Lifecycle rejection regression: TaskServiceAgentExecutor + ObservedRequestHandler unit tests cover
 separate A2A Message receipts, unchanged working Task and canonical GET in blocking/streaming
@@ -1729,3 +1729,11 @@ file hashes match. Actual GOWM restricted-role startup/governance PASS but forma
 fails MCP_TASK_SERVER_BINDING_MISMATCH: old frozen owner binding permits smpp-sz-gowm only.
 Original binding/check retained, new trial publications suspended and original services restored.
 Formal integration/control/field acceptance remain OPEN pending owner-approved binding successors.
+
+### 2026-10-29 real-storage binding and ACK issue follow-up
+
+The UGV anonymous integration retains exact frozen owner checks; the authorized successor now
+passes real MCP ownership. Readonly reporting and production cutover remain open. Export ACK
+receipt rotation maps to `packages/runtime-control-application/src/evidence-quality-evaluator.ts`
+and `packages/runtime-control-persistence-postgres/test/evidence-persistence.integration.test.ts`.
+Full gate and real-storage receipts are pending under the active anonymous ZMQ ExecPlan.

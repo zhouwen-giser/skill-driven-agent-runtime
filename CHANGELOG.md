@@ -2600,3 +2600,11 @@ Formal two-path E2E and selected GOWM evidence remain required; site NOT_RUN.
 - Pin native public catalog 1.0.1 without overwriting 1.0.0; settle zero-budget unachievable tasks, preserve same-transaction audit lineage and bound large Agent Card evidence by readable immutable ArtifactRefs.
 - Verify repair 93cada52 through all 30 frozen stages and cleanup; preserve prior HTTP-contract and declaration-build failures. Current joint chain, four image builds/round-trip and 2327 compiled-file hashes pass; receipts are archived in reports/ugv-zmq-phase5/governance-20261025.
 - Keep field qualification, native patrol successor and 19100/19101 cutover open. Publication is accepted only for the isolated simulator domain.
+
+### 2026-10-29 UGV binding successor and real-storage fixes (in progress)
+
+Authorized exact UGV task-history cleanup and a stable owner binding successor are applied.
+Restricted-role MCP invocation succeeds; readonly report attestation repair is in SMPP.
+Fix export ACK-gap issue identity across changing immutable batch/ACK receipts, preserving all
+source guards. PostgreSQL regression and the complete SDAR gate precede readonly promotion.
+Physical controls, patrol acceptance and raw-observation deletion remain unapproved/unqualified.
