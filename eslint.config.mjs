@@ -16,7 +16,10 @@ export default tseslint.config(
   eslint.configs.recommended,
   {
     // Immutable recorded Node.js drivers retain their original bytes and evidence hashes.
-    files: ['reports/inspection-area-v1/raw/deployment-drivers/**/*.mjs'],
+    files: [
+      'reports/inspection-area-v1/raw/deployment-drivers/**/*.mjs',
+      'reports/ugv-zmq-phase5/governance-20261025/raw/console-validation.mjs',
+    ],
     languageOptions: {
       globals: {
         fetch: 'readonly',

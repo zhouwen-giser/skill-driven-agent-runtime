@@ -13,7 +13,7 @@ export function prepareZmqPatrolWorkflow(
   input: Parameters<typeof prepareSkillUsagePlan>[0],
   value: unknown,
   now: string,
-) {
+): ReturnType<typeof prepareSkillUsagePlan> {
   const patrolInput = parseZmqPatrolInput(value);
   assertZmqPatrolDeadline(value, now);
   const prepared = prepareSkillUsagePlan(input);
