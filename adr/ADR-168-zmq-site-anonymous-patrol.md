@@ -119,3 +119,10 @@ the existing rule resolver. Preserve old hashes and the persistence source-ident
 PostgreSQL regression must prove rotation, idempotence, resolution and forged-source rejection.
 Run the complete SDAR gate, then use its fixed image for readonly cutover and revalidate A2A.
 Physical controls and patrol remain NOT_RUN until operator-confirmed inputs and actual results.
+
+### Recorded validation outcome, 2026-10-29
+
+The authorized successor and scoped old Task cleanup are applied without changing exact owner
+checks. Both full gates and the current joint run pass. Formal anonymous PMS readonly Task chains
+pass on the restricted original GOWM role. See reports/ugv-zmq-successor-20261029. Physical controls,
+patrol and deleting raw observation archives remain outside this readonly acceptance.

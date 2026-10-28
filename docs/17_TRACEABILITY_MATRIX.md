@@ -1737,3 +1737,15 @@ passes real MCP ownership. Readonly reporting and production cutover remain open
 receipt rotation maps to `packages/runtime-control-application/src/evidence-quality-evaluator.ts`
 and `packages/runtime-control-persistence-postgres/test/evidence-persistence.integration.test.ts`.
 Full gate and real-storage receipts are pending under the active anonymous ZMQ ExecPlan.
+
+## 2026-10-29 UGV successor acceptance update
+
+| Scope                          | Implementation / verification                                                         | Current evidence                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Exact owner / anonymous source | Unchanged gowm-mcp-ownership; authorized GOWM successor; original restricted-role A2A | capability ad9a4214… and state cb1f9c20… completed; real PMS15 and exact readonly13; seven published readonly Skills |
+| Immutable ACK quality source   | evidence-quality-evaluator; evidence-persistence.integration regression               | receipt rotation/idempotence/resolution pass; forged source still rejects; all 30 frozen stages and cleanup pass     |
+| Readonly native report         | SMPP SiteReadonlyRuntime snapshot Evidence; real PostgreSQL/MCP                       | all 19 SMPP commands and current 21-case joint run pass                                                              |
+| Field controls and patrol      | Exact control13/patrol candidate; operator confirmation                               | NOT_RUN; coverage, trajectory and full finding stream still required                                                 |
+
+Receipts: reports/ugv-zmq-successor-20261029; full run fc32df30-5083-4dd2-9285-abe53e9af4f4,
+runtime input 8cdfcbc9… unchanged. See the active ExecPlan for commands, artifact and output hashes.

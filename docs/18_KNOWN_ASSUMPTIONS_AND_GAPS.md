@@ -755,3 +755,15 @@ the existing rule resolver. Preserve old hashes and the persistence source-ident
 PostgreSQL regression must prove rotation, idempotence, resolution and forged-source rejection.
 Run the complete SDAR gate, then use its fixed image for readonly cutover and revalidate A2A.
 Physical controls and patrol remain NOT_RUN until operator-confirmed inputs and actual results.
+
+## 2026-10-29 owner mismatch resolved; field and archive scope remain open
+
+The explicit successor 0ab6028b-f367-4953-819f-ecca220a9a71 resolves the exact Server mismatch
+without weakening frozen Task ownership. Authorized old Task/panel history is removed. Formal
+PMS anonymous readonly Tasks now complete; both full gates and the current joint run pass.
+
+Old binding anchors are closed. Physically deleting them would additionally delete approximately
+31 million raw trajectory receptions / 65 GB; this separate archive-scope question is pending.
+Six field actions and patrol remain NOT_RUN, pending explicit heights/entry/speed and operator
+A2A confirmation. Protocol coverage/trajectory/full-stream gaps remain explicit. See
+reports/ugv-zmq-successor-20261029/FINAL_ACCEPTANCE.json and the active ExecPlan.

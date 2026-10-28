@@ -2608,3 +2608,12 @@ Restricted-role MCP invocation succeeds; readonly report attestation repair is i
 Fix export ACK-gap issue identity across changing immutable batch/ACK receipts, preserving all
 source guards. PostgreSQL regression and the complete SDAR gate precede readonly promotion.
 Physical controls, patrol acceptance and raw-observation deletion remain unapproved/unqualified.
+
+## 2026-10-29 UGV ZMQ real-storage closeout
+
+- Add content-bound readonly report Evidence in SMPP; retain explicit completeness gaps.
+- Give each export ACK receipt its own quality issue identity; preserve source immutability and resolve superseded findings.
+- Apply the authorized successor binding and scoped Task/panel cleanup; accept the formal anonymous readonly chain.
+- Pass both complete gates and the 21-case joint run. Field controls/patrol and raw-archive deletion remain pending.
+
+Evidence: reports/ugv-zmq-successor-20261029/FINAL_ACCEPTANCE.json.

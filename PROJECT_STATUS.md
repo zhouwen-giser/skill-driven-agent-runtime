@@ -1774,3 +1774,11 @@ Restricted-role MCP invocation succeeds; readonly report attestation repair is i
 Fix export ACK-gap issue identity across changing immutable batch/ACK receipts, preserving all
 source guards. PostgreSQL regression and the complete SDAR gate precede readonly promotion.
 Physical controls, patrol acceptance and raw-observation deletion remain unapproved/unqualified.
+
+## 2026-10-29 UGV successor: formal readonly accepted; field control open
+
+SMPP 19/19, SDAR 30/30 and joint bc511728 (21 cases) pass. Owner binding successor and scoped
+old Task/panel history cleanup are applied. Formal anonymous PMS readonly7 at 10998/10999/10091
+and HTTP 19101 pass real restricted-role capability/state Task chains. Independent control13/patrol
+candidate is preserved. Six field controls, patrol and deleting 65 GB raw trajectory archives remain
+open. See reports/ugv-zmq-successor-20261029/FINAL_ACCEPTANCE.json and the active ExecPlan.
