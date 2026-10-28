@@ -1722,3 +1722,10 @@ versions and matching audit families separately. Real PostgreSQL foundation suit
 late older-version status/audit reads and rejection of ordinary Node event revision regression.
 Actual candidate direct control14 and real PMS readonly7 governance receipts remain separate from
 production-storage promotion and physical acceptance.
+
+Final software validation: ebfd2c22 / sdar-verify-b7f10881-aa19-453c-a81f-ab858acfe474,
+30 stages and cleanup PASS, input db5bbf16… unchanged; 2818/557/278/77 tests. Image/source 2997
+file hashes match. Actual GOWM restricted-role startup/governance PASS but formal readonly Task
+fails MCP_TASK_SERVER_BINDING_MISMATCH: old frozen owner binding permits smpp-sz-gowm only.
+Original binding/check retained, new trial publications suspended and original services restored.
+Formal integration/control/field acceptance remain OPEN pending owner-approved binding successors.

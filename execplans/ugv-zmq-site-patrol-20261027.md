@@ -27,7 +27,7 @@ Native patrol has exactly two confirmed children, bounded by the original deadli
 - [x] Restore 46 tagged service-specific rules; verify 10091/10998/10999 and two distinct source refreshes.
 - [x] Implement exact 1.1.0/1.2.0 profiles, live identity, governance and renewal.
 - [x] Implement native single-area patrol, lifecycle and truthful evidence aggregation.
-- [ ] Run both repositories' required gates and isolated PostgreSQL/Redis/ZMQ task chains.
+- [x] Run both repositories' required gates and isolated PostgreSQL/Redis/ZMQ task chains.
 - [ ] Build fixed candidate images and deployment packages; verify anonymous readonly access.
 - [ ] Operator confirms and executes field acceptance via formal A2A task chain.
 - [ ] Handoff and promotion, commit/push, rollback and evidence delivery.
@@ -160,3 +160,32 @@ Real PostgreSQL foundation verification passes 21 tests, including interleaved v
 late audit projection and a decreasing ordinary Node event rejection. Two earlier fixture failures
 remain recorded; the original revision-regression test is unchanged. Final complete gate and candidate
 projection clearance must be recorded for the successor source before marking software complete.
+
+## Final software gate and actual GOWM boundary (2026-10-28)
+
+SMPP b910f93 passes all 19 commands. SDAR ebfd2c22 passes the final 30-stage frozen gate
+sdar-verify-b7f10881-aa19-453c-a81f-ab858acfe474, exit/cleanup 0, unchanged runtime input
+`db5bbf160949d6d0e5001d4df0718ca184a803ae95c936f9c0c5454343897703` and baseline.
+Counts: 2818 unit, 557 contract, 278 PostgreSQL/Redis integration, 77 E2E. Joint d6315423 passes
+21 cases; fixed image32e7fa… matches all 2997 source files and offline import succeeds. Candidate
+projection backlog is zero. Actual secrets scan inspects 83,769 files / 36 nested archives, no hits.
+
+Actual GOWM preflight uses original restricted ugv_sdar_app, schema ugv_sdar and ugv:ugv scope.
+It starts without owner DDL and publishes seven exact PMS readonly entries, but readonly Task
+`a015bf15-8d09-4c3f-86bb-d8b0ac3eb505` fails before accepted invocation persistence:
+MCP_TASK_SERVER_BINDING_MISMATCH. Frozen owner binding 80099d63… authorizes only smpp-sz-gowm,
+whereas new profile uses zmq-site-pms-readonly. Preserve the exact owner check and old binding.
+New production seven Exposures/Capabilities/Skills were suspended through governed APIs. Original
+three services and health endpoints restored; independent candidate remains separate. This is NOT
+formal integration acceptance. Owner-approved successor binding is pending explicit user direction.
+
+A missing existing task_wait_policy singleton was confirmed read-only and set to the repository's
+300-second default through the public management API. No frozen migration or owner table changed.
+Failed Task and withdrawal receipts are retained. Physical actions, report completeness and control
+promotion remain NOT_RUN; explicit ellipsoid heights/entry point/speed are still required.
+
+Restoration follow-up: Control API's original A2A URL used container-local 127.0.0.1:10999.
+It now uses the preserved runtime service name, with two exact API→Runtime 10999 network links.
+Current tagged rule set has 50 rules. Internal fetch and all formal health endpoints return 200;
+Agent Card advertises only the four original readonly ugv.* Skills, zero new ZMQ entries, and
+registration reconciliation has zero errors after restart. Credentials, storage and owner binding stay intact.

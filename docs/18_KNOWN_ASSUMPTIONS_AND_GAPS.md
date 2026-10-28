@@ -722,3 +722,13 @@ and real footprints/trajectory remain unavailable.
 ## ZMQ governed native increment (2026-10-25 / ADR-167)
 
 The separate 12-tool native profile now has real CAS/Skill task-chain implementation and isolated validation. It does not replace legacy inspection/patrol contracts. Spatial reports always degrade absent actual trajectory, footprints and complete producer history. Native patrol successor, G0 source facts, owner deployment and field controls remain unqualified. Current repair source 93cada52 passes all 30 stages and cleanup in sdar-verify-90b419a7-c47d-481c-9195-77fb58fd8b0a, with unchanged inputs; earlier failed attempts remain preserved. Large Agent Card evidence uses a Node Control ArtifactRef resolved through explicit versioned media negotiation on the existing authenticated revision API, separately from Runtime task-business Artifact routes. See reports/ugv-zmq-phase5/governance-20261025; this closes only the second isolated increment.
+
+## 2026-10-28 — new ZMQ local Server and frozen GOWM ownership
+
+The accepted plan requires new SDAR Server/Binding identities while retaining the original GOWM
+device binding. Actual restricted-role validation proves that the frozen owner binding 80099d63…
+permits only smpp-sz-gowm; new zmq-site-pms-readonly Task a015bf15… fails with
+MCP_TASK_SERVER_BINDING_MISMATCH. Do not weaken readGowmMcpOwner or rewrite old Task ownership.
+Owner-governed successor binding versions, with original rows/reports retained, require explicit
+operator direction because the plan preserves the original binding. Trial production publications
+are suspended and original services restored. Software gates PASS do not close this integration gap.

@@ -88,3 +88,11 @@ Real PostgreSQL foundation verification passes 21 tests, including interleaved v
 late audit projection and a decreasing ordinary Node event rejection. Two earlier fixture failures
 remain recorded; the original revision-regression test is unchanged. Final complete gate and candidate
 projection clearance must be recorded for the successor source before marking software complete.
+
+## Actual owner boundary discovered during production-storage qualification
+
+The GOWM frozen Task binding authorizes its exact sdar_mcp_server_id. New client-local Server
+identities are not authorized by matching Provider/resource or endpoints alone. Do not alias the
+old Server, rewrite immutable Task ownership or bypass this guard. Formal acceptance remains open
+until the operator authorizes owner-governed successor binding versions retaining old rows and
+reports. The seven unqualified trial publications are suspended and original services restored.

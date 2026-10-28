@@ -1,0 +1,51 @@
+{
+  "source": "ebfd2c22d50a5c685491e17a693ffcc2ea7fc168",
+  "verifiedRuntimeInputSha256": "db5bbf160949d6d0e5001d4df0718ca184a803ae95c936f9c0c5454343897703",
+  "currentRuntimeInputSha256": "db5bbf160949d6d0e5001d4df0718ca184a803ae95c936f9c0c5454343897703",
+  "runtimeInputsUnchanged": true,
+  "documentationReconciliation": [
+    {
+      "path": "CHANGELOG.md",
+      "classification": "status",
+      "before": "6aabad4f4f3a2e0f46e052d26b55eb0fc2fe994ffad18fd91aca51bcfc263852",
+      "after": "bb895eac272851f94fbaa75039fc21437fdf7ce19e42362ddc23496f86b5052e"
+    },
+    {
+      "path": "PROJECT_STATUS.md",
+      "classification": "status",
+      "before": "515332d098cb1e440102e310c5d53585d94f730aceccdca5ee12ec6b0c54aac3",
+      "after": "ec3bb933f127ca2675d111509cd86d45113ec5b4883caed20a7b7f6cecf39da6"
+    },
+    {
+      "path": "adr/ADR-168-zmq-site-anonymous-patrol.md",
+      "classification": "baseline",
+      "before": "f1f80806a0a8019a0b920f32509342dadf8f19ff90277794f9a5c28c469363f0",
+      "after": "bd4e010f87679895ec1bf06d087638dd6b72a1af19287443cf0672272222c784"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "classification": "baseline",
+      "before": "c2a8fff718fcc22937ab2555f2491a1ec47551b49deb4239dcc1b9a54b09f243",
+      "after": "b25588536eda7a2a8b0f8821a4a32936cf7c0ab4eac9f3cf6b6de2d67c1c3c96"
+    },
+    {
+      "path": "docs/18_KNOWN_ASSUMPTIONS_AND_GAPS.md",
+      "classification": "baseline",
+      "before": "8c55a24590b37d9e2a40898bf1e2abe1a33ab3238f129306ba04e17444f267f2",
+      "after": "44a127d48c7e2fb157c0cc7fba74b46803269aa19760eac39b5bc3f711f6aeee"
+    },
+    {
+      "path": "execplans/ugv-zmq-site-patrol-20261027.md",
+      "classification": "status",
+      "before": "034a8319615738297a5de325570bd3fe88e78b51219cb49d54ec6d7959a02cfe",
+      "after": "e525a738a972a723eed5f03a4b9fc17d81677407ac4e3bba3b2f78b54b9d1ff6"
+    },
+    {
+      "path": "reports/ugv-zmq-anonymous-patrol-20261028/joint-verification.json",
+      "classification": "status",
+      "before": "4f7cf819abe5f6251a2d244a1e8d2d007ef41b745ed0ef15eba6dae398c75a7d",
+      "after": "28f2ea167bcbf39a0b5d70d7f913bab2a1d663fd5fe1ceb99055d8fe69089a5b"
+    }
+  ],
+  "scope": "Result and owner-gap documentation only; original requirements, runtime code and frozen owner check retained."
+}

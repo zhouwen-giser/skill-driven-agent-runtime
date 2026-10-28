@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "sdar.zmq-site-final-validation/1",
+  "software": "PASS",
+  "source": "ebfd2c22d50a5c685491e17a693ffcc2ea7fc168",
+  "gateRun": "sdar-verify-b7f10881-aa19-453c-a81f-ab858acfe474",
+  "steps": 30,
+  "unit": 2818,
+  "contract": 557,
+  "integration": 278,
+  "e2e": 77,
+  "isolatedJointCases": 21,
+  "anonymousMcpRequestCount": 410,
+  "fieldActions": "NOT_RUN",
+  "formalControlPromotion": "NOT_RUN",
+  "formalGowmIntegration": "BLOCKED_OWNER_BINDING_AUTHORITY",
+  "originalServicesRestored": true,
+  "trialProductionPublicationsSuspended": 7,
+  "originalGowmBindingPreserved": true,
+  "approvalRequired": "Owner-governed successor device binding versions retaining original rows and Task history.",
+  "artifacts": [
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/sdar-final-software-verification.json",
+      "bytes": 21297,
+      "sha256": "43087aa6baa28055ad1752b9096672e8e41959edd476489bffb46b73f17a2f3f"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/gowm-owner-binding-blocker.json",
+      "bytes": 1011,
+      "sha256": "d23e614506834336e71e6c6766d72ceeefd995a2d42f67ff9bae6f49dffd4645"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/gowm-original-role-preflight.json",
+      "bytes": 556,
+      "sha256": "304e1a66a1e8065ef6e0c860dca67ca1a32440b9e251270b569cc6f902486ec7"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/gowm-production-readonly-task.json",
+      "bytes": 3006,
+      "sha256": "dfac9b5d45b70b100880ca8acafa0b4e394e2a89898d6913feb6ac1c9b3d40ff"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/gowm-readonly-failure-diagnostics.json",
+      "bytes": 377,
+      "sha256": "c72a2e2e2719d29b69fcfa8abef84ce2a826299505f17edd99197a2678235ac0"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/formal-task-wait-policy.json",
+      "bytes": 641,
+      "sha256": "34aaff7e91ee02833ccb483c59ea15f835c1483d4aea8565f6d739715022ec76"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/formal-unqualified-publication-withdrawal.json",
+      "bytes": 186805,
+      "sha256": "b028549cc31e82e8adbf18a3a2d1f7e05800b8f19aeadf3d6dd715cd2cde2a7d"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/formal-unqualified-skill-suspension.json",
+      "bytes": 251953,
+      "sha256": "fe599b46f0581d51b796ca4d113f61e1df021ea2a75ffa667b08ed31300528a0"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/formal-services-restoration.json",
+      "bytes": 1041,
+      "sha256": "0172d151f45de4ecb197bd7ebd11ff3926dfbe5bfddb4682751a867c90b79238"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/formal-internal-a2a-endpoint-fix.json",
+      "bytes": 575,
+      "sha256": "aa472cc0f3bfa29002358d140c877b7aa5acd59234a74e06924ef6d1dd031cb1"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/candidate-real-source-two-refreshes.json",
+      "bytes": 708,
+      "sha256": "ae7886f504d37dbe61a7aa2304bdcf60a6ffee4b6e82f8440f2f0a3d6bf6f1c2"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/binding-auto-renewal.json",
+      "bytes": 1451,
+      "sha256": "44b93d8551370b833825360bf92f54ce7270711e9109c9c2dc84e003f0aac755"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/sdar-candidate-history-rollout.json",
+      "bytes": 2855,
+      "sha256": "69b08bf04a8448146bbd4fd02b6013a15da0d2c06309669c2090969c0c7aee86"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/sdar-final-image-source-verification.json",
+      "bytes": 189,
+      "sha256": "436e6cc0233c53245073abde7a0e25d7cba6ea238eaa56e1a47e44a0b24ea135"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/delivery-secret-scan-3.json",
+      "bytes": 186,
+      "sha256": "2cdf88ab999c7a374e84ee17110d68763961fb945bc3bed3528a8623246b9d6f"
+    }
+  ],
+  "exactNetworkRules": 50,
+  "restoredFormalCardNativeExposureCount": 0,
+  "restoredRegistrationErrorCount": 0
+}

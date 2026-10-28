@@ -1,0 +1,20 @@
+{
+  "status": "BLOCKED_OWNER_BINDING_AUTHORITY",
+  "code": "MCP_TASK_SERVER_BINDING_MISMATCH",
+  "owningContract": "packages/persistence-postgres/src/gowm-mcp-ownership.ts:readGowmMcpOwner",
+  "deviceId": "ugv:ugv",
+  "originalBindingId": "80099d63-dae7-4f5d-8f5e-7aa1113a47a8",
+  "originalLocalServerId": "smpp-sz-gowm",
+  "newReadonlyLocalServerId": "zmq-site-pms-readonly",
+  "newControlCandidateLocalServerId": "zmq-site-anonymous-candidate",
+  "providerId": "isr.vehicle.ugv.ugv",
+  "resourceId": "vehicle:ugv",
+  "sdarServiceKey": "sdar-sz-gowm",
+  "smppServiceKey": "smpp.sz-gowm.ugv",
+  "failedReadonlyTask": "a015bf15-8d09-4c3f-86bb-d8b0ac3eb505",
+  "oldBindingModified": false,
+  "newProductionVersionsWithdrawn": true,
+  "proposedResolution": "With explicit operator authorization, create owner-governed successor device binding versions retaining original rows and frozen Task ownership; never alias or bypass the current exact-server check.",
+  "approval": "PENDING",
+  "fieldActions": "NOT_RUN"
+}

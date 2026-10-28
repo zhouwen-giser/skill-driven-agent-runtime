@@ -9,7 +9,9 @@ SDAR 新增两种精确现场 Profile、独立原生巡逻、受限父确认继�
 真实 PostgreSQL/Redis/MCP/ZMQ 验证六项控制、预览、巡逻降级、暂停恢复、重启不重派、取消与超时，
 匿名请求无 Authorization，证据投影及清理通过；见 reports/ugv-zmq-anonymous-patrol-20261028。
 独立存储 SDAR 候选 11098/11099/10191 健康，direct 匿名 Binding 和 14 项实际治理发布已完成。
-生命周期拒绝公开回执、证据 Schema 边界及版本化历史生命周期补测通过；完整 SDAR 门禁、正式 PMS Binding、交接及现场动作仍开放。
+生命周期拒绝公开回执、证据 Schema 边界及版本化历史生命周期补测通过；最终 30 阶段完整门禁和清理通过；正式 GOWM 任务链因冻结 Server 所有权不匹配阻塞。
+真实 GOWM 只读任务 a015bf15… 被 MCP_TASK_SERVER_BINDING_MISMATCH 拒绝；试发布已暂停，原服务恢复。
+原绑定 80099d63… 保留；需要用户授权保留历史的绑定后继版本，不能绕过检查。
 当前 19100/19101 未提升为本轮控制版本；全部现场控制命令 NOT_RUN，报告完整性不作通过声明。
 
 ## ZMQ 原生治理与任务链（2026-10-25，ISOLATED_VERIFIED）
@@ -1758,3 +1760,9 @@ eight-core test-process affinity yields baseline drift 4.872%, P95 regression -0
 2.423ms under the unchanged 15%/10%/20ms gates. Original failed attempts are retained.
 The first isolated increment is verified; EP-ZMQ-05 remains open for governance/native Skill
 execution, complete GOWM owner deployment qualification and field handoff. See reports/ugv-zmq-phase5.
+
+Restoration follow-up: Control API's original A2A URL used container-local 127.0.0.1:10999.
+It now uses the preserved runtime service name, with two exact API→Runtime 10999 network links.
+Current tagged rule set has 50 rules. Internal fetch and all formal health endpoints return 200;
+Agent Card advertises only the four original readonly ugv.* Skills, zero new ZMQ entries, and
+registration reconciliation has zero errors after restart. Credentials, storage and owner binding stay intact.

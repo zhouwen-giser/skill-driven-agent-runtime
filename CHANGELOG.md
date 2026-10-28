@@ -7,8 +7,9 @@ single-region navigation/inspection composition, exact child governance, retaine
 confirmation and original-deadline enforcement. Extend existing scoped child lifecycle persistence.
 Provide tagged Docker network reconciliation and renewal without automatic contract approval.
 SMPP anonymous candidate and real isolated cross-project task chains pass, including pause/resume,
-restart without motion redispatch, cancellation, timeout and evidence projection. Full SDAR gate and
-field acceptance remain pending. Invalid lifecycle commands return a separate A2A rejection Message
+restart without motion redispatch, cancellation, timeout and evidence projection. Final frozen SDAR gate passes all 30 stages and cleanup. Real restricted GOWM integration remains
+blocked by the exact original Task/Server binding; trial publications were withdrawn and original
+services restored. Field acceptance remains pending. Invalid lifecycle commands return a separate A2A rejection Message
 without failing the existing physical Task. Restrict hash-schema metadata exceptions to Schema
 properties; retain actual-value redaction. Independent candidate publishes 14 governed entries. Preserve late lifecycle observations for
 immutable Capability/Exposure versions and their exact audits; ordinary revision regression remains rejected.
