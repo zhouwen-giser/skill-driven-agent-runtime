@@ -813,6 +813,17 @@ try {
       ];
       if (mode === 'pause-resume') {
         const current = await task(taskId);
+        const resumeCalls = () =>
+          mcpCalls.filter(
+            (call) =>
+              object.parse(object.parse(call)['request'])['method'] ===
+              'io.sdar/taskExecution/tasks/resume',
+          ).length;
+        const beforeInvalidResume = resumeCalls();
+        await assert.rejects(() =>
+          a2a({ taskId, contextId: current.context_id, metadata: { sdar_action: 'resume' } }),
+        );
+        assert.equal(resumeCalls(), beforeInvalidResume);
         await a2a({ taskId, contextId: current.context_id, metadata: { sdar_action: 'pause' } });
         await until(
           () => task(taskId),

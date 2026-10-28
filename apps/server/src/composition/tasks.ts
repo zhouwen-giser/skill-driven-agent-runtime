@@ -641,6 +641,9 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
         const native = await isNativeSiteTask(task);
         if (native) {
+          const active = await workflowInstances.findActiveByPlanId(task.planId);
+          if (active?.status !== 'paused' || active.pendingConfirmation?.kind !== 'task_pause')
+            throw Error('ZMQ_TASK_RESUME_NOT_PAUSED');
           const binding = await taskCapabilities.findBinding(task.taskId);
           const value = binding?.inputSnapshot;
           if (value === null || typeof value !== 'object' || Array.isArray(value))

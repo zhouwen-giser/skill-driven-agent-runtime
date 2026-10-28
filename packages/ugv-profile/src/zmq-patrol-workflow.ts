@@ -8,12 +8,13 @@ import type {
   WorkflowBoundValue,
   WorkflowExpression,
   WorkflowNode,
+  WorkflowDefinition,
 } from '../../domain/src/workflow.js';
 export function prepareZmqPatrolWorkflow(
   input: Parameters<typeof prepareSkillUsagePlan>[0],
   value: unknown,
   now: string,
-): ReturnType<typeof prepareSkillUsagePlan> {
+): ReturnType<typeof prepareSkillUsagePlan> & { deterministicDefinition: WorkflowDefinition } {
   const patrolInput = parseZmqPatrolInput(value);
   assertZmqPatrolDeadline(value, now);
   const prepared = prepareSkillUsagePlan(input);
