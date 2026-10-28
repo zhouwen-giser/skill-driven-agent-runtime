@@ -461,7 +461,13 @@ function aggregateRevisionDescriptor(row: ObservationRow): AggregateRevisionDesc
     case 'node_control.a2a_exposure':
       return revisionDescriptor(value, ['exposure_id'], 'version');
     case 'node_control.agent_card_revision':
-      return revisionDescriptor(value, ['node_id'], 'revision');
+      // Each immutable card revision has its own lifecycle. Activating revision 2
+      // legitimately appends a later superseded observation for revision 1.
+      return {
+        key: { node_id: text(value, 'node_id'), revision: integer(value, 'revision') },
+        revisionField: 'revision',
+        revision: integer(value, 'revision'),
+      };
     case 'node_control.node_event':
     case 'node_control.capability_readiness':
       return revisionDescriptor(value, ['aggregate_type', 'aggregate_id'], 'aggregate_revision');

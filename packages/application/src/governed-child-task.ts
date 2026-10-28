@@ -4,11 +4,17 @@ import type {
   WorkflowInstance,
   WorkflowPlanRecord,
   RuntimeExecutionContext,
+  AgentTask,
 } from '../../domain/src/index.js';
 import type { TaskPlanConfirmationAuthority } from './task-service.js';
 
 /** A composed physical Skill gets its own native Task, Goal, binding, confirmation and continuation. */
 export interface GovernedChildTaskPort {
+  recordParentConfirmation?(
+    task: AgentTask,
+    authority: TaskPlanConfirmationAuthority,
+  ): Promise<void>;
+  confirmInherited?(childPlanId: string): Promise<boolean>;
   prepare(
     input: Readonly<{
       callId: string;
@@ -47,4 +53,9 @@ export interface GovernedChildTaskPort {
   ): Promise<WorkflowInstance | undefined>;
   reject(childPlanId: string): Promise<void>;
   cancelChildren(parentTaskId: string, parentPlanId: string): Promise<void>;
+  controlChildren?(
+    parentTaskId: string,
+    parentPlanId: string,
+    action: 'pause' | 'resume',
+  ): Promise<void>;
 }

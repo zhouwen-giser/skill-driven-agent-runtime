@@ -340,6 +340,20 @@ export class FrozenTaskLifecycleClient {
     return { resultType: 'complete', meaning: 'cancellation_intent_received' };
   }
 
+  async controlTask(taskId: string, action: 'pause' | 'resume'): Promise<void> {
+    taskIdSchema.parse(taskId);
+    parseAck(
+      await this.#client.request({
+        ...this.#requestBase,
+        method:
+          action === 'pause'
+            ? 'io.sdar/taskExecution/tasks/pause'
+            : 'io.sdar/taskExecution/tasks/resume',
+        params: { taskId },
+      }),
+    );
+  }
+
   exportState(): FrozenTaskLifecycleState {
     return Object.freeze({
       observations: Object.freeze(Object.fromEntries(this.#observations)),

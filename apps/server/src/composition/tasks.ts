@@ -1,3 +1,14 @@
+import {
+  isGovernedPatrol,
+  isPatrolCapability,
+  ZMQ_PATROL_SKILL,
+} from '../../../../packages/domain/src/zmq-area-patrol.js';
+import {
+  zmqToolForSkill,
+  ZMQ_NATIVE_CONTROLS,
+  nativeZmqTaskExecution,
+} from '../../../../packages/domain/src/zmq-capability.js';
+import { nativeZmqCatalogProfile } from '../../../../packages/domain/src/zmq-site-capability.js';
 import { randomUUID } from 'node:crypto';
 import type {
   GoalCancellationService,
@@ -206,6 +217,52 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
       },
     );
   };
+  async function isNativeSiteTask(task: AgentTask) {
+    const binding = await taskCapabilities.findBinding(task.taskId);
+    if (task.selectedSkillId === ZMQ_PATROL_SKILL)
+      return binding?.requestedCapabilityId === 'vehicle.ugv.zmq.area_patrol';
+    const name = zmqToolForSkill(task.selectedSkillId ?? '');
+    return (
+      name !== undefined &&
+      ZMQ_NATIVE_CONTROLS.has(name) &&
+      binding !== undefined &&
+      nativeZmqCatalogProfile(binding.constraintSnapshot) === 'zmq_v1_2_0_site_control_13'
+    );
+  }
+  async function controlNativeRemote(task: AgentTask, action: 'pause' | 'resume') {
+    if (!ugvRemoteTaskLifecycle) throw Error('ZMQ_TASK_LIFECYCLE_UNAVAILABLE');
+    const rows = await ugvRemoteTaskLifecycle.listByAgentTaskId(task.taskId);
+    const active = rows
+      .map((row) => row.binding)
+      .filter(
+        (binding) =>
+          binding.workflowPlanId === task.planId &&
+          !['completed', 'failed', 'cancelled'].includes(binding.protocolStatus),
+      );
+    if (active.length > 1) throw Error('ZMQ_TASK_LIFECYCLE_IDENTITY_CONFLICT');
+    for (const binding of active) {
+      if (
+        binding.agentTaskId !== task.taskId ||
+        binding.contextId !== task.contextId ||
+        binding.executionContext.mode !== 'live' ||
+        binding.executionContext.simulationId != null
+      )
+        throw Error('ZMQ_TASK_LIFECYCLE_IDENTITY_CONFLICT');
+      if (taskCommands.current())
+        await taskCommands.recordEffect('native_lifecycle_intent', binding.bindingId, {
+          action,
+          remoteTaskId: binding.remoteTaskId,
+          workflowPlanId: binding.workflowPlanId,
+        });
+      const ack = await mcpRegistry.controlRemoteTask(binding, action);
+      if (taskCommands.current())
+        await taskCommands.recordEffect('native_lifecycle_ack', binding.bindingId, {
+          action,
+          remoteTaskId: binding.remoteTaskId,
+          ack,
+        });
+    }
+  }
   dependencies.service.value = new TaskService({
     ...(resolveDeviceOwnership === undefined ? {} : { resolveDeviceOwnership }),
     contexts,
@@ -281,18 +338,21 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
               });
               return;
             }
-            if (
-              input.task.selectedSkillId === 'embodied.area_patrol' &&
-              (input.task.selectedSkillVersion ?? 0) >= 2
-            ) {
+            if (isGovernedPatrol(input.task.selectedSkillId, input.task.selectedSkillVersion)) {
               const binding = await taskCapabilities.findBinding(input.task.taskId);
               if (
-                binding?.requestedCapabilityId !== 'embodied.area_patrol' ||
+                !isPatrolCapability(binding?.requestedCapabilityId) ||
                 binding.constraintSnapshot.filter(
                   (item) => item['type'] === 'composition_authority_policy',
                 ).length !== 1
               )
                 throw Error('PATROL_COMPOSITION_CONFIRMATION_AUTHORITY_MISSING');
+              if (input.task.selectedSkillId === ZMQ_PATROL_SKILL) {
+                const port = dependencies.governedPatrolChildren.value;
+                if (!port?.recordParentConfirmation)
+                  throw Error('ZMQ_PATROL_CONFIRMATION_STORE_REQUIRED');
+                await port.recordParentConfirmation(input.task, input.confirmationAuthority);
+              }
               // Each physical child receives its own exact confirmation; parent confirmation permits composition.
               return;
             }
@@ -492,7 +552,16 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
         // scope, so its paused save cannot be assumed to record command
         // evidence. Persist the same payload as the repository; a same-scope
         // save is exact-idempotent and a background save gets its missing proof.
-        const paused = await workflowExecution.pauseForPlan(task.planId);
+        const native = await isNativeSiteTask(task);
+        const paused = await workflowExecution.pauseForPlan(task.planId, native);
+        if (native) {
+          await dependencies.governedPatrolChildren.value?.controlChildren?.(
+            task.taskId,
+            task.planId,
+            'pause',
+          );
+          await controlNativeRemote(task, 'pause');
+        }
         if (command !== undefined)
           await taskCommands.recordEffect('workflow_paused', paused.instanceId, {
             instanceId: paused.instanceId,
@@ -533,13 +602,12 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
           active === undefined
             ? undefined
             : await workflowExecution.cancelForPlan(control.currentPlanId);
-        const retainedReport =
-          task.selectedSkillId === 'embodied.area_patrol' && (task.selectedSkillVersion ?? 0) >= 2
-            ? {
-                ...(await taskCapabilities.readPatrolTerminalReport(task.taskId, task.planId)),
-                status: 'cancelled',
-              }
-            : undefined;
+        const retainedReport = isGovernedPatrol(task.selectedSkillId, task.selectedSkillVersion)
+          ? {
+              ...(await taskCapabilities.readPatrolTerminalReport(task.taskId, task.planId)),
+              status: 'cancelled',
+            }
+          : undefined;
         try {
           await userGoalPlanController.adjudicateCancellation({
             outcomeId: `terminal-outcome-task-${task.taskId}`,
@@ -571,11 +639,31 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
       },
       async resume(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        const resumed = await workflowExecution.resumePauseForPlan(task.planId, 300, {
-          agentTaskId: task.taskId,
-          contextId: task.contextId,
-          workflowControlId: await resolveTaskWorkflowControlId(task),
-        });
+        const native = await isNativeSiteTask(task);
+        if (native) {
+          const binding = await taskCapabilities.findBinding(task.taskId);
+          const value = binding?.inputSnapshot;
+          if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw Error('ZMQ_TASK_INPUT_UNAVAILABLE');
+          nativeZmqTaskExecution((value as Record<string, unknown>)['timeWindow'], clock.now());
+          await controlNativeRemote(task, 'resume');
+        }
+        const resumed = await workflowExecution.resumePauseForPlan(
+          task.planId,
+          300,
+          {
+            agentTaskId: task.taskId,
+            contextId: task.contextId,
+            workflowControlId: await resolveTaskWorkflowControlId(task),
+          },
+          native,
+        );
+        if (native)
+          await dependencies.governedPatrolChildren.value?.controlChildren?.(
+            task.taskId,
+            task.planId,
+            'resume',
+          );
         return resumed.disposition;
       },
       async cancelGoal(task, reason) {

@@ -12,6 +12,28 @@ const endpoint = 'https://provider.example.test/mcp';
 const now = '2026-07-18T03:10:00.000Z';
 
 describe('Frozen V1 Task lifecycle', () => {
+  it('sends pause/resume only through the frozen TaskExecution methods and validates each Ack', async () => {
+    const requests: Record<string, unknown>[] = [];
+    const lifecycle = createLifecycle((body) => {
+      requests.push(body);
+      return { resultType: 'complete' };
+    });
+    await lifecycle.controlTask('task-1', 'pause');
+    await lifecycle.controlTask('task-1', 'resume');
+    expect(
+      requests.map((r) => [r['method'], (r['params'] as Record<string, unknown>)['taskId']]),
+    ).toEqual([
+      ['io.sdar/taskExecution/tasks/pause', 'task-1'],
+      ['io.sdar/taskExecution/tasks/resume', 'task-1'],
+    ]);
+    for (const request of requests)
+      expect(request['params']).toMatchObject({
+        _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28' },
+      });
+    await expect(
+      createLifecycle(() => ({ ok: true })).controlTask('task-1', 'pause'),
+    ).rejects.toThrow();
+  });
   it('accepts the Provider cancellation-request marker while a physical stop is still pending', () => {
     const task = parseDetailedTask(
       {

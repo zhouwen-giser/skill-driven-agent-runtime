@@ -228,7 +228,7 @@ const RuntimeToolSchema = z
   })
   .loose();
 
-const RuntimeRefreshSchema = z
+export const RuntimeRefreshSchema = z
   .object({
     server: RuntimeServerSchema,
     snapshot: DiscoverySchema,

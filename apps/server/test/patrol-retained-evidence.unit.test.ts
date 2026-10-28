@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readRetainedInspectionResult } from '../src/patrol-evidence-reader.js';
+import { readRetainedZmqPatrolChildResult } from '../src/patrol-evidence-reader.js';
 import { projectTaskBusiness } from '../../../packages/domain/src/index.js';
 import { taskBusinessFixture } from '../../../packages/domain/test/task-business-fixture.js';
 import { areaReportChildExecutionStatus } from '../src/area-report-terminal.js';
@@ -35,6 +36,72 @@ function projection(wrapped = false) {
   });
 }
 describe('Retained native inspection reports', () => {
+  it('retains scoped failed ZMQ discoveries and refuses another child or resource', () => {
+    const raw = {
+      schemaVersion: 'ugv.zmq-inspection-result/2',
+      resourceId: 'vehicle:ugv1',
+      nativeOutcome: 'failed',
+      stopConfirmed: true,
+      inspectionReport: { completion: 'partial', complete: false },
+      anomalies: [{ entityId: 'seen-before-failure' }],
+      missingEvidence: ['SCAN_FAILED'],
+    };
+    const view = taskBusinessFixture({
+      operationName: 'vehicle_zmq_inspect_area',
+      resourceId: 'vehicle:ugv1',
+    });
+    const p = projectTaskBusiness({
+      bindingId: 'native-child-binding',
+      taskId: 'native-child',
+      view: {
+        ...view,
+        context: {
+          ...view.context,
+          summary: { ...view.context.summary, properties: { executionResult: raw } },
+        },
+      },
+      contents: [],
+      receivedAt: '2026-10-28T00:00:00Z',
+      projectedAt: '2026-10-28T00:00:00Z',
+      historyContinuous: false,
+    });
+    expect(
+      readRetainedZmqPatrolChildResult(
+        p,
+        'native-child',
+        'vehicle:ugv1',
+        'vehicle_zmq_inspect_area',
+      ),
+    ).toMatchObject({
+      status: 'failed',
+      providerResult: { anomalies: raw.anomalies },
+      missingEvidence: expect.arrayContaining(['SCAN_FAILED']),
+    });
+    expect(
+      readRetainedZmqPatrolChildResult(
+        p,
+        'another-child',
+        'vehicle:ugv1',
+        'vehicle_zmq_inspect_area',
+      ),
+    ).toBeUndefined();
+    expect(
+      readRetainedZmqPatrolChildResult(
+        p,
+        'native-child',
+        'other-resource',
+        'vehicle_zmq_inspect_area',
+      ),
+    ).toBeUndefined();
+    expect(
+      readRetainedZmqPatrolChildResult(
+        { ...p, status: 'history' },
+        'native-child',
+        'vehicle:ugv1',
+        'vehicle_zmq_inspect_area',
+      ),
+    ).toBeUndefined();
+  });
   it('keeps a successfully reported incomplete inspection degraded across child completion callbacks', () => {
     const child = {
       status: 'succeeded' as const,

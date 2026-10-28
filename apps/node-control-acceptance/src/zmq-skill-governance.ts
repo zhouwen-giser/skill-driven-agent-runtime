@@ -1,3 +1,23 @@
+import {
+  ZMQ_PATROL_SKILL,
+  ZMQ_PATROL_CAPABILITY,
+  ZMQ_PATROL_CHILDREN,
+} from '../../../packages/domain/src/zmq-area-patrol.js';
+import {
+  buildZmqPatrolSkill,
+  parseZmqPatrolChildren,
+  zmqPatrolConstraints,
+  ZMQ_PATROL_SUCCESS_CRITERIA,
+  ZMQ_PATROL_REQUIRED_EVIDENCE,
+} from '../../../packages/domain/src/zmq-patrol-contract.js';
+import {
+  materializeZmqSiteProvider,
+  type ZmqSiteMaterializationConfiguration,
+} from './zmq-site-materialization.js';
+import type { ZmqSiteAuthority } from '../../../packages/ugv-profile/src/zmq-site-profile.js';
+import { reviewedZmqCatalog } from '../../../packages/ugv-profile/src/zmq-catalogs.js';
+import type { ZmqConsumerAuthority } from '../../../packages/ugv-profile/src/zmq-provider-profile.js';
+import type { McpTool, ZmqNativeTool } from '../../../packages/domain/src/index.js';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
@@ -71,10 +91,44 @@ export async function governNativeZmqSkills(
     pause?: (ms: number) => Promise<void>;
   }> = {},
 ) {
+  return governZmqSkillSet(c, () => materializeZmqProvider(c, dependencies), dependencies);
+}
+
+export async function governSiteZmqSkills(
+  c: ZmqSiteMaterializationConfiguration & Readonly<{ packageWorkspaceRoot: string }>,
+  dependencies: Readonly<{
+    fetch?: typeof fetch;
+    now?: () => string;
+    pause?: (ms: number) => Promise<void>;
+  }> = {},
+) {
+  return governZmqSkillSet(c, () => materializeZmqSiteProvider(c, dependencies), dependencies);
+}
+async function governZmqSkillSet(
+  c: Readonly<{
+    nodeControlBaseUrl: string;
+    nodeControlBearerToken: string;
+    runtimeManagementBaseUrl: string;
+    packageWorkspaceRoot: string;
+    runId: string;
+  }>,
+  materialize: () => Promise<
+    Readonly<{
+      candidate: Readonly<{ authority: ZmqConsumerAuthority | ZmqSiteAuthority }>;
+      tools: readonly McpTool[];
+    }>
+  >,
+  dependencies: Readonly<{
+    fetch?: typeof fetch;
+    now?: () => string;
+    pause?: (ms: number) => Promise<void>;
+  }>,
+) {
   if (!isAbsolute(c.packageWorkspaceRoot)) throw Error('ZMQ_PACKAGE_WORKSPACE_MUST_BE_ABSOLUTE');
   const request = dependencies.fetch ?? fetch;
-  const materialized = await materializeZmqProvider(c, dependencies),
+  const materialized = await materialize(),
     a = materialized.candidate.authority;
+  const profile = 'catalogProfile' in a ? a.catalogProfile : undefined;
   const packageSchema: unknown = JSON.parse(
     await readFile('schemas/skill-package.schema.json', 'utf8'),
   );
@@ -102,21 +156,71 @@ export async function governNativeZmqSkills(
     .object({ items: z.array(exposureSchema), nextCursor: z.null().optional() })
     .loose()
     .parse(await controlGet(c, '/api/v1/a2a-exposures?pageSize=1000', request)).items;
-  const published = [];
-  for (const name of ZMQ_NATIVE_TOOLS) {
-    const tool = materialized.tools.find((t) => t.toolName === name);
+  const published: {
+    skillId: string;
+    skillVersion: number;
+    capabilityId: string;
+    capabilityVersion: number;
+    exposureId: string;
+    exposureVersion: number;
+  }[] = [];
+  const nativeNames: readonly ZmqNativeTool[] = profile
+    ? reviewedZmqCatalog(profile)
+        .tools.filter(
+          (t) => profile !== 'zmq_v1_1_0_readonly_13' || !ZMQ_NATIVE_CONTROLS.has(t.name),
+        )
+        .map((t) => t.name as ZmqNativeTool)
+    : ZMQ_NATIVE_TOOLS;
+  const names = [
+    ...nativeNames,
+    ...(profile === 'zmq_v1_2_0_site_control_13' ? ['area_patrol' as const] : []),
+  ];
+  for (const name of names) {
+    const patrol = name === 'area_patrol';
+    const toolName = patrol ? 'vehicle_zmq_inspect_area' : name;
+    const tool = materialized.tools.find((t) => t.toolName === toolName);
     if (!tool) throw Error('ZMQ_GOVERNANCE_TOOL_MISSING');
-    const skillId = zmqSkillId(name),
-      capabilityId = zmqCapabilityId(name),
+    const skillId = patrol ? ZMQ_PATROL_SKILL : zmqSkillId(toolName),
+      capabilityId = patrol ? ZMQ_PATROL_CAPABILITY : zmqCapabilityId(toolName),
       exposureId = `a2a.${capabilityId}`,
-      control = ZMQ_NATIVE_CONTROLS.has(name);
+      control = patrol || ZMQ_NATIVE_CONTROLS.has(toolName);
+    const provider = {
+      type: 'provider_binding_policy',
+      mcpProviderBindingId: a.bindingId,
+      localServerId: a.localServerId,
+      mcpToolName: toolName,
+      allowedResourceIds: [a.resourceId],
+      bindingRevision: a.bindingRevision,
+      ...('registryRevision' in a
+        ? { registryRevision: a.registryRevision, registryChecksum: a.registryChecksum }
+        : {}),
+      catalogRevision: a.catalogRevision,
+      catalogChecksum: a.catalogChecksum,
+      taskBehavior: tool.taskExecutionProfile?.taskBehavior,
+      executionSemantics: { ...tool.executionSemantics },
+      requiredStatus: 'active',
+      requiredAvailabilityStatus: 'available',
+      requiredFreshness: 'unexpired',
+      fallback: 'deny',
+    };
+    const children = patrol
+      ? parseZmqPatrolChildren(
+          ZMQ_PATROL_CHILDREN.map((id) => {
+            const child = published.find((entry) => entry.skillId === id);
+            if (!child) throw Error('ZMQ_PATROL_CHILD_PUBLICATION_MISSING');
+            return child;
+          }),
+        )
+      : [];
     const versions = z
       .object({ items: z.array(skillSchema) })
       .loose()
       .parse(await runtimeGet(`/api/v1/skills/${skillId}/versions`, true)).items;
     const latest = versions.sort((x, y) => y.version - x.version)[0];
     const buildSkill = (version: number) => {
-      const built = buildNativeZmqSkill(a, name, tool, version);
+      const built = patrol
+        ? buildZmqPatrolSkill(a.resourceId, version, provider, children)
+        : buildNativeZmqSkill(a, toolName, tool, version);
       // All source values are validated JSON schemas; dictionaries stay finite JSON data.
       return {
         ...built,
@@ -135,14 +239,17 @@ export async function governNativeZmqSkills(
       throw Error('ZMQ_PACKAGE_IMPORT_CONTRACT_MISMATCH');
     if (!same)
       await command('/api/v1/skills/import', `${name}:import:${String(skillVersion)}`, {
-        reason: 'Import the exact native ZMQ Skill contract for isolated simulation.',
+        reason: `Import the exact native ZMQ Skill contract for ${profile ?? 'isolated simulation'}.`,
         payload: { packageRoot },
       });
     if (!same || latest.status === 'draft')
       await command(
         `/api/v1/skills/${skillId}/versions/${String(skillVersion)}/publish`,
         `${name}:skill-publish:${String(skillVersion)}`,
-        { reason: 'Publish the exact isolated native Skill.', expectedRevision: 0 },
+        {
+          reason: `Publish the exact native Skill for ${profile ?? 'isolated simulation'}.`,
+          expectedRevision: 0,
+        },
       );
     const enabled = z
       .object({ items: z.array(skillSchema) })
@@ -151,24 +258,6 @@ export async function governNativeZmqSkills(
       .items.sort((x, y) => y.version - x.version)[0];
     if (enabled?.status !== 'enabled' || !sameContract(enabled, skill))
       throw Error('ZMQ_SKILL_PUBLICATION_NOT_EXACT');
-    const provider = {
-      type: 'provider_binding_policy',
-      mcpProviderBindingId: a.bindingId,
-      localServerId: a.localServerId,
-      mcpToolName: name,
-      allowedResourceIds: [a.resourceId],
-      bindingRevision: a.bindingRevision,
-      registryRevision: a.registryRevision,
-      registryChecksum: a.registryChecksum,
-      catalogRevision: a.catalogRevision,
-      catalogChecksum: a.catalogChecksum,
-      taskBehavior: tool.taskExecutionProfile?.taskBehavior,
-      executionSemantics: { ...tool.executionSemantics },
-      requiredStatus: 'active',
-      requiredAvailabilityStatus: 'available',
-      requiredFreshness: 'unexpired',
-      fallback: 'deny',
-    };
     const prior = capabilities
       .filter((e) => e.capabilityId === capabilityId)
       .sort((x, y) => y.version - x.version)[0];
@@ -184,79 +273,95 @@ export async function governNativeZmqSkills(
         outputSchema: skill.outputSchema,
         effects: [...(skill.outcomeSpecification?.effects ?? [])],
         artifacts: [],
-        successCriteria: [
-          { type: 'output_schema_valid', required: true },
-          { type: 'resource_identity_matches_request', required: true },
-          { type: 'zmq_report_outcome', required: true, incompleteOutcome: 'degraded' },
-          { type: 'required_evidence_complete', required: true },
-          { type: 'mcp_acceptance_is_terminal_success', value: false },
-          ...(control
-            ? [
-                { type: 'remote_task_identity_present', required: true },
-                { type: 'remote_terminal_observation_present', required: true },
-                { type: 'external_command_dispatch_count', minimum: 1, maximum: 1 },
-              ]
-            : [{ type: 'normalized_observation_present', required: true }]),
-        ],
-        requiredEvidence: control
-          ? [
-              {
-                type: 'required_evidence',
-                requirementId: 'native-report',
-                evidenceType: ZMQ_REPORT_EVIDENCE,
-                required: true,
-                hardGate: true,
-              },
-            ]
+        successCriteria: patrol
+          ? ([...ZMQ_PATROL_SUCCESS_CRITERIA] as JsonObject[])
           : [
-              {
-                type: 'provider_result',
-                requirementId: 'native-report',
-                field: 'providerResult',
-                inputField: 'resourceId',
-                serverId: a.localServerId,
-                toolName: name,
-                evidenceType: ZMQ_REPORT_EVIDENCE,
-                required: true,
-                hardGate: true,
-              },
+              { type: 'output_schema_valid', required: true },
+              { type: 'resource_identity_matches_request', required: true },
+              { type: 'zmq_report_outcome', required: true, incompleteOutcome: 'degraded' },
+              { type: 'required_evidence_complete', required: true },
+              { type: 'mcp_acceptance_is_terminal_success', value: false },
+              ...(control
+                ? [
+                    { type: 'remote_task_identity_present', required: true },
+                    { type: 'remote_terminal_observation_present', required: true },
+                    { type: 'external_command_dispatch_count', minimum: 1, maximum: 1 },
+                  ]
+                : [{ type: 'normalized_observation_present', required: true }]),
             ],
-        constraints: [
-          provider as JsonObject,
-          {
-            type: 'resource_policy',
-            identifierAuthority: 'public_smpp_tool_schema',
-            selection: 'exact_value',
-            allowedResourceIds: [a.resourceId],
-            downstreamResourceBinding: 'forbidden',
-          },
-          { type: 'zmq_input_adapter', version: 1, toolName: name, maxElapsedMs: 300000 },
-          {
-            type: 'runtime_execution_mode_policy',
-            mode: 'simulation',
-            simulationId: a.simulationId,
-          },
-          { type: 'exact_skill_version', skillId, skillVersion, taskType: name },
-          {
-            type: 'confirmation_policy',
-            required: control,
-            stage: control ? 'before_execution' : 'not_applicable',
-            authorityKind: 'physical_control',
-            autoConfirmPlan: !control,
-          },
-          ...(control
+        requiredEvidence: patrol
+          ? ([...ZMQ_PATROL_REQUIRED_EVIDENCE] as JsonObject[])
+          : control
             ? [
                 {
-                  type: 'physical_side_effect_policy',
-                  sideEffecting: true,
-                  dispatchMaximum: 1,
-                  uncertainDispatchPolicy: 'reconcile_never_redispatch',
-                  remoteTaskTerminalEvidenceRequired: true,
+                  type: 'required_evidence',
+                  requirementId: 'native-report',
+                  evidenceType: ZMQ_REPORT_EVIDENCE,
+                  required: true,
+                  hardGate: true,
                 },
               ]
-            : [{ type: 'side_effect_policy', sideEffecting: false }]),
-        ],
-        supportedModes: control ? ['plan_confirmed', 'remote_task'] : ['deterministic'],
+            : [
+                {
+                  type: 'provider_result',
+                  requirementId: 'native-report',
+                  field: 'providerResult',
+                  inputField: 'resourceId',
+                  serverId: a.localServerId,
+                  toolName: name,
+                  evidenceType: ZMQ_REPORT_EVIDENCE,
+                  required: true,
+                  hardGate: true,
+                },
+              ],
+        constraints: patrol
+          ? (zmqPatrolConstraints(a.resourceId, skillVersion, provider, children) as JsonObject[])
+          : [
+              provider as JsonObject,
+              {
+                type: 'resource_policy',
+                identifierAuthority: 'public_smpp_tool_schema',
+                selection: 'exact_value',
+                allowedResourceIds: [a.resourceId],
+                downstreamResourceBinding: 'forbidden',
+              },
+              {
+                type: 'zmq_input_adapter',
+                version: profile ? 2 : 1,
+                toolName: name,
+                maxElapsedMs: 300000,
+                ...(profile ? { catalogProfile: profile } : {}),
+              },
+              {
+                type: 'runtime_execution_mode_policy',
+                mode: profile ? 'live' : 'simulation',
+                ...(profile ? {} : { simulationId: a.simulationId }),
+              },
+              { type: 'exact_skill_version', skillId, skillVersion, taskType: name },
+              {
+                type: 'confirmation_policy',
+                required: control,
+                stage: control ? 'before_execution' : 'not_applicable',
+                authorityKind: 'physical_control',
+                autoConfirmPlan: !control,
+              },
+              ...(control
+                ? [
+                    {
+                      type: 'physical_side_effect_policy',
+                      sideEffecting: true,
+                      dispatchMaximum: 1,
+                      uncertainDispatchPolicy: 'reconcile_never_redispatch',
+                      remoteTaskTerminalEvidenceRequired: true,
+                    },
+                  ]
+                : [{ type: 'side_effect_policy', sideEffecting: false }]),
+            ],
+        supportedModes: patrol
+          ? ['plan_confirmed', 'composition']
+          : control
+            ? ['plan_confirmed', 'remote_task']
+            : ['deterministic'],
         riskLevel: control ? 'high' : 'low',
         status: 'draft',
         createdBy: 'native-zmq-governance',
@@ -292,7 +397,7 @@ export async function governNativeZmqSkills(
         selection: 'required',
         mcpProviderBindingId: a.bindingId,
         localServerId: a.localServerId,
-        mcpToolName: name,
+        mcpToolName: toolName,
         allowedResourceIds: [a.resourceId],
         requireActive: true,
         requireAvailable: true,
@@ -385,7 +490,7 @@ export async function governNativeZmqSkills(
         agentSkillId: skillId,
         name: skill.name,
         description: skill.summary,
-        tags: ['ugv', 'zmq', 'isolated-simulation'],
+        tags: ['ugv', 'zmq', profile ?? 'isolated-simulation'],
         inputModes: ['application/json'],
         outputModes: ['application/json'],
         requestSchema: definition.inputSchema,
@@ -422,7 +527,7 @@ export async function governNativeZmqSkills(
             c,
             `/api/v1/a2a-exposures/${exposureId}/versions/${String(exposureVersion)}/publish`,
             `${c.runId}:zmq:${name}:exposure-publish:${String(exposureVersion)}`,
-            { reason: 'Publish the isolated native ZMQ exposure.' },
+            { reason: `Publish the native ZMQ exposure for ${profile ?? 'isolated simulation'}.` },
             a2aExposureEtag(exposure),
             202,
             request,
@@ -461,6 +566,46 @@ export async function governNativeZmqSkills(
       );
       if (withdrawn.status !== 'suspended') throw Error('ZMQ_SUPERSEDED_EXPOSURE_STILL_PUBLISHED');
     }
+    if (patrol) {
+      const graph = z
+        .object({ items: z.array(object) })
+        .loose()
+        .parse(await runtimeGet('/api/v1/skill-graph')).items;
+      for (const child of children) {
+        const metadata = {
+          governedCapability: child.capabilityId,
+          capabilityVersion: child.capabilityVersion,
+          parentSkillVersion: skillVersion,
+          childSkillVersion: child.skillVersion,
+        };
+        if (
+          graph.some(
+            (entry) =>
+              entry['sourceSkillId'] === skillId &&
+              entry['targetSkillId'] === child.skillId &&
+              entry['relationType'] === 'parent_child' &&
+              canonicalHash(entry['metadata']) === canonicalHash(metadata),
+          )
+        )
+          continue;
+        const response = await request(
+          c.runtimeManagementBaseUrl + '/api/v1/skill-graph/relations',
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            redirect: 'manual',
+            signal: AbortSignal.timeout(30000),
+            body: JSON.stringify({
+              sourceSkillId: skillId,
+              targetSkillId: child.skillId,
+              relationType: 'parent_child',
+              metadata,
+            }),
+          },
+        );
+        if (response.status !== 201) throw Error('ZMQ_PATROL_COMPOSITION_RELATION_REJECTED');
+      }
+    }
     published.push({
       skillId,
       skillVersion,
@@ -470,7 +615,7 @@ export async function governNativeZmqSkills(
       exposureVersion,
     });
   }
-  const rechecked = await materializeZmqProvider(c, dependencies);
+  const rechecked = await materialize();
   const { validUntil: admittedUntil, ...admittedAuthority } = a;
   const { validUntil: recheckedUntil, ...currentAuthority } = rechecked.candidate.authority;
   void admittedUntil;
@@ -478,11 +623,12 @@ export async function governNativeZmqSkills(
   if (canonicalHash(admittedAuthority) !== canonicalHash(currentAuthority))
     throw Error('ZMQ_GOVERNANCE_AUTHORITY_CHANGED');
   await command('/api/v1/a2a-agent-card-revisions/rebuild', 'card', {
-    reason: 'Activate exact isolated native ZMQ exposures.',
+    reason: `Activate exact native ZMQ exposures for ${profile ?? 'isolated simulation'}.`,
   });
   return {
-    schemaVersion: 'sdar.zmq-skill-governance/1',
-    qualification: 'isolated_simulator_only',
+    schemaVersion: profile ? 'sdar.zmq-skill-governance/2' : 'sdar.zmq-skill-governance/1',
+    qualification: profile ?? 'isolated_simulator_only',
+    ...(profile ? { authority: rechecked.candidate.authority } : {}),
     published,
     physicalToolInvocationCount: 0,
     fieldDispatchAuthorized: false,
@@ -533,6 +679,7 @@ export async function writeNativeZmqPackage(root: string, skill: SkillVersion) {
     adaptive: { adaptive: usage.adaptive },
     modes: usage.modes,
     evidence: usage.evidencePolicy,
+    ...(usage.composition ? { composition: usage.composition } : {}),
   };
   const digest = (bytes: string) => createHash('sha256').update(bytes).digest('hex');
   const files: Record<string, { path: string; sha256: string }> = {};

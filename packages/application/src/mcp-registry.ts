@@ -20,6 +20,7 @@ import {
   type RemoteTaskOperationAck,
   type RemoteTaskAuthoritySnapshot,
   type RemoteTaskSnapshot,
+  type RemoteTaskBinding,
   type McpManagementOperation,
   type McpManagementOperationType,
   type McpTool,
@@ -215,6 +216,14 @@ export interface FrozenTaskBusinessMutationRuntimePort {
 }
 
 export interface FrozenTaskLifecycleRuntimePort {
+  control?(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      action: 'pause' | 'resume';
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
   disconnect?(
     input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
   ): void;
@@ -1221,6 +1230,28 @@ export class McpRegistryService {
         this.#executionModeHeaderPolicy,
       ),
       remoteTaskId: input.remoteTaskId,
+    });
+  }
+
+  /** Lifecycle control is scoped to the persisted, exact pre-dispatch authority. */
+  async controlRemoteTask(binding: RemoteTaskBinding, action: 'pause' | 'resume') {
+    const runtime = await this.#runtimeBindingAuthority.loadRuntimeAuthority(binding.serverId);
+    await this.#assertRemoteTaskReadAuthority(binding, runtime);
+    const lifecycle = this.#requireFrozenLifecycle();
+    if (!lifecycle.control)
+      throw new McpRegistryError(
+        'MCP_FROZEN_RUNTIME_UNAVAILABLE',
+        'Frozen TaskExecution pause/resume transport is unavailable.',
+      );
+    return lifecycle.control({
+      endpoint: runtime.record.server.endpoint,
+      headers: withExecutionHeaders(
+        this.#cipher.decrypt(runtime.record.encryptedCredential),
+        createRuntimeExecutionContext(binding.executionContext),
+        this.#executionModeHeaderPolicy,
+      ),
+      remoteTaskId: binding.remoteTaskId,
+      action,
     });
   }
 

@@ -1124,6 +1124,58 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     });
   });
 
+  it('retains the superseded lifecycle of an immutable older card after a newer card exists', async () => {
+    const nodeId = 'historical-card-' + randomUUID();
+    const first = Number(
+      (
+        await pool.query<{ revision: string }>(
+          'SELECT (COALESCE(max(revision),0)+1)::text AS revision FROM sdar_control.agent_card_revision',
+        )
+      ).rows[0]?.revision,
+    );
+    for (const revision of [first, first + 1]) {
+      await pool.query(
+        `INSERT INTO sdar_control.agent_card_revision
+        (revision,node_id,exposure_refs,content_hash,capability_catalog_hash,status,card,generated_at)
+        VALUES($1,$2,'[]',$3,$4,'staged','{"skills":[]}',clock_timestamp())`,
+        [
+          revision,
+          nodeId,
+          createHash('sha256')
+            .update(nodeId + String(revision))
+            .digest('hex'),
+          createHash('sha256')
+            .update(nodeId + '-catalog')
+            .digest('hex'),
+        ],
+      );
+    }
+    await pool.query(
+      "UPDATE sdar_control.agent_card_revision SET status='superseded' WHERE revision=$1",
+      [first],
+    );
+    const source = new PostgresNodeControlEvidenceSource(pool, undefined, evidenceReadPrincipal());
+    const partition = (await source.pendingPartitions(200)).find(
+      (p) =>
+        p.recordType === 'node_control.agent_card_revision' && p.sourceRecordId === String(first),
+    );
+    if (!partition) throw Error('HISTORICAL_CARD_PARTITION_REQUIRED');
+    const latest = (
+      await pool.query<{ sequence: string }>(
+        `SELECT observation_sequence::text AS sequence FROM sdar_control.node_control_evidence_observation
+       WHERE record_type='node_control.agent_card_revision' AND source_record_id=$1
+       ORDER BY observation_sequence DESC LIMIT 1`,
+        [String(first)],
+      )
+    ).rows[0]?.sequence;
+    if (!latest) throw Error('HISTORICAL_CARD_OBSERVATION_REQUIRED');
+    await expect(
+      source.load({ ...partition, observationSequence: latest, sourceRevision: latest }),
+    ).resolves.toMatchObject({
+      payload: { revision: first, status: 'superseded' },
+    });
+  });
+
   it('rejects a reused Runtime Event identity without advancing the Control cursor', async () => {
     await pool.query(
       `UPDATE sdar_control.node_event_source_cursor

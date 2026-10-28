@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "sdar.zmq-site-joint-verification/1",
+  "baseline": "85584010d6f41ab5683ae0e790cdf4c04d419719",
+  "runId": "zmqgov-20261028-c256fbc8",
+  "classification": "ISOLATED_NATIVE_WIRE_SIMULATOR_NOT_FIELD_ACCEPTANCE",
+  "status": "PASS",
+  "command": "SMPP_ZMQ_GOVERNANCE_CONFIG_FILE=<private> SMPP_ZMQ_SOURCE_ROOT=<SMPP-worktree> SMPP_ZMQ_GOVERNANCE_EVIDENCE_ROOT=<evidence-root> pnpm exec tsx scripts/ugv-zmq/governance-joint.mts",
+  "exitCode": 0,
+  "cleanupErrors": [],
+  "anonymousMcpRequestCount": 412,
+  "allMcpRequestsWithoutAuthorization": true,
+  "cases": [
+    {
+      "case": "schema-drift-before-binding",
+      "phase": null,
+      "reportStatus": null
+    },
+    {
+      "case": "readonly-native-task",
+      "phase": "completed",
+      "reportStatus": "completed"
+    },
+    {
+      "case": "native-inspection-empty",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-inspection-missing",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-inspection-cancel",
+      "phase": "canceled",
+      "reportStatus": null
+    },
+    {
+      "case": "native-inspection-failed",
+      "phase": "failed",
+      "reportStatus": null
+    },
+    {
+      "case": "native-control-vehicle_zmq_camera",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-control-vehicle_zmq_area_recon",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-control-vehicle_zmq_circular_recon",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-control-simulation_apply_effect",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-route-preview-without-navigation",
+      "phase": "completed",
+      "reportStatus": "completed"
+    },
+    {
+      "case": "native-patrol-degraded",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-patrol-pause-resume",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-patrol-restart",
+      "phase": "completed",
+      "reportStatus": "degraded"
+    },
+    {
+      "case": "native-patrol-cancel",
+      "phase": "canceled",
+      "reportStatus": "cancelled"
+    },
+    {
+      "case": "native-patrol-timeout",
+      "phase": "completed",
+      "reportStatus": "failed"
+    },
+    {
+      "case": "anonymous-mcp-no-client-authorization",
+      "phase": null,
+      "reportStatus": null
+    },
+    {
+      "case": "no-model-generation-or-control-decision",
+      "phase": null,
+      "reportStatus": null
+    },
+    {
+      "case": "canonical-evidence-projection",
+      "phase": null,
+      "reportStatus": null
+    },
+    {
+      "case": "complete-agent-card-artifact",
+      "phase": null,
+      "reportStatus": null
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/sdar-joint/zmqgov-20261028-c256fbc8/joint-evidence.json",
+      "bytes": 4059081,
+      "sha256": "83f2a21db40ddb6040bd5fb94c995670c02e76192bfa6eb5eb4037b1cc5d8efe"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/sdar-joint/zmqgov-20261028-c256fbc8/provider-evidence.json",
+      "bytes": 238159,
+      "sha256": "f212c61bc12749ae1d3b2624f4f26111777753047962e380e8a01055e4f290b1"
+    },
+    {
+      "path": "/mnt/data/ugv-zmq-anonymous-patrol-20261028/sdar-joint-14.log",
+      "bytes": 42535,
+      "sha256": "0c7d1e648636338be62c333cb546d880ac9f83be5dc8af285ee576437b30c13a"
+    }
+  ],
+  "fullSdarGate": "IN_PROGRESS",
+  "fieldActions": "NOT_RUN",
+  "formalControlPromotion": "NOT_RUN"
+}

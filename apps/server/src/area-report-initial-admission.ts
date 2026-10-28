@@ -1,4 +1,8 @@
 import {
+  ZMQ_PATROL_CAPABILITY,
+  parseZmqPatrolInput,
+} from '../../../packages/domain/src/zmq-area-patrol.js';
+import {
   GoalServiceError,
   userGoalCompletionContractFor,
   type GoalService,
@@ -37,7 +41,7 @@ export function createAreaReportInitialAdmission(
       const binding = await dependencies.capabilities.findBinding(task.taskId);
       if (
         !binding ||
-        (!['embodied.inspect_area', 'embodied.area_patrol'].includes(
+        (!['embodied.inspect_area', 'embodied.area_patrol', ZMQ_PATROL_CAPABILITY].includes(
           binding.requestedCapabilityId,
         ) &&
           zmqToolForCapability(binding.requestedCapabilityId) === undefined)
@@ -47,10 +51,11 @@ export function createAreaReportInitialAdmission(
       if (!raw || typeof raw !== 'object' || Array.isArray(raw))
         throw Error('AREA_REPORT_INPUT_AUTHORITY_INVALID');
       const input = raw as Record<string, unknown>;
-      if (binding.requestedCapabilityId === 'embodied.area_patrol') parseAreaPatrolInput(raw);
+      if (binding.requestedCapabilityId === ZMQ_PATROL_CAPABILITY) parseZmqPatrolInput(raw);
+      else if (binding.requestedCapabilityId === 'embodied.area_patrol') parseAreaPatrolInput(raw);
       if (zmqToolForCapability(binding.requestedCapabilityId) !== undefined)
         nativeZmqDispatchInput(binding);
-      else
+      else if (binding.requestedCapabilityId !== ZMQ_PATROL_CAPABILITY)
         parseAreaInspectionInput({
           resourceId: input['resourceId'],
           area: input['area'],

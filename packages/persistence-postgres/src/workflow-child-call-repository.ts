@@ -42,7 +42,7 @@ export class PostgresWorkflowChildCallRepository implements WorkflowChildCallRep
                    AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentPlanId'=workflow_plan.plan_id
                    AND ct.device_id IS NOT DISTINCT FROM pt.device_id
                    AND ct.sdar_service_key IS NOT DISTINCT FROM pt.sdar_service_key
-                   AND pb.requested_capability_id='embodied.area_patrol'
+                   AND pb.requested_capability_id IN ('embodied.area_patrol','vehicle.ugv.zmq.area_patrol')
                    AND EXISTS(SELECT 1 FROM jsonb_array_elements(pb.constraint_snapshot) c,
                      jsonb_array_elements(CASE WHEN c->>'type'='composition_authority_policy' THEN c->'children' ELSE '[]'::jsonb END) s
                      WHERE s->>'capabilityId'=cb.requested_capability_id

@@ -2,6 +2,7 @@ import {
   AREA_INSPECTION_SKILL_ID,
   AREA_INSPECTION_TOOL_NAME,
 } from '../../domain/src/area-inspection.js';
+import { isGovernedPatrol } from '../../domain/src/zmq-area-patrol.js';
 import {
   type GoalExecutionContract,
   type SkillModeInterpretation,
@@ -597,5 +598,5 @@ export class SkillUsagePlanningError extends Error {
 }
 
 function governedPatrolPolicy(policy: SkillUsagePlanPolicy): boolean {
-  return policy.skill.skillId === 'embodied.area_patrol' && policy.skill.skillVersion >= 2;
+  return isGovernedPatrol(policy.skill.skillId, policy.skill.skillVersion);
 }

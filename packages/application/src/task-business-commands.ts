@@ -8,6 +8,7 @@ import type { RemoteTaskBinding, RemoteTaskInputLink } from '../../domain/src/in
 import { hashCanonicalEvidenceJson } from '../../domain/src/evidence/canonical-evidence.js';
 import {
   normalizeTaskBusinessView,
+  taskBusinessContextDigest,
   assertTaskBusinessIdentity,
   TaskBusinessError,
   type TaskBusinessView,
@@ -580,7 +581,7 @@ export class TaskBusinessCommandService {
       operationName: target.binding.operationName,
       ...(target.executionId === undefined ? {} : { executionId: target.executionId }),
     });
-    if (hashCanonicalEvidenceJson(view.context) !== projection.contextDigest)
+    if (taskBusinessContextDigest(view.context) !== projection.contextDigest)
       throw new TaskBusinessError('TASK_BUSINESS_READ_SNAPSHOT_CHANGED');
     return view;
   }
@@ -651,7 +652,7 @@ export function observeTaskBusinessCommand(
   const request = record.intent.request;
   const evidence = {
     contextRevision: view.context.contextRevision,
-    contextDigest: hashCanonicalEvidenceJson(view.context),
+    contextDigest: taskBusinessContextDigest(view.context),
     identity: view.context.identity,
     snapshotWatermark: view.resumeFrom,
   };

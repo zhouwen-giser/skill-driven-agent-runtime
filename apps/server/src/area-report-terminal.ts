@@ -1,3 +1,8 @@
+import {
+  isGovernedPatrol,
+  ZMQ_PATROL_SKILL,
+  ZMQ_PATROL_CAPABILITY,
+} from '../../../packages/domain/src/zmq-area-patrol.js';
 import process from 'node:process';
 import { zmqToolForSkill, zmqCapabilityId } from '../../../packages/domain/src/zmq-capability.js';
 import type {
@@ -21,10 +26,11 @@ export function isAreaReportSkill(skillId: string, version: number): boolean {
   return (
     zmqToolForSkill(skillId) !== undefined ||
     (skillId === 'embodied.inspect_area' && version >= 1) ||
-    (skillId === 'embodied.area_patrol' && version >= 2)
+    isGovernedPatrol(skillId, version)
   );
 }
 function reportCapability(skillId: string): string {
+  if (skillId === ZMQ_PATROL_SKILL) return ZMQ_PATROL_CAPABILITY;
   const name = zmqToolForSkill(skillId);
   return name === undefined ? skillId : zmqCapabilityId(name);
 }
@@ -156,7 +162,7 @@ function areaReportErrorsAllowed(skillId: string, instance: WorkflowInstance): b
   if (nodes.length === 0) return true;
   const result = instance.result;
   return (
-    skillId === 'embodied.area_patrol' &&
+    ['embodied.area_patrol', ZMQ_PATROL_SKILL].includes(skillId) &&
     result !== null &&
     typeof result === 'object' &&
     !Array.isArray(result) &&

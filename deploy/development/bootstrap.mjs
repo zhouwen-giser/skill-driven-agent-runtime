@@ -1,4 +1,6 @@
 import { governUgvAreaPatrol } from '../../dist/apps/node-control-acceptance/src/ugv-area-patrol-governance-driver.js';
+import { governSiteZmqSkills } from '../../dist/apps/node-control-acceptance/src/zmq-skill-governance.js';
+import { materializeZmqSiteProvider } from '../../dist/apps/node-control-acceptance/src/zmq-site-materialization.js';
 import console from 'node:console';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
@@ -21,6 +23,31 @@ const shared = {
   runtimeManagementBaseUrl: 'http://runtime:10998',
   runId,
 };
+const nativeSite = ['zmq_v1_1_0_readonly_13', 'zmq_v1_2_0_site_control_13'].includes(
+  c.SDAR_UGV_CATALOG_PROFILE,
+);
+const nativeConfiguration = nativeSite
+  ? {
+      ...shared,
+      catalogProfile: c.SDAR_UGV_CATALOG_PROFILE,
+      providerId: c.SDAR_UGV_EXTERNAL_PROVIDER_ID,
+      resourceId: c.SDAR_UGV_RESOURCE_ID,
+      localServerId: c.SDAR_UGV_SERVER_ID,
+      bindingId: c.SDAR_UGV_BINDING_ID,
+      packageWorkspaceRoot: '/app/development-packages',
+      endpointAllowlist: [
+        shared.nodeControlBaseUrl,
+        shared.runtimeManagementBaseUrl,
+        ...JSON.parse(c.SDAR_UGV_SITE_ENDPOINT_ALLOWLIST ?? '[]'),
+      ],
+      source: {
+        originType: 'smpp_registry',
+        smppSourceId: c.SDAR_UGV_SOURCE_ID,
+        externalServerId: c.SDAR_UGV_EXTERNAL_SERVER_ID,
+      },
+    }
+  : undefined;
+let nativePublication;
 async function get(base, path) {
   const response = await globalThis.fetch(base + path, {
     headers: { authorization: 'Bearer ' + c.SDAR_CONTROL_API_TOKEN },
@@ -34,6 +61,42 @@ async function get(base, path) {
   return response.json();
 }
 async function verifyInventory() {
+  if (nativeSite) {
+    if (!nativePublication) throw Error('ZMQ_SITE_PUBLICATION_REQUIRED');
+    const skills = (await get(shared.runtimeManagementBaseUrl, '/api/v1/skills')).items;
+    const capabilities = (
+      await get(shared.nodeControlBaseUrl, '/api/v1/node-capabilities?pageSize=1000')
+    ).items;
+    const exposures = (await get(shared.nodeControlBaseUrl, '/api/v1/a2a-exposures?pageSize=1000'))
+      .items;
+    const blocked = nativePublication.published
+      .filter(
+        (entry) =>
+          !skills.some(
+            (s) =>
+              s.skillId === entry.skillId &&
+              s.version === entry.skillVersion &&
+              s.status === 'enabled',
+          ) ||
+          !capabilities.some(
+            (cap) =>
+              cap.capabilityId === entry.capabilityId &&
+              cap.version === entry.capabilityVersion &&
+              cap.status === 'published',
+          ) ||
+          !exposures.some(
+            (e) =>
+              e.exposureId === entry.exposureId &&
+              e.version === entry.exposureVersion &&
+              e.status === 'published',
+          ),
+      )
+      .map((entry) => ({
+        capabilityId: entry.capabilityId,
+        reasonCode: 'ZMQ_SITE_PUBLICATION_NOT_CURRENT',
+      }));
+    return { blocked, catalogProfile: c.SDAR_UGV_CATALOG_PROFILE, physicalToolInvocationCount: 0 };
+  }
   const inventory = verifyPublishedInventory(manifest, {
     skills: (await get(shared.runtimeManagementBaseUrl, '/api/v1/skills')).items,
     capabilities: (await get(shared.nodeControlBaseUrl, '/api/v1/node-capabilities?pageSize=200'))
@@ -84,6 +147,7 @@ const result = await runGovernanceBootstrap(c, {
     return source;
   },
   provider: async () => {
+    if (nativeConfiguration) return materializeZmqSiteProvider(nativeConfiguration);
     const provider = await materializeUgvSmppProvider({
       ...shared,
       smppSourceId: c.SDAR_UGV_SOURCE_ID,
@@ -99,6 +163,15 @@ const result = await runGovernanceBootstrap(c, {
     return provider;
   },
   governance: async () => {
+    if (nativeConfiguration) {
+      nativePublication = await governSiteZmqSkills(nativeConfiguration);
+      await writeFile(
+        '/app/development-packages/zmq-site-authority.json',
+        JSON.stringify(nativePublication, null, 2),
+        { mode: 0o600 },
+      );
+      return nativePublication;
+    }
     const governance = await governUgvSmppCapabilities({
       ...shared,
       packageWorkspaceRoot: '/app/development-packages',
@@ -117,6 +190,7 @@ const result = await runGovernanceBootstrap(c, {
     return governance;
   },
   builtins: async () => {
+    if (nativeSite) return { blocked: [], physicalToolInvocationCount: 0 };
     if (['ugv-inspect-v1-13', 'ugv-inspect-v1-14'].includes(c.SDAR_UGV_CATALOG_PROFILE)) {
       await governUgvAreaPatrol({
         ...shared,
@@ -166,8 +240,12 @@ const result = await runGovernanceBootstrap(c, {
   verify: verifyInventory,
 });
 result.expected = {
-  skills: manifest.skills.map((item) => item.skillId),
-  capabilities: manifest.skills.map((item) => item.capabilityId),
+  skills: nativePublication
+    ? nativePublication.published.map((item) => item.skillId)
+    : manifest.skills.map((item) => item.skillId),
+  capabilities: nativePublication
+    ? nativePublication.published.map((item) => item.capabilityId)
+    : manifest.skills.map((item) => item.capabilityId),
 };
 if (result.failedStage === 'builtins') result.inventory = await verifyInventory();
 

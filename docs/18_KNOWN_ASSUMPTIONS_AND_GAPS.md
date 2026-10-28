@@ -1,5 +1,12 @@
 # 已知假设、冲突与待验证项
 
+## 原生 ZMQ 匿名现场接入（2026-10-28）
+
+- ADR-168 采用显式可信内网匿名 MCP；操作员身份仅来自 SDAR 确认流程或已登录面板，匿名调用不构成操作员认证。
+- 现有原生协议缺少受证明的生产者 epoch、完整目标流和覆盖足迹；动作完成与完整巡逻报告分别记账，缺口不自动补齐。
+- 父确认使用既有最长 15 分钟期限，等待/暂停消耗原任务期限。确认过期后不得自动启动后续子动作。
+- 本轮完整 SDAR 门禁、正式 PMS 绑定与现场六项控制及巡逻动作尚未验收。仅有软件或目录证据不能关闭接入任务。
+
 ## Runtime semantic closure repair (2026-09-07, in progress)
 
 - The current code audit reports 13 findings plus five follow-up checks. The remediation design is

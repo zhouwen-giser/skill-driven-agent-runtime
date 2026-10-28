@@ -1,3 +1,4 @@
+import { isGovernedPatrol } from '../../domain/src/zmq-area-patrol.js';
 import type { SkillEvolutionCommitPort } from '../../application/src/skill-evolution-commit.js';
 import { canonicalHash } from '../../application/src/mcp-task-readiness.js';
 import { NewEvolutionPolicySchema } from '../../application/src/skill-evolution-authority.js';
@@ -261,11 +262,29 @@ export class PostgresAgentTaskCommandContext {
     input: Readonly<{ parentTaskId: string; parentPlanId: string; childTaskId: string }>,
     operation: () => Promise<T>,
   ): Promise<T> {
+    return this.#runGovernedChildCommand(input, 'cancel', operation);
+  }
+
+  async runGovernedChildLifecycle<T>(
+    input: Readonly<{ parentTaskId: string; parentPlanId: string; childTaskId: string }>,
+    action: 'pause' | 'resume',
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    return this.#runGovernedChildCommand(input, action, operation);
+  }
+
+  async #runGovernedChildCommand<T>(
+    input: Readonly<{ parentTaskId: string; parentPlanId: string; childTaskId: string }>,
+    action: 'cancel' | 'pause' | 'resume',
+    operation: () => Promise<T>,
+  ): Promise<T> {
     const command = this.current();
     if (
       command &&
       (command.taskId !== input.parentTaskId ||
-        !['cancel', 'goal-patch'].includes(command.operation))
+        !(action === 'cancel'
+          ? ['cancel', 'goal-patch'].includes(command.operation)
+          : command.operation === action))
     )
       throw Error('GOVERNED_CHILD_COMMAND_SCOPE_DENIED');
     const client = await this.#poolForEffect().connect();
@@ -280,9 +299,12 @@ export class PostgresAgentTaskCommandContext {
         JOIN task_capability_binding cb ON cb.task_id=ct.task_id
         JOIN skill_call_workflow scw ON scw.child_plan_id=ct.plan_id AND scw.parent_plan_id=pp.plan_id
         WHERE pt.task_id=$1 AND pp.plan_id=$2 AND pp.confirmation_status='confirmed'
-          AND pb.requested_capability_id='embodied.area_patrol'
-          AND pp.definition_json->'skillUsagePolicy'->'skill'->>'skillId'='embodied.area_patrol'
-          AND (pp.definition_json->'skillUsagePolicy'->'skill'->>'skillVersion')::integer>=2
+          AND ((pb.requested_capability_id='embodied.area_patrol'
+            AND pp.definition_json->'skillUsagePolicy'->'skill'->>'skillId'='embodied.area_patrol'
+            AND (pp.definition_json->'skillUsagePolicy'->'skill'->>'skillVersion')::integer>=2)
+            OR (pb.requested_capability_id='vehicle.ugv.zmq.area_patrol'
+            AND pp.definition_json->'skillUsagePolicy'->'skill'->>'skillId'='ugv.zmq.area_patrol'
+            AND (pp.definition_json->'skillUsagePolicy'->'skill'->>'skillVersion')::integer>=1))
           AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentTaskId'=pt.task_id
           AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentPlanId'=pp.plan_id
           AND EXISTS(SELECT 1 FROM jsonb_array_elements(pb.constraint_snapshot) c,
@@ -301,7 +323,12 @@ export class PostgresAgentTaskCommandContext {
       client.release();
     }
     const result = await this.#storage.exit(operation);
-    if (command) await this.recordEffect('governed_child_cancelled', input.childTaskId, input);
+    if (command)
+      await this.recordEffect(
+        action === 'cancel' ? 'governed_child_cancelled' : `governed_child_${action}`,
+        input.childTaskId,
+        input,
+      );
     return result;
   }
 
@@ -1384,6 +1411,46 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      // Only durable waits can survive a process loss. Walk exact persisted child
+      // node-run links; no in-memory running graph or unreceipted dispatch is resumed.
+      const durable = this.#preserveRemoteWaits
+        ? (
+            await client.query<{ instance_id: string; task_id: string }>(`
+        WITH RECURSIVE durable(instance_id,task_id) AS (
+          SELECT instance.instance_id,snapshot.agent_task_id
+          FROM workflow_continuation_snapshot snapshot
+          JOIN workflow_instance instance ON instance.instance_id=snapshot.workflow_instance_id
+            AND instance.plan_id=snapshot.workflow_plan_id
+          JOIN workflow_continuation_wait_binding wait ON wait.snapshot_id=snapshot.snapshot_id
+          JOIN remote_task_binding binding ON binding.binding_id=wait.binding_id
+            AND binding.workflow_instance_id=instance.instance_id
+            AND binding.agent_task_id=snapshot.agent_task_id
+          WHERE snapshot.lifecycle='active' AND binding.invalidated_at IS NULL
+            AND (instance.status='waiting_external' OR (instance.status='paused'
+              AND instance.pending_confirmation_json->>'kind'='task_pause'))
+            AND binding.local_state IN ('polling','cancel_observing','awaiting_input',
+              'terminal_event_pending','terminal_event_claimed')
+          UNION
+          SELECT parent.instance_id,snapshot.agent_task_id
+          FROM durable child
+          JOIN workflow_child_call call ON call.child_instance_id=child.instance_id
+          JOIN workflow_instance child_instance ON child_instance.instance_id=child.instance_id
+            AND child_instance.plan_id=call.child_plan_id
+          JOIN workflow_instance parent ON parent.instance_id=call.parent_instance_id
+          JOIN workflow_continuation_snapshot snapshot ON snapshot.workflow_instance_id=parent.instance_id
+            AND snapshot.workflow_plan_id=parent.plan_id AND snapshot.lifecycle='active'
+          JOIN agent_task owner ON owner.task_id=snapshot.agent_task_id AND owner.plan_id=parent.plan_id
+          WHERE (parent.status='waiting_external' OR (parent.status='paused'
+              AND parent.pending_confirmation_json->>'kind'='task_pause'))
+            AND EXISTS (SELECT 1 FROM jsonb_array_elements(snapshot.state_json->'waitingNodeRuns') wait
+              WHERE wait->>'kind'='child_workflow' AND wait->>'sourceId'=child.instance_id
+                AND wait->>'nodeId'=call.parent_node_id AND wait->>'nodeRunId'=call.parent_node_run_id)
+        ) SELECT instance_id,task_id FROM durable
+      `)
+          ).rows
+        : [];
+      const durableTasks = durable.map((row) => row.task_id);
+      const durableInstances = durable.map((row) => row.instance_id);
       const tasks = await client.query<TaskRow>(
         `UPDATE agent_task task
          SET phase='failed', phase_message='Process stopped during execution; V1 does not recover or retry.',
@@ -1391,6 +1458,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
          WHERE active_command_token IS NULL
            AND phase IN ('executing','paused','evaluating')
            AND ${taskScope.predicate}
+           AND NOT (task.task_id=ANY($${String(taskScope.values.length + 2)}::text[]))
          ${
            this.#preserveRemoteWaits
              ? `AND NOT EXISTS (
@@ -1420,7 +1488,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
              : ''
          }
          RETURNING *`,
-        [timestamp, ...taskScope.values],
+        [timestamp, ...taskScope.values, durableTasks],
       );
       const instances = await client.query(
         `UPDATE workflow_instance instance
@@ -1430,6 +1498,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
              pending_confirmation_json=NULL, completed_at=$1
          WHERE status IN ('running','paused')
            AND ${instanceScope}
+           AND NOT (instance.instance_id=ANY($${String(planScope.values.length + 2)}::text[]))
            AND NOT EXISTS (
              SELECT 1
              FROM workflow_plan plan
@@ -1447,13 +1516,14 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
          )`
              : ''
          }`,
-        [timestamp, ...planScope.values],
+        [timestamp, ...planScope.values, durableInstances],
       );
       const attempts = await client.query(
         `UPDATE task_execution_attempt
          SET status='failed', completed_at=$1, error_code='PROCESS_EXECUTION_LOST'
          WHERE status='running'
            AND ${attemptScope}
+           AND NOT (task_id=ANY($${String(taskScope.values.length + 2)}::text[]))
            AND NOT EXISTS (
              SELECT 1 FROM agent_task task
              WHERE task.task_id=task_execution_attempt.task_id
@@ -1489,7 +1559,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
          )`
              : ''
          }`,
-        [timestamp, ...taskScope.values],
+        [timestamp, ...taskScope.values, durableTasks],
       );
       await client.query('COMMIT');
       for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
@@ -2839,8 +2909,10 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           kind === 'canceled' ? (input as RuntimeCanceledOutcomeInput).retainedReport : undefined;
         if (
           retainedReport !== undefined &&
-          (task.selected_skill_id !== 'embodied.area_patrol' ||
-            (task.selected_skill_version ?? 0) < 2 ||
+          (!isGovernedPatrol(
+            task.selected_skill_id ?? undefined,
+            task.selected_skill_version ?? undefined,
+          ) ||
             retainedReport['status'] !== 'cancelled')
         )
           throw new Error('RUNTIME_CANCELED_REPORT_AUTHORITY_INVALID');
@@ -6654,7 +6726,7 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
                    AND ct.request_metadata->'io.sdar/governedChildTask'->>'parentPlanId'=workflow_plan.plan_id
                    AND ct.device_id IS NOT DISTINCT FROM pt.device_id
                    AND ct.sdar_service_key IS NOT DISTINCT FROM pt.sdar_service_key
-                   AND pb.requested_capability_id='embodied.area_patrol'
+                   AND pb.requested_capability_id IN ('embodied.area_patrol','vehicle.ugv.zmq.area_patrol')
                    AND EXISTS(SELECT 1 FROM jsonb_array_elements(pb.constraint_snapshot) c,
                      jsonb_array_elements(CASE WHEN c->>'type'='composition_authority_policy' THEN c->'children' ELSE '[]'::jsonb END) s
                      WHERE s->>'capabilityId'=cb.requested_capability_id

@@ -754,8 +754,28 @@ export class WorkflowExecutionService {
     }
   }
 
-  async pauseForPlan(planId: string): Promise<WorkflowInstance> {
+  async pauseForPlan(planId: string, allowExternalWait = false): Promise<WorkflowInstance> {
     const instance = await this.#instances.findActiveByPlanId(planId);
+    if (allowExternalWait && instance?.status === 'waiting_external') {
+      const snapshot = await this.#continuations.findCurrent(instance.instanceId);
+      if (snapshot?.lifecycle !== 'active' || snapshot.waitingNodeRuns.length === 0)
+        throw new WorkflowExecutionError(
+          'WORKFLOW_CONTINUATION_NOT_FOUND',
+          'External pause requires the exact active durable wait.',
+        );
+      const paused: WorkflowInstance = {
+        ...instance,
+        status: 'paused',
+        pendingConfirmation: {
+          kind: 'task_pause',
+          nodeId: snapshot.waitingNodeRuns[0]?.nodeId ?? '',
+          pausedAt: this.#clock.now(),
+          prompt: 'Task paused; the existing remote Task remains authoritative.',
+        },
+      };
+      await this.#instances.saveInstance(paused);
+      return paused;
+    }
     if (instance?.status !== 'running')
       throw new WorkflowExecutionError(
         'WORKFLOW_INSTANCE_NOT_RUNNING',
@@ -879,6 +899,7 @@ export class WorkflowExecutionService {
       contextId: string;
       workflowControlId: string;
     }>,
+    allowExternalWait = false,
   ): Promise<Readonly<{ disposition: 'resumed' | 'replan_required'; instance: WorkflowInstance }>> {
     const instance = await this.#instances.findActiveByPlanId(planId);
     if (
@@ -890,6 +911,26 @@ export class WorkflowExecutionService {
         'WORKFLOW_INSTANCE_NOT_PAUSED',
         'No Task-pause checkpoint exists for this plan.',
       );
+    if (allowExternalWait) {
+      const snapshot = await this.#continuations.findCurrent(instance.instanceId);
+      if (snapshot?.lifecycle === 'active' && snapshot.waitingNodeRuns.length > 0) {
+        if (
+          snapshot.agentTaskId !== continuationAuthority?.agentTaskId ||
+          snapshot.contextId !== continuationAuthority.contextId ||
+          snapshot.workflowControlId !== continuationAuthority.workflowControlId
+        )
+          throw new WorkflowExecutionError(
+            'WORKFLOW_CONTINUATION_AUTHORITY_STALE',
+            'External resume requires the original Task, Context and controller.',
+          );
+        const resumed: WorkflowInstance = {
+          ...withoutPendingConfirmation(instance),
+          status: 'waiting_external',
+        };
+        await this.#instances.saveInstance(resumed);
+        return { disposition: 'resumed', instance: resumed };
+      }
+    }
     const policies = await Promise.all(
       instance.skillVersions.map(({ skillId, version }) =>
         this.#skills.findVersion(skillId, version),

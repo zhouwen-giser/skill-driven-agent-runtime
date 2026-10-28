@@ -434,6 +434,9 @@ function isForbiddenEvidenceField(key: string, value: unknown): boolean {
 function isSha256HashSchema(value: unknown): boolean {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const descriptor = value as Readonly<Record<string, unknown>>;
+  // Native site-control v2 declares this opaque hash as a plain string schema.
+  // This exact metadata object cannot carry a hash value, example or default.
+  if (Object.keys(descriptor).length === 1 && descriptor['type'] === 'string') return true;
   return (
     Object.keys(descriptor).sort().join(',') === 'pattern,type' &&
     descriptor['type'] === 'string' &&

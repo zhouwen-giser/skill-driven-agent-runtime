@@ -1,3 +1,4 @@
+import type { ZmqSiteStaticAuthority } from './zmq-site-profile.js';
 import {
   createSkillVersion,
   createSkillUsageSpecification,
@@ -18,7 +19,7 @@ const record = (v: unknown): v is Record<string, unknown> =>
 
 /** Called only after the entire persisted native catalog and current Binding are verified. */
 export function buildNativeZmqSkill(
-  authority: ZmqConsumerAuthority,
+  authority: ZmqConsumerAuthority | (ZmqSiteStaticAuthority & Readonly<{ validUntil?: string }>),
   name: ZmqNativeTool,
   tool: McpTool,
   version: number,
@@ -31,6 +32,9 @@ export function buildNativeZmqSkill(
     !tool.taskExecutionProfile
   )
     throw Error('ZMQ_SKILL_TOOL_AUTHORITY_INVALID');
+  const profile = 'catalogProfile' in authority ? authority.catalogProfile : undefined;
+  if (profile === 'zmq_v1_1_0_readonly_13' && ZMQ_NATIVE_CONTROLS.has(name))
+    throw Error('ZMQ_SITE_READONLY_CONTROL_FORBIDDEN');
   const control = ZMQ_NATIVE_CONTROLS.has(name),
     skillId = zmqSkillId(name),
     capabilityId = zmqCapabilityId(name);
@@ -67,13 +71,26 @@ export function buildNativeZmqSkill(
       'status',
       'providerResult',
       'missingEvidence',
+      ...(profile ? ['catalogProfile'] : []),
     ],
     properties: {
-      schemaVersion: { const: 'sdar.zmq-skill-report/1' },
-      qualification: { const: 'isolated_simulator_only' },
+      schemaVersion: { const: profile ? 'sdar.zmq-skill-report/2' : 'sdar.zmq-skill-report/1' },
+      qualification: {
+        const:
+          profile === 'zmq_v1_1_0_readonly_13'
+            ? 'site_readonly'
+            : profile
+              ? 'site_control'
+              : 'isolated_simulator_only',
+      },
+      ...(profile ? { catalogProfile: { const: profile } } : {}),
       resourceId: { type: 'string', const: authority.resourceId },
       toolName: { type: 'string', const: name },
-      status: { enum: ['completed', 'degraded', 'failed'] },
+      status: {
+        enum: profile
+          ? ['completed', 'degraded', 'failed', 'cancelled']
+          : ['completed', 'degraded', 'failed'],
+      },
       providerResult: structuredClone(tool.outputSchema),
       missingEvidence: { type: 'array', items: { type: 'string' }, uniqueItems: true },
     },
@@ -132,7 +149,9 @@ export function buildNativeZmqSkill(
       forbiddenActions: [
         'Fallback to legacy tools or another Provider.',
         'Replay an uncertain side effect.',
-        'Execute outside the isolated simulation domain.',
+        profile
+          ? 'Execute outside the exact site live domain.'
+          : 'Execute outside the isolated simulation domain.',
         'Claim complete patrol coverage from a received frame.',
       ],
       requiredConfirmations: control
@@ -202,9 +221,10 @@ export function buildNativeZmqSkill(
     version,
     ...(version === 1 ? {} : { previousVersion: version - 1 }),
     name: `ZMQ ${name}`,
-    summary: `Source-qualified isolated ${name} report.`,
-    description:
-      'Native ZMQ contract; isolated simulation only; retained evidence and incomplete outcomes remain explicit.',
+    summary: `Source-qualified ${profile ? 'site' : 'isolated'} ${name} report.`,
+    description: profile
+      ? 'Native site ZMQ contract; explicit confirmation and retained source-qualified results.'
+      : 'Native ZMQ contract; isolated simulation only; retained evidence and incomplete outcomes remain explicit.',
     capabilities: [capabilityId],
     workflowGuidance: 'Compile the deterministic procedure; require exact authority and evidence.',
     outputInstruction: 'Return the immutable Provider result in the native reporting wrapper.',

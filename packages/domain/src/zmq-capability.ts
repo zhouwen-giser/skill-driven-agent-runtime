@@ -1,3 +1,8 @@
+import {
+  nativeZmqCatalogProfile,
+  projectSiteZmqResult,
+  type ZmqSiteProfile,
+} from './zmq-site-capability.js';
 import { normalizeTaskTimestamp, type ResolvedMcpTaskExecution } from './mcp-task-availability.js';
 
 export const ZMQ_NATIVE_TOOLS = Object.freeze([
@@ -14,7 +19,11 @@ export const ZMQ_NATIVE_TOOLS = Object.freeze([
   'vehicle_get_inspection_result',
   'simulation_get_effect_result',
 ] as const);
-export type ZmqNativeTool = (typeof ZMQ_NATIVE_TOOLS)[number];
+export const ZMQ_SITE_TOOLS = Object.freeze([
+  ...ZMQ_NATIVE_TOOLS,
+  'vehicle_zmq_plan_route',
+] as const);
+export type ZmqNativeTool = (typeof ZMQ_SITE_TOOLS)[number];
 export const ZMQ_NATIVE_CONTROLS: ReadonlySet<string> = new Set([
   'vehicle_zmq_navigate',
   'vehicle_zmq_area_recon',
@@ -26,10 +35,10 @@ export const ZMQ_NATIVE_CONTROLS: ReadonlySet<string> = new Set([
 export const zmqSkillId = (name: ZmqNativeTool) => `ugv.zmq.${name}`;
 export const zmqCapabilityId = (name: ZmqNativeTool) => `vehicle.ugv.zmq.${name}`;
 export function zmqToolForSkill(skillId: string): ZmqNativeTool | undefined {
-  return ZMQ_NATIVE_TOOLS.find((name) => zmqSkillId(name) === skillId);
+  return ZMQ_SITE_TOOLS.find((name) => zmqSkillId(name) === skillId);
 }
 export function zmqToolForCapability(capabilityId: string): ZmqNativeTool | undefined {
-  return ZMQ_NATIVE_TOOLS.find((name) => zmqCapabilityId(name) === capabilityId);
+  return ZMQ_SITE_TOOLS.find((name) => zmqCapabilityId(name) === capabilityId);
 }
 const record = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -38,7 +47,7 @@ function fail(code: string): never {
 }
 
 /** Parent deadlines are immutable; preparation and human confirmation consume the same budget. */
-export function nativeZmqTaskExecution(timeWindow: unknown, now: string) {
+export function nativeZmqTaskExecution(timeWindow: unknown, now: string, startToleranceMs = 30000) {
   if (
     !record(timeWindow) ||
     Object.keys(timeWindow).sort().join(',') !== 'deadline,earliestStart' ||
@@ -59,7 +68,7 @@ export function nativeZmqTaskExecution(timeWindow: unknown, now: string) {
       start: {
         mode: 'scheduled',
         scheduledAt: new Date(start).toISOString(),
-        startToleranceMs: Math.min(30000, remaining - 1),
+        startToleranceMs: Math.min(startToleranceMs, 60000, remaining - 1),
       },
       maxElapsedMs: Math.min(300000, remaining),
     },
@@ -82,7 +91,8 @@ export function nativeZmqDispatchInput(
   if (
     !name ||
     adapters.length !== 1 ||
-    adapter?.['version'] !== 1 ||
+    !adapter ||
+    ![1, 2].includes(Number(adapter['version'])) ||
     adapter['toolName'] !== name ||
     adapter['maxElapsedMs'] !== 300000 ||
     !record(input) ||
@@ -90,6 +100,11 @@ export function nativeZmqDispatchInput(
     !input['resourceId'].trim()
   )
     fail('ZMQ_INPUT_ADAPTER_AUTHORITY_INVALID');
+  const profile = nativeZmqCatalogProfile(binding.constraintSnapshot);
+  if (profile === 'zmq_v1_0_1_12' && name === 'vehicle_zmq_plan_route')
+    fail('ZMQ_TOOL_INPUT_INVALID');
+  if (profile === 'zmq_v1_1_0_readonly_13' && ZMQ_NATIVE_CONTROLS.has(name))
+    fail('ZMQ_SITE_READONLY_CONTROL_FORBIDDEN');
   if (!ZMQ_NATIVE_CONTROLS.has(name)) {
     if (Object.hasOwn(input, 'timeWindow')) fail('ZMQ_TOOL_INPUT_INVALID');
     return structuredClone(input);
@@ -103,7 +118,13 @@ export function nativeZmqDispatchInput(
 }
 
 /** Public reporting wrapper: preserve the original Provider result and never infer spatial completeness. */
-export function projectNativeZmqResult(name: ZmqNativeTool, value: unknown, resourceId: string) {
+export function projectNativeZmqResult(
+  name: ZmqNativeTool,
+  value: unknown,
+  resourceId: string,
+  profile: 'zmq_v1_0_1_12' | ZmqSiteProfile = 'zmq_v1_0_1_12',
+) {
+  if (profile !== 'zmq_v1_0_1_12') return projectSiteZmqResult(name, value, resourceId, profile);
   if (!record(value) || !resourceId.trim()) fail('ZMQ_PROVIDER_RESULT_INVALID');
   const missing = new Set<string>();
   if (value['missingEvidence'] !== undefined) {

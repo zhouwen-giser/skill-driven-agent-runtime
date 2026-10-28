@@ -57,6 +57,7 @@ export const defaults = Object.freeze({
   SDAR_UGV_EXECUTION_MODE: 'live',
   SDAR_UGV_BOOTSTRAP_ENABLED: 'YES',
   SDAR_UGV_CATALOG_PROFILE: 'ugv-v1-11',
+  SDAR_UGV_SITE_ENDPOINT_ALLOWLIST: '[]',
   SDAR_UGV_BINDING_ID: 'development-ugv-binding',
   SDAR_UGV_SERVER_ID: 'development-ugv',
   SDAR_UGV_RESOURCE_ID: 'vehicle:ugv1',
@@ -182,6 +183,8 @@ export function validateConfiguration(c) {
       'ugv-v1-13',
       'ugv-inspect-v1-13',
       'ugv-inspect-v1-14',
+      'zmq_v1_1_0_readonly_13',
+      'zmq_v1_2_0_site_control_13',
     ],
     SDAR_UGV_EXECUTION_MODE: ['live', 'simulation'],
     SDAR_DEVELOPMENT_CONFIRMATION_POLICY: ['manual', 'auto_non_weapon'],
@@ -197,6 +200,16 @@ export function validateConfiguration(c) {
     !c.UGV_SIMULATION_RUN_ID
   )
     throw new Error('DEVELOPMENT_SIMULATION_ID_REQUIRED');
+  if (c.SDAR_UGV_CATALOG_PROFILE.startsWith('zmq_')) {
+    const origins = JSON.parse(c.SDAR_UGV_SITE_ENDPOINT_ALLOWLIST ?? '[]');
+    if (
+      c.SDAR_UGV_EXECUTION_MODE !== 'live' ||
+      !Array.isArray(origins) ||
+      !origins.length ||
+      origins.some((origin) => typeof origin !== 'string' || new URL(origin).origin !== origin)
+    )
+      throw new Error('DEVELOPMENT_ZMQ_SITE_CONFIGURATION_REQUIRED');
+  }
 }
 
 export function redactedConfiguration(c) {

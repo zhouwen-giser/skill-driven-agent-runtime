@@ -1,4 +1,14 @@
+import {
+  isGovernedPatrol,
+  isPatrolCapability,
+  ZMQ_PATROL_SKILL,
+  ZMQ_PATROL_CAPABILITY,
+  ZMQ_PATROL_CHILDREN,
+  zmqPatrolChildInput,
+  aggregateZmqPatrol,
+} from '../../../packages/domain/src/zmq-area-patrol.js';
 import { createHash } from 'node:crypto';
+import { projectSiteZmqResult } from '../../../packages/domain/src/zmq-site-capability.js';
 import {
   aggregateAreaPatrol,
   type PatrolChildEvidence,
@@ -37,12 +47,14 @@ export class PatrolEvidenceReader {
       parent?.planId !== planId ||
       parent.goalId !== plan?.goalId ||
       parent.goalVersion !== plan?.goalVersion ||
-      parent.selectedSkillId !== 'embodied.area_patrol' ||
+      parent.selectedSkillId !== policy?.skill.skillId ||
       parent.selectedSkillVersion !== policy?.skill.skillVersion ||
       plan?.confirmationStatus !== 'confirmed' ||
-      policy?.skill.skillId !== 'embodied.area_patrol' ||
-      policy.skill.skillVersion < 2 ||
-      binding.requestedCapabilityId !== 'embodied.area_patrol'
+      !policy ||
+      !isGovernedPatrol(policy.skill.skillId, policy.skill.skillVersion) ||
+      !isPatrolCapability(binding.requestedCapabilityId) ||
+      (policy.skill.skillId === ZMQ_PATROL_SKILL) !==
+        (binding.requestedCapabilityId === ZMQ_PATROL_CAPABILITY)
     )
       throw Error('PATROL_PARENT_AUTHORITY_INVALID');
     const authority = binding.constraintSnapshot.filter(
@@ -54,8 +66,18 @@ export class PatrolEvidenceReader {
     if (
       expected.length !== 2 ||
       new Set(expected.map((spec) => spec?.['skillId'])).size !== 2 ||
-      !expected.some((spec) => spec?.['skillId'] === 'embodied.move_to') ||
-      !expected.some((spec) => spec?.['skillId'] === 'embodied.inspect_area')
+      !expected.some(
+        (spec) =>
+          spec?.['skillId'] ===
+          (policy.skill.skillId === ZMQ_PATROL_SKILL ? ZMQ_PATROL_CHILDREN[0] : 'embodied.move_to'),
+      ) ||
+      !expected.some(
+        (spec) =>
+          spec?.['skillId'] ===
+          (policy.skill.skillId === ZMQ_PATROL_SKILL
+            ? ZMQ_PATROL_CHILDREN[1]
+            : 'embodied.inspect_area'),
+      )
     )
       throw Error('PATROL_CHILD_SET_INVALID');
     const reports: PatrolChildEvidence[] = [];
@@ -100,7 +122,7 @@ export class PatrolEvidenceReader {
       )
         throw Error('PATROL_CHILD_NATIVE_LINK_MISSING');
       const childPlan = await plans.findPlan(child.planId);
-      const declaredNode = plan.definition?.nodes.find(
+      const declaredNode = plan.definition.nodes.find(
         (node) => node.nodeId === link['parentNodeId'],
       );
       if (
@@ -121,8 +143,11 @@ export class PatrolEvidenceReader {
       )?.inputMappings;
       if (!original || mappings === undefined)
         throw Error('PATROL_CHILD_MAPPING_AUTHORITY_INVALID');
-      const mapped: Record<string, unknown> = {};
-      for (const mapping of mappings) {
+      const nativePatrol = policy.skill.skillId === ZMQ_PATROL_SKILL;
+      const mapped: Record<string, unknown> = nativePatrol
+        ? zmqPatrolChildInput(original, child.selectedSkillId ?? '')
+        : {};
+      for (const mapping of nativePatrol ? [] : mappings) {
         let value: unknown = original;
         for (const field of mapping.sourcePath.split('.')) value = record(value)?.[field];
         mapped[mapping.targetPath] = value;
@@ -130,6 +155,22 @@ export class PatrolEvidenceReader {
       if (canonicalHash(mapped) !== canonicalHash(childBinding.inputSnapshot))
         throw Error('PATROL_CHILD_INPUT_CONFLICT');
       const missingEvidence: string[] = [];
+      const projections = await business.listByTask(child.taskId);
+      const remoteTasks = projections
+        .filter(
+          (p) =>
+            p.taskId === child.taskId &&
+            p.status === 'current' &&
+            p.identity.resourceId === original['resourceId'] &&
+            p.identity.operationName === child.selectedSkillId?.slice('ugv.zmq.'.length),
+        )
+        .map((p) => ({
+          taskId: p.identity.taskId,
+          executionId: p.identity.executionId,
+          providerId: p.identity.providerId,
+          operationName: p.identity.operationName,
+        }));
+      if (remoteTasks.length > 8) throw Error('PATROL_CHILD_REMOTE_TASK_IDENTITY_CONFLICT');
       const phase =
         child.phase === 'completed'
           ? 'completed'
@@ -142,8 +183,22 @@ export class PatrolEvidenceReader {
       if (phase === 'completed' && attempts.at(-1)?.status !== 'succeeded')
         throw Error('PATROL_CHILD_TERMINAL_PROOF_MISSING');
       let result = record(child.output?.structured);
+      if (!result && nativePatrol) {
+        const name =
+          child.selectedSkillId === ZMQ_PATROL_CHILDREN[0]
+            ? 'vehicle_zmq_navigate'
+            : 'vehicle_zmq_inspect_area';
+        for (const projection of projections)
+          result =
+            readRetainedZmqPatrolChildResult(
+              projection,
+              child.taskId,
+              original['resourceId'],
+              name,
+            ) ?? result;
+      }
       if (!result && child.selectedSkillId === 'embodied.inspect_area') {
-        for (const projection of await business.listByTask(child.taskId)) {
+        for (const projection of projections) {
           result =
             readRetainedInspectionResult(projection, child.taskId, original['resourceId']) ??
             result;
@@ -152,10 +207,14 @@ export class PatrolEvidenceReader {
       }
       const trajectory: NonNullable<PatrolChildEvidence['trajectory']>[number][] = [];
       const trajectorySourceRefs: string[] = [];
-      if (child.selectedSkillId === 'embodied.move_to' && phase === 'completed') {
-        for (const projection of await business.listByTask(child.taskId)) {
+      if (
+        ['embodied.move_to', ZMQ_PATROL_CHILDREN[0]].includes(child.selectedSkillId ?? '') &&
+        phase === 'completed'
+      ) {
+        for (const projection of projections) {
           if (
-            projection.identity.operationName !== 'vehicle_navigate' ||
+            projection.identity.operationName !==
+              (nativePatrol ? 'vehicle_zmq_navigate' : 'vehicle_navigate') ||
             projection.identity.resourceId !== original['resourceId'] ||
             projection.taskId !== child.taskId ||
             projection.status !== 'current'
@@ -228,10 +287,39 @@ export class PatrolEvidenceReader {
         trajectory,
         trajectorySourceRefs,
         missingEvidence,
+        remoteTasks,
       });
     }
-    return aggregateAreaPatrol(binding.inputSnapshot, reports);
+    return policy.skill.skillId === ZMQ_PATROL_SKILL
+      ? aggregateZmqPatrol(binding.inputSnapshot, reports)
+      : aggregateAreaPatrol(binding.inputSnapshot, reports);
   }
+}
+export function readRetainedZmqPatrolChildResult(
+  projection: TaskBusinessProjection,
+  taskId: string,
+  resourceId: unknown,
+  toolName: 'vehicle_zmq_navigate' | 'vehicle_zmq_inspect_area',
+) {
+  if (
+    typeof resourceId !== 'string' ||
+    projection.taskId !== taskId ||
+    projection.status !== 'current' ||
+    projection.identity.resourceId !== resourceId ||
+    projection.identity.operationName !== toolName
+  )
+    return undefined;
+  const raw = record(record(projection.executionSummary['properties'])?.['executionResult']);
+  if (!raw) return undefined;
+  if (
+    (raw['resourceId'] !== undefined && raw['resourceId'] !== resourceId) ||
+    raw['schemaVersion'] !==
+      (toolName === 'vehicle_zmq_navigate'
+        ? 'ugv.zmq-control-result/2'
+        : 'ugv.zmq-inspection-result/2')
+  )
+    throw Error('ZMQ_PATROL_RETAINED_REPORT_IDENTITY_INVALID');
+  return projectSiteZmqResult(toolName, raw, resourceId, 'zmq_v1_2_0_site_control_13');
 }
 export function readRetainedInspectionResult(
   projection: TaskBusinessProjection,

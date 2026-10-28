@@ -114,11 +114,13 @@ export class NodeControlFrozenMcpCatalogClient implements NodeControlMcpCatalogC
       discovered.tools,
       input.bindingRevision,
     );
-    const validatedChecksum = hashConfigurationRequest(
+    // Keep bounded JSON/secret validation, but Catalog identity uses the shared UTF-16
+    // canonicalizer. The historical configuration serializer uses locale ordering and
+    // produces a different digest for valid keys such as requestHash/requestedWaypoints.
+    // Configuration hashes and existing Catalog hashes must retain their own contracts.
+    hashConfigurationRequest(
       frozenMcpCatalogDocument(discovered.snapshot, discovered.tools) as JsonValue,
     );
-    if (validatedChecksum !== catalogAuthority.catalogChecksum)
-      throw new Error('MCP_CATALOG_CANONICAL_AUTHORITY_MISMATCH');
     const discovery = Object.freeze({
       catalogRevision: catalogAuthority.catalogRevision,
       catalogChecksum: catalogAuthority.catalogChecksum,

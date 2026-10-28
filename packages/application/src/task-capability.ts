@@ -1,3 +1,9 @@
+import {
+  isPatrolCapability,
+  ZMQ_PATROL_CAPABILITY,
+  parseZmqPatrolInput,
+} from '../../domain/src/zmq-area-patrol.js';
+import { nativeZmqCatalogProfile } from '../../domain/src/zmq-site-capability.js';
 import { parseAreaPatrolInput } from '../../domain/src/area-patrol.js';
 import {
   nativeZmqDispatchInput,
@@ -458,11 +464,7 @@ export class RuntimeTaskCapabilityService {
     planId: string,
   ): Promise<Readonly<Record<string, unknown>>> {
     const binding = await this.#store.findBinding(taskId);
-    if (
-      !binding ||
-      !this.#patrolEvidence ||
-      binding.requestedCapabilityId !== 'embodied.area_patrol'
-    )
+    if (!binding || !this.#patrolEvidence || !isPatrolCapability(binding.requestedCapabilityId))
       throw Error('PATROL_EVIDENCE_NOT_BOUND');
     await this.resolveSkillUsageAuthority(taskId);
     return this.#patrolEvidence.read(taskId, binding, planId);
@@ -566,7 +568,7 @@ export class RuntimeTaskCapabilityService {
               status: 'available' as const,
               evidenceRef: `node-control-provider-binding:${providerBindingId}:revision:${String(authority.binding.revision)}:observed-at:${authority.observedAt}`,
             }),
-            ...(binding.requestedCapabilityId === 'embodied.area_patrol'
+            ...(isPatrolCapability(binding.requestedCapabilityId)
               ? patrolContextObservations(binding)
               : []),
           ]),
@@ -695,7 +697,7 @@ export class RuntimeTaskCapabilityService {
       !['prepared', 'running', 'waiting'].includes(latestAttempt.status)
     )
       terminal('Capability completion requires the latest active execution attempt.');
-    if (binding.requestedCapabilityId === 'embodied.area_patrol') {
+    if (isPatrolCapability(binding.requestedCapabilityId)) {
       const criteria = binding.successCriteriaSnapshot;
       const composition = binding.constraintSnapshot.filter(
         (item) => item['type'] === 'composition_authority_policy',
@@ -1261,9 +1263,14 @@ function criterionSatisfied(
           : undefined;
     if (!name || typeof input?.['resourceId'] !== 'string' || !isRecord(raw)) return false;
     try {
-      const expected = projectNativeZmqResult(name, raw, input['resourceId']);
+      const expected = projectNativeZmqResult(
+        name,
+        raw,
+        input['resourceId'],
+        nativeZmqCatalogProfile(binding.constraintSnapshot),
+      );
       return (
-        expected.status !== 'failed' &&
+        !['failed', 'cancelled'].includes(expected.status) &&
         canonical(expected) === canonical(result) &&
         (expected.status === 'completed' || criterion['incompleteOutcome'] === 'degraded')
       );
@@ -1930,7 +1937,9 @@ export interface PatrolCapabilityEvidenceSource {
 }
 
 function patrolContextObservations(binding: TaskCapabilityBinding) {
-  parseAreaPatrolInput(binding.inputSnapshot);
+  if (binding.requestedCapabilityId === ZMQ_PATROL_CAPABILITY)
+    parseZmqPatrolInput(binding.inputSnapshot);
+  else parseAreaPatrolInput(binding.inputSnapshot);
   return ['area-boundary', 'time-window', 'area-partition'].map((requirementId) =>
     Object.freeze({
       requirementId,

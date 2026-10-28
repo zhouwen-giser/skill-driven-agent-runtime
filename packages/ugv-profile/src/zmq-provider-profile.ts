@@ -1,3 +1,4 @@
+import { reviewedZmqCatalog, type ZmqCatalogProfile } from './zmq-catalogs.js';
 import { createHash } from 'node:crypto';
 import type { JsonSchemaValidator } from '../../application/src/ports.js';
 import catalog from './zmq-catalog-contract.json' with { type: 'json' };
@@ -30,6 +31,7 @@ function fail(code: string): never {
   throw new Error(code);
 }
 export const ZMQ_CONTRACT_SHA256 = hash(catalog);
+export const zmqContractChecksum = hash;
 export interface ZmqConsumerAuthority {
   readonly bindingId: string;
   readonly providerId: string;
@@ -80,11 +82,19 @@ function requireAuthority(a: ZmqConsumerAuthority, now: string) {
   if (Date.parse(normalizeTaskTimestamp(a.validUntil)) <= Date.parse(normalizeTaskTimestamp(now)))
     fail('ZMQ_AUTHORITY_EXPIRED');
 }
-export function assertZmqCatalogContract(tools: readonly McpTool[], resourceId: string) {
-  if (canonical(tools.map((t) => t.toolName).sort()) !== canonical(ZMQ_REVIEWED_TOOL_NAMES))
+export function assertZmqCatalogContract(
+  tools: readonly McpTool[],
+  resourceId: string,
+  profile: ZmqCatalogProfile = 'zmq_v1_0_1_12',
+) {
+  const reviewed = reviewedZmqCatalog(profile);
+  if (
+    canonical(tools.map((t) => t.toolName).sort()) !==
+    canonical(reviewed.tools.map((t) => t.name).sort())
+  )
     fail('ZMQ_CATALOG_TOOL_SET_MISMATCH');
   for (const tool of tools) {
-    const expected = catalog.tools.find((t) => t.name === tool.toolName);
+    const expected = reviewed.tools.find((t) => t.name === tool.toolName);
     if (!expected) fail('ZMQ_TOOL_UNREVIEWED');
     const { source, ...semantics } = tool.executionSemantics;
     if (
@@ -190,12 +200,13 @@ export function zmqToolArguments(
   input: unknown,
   resourceId: string,
   schemas: Pick<JsonSchemaValidator, 'validate'>,
+  profile: ZmqCatalogProfile = 'zmq_v1_0_1_12',
 ) {
-  const expected = catalog.tools.find((t) => t.name === toolName);
+  const expected = reviewedZmqCatalog(profile).tools.find((t) => t.name === toolName);
   if (!expected || !record(input)) fail('ZMQ_TOOL_INPUT_INVALID');
   const { timeWindow, ...args } = input;
   void timeWindow;
-  const schema = structuredClone(expected.inputSchema) as Record<string, unknown>;
+  const schema = structuredClone(expected.inputSchema);
   const properties = schema['properties'];
   if (!record(properties) || !record(properties['resourceId'])) fail('ZMQ_TOOL_INPUT_INVALID');
   properties['resourceId']['const'] = resourceId;

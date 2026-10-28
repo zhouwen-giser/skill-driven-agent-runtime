@@ -1,6 +1,6 @@
-import { hashCanonicalEvidenceJson } from '../../domain/src/evidence/canonical-evidence.js';
 import {
   assertTaskBusinessIdentity,
+  taskBusinessContextDigest,
   normalizeTaskBusinessView,
   projectTaskBusiness,
   taskBusinessContentDigest,
@@ -238,7 +238,7 @@ export class TaskBusinessSyncService {
         throw new TaskBusinessError('TASK_BUSINESS_CONTEXT_REGRESSED');
       if (
         view.context.contextRevision === previous.contextRevision &&
-        hashCanonicalEvidenceJson(view.context) !== previous.contextDigest
+        taskBusinessContextDigest(view.context) !== previous.contextDigest
       )
         throw new TaskBusinessError('TASK_BUSINESS_CONTEXT_CONFLICT');
     }

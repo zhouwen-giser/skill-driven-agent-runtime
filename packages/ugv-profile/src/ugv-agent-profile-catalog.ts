@@ -1,10 +1,11 @@
 import {
-  ZMQ_NATIVE_TOOLS,
+  ZMQ_SITE_TOOLS,
   ZMQ_NATIVE_CONTROLS,
   zmqSkillId,
   zmqCapabilityId,
   type ZmqNativeTool,
 } from '../../domain/src/zmq-capability.js';
+import { ZMQ_PATROL_SKILL, ZMQ_PATROL_CAPABILITY } from '../../domain/src/zmq-area-patrol.js';
 export type UgvReviewedToolName =
   | ZmqNativeTool
   | 'vehicle_get_state'
@@ -197,21 +198,34 @@ export const UGV_PUBLIC_SKILL_IDS = Object.freeze(
   [
     ...new Set([
       ...UGV_AGENT_CAPABILITY_CATALOG.map(({ skillId }) => skillId),
-      ...ZMQ_NATIVE_TOOLS.map(zmqSkillId),
+      ...ZMQ_SITE_TOOLS.map(zmqSkillId),
+      ZMQ_PATROL_SKILL,
     ]),
   ].sort(),
 );
 
 export function ugvCapabilityForSkill(skillId: string): UgvAgentCapabilityDeclaration | undefined {
+  if (skillId === ZMQ_PATROL_SKILL)
+    return {
+      toolName: 'vehicle_zmq_navigate',
+      skillId,
+      capabilityId: ZMQ_PATROL_CAPABILITY,
+      exposureId: `a2a.${ZMQ_PATROL_CAPABILITY}`,
+      taskTypeId: ZMQ_PATROL_SKILL,
+      title: '无人车单区域巡逻',
+      recognitionHints: ['无人车区域巡逻', 'ZMQ 单区域巡逻'],
+      kind: 'physical_control',
+      confirmation: 'physical',
+    };
   return (
     UGV_AGENT_CAPABILITY_CATALOG.find((item) => item.skillId === skillId) ??
-    ZMQ_NATIVE_TOOLS.map((name) =>
+    ZMQ_SITE_TOOLS.map((name) =>
       declaration(
         name,
         zmqSkillId(name),
         zmqCapabilityId(name),
         `zmq.${name}`,
-        `Isolated ZMQ ${name}`,
+        `Native ZMQ ${name}`,
         [],
         ZMQ_NATIVE_CONTROLS.has(name) ? 'physical_control' : 'read_only',
         ZMQ_NATIVE_CONTROLS.has(name) ? 'physical' : 'none',

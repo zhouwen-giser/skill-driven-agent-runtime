@@ -1,3 +1,4 @@
+import { reviewedZmqCatalog, type ZmqCatalogProfile } from './zmq-catalogs.js';
 import {
   prepareSkillUsagePlan,
   type JsonSchemaValidator,
@@ -28,9 +29,12 @@ export function prepareNativeZmqWorkflow(
     throw Error('ZMQ_FROZEN_SKILL_INPUT_INVALID');
   const value = skillInput as Readonly<Record<string, unknown>>;
   if (typeof value['resourceId'] !== 'string') throw Error('ZMQ_FROZEN_SKILL_INPUT_INVALID');
-  const args = zmqToolArguments(name, value, value['resourceId'], schemas);
+  const declaredProfile = input.skill.outcomeSpecification?.taskGoalPolicy['catalogProfile'];
+  const profile = (declaredProfile ?? 'zmq_v1_0_1_12') as ZmqCatalogProfile;
+  reviewedZmqCatalog(profile);
+  const args = zmqToolArguments(name, value, value['resourceId'], schemas, profile);
   const execution = ZMQ_NATIVE_CONTROLS.has(name)
-    ? nativeZmqTaskExecution(value['timeWindow'], now)
+    ? nativeZmqTaskExecution(value['timeWindow'], now, profile === 'zmq_v1_0_1_12' ? 30000 : 60000)
     : undefined;
   const prepared = prepareSkillUsagePlan(input),
     definition = prepared.deterministicDefinition;

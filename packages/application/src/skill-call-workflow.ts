@@ -550,6 +550,17 @@ export class SkillCallWorkflowService {
       createdAt,
     };
     await this.#records.save(record);
+    if (await this.#governedChildren?.confirmInherited?.(childPlanId)) {
+      record = {
+        ...record,
+        confirmationStatus: 'confirmed',
+        status: 'running',
+        evaluationSummary:
+          'Inherited the exact child action from the retained human confirmation of the immutable native patrol plan.',
+      };
+      await this.#records.save(record);
+      return this.#executeConfirmed(record, skill, plan, input);
+    }
     if (
       !evaluation.autoConfirm ||
       (plan.executionReadiness !== undefined &&
@@ -1152,7 +1163,8 @@ function usesWrappedUsageInput(plan: WorkflowPlanRecord): boolean {
 }
 
 function childResultLimit(skill: SkillVersion): number {
-  return skill.skillId === 'embodied.inspect_area' && skill.version === 1
+  return (skill.skillId === 'embodied.inspect_area' && skill.version === 1) ||
+    skill.skillId === 'ugv.zmq.vehicle_zmq_inspect_area'
     ? 262_144
     : MAX_SKILL_CHILD_RESULT_CHARACTERS;
 }

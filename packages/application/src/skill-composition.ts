@@ -97,13 +97,20 @@ function hasUsageRelation(
   );
 }
 
+export type SkillCompositionInputMappingPolicy = (
+  parent: SkillVersion,
+  child: SkillVersion,
+  mappings: readonly SkillValueMapping[],
+) => boolean | undefined;
+
 function assertMappingsCompatible(
   parent: SkillVersion,
   child: SkillVersion,
   inputMappings: readonly SkillValueMapping[],
   outputMappings: readonly SkillValueMapping[],
+  policy?: SkillCompositionInputMappingPolicy,
 ): void {
-  if (!mappingsCompatible(parent, child, inputMappings, outputMappings))
+  if (!mappingsCompatible(parent, child, inputMappings, outputMappings, policy))
     throw usageCompositionError(
       'SKILL_COMPOSITION_SCHEMA_INCOMPATIBLE',
       `Declarative mappings cannot satisfy ${child.skillId}@${String(child.version)}.`,
@@ -115,11 +122,16 @@ function mappingsCompatible(
   child: SkillVersion,
   inputMappings: readonly SkillValueMapping[],
   outputMappings: readonly SkillValueMapping[],
+  policy?: SkillCompositionInputMappingPolicy,
 ): boolean {
+  const admitted = policy?.(parent, child, inputMappings);
+  if (admitted === false) return false;
   const childRequired = schemaFieldSet(child.inputSchema, 'required');
   const mappedTargets = new Set(inputMappings.map((mapping) => firstPathPart(mapping.targetPath)));
-  if ([...childRequired].some((field) => !mappedTargets.has(field))) return false;
+  if (admitted !== true && [...childRequired].some((field) => !mappedTargets.has(field)))
+    return false;
   if (
+    admitted !== true &&
     inputMappings.some((mapping) => {
       const source = firstPathPart(mapping.sourcePath);
       const targetSchema = schemaAtPropertyPath(child.inputSchema, mapping.targetPath);
@@ -187,15 +199,18 @@ export class SkillCompositionPlanner {
     'findCurrentVersion' | 'findVersion' | 'listEnabledVersions'
   >;
   readonly #graph: Pick<SkillGraphRepository, 'listRelationsFrom'>;
+  readonly #inputMappingPolicy: SkillCompositionInputMappingPolicy | undefined;
 
   constructor(
     dependencies: Readonly<{
       skills: Pick<SkillRepository, 'findCurrentVersion' | 'findVersion' | 'listEnabledVersions'>;
       graph: Pick<SkillGraphRepository, 'listRelationsFrom'>;
+      inputMappingPolicy?: SkillCompositionInputMappingPolicy;
     }>,
   ) {
     this.#skills = dependencies.skills;
     this.#graph = dependencies.graph;
+    this.#inputMappingPolicy = dependencies.inputMappingPolicy;
   }
 
   async compose(root: SkillCompositionRoot): Promise<SkillCompositionContext> {
@@ -252,7 +267,15 @@ export class SkillCompositionPlanner {
             'SKILL_COMPOSITION_RELATED_SKILL_UNAVAILABLE',
             `Related Skill ${relation.targetSkillId} is not current and enabled.`,
           );
-        if (!schemasCompatibleForRelation(source, target, relation.relationType))
+        const dependency = source.usageSpecification?.composition?.fixedDependencies.find(
+          (d) => d.skillId === target.skillId,
+        );
+        const mapped =
+          dependency && this.#inputMappingPolicy?.(source, target, dependency.inputMappings ?? []);
+        if (
+          mapped === false ||
+          (mapped !== true && !schemasCompatibleForRelation(source, target, relation.relationType))
+        )
           throw new SkillCompositionError(
             'SKILL_COMPOSITION_SCHEMA_INCOMPATIBLE',
             `Relation ${relation.relationId} has incompatible Skill input/output schemas.`,
@@ -369,7 +392,13 @@ export class SkillCompositionPlanner {
           'SKILL_USAGE_COMPOSITION_SIZE_EXCEEDED',
           'Skill usage composition exceeds its shared Skill or node budget.',
         );
-      assertMappingsCompatible(parent, child, edge.inputMappings, edge.outputMappings);
+      assertMappingsCompatible(
+        parent,
+        child,
+        edge.inputMappings,
+        edge.outputMappings,
+        this.#inputMappingPolicy,
+      );
       expanded.push(child);
       expandedKeys.add(key);
       consumedDepth = Math.max(consumedDepth, depth);
@@ -686,6 +715,7 @@ export class SkillCompositionPlanner {
             candidate,
             slot.inputMappings ?? [],
             slot.outputMappings ?? [],
+            this.#inputMappingPolicy,
           ),
       )
       .sort(

@@ -1,4 +1,17 @@
 import { createHash, randomUUID } from 'node:crypto';
+import {
+  GovernedControlConfirmationService,
+  type TaskPlanConfirmationAuthority,
+} from '../../../packages/application/src/index.js';
+import type { PostgresGovernedControlAuthorityRepository } from '../../../packages/persistence-postgres/src/governed-control-authority-repository.js';
+import {
+  isGovernedPatrol,
+  ZMQ_PATROL_SKILL,
+  ZMQ_PATROL_CHILDREN,
+  zmqPatrolChildInput,
+  assertZmqPatrolDeadline,
+  zmqPatrolNavigationSucceeded,
+} from '../../../packages/domain/src/zmq-area-patrol.js';
 import { SkillSelectionService } from '../../../packages/application/src/skill-selection.js';
 import type { GovernedChildTaskPort } from '../../../packages/application/src/governed-child-task.js';
 import type {
@@ -49,6 +62,7 @@ type Dependencies = Readonly<{
   clock: Readonly<{ now(): string }>;
   commands: PostgresAgentTaskCommandContext;
   calls: PostgresSkillCallWorkflowRepository;
+  confirmations: PostgresGovernedControlAuthorityRepository;
 }>;
 const METADATA = 'io.sdar/governedChildTask';
 
@@ -132,16 +146,141 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       parent.goalId !== plan.goalId ||
       parent.goalVersion !== plan.goalVersion ||
       plan.confirmationStatus !== 'confirmed' ||
-      plan.definition?.skillUsagePolicy?.skill.skillId !== 'embodied.area_patrol' ||
-      plan.definition.skillUsagePolicy.skill.skillVersion < 2
+      !isGovernedPatrol(
+        plan.definition?.skillUsagePolicy?.skill.skillId,
+        plan.definition?.skillUsagePolicy?.skill.skillVersion,
+      )
     )
       throw Error('COMPOSED_CHILD_PARENT_AUTHORITY_STALE');
+    if (parent.selectedSkillId === ZMQ_PATROL_SKILL) {
+      const binding = await capabilities.findBinding(parent.taskId);
+      assertZmqPatrolDeadline(binding?.inputSnapshot, clock.now());
+    }
     return { parent, plan, link };
   }
+  async function parentConfirmationScope(parent: AgentTask) {
+    const plan = parent.planId && (await plans.findPlan(parent.planId));
+    const binding = await capabilities.findBinding(parent.taskId);
+    const attempt = (await capabilities.listAttempts(parent.taskId)).at(-1);
+    if (
+      parent.selectedSkillId !== ZMQ_PATROL_SKILL ||
+      !plan ||
+      plan.confirmationStatus !== 'confirmed' ||
+      !plan.definition ||
+      !binding ||
+      attempt?.planId !== plan.planId ||
+      !['prepared', 'running', 'waiting'].includes(attempt.status)
+    )
+      throw Error('ZMQ_PATROL_PARENT_CONFIRMATION_SCOPE_INVALID');
+    const timing = assertZmqPatrolDeadline(binding.inputSnapshot, clock.now());
+    const composition = binding.constraintSnapshot.filter(
+      (c) => c['type'] === 'composition_authority_policy',
+    );
+    const provider = binding.constraintSnapshot.filter(
+      (c) => c['type'] === 'provider_binding_policy',
+    );
+    if (
+      composition.length !== 1 ||
+      provider.length !== 1 ||
+      !provider[0] ||
+      typeof provider[0]['mcpProviderBindingId'] !== 'string' ||
+      typeof provider[0]['localServerId'] !== 'string'
+    )
+      throw Error('ZMQ_PATROL_PARENT_CONFIRMATION_SCOPE_INVALID');
+    const childInputs = ZMQ_PATROL_CHILDREN.map((id) => ({
+      skillId: id,
+      input: zmqPatrolChildInput(binding.inputSnapshot, id),
+    }));
+    return {
+      scope: {
+        taskId: parent.taskId,
+        capabilityBindingId: binding.bindingId,
+        capabilityId: binding.requestedCapabilityId,
+        capabilityVersion: binding.capabilityVersion,
+        capabilityAttemptId: attempt.attemptId,
+        planId: plan.planId,
+        planHash: canonicalHash(plan.definition),
+        skillId: ZMQ_PATROL_SKILL,
+        skillVersion: parent.selectedSkillVersion ?? 0,
+        providerBindingId: provider[0]['mcpProviderBindingId'],
+        serverId: provider[0]['localServerId'],
+        toolName: 'composition.zmq.area_patrol',
+        argumentsHash: canonicalHash({
+          bindingHash: binding.bindingHash,
+          composition: composition[0],
+          childInputs,
+        }),
+      },
+      deadline: Date.parse(
+        String(record(record(binding.inputSnapshot)?.['timeWindow'])?.['deadline']),
+      ),
+      timing,
+    };
+  }
   return {
+    async recordParentConfirmation(parent, authority) {
+      const principal = authority.principal;
+      if (principal.kind !== 'human' || !principal.permissions.has('physical_control.confirm'))
+        throw Error('ZMQ_PATROL_TRUSTED_HUMAN_CONFIRMATION_REQUIRED');
+      const { scope, deadline } = await parentConfirmationScope(parent);
+      const service = new GovernedControlConfirmationService({
+        clock,
+        store: {
+          saveConfirmation: async (confirmation) =>
+            (await dependencies.confirmations.issueOnce(confirmation)).confirmation,
+          revokeConfirmation: (...args) => dependencies.confirmations.revokeConfirmation(...args),
+        },
+        ids: {
+          nextConfirmationId: () =>
+            'native-patrol-' + canonicalHash({ ...scope, actorId: principal.actorId }),
+        },
+      });
+      await service.issue({
+        ...scope,
+        actorId: principal.actorId,
+        actorKind: 'human',
+        authenticationMethod: principal.authenticationMethod,
+        actorRoles: ['physical_control_approver'],
+        reason:
+          'The human confirmed this immutable two-child native patrol scope; it grants no unrelated device action.',
+        expiresAt: new Date(
+          Math.min(deadline, Date.parse(clock.now()) + 15 * 60 * 1000),
+        ).toISOString(),
+      });
+    },
+    async confirmInherited(planId) {
+      const task = await nativeTask(planId);
+      if (!task) return false;
+      const { parent } = await assertParent(task);
+      if (parent.selectedSkillId !== ZMQ_PATROL_SKILL) return false;
+      const { scope } = await parentConfirmationScope(parent);
+      const matches = (await dependencies.confirmations.listByTask(parent.taskId))
+        .map((r) => r.confirmation)
+        .filter(
+          (c) =>
+            !c.revokedAt &&
+            Date.parse(c.expiresAt) > Date.parse(clock.now()) &&
+            Object.entries(scope).every(([key, value]) => c[key as keyof typeof c] === value),
+        );
+      if (matches.length !== 1 || !matches[0])
+        throw Error('ZMQ_PATROL_PARENT_CONFIRMATION_EXPIRED_OR_CONFLICTED');
+      const confirmed = matches[0];
+      const authority: TaskPlanConfirmationAuthority = {
+        principal: {
+          actorId: confirmed.actorId,
+          kind: 'human',
+          authenticationMethod: confirmed.authenticationMethod,
+          permissions: new Set(['physical_control.confirm']),
+          requestId: confirmed.confirmationId,
+        },
+      };
+      await execution.confirm(planId, task.taskId);
+      await service.authorizePreparedCompositionTask(task.taskId, authority);
+      return true;
+    },
     async prepare(input) {
       const policy = input.parentPlan.definition?.skillUsagePolicy;
-      if (policy?.skill.skillId !== 'embodied.area_patrol' || policy.skill.skillVersion < 2)
+      if (!policy || !isGovernedPatrol(policy.skill.skillId, policy.skill.skillVersion))
         return undefined;
       const parent =
         input.parentTaskId === undefined
@@ -172,7 +311,7 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
           candidate.child.skillId === input.skill.skillId &&
           candidate.child.skillVersion === input.skill.version,
       );
-      const node = input.parentPlan.definition?.nodes.find(
+      const node = input.parentPlan.definition.nodes.find(
         (candidate) => candidate.nodeId === input.parentNodeId,
       );
       if (
@@ -188,10 +327,13 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       const parentInput = record(parentInstance?.input)?.['skillInput'];
       if (parentInstance?.planId !== input.parentPlan.planId || !record(parentInput))
         throw Error('COMPOSED_PARENT_INPUT_AUTHORITY_MISSING');
-      const mapped: Record<string, unknown> = {};
+      const nativePatrol = policy.skill.skillId === ZMQ_PATROL_SKILL;
+      const mapped: Record<string, unknown> = nativePatrol
+        ? zmqPatrolChildInput(parentInput, input.skill.skillId)
+        : {};
       const declaration = declared[0];
       if (!declaration) throw Error('COMPOSED_CHILD_MAPPING_UNSUPPORTED');
-      for (const mapping of declaration.inputMappings) {
+      for (const mapping of nativePatrol ? [] : declaration.inputMappings) {
         let source: unknown = parentInput;
         for (const field of mapping.sourcePath.split('.')) source = record(source)?.[field];
         if (source === undefined || mapping.targetPath.includes('.'))
@@ -200,6 +342,41 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       }
       if (canonicalHash(mapped) !== canonicalHash(input.value))
         throw Error('COMPOSED_CHILD_INPUT_MAPPING_MISMATCH');
+      if (nativePatrol) {
+        assertZmqPatrolDeadline(parentInput, clock.now());
+        if (input.skill.skillId === ZMQ_PATROL_CHILDREN[1]) {
+          const previous = (
+            await tasks.listGovernedChildren(parent.taskId, input.parentPlan.planId)
+          ).filter((task) => task.selectedSkillId === ZMQ_PATROL_CHILDREN[0]);
+          const navigation = previous[0];
+          const admitted = Array.isArray(children)
+            ? children.map(record).find((c) => c?.['skillId'] === ZMQ_PATROL_CHILDREN[0])
+            : undefined;
+          const navigationBinding =
+            navigation && (await capabilities.findBinding(navigation.taskId));
+          const attempts = navigation && (await capabilities.listAttempts(navigation.taskId));
+          if (
+            previous.length !== 1 ||
+            navigation?.phase !== 'completed' ||
+            !admitted ||
+            !navigationBinding ||
+            navigation.selectedSkillVersion !== admitted['skillVersion'] ||
+            navigationBinding.requestedCapabilityId !== admitted['capabilityId'] ||
+            navigationBinding.capabilityVersion !== admitted['capabilityVersion'] ||
+            attempts?.at(-1)?.status !== 'succeeded' ||
+            navigation.deviceOwnership?.deviceId !== parent.deviceOwnership?.deviceId ||
+            !navigation.planId ||
+            !(await nativeTask(navigation.planId)) ||
+            canonicalHash(navigationBinding.inputSnapshot) !==
+              canonicalHash(zmqPatrolChildInput(parentInput, ZMQ_PATROL_CHILDREN[0])) ||
+            !zmqPatrolNavigationSucceeded(
+              navigation.output?.structured,
+              String(record(parentInput)?.['resourceId']),
+            )
+          )
+            throw Error('ZMQ_PATROL_NAVIGATION_NOT_CONFIRMED');
+        }
+      }
       const idempotencyKey =
         'child-' +
         createHash('sha256')
@@ -392,8 +569,10 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       const parent = await tasks.findById(parentTaskId);
       const plan = await plans.findPlan(parentPlanId);
       if (
-        plan?.definition?.skillUsagePolicy?.skill.skillId !== 'embodied.area_patrol' ||
-        plan.definition.skillUsagePolicy.skill.skillVersion < 2
+        !isGovernedPatrol(
+          plan?.definition?.skillUsagePolicy?.skill.skillId,
+          plan?.definition?.skillUsagePolicy?.skill.skillVersion,
+        )
       )
         return;
       if (parent?.planId !== parentPlanId)
@@ -408,6 +587,38 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
         await dependencies.commands.runGovernedChildCancellation(
           { parentTaskId, parentPlanId, childTaskId: child.taskId },
           () => service.cancel(child.taskId),
+        );
+      }
+    },
+    async controlChildren(parentTaskId, parentPlanId, action) {
+      const parent = await tasks.findById(parentTaskId);
+      const plan = await plans.findPlan(parentPlanId);
+      if (parent?.selectedSkillId !== ZMQ_PATROL_SKILL) return;
+      if (parent.planId !== parentPlanId || plan?.confirmationStatus !== 'confirmed')
+        throw Error('COMPOSED_PARENT_CONTROL_AUTHORITY_INVALID');
+      for (const child of await tasks.listGovernedChildren(parentTaskId, parentPlanId)) {
+        if (['completed', 'failed', 'canceled'].includes(child.phase)) continue;
+        if (
+          child.deviceOwnership?.deviceId !== parent.deviceOwnership?.deviceId ||
+          child.deviceOwnership?.bindingId !== parent.deviceOwnership?.bindingId ||
+          child.deviceOwnership?.sdarServiceKey !== parent.deviceOwnership?.sdarServiceKey
+        )
+          throw Error('COMPOSED_CHILD_DEVICE_AUTHORITY_INVALID');
+        if (dependencies.commands.current())
+          await dependencies.commands.recordEffect(
+            'governed_child_lifecycle_intent',
+            child.taskId,
+            { parentTaskId, parentPlanId, childTaskId: child.taskId, action },
+          );
+        await dependencies.commands.runGovernedChildLifecycle(
+          { parentTaskId, parentPlanId, childTaskId: child.taskId },
+          action,
+          () =>
+            service.followUp({
+              taskId: child.taskId,
+              action,
+              messageText: `Parent patrol requested ${action} for its current exact child.`,
+            }),
         );
       }
     },

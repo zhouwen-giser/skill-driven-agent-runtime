@@ -422,6 +422,30 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function assertUgvAgentProfileSkillDeclaration(skill: SkillVersion): void {
   const declaration = ugvCapabilityForSkill(skill.skillId);
   if (declaration === undefined) throw new Error('UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID');
+  if (skill.skillId === ZMQ_PATROL_SKILL) {
+    const policy = skill.outcomeSpecification?.taskGoalPolicy;
+    const provider = policy?.['providerBinding'];
+    if (!isRecord(provider) || typeof policy?.['resourceId'] !== 'string')
+      throw Error('ZMQ_PATROL_DECLARATION_INVALID');
+    const expected = buildZmqPatrolSkill(
+      policy['resourceId'],
+      skill.version,
+      provider,
+      parseZmqPatrolChildren(policy['children']),
+    );
+    for (const key of [
+      'inputSchema',
+      'outputSchema',
+      'toolPolicy',
+      'runtimePolicy',
+      'usageSpecification',
+      'outcomeSpecification',
+      'capabilities',
+    ] as const)
+      if (zmqContractChecksum(skill[key]) !== zmqContractChecksum(expected[key]))
+        throw Error('ZMQ_PATROL_DECLARATION_INVALID');
+    return;
+  }
   if (isHistoricalUgvPointSkill(skill.skillId, skill.version)) {
     assertHistoricalPointSkill(skill);
     return;
@@ -503,3 +527,9 @@ function compareSkills(left: SkillVersion, right: SkillVersion): number {
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
+import { ZMQ_PATROL_SKILL } from '../../domain/src/zmq-area-patrol.js';
+import {
+  buildZmqPatrolSkill,
+  parseZmqPatrolChildren,
+} from '../../domain/src/zmq-patrol-contract.js';
+import { zmqContractChecksum } from './zmq-provider-profile.js';

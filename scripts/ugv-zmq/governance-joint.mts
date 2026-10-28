@@ -1,3 +1,7 @@
+import { McpCapabilityEvidenceProjector } from '../../packages/runtime-control-application/src/mcp-capability-evidence-projector.js';
+import { NodeControlFrozenMcpCatalogClient } from '../../packages/mcp-adapter/src/node-control-catalog.js';
+import { materializeZmqSiteProvider } from '../../apps/node-control-acceptance/src/zmq-site-materialization.js';
+import { renewZmqSiteBinding } from '../../apps/node-control-acceptance/src/zmq-site-renewal.js';
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -32,7 +36,10 @@ import {
 } from '../../packages/a2a-adapter/test-support/client.js';
 import { bootstrapUgvSmppSource } from '../../apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.js';
 import { NODE_CONTROL_CARD_CONTENT_MEDIA_TYPE } from '../../packages/node-control-application/src/index.js';
-import { governNativeZmqSkills } from '../../apps/node-control-acceptance/src/zmq-skill-governance.js';
+import {
+  governNativeZmqSkills,
+  governSiteZmqSkills,
+} from '../../apps/node-control-acceptance/src/zmq-skill-governance.js';
 import { materializeZmqProvider } from '../../apps/node-control-acceptance/src/zmq-provider-materialization.js';
 import { zmqCapabilityId } from '../../packages/domain/src/zmq-capability.js';
 import {
@@ -61,9 +68,11 @@ const config = z
     databaseUrl: z.url(),
     redisPort: z.number().int().positive(),
     runId: z.string().regex(/^zmqgov-[a-f0-9]+$/),
+    catalogProfile: z.literal('zmq_v1_2_0_site_control_13').optional(),
   })
   .strict()
   .parse(JSON.parse(await readFile(file, 'utf8')));
+const site = config.catalogProfile !== undefined;
 const db = new URL(config.databaseUrl);
 if (db.hostname !== '127.0.0.1' || db.pathname !== '/zmq_governance')
   throw Error('OWNED_DATABASE_REQUIRED');
@@ -94,6 +103,42 @@ const evidence: unknown[] = [],
   mcpCalls: unknown[] = [],
   pending = new Map<string, { resolve(value: unknown): void; reject(error: Error): void }>();
 const originalFetch = globalThis.fetch;
+const originalControlLoad = PostgresNodeControlEvidenceSource.prototype.load;
+const seenControlLoadFailures = new Set<string>();
+PostgresNodeControlEvidenceSource.prototype.load = async function (partition) {
+  try {
+    return await originalControlLoad.call(this, partition);
+  } catch (error) {
+    if (!seenControlLoadFailures.has(partition.sourcePartition)) {
+      seenControlLoadFailures.add(partition.sourcePartition);
+      evidence.push({
+        controlEvidenceFailure: error instanceof Error ? error.stack : String(error),
+        partition,
+      });
+    }
+    throw error;
+  }
+};
+const originalMcpProjection = McpCapabilityEvidenceProjector.prototype.projectTask;
+McpCapabilityEvidenceProjector.prototype.projectTask = async function (taskId) {
+  try {
+    return await originalMcpProjection.call(this, taskId);
+  } catch (error) {
+    evidence.push({ mcpEvidenceFailure: error instanceof Error ? error.stack : String(error) });
+    throw error;
+  }
+};
+const originalDiscovery = NodeControlFrozenMcpCatalogClient.prototype.discover;
+NodeControlFrozenMcpCatalogClient.prototype.discover = async function (input) {
+  try {
+    return await originalDiscovery.call(this, input);
+  } catch (error) {
+    evidence.push({
+      catalogDiscoveryFailure: error instanceof Error ? error.stack : String(error),
+    });
+    throw error;
+  }
+};
 async function until<T>(
   read: () => Promise<T>,
   done: (value: T) => boolean,
@@ -196,9 +241,11 @@ async function task(taskId: string) {
   return row;
 }
 const oldAck = process.env['ALLOW_UGV_SIMULATION_SIDE_EFFECTS'],
-  oldSimulation = process.env['UGV_SIMULATION_RUN_ID'];
+  oldSimulation = process.env['UGV_SIMULATION_RUN_ID'],
+  oldLive = process.env['ALLOW_UGV_LIVE_SIDE_EFFECTS'];
 process.env['ALLOW_UGV_SIMULATION_SIDE_EFFECTS'] = 'YES';
 process.env['UGV_SIMULATION_RUN_ID'] = runId;
+if (site) process.env['ALLOW_UGV_LIVE_SIDE_EFFECTS'] = 'YES';
 try {
   const fixtureConfig = join(temp, 'provider.json');
   await writeFile(
@@ -214,9 +261,15 @@ try {
   const ready = new Promise<Record<string, unknown>>((resolve, reject) => {
     fixture = spawn(
       process.execPath,
-      ['--import', 'tsx', 'tests/ugv-zmq-provider/governance-fixture.ts'],
+      [
+        '--import',
+        'tsx',
+        site
+          ? 'scripts/ugv-zmq/site-joint-fixture.mjs'
+          : 'tests/ugv-zmq-provider/governance-fixture.ts',
+      ],
       {
-        cwd: source,
+        cwd: site ? process.cwd() : source,
         env: { ...process.env, SMPP_ZMQ_GOVERNANCE_FIXTURE_CONFIG: fixtureConfig },
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       },
@@ -255,6 +308,13 @@ try {
   globalThis.fetch = async (url, options) => {
     const target = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
     const response = await originalFetch(url, options);
+    if (response.status === 202 && target !== endpoint) {
+      const operation = object.parse(await response.clone().json());
+      if (operation['status'] === 'failed') {
+        evidence.push({ operationFailure: operation });
+        process.stderr.write(JSON.stringify(operation) + '\n');
+      }
+    }
     if (response.status >= 400 && target !== endpoint) {
       const problem = (await response
         .clone()
@@ -266,6 +326,7 @@ try {
     }
     if (target === endpoint && typeof options?.body === 'string')
       mcpCalls.push({
+        hasAuthorization: new Headers(options.headers).has('authorization'),
         request: JSON.parse(options.body) as unknown,
         status: response.status,
         response: await response
@@ -297,7 +358,7 @@ try {
     bindingServiceToken: serviceToken,
     unsafeTestOpen: true,
   });
-  runtime = await startServerRuntime({
+  const runtimeOptions: Parameters<typeof startServerRuntime>[0] = {
     postgresUrl,
     redis: { host: '127.0.0.1', port: config.redisPort },
     modelBootstrap: {
@@ -342,7 +403,8 @@ try {
     ugvMovePositionPolicy: { toleranceM: 2, minimumDisplacementM: 0.5, maxFinalStateAgeMs: 3000 },
     a2aWaitTimeoutMs: 5000,
     a2aSafetyPollIntervalMs: 100,
-  });
+  };
+  runtime = await startServerRuntime(runtimeOptions);
   pool = new Pool({ connectionString: postgresUrl, max: 4 });
   control = await startNodeControlApi(
     parseNodeControlApiEnvironment({
@@ -445,11 +507,38 @@ try {
     simulationId: runId,
     packageWorkspaceRoot: join(temp, 'packages'),
   };
-  process.stdout.write('Publish the twelve native contracts through existing CAS APIs\n');
-  const published = await governNativeZmqSkills(governance);
+  const siteGovernance = {
+    nodeControlBaseUrl: controlBase,
+    nodeControlBearerToken: token,
+    runtimeManagementBaseUrl: runtime.management.baseUrl,
+    runId,
+    catalogProfile: 'zmq_v1_2_0_site_control_13' as const,
+    providerId,
+    resourceId,
+    localServerId: governance.localServerId,
+    bindingId: governance.bindingId,
+    packageWorkspaceRoot: governance.packageWorkspaceRoot,
+    endpointAllowlist: [controlBase, runtime.management.baseUrl, new URL(endpoint).origin],
+    source: { originType: 'smpp_registry' as const, smppSourceId: sourceId, externalServerId },
+  };
+  const govern = (suffix = '') =>
+    site
+      ? governSiteZmqSkills({ ...siteGovernance, runId: runId + suffix })
+      : governNativeZmqSkills({ ...governance, runId: runId + suffix });
+  process.stdout.write('Publish the exact native contracts through existing CAS APIs\n');
+  const published = await govern();
   evidence.push(published);
-  const repeated = await governNativeZmqSkills({ ...governance, runId: runId + '-repeat' });
-  assert.deepEqual(repeated, published);
+  const repeated = await govern('-repeat');
+  assert.deepEqual(repeated.published, published.published);
+  assert.equal(published.published.length, site ? 14 : 12);
+  if (site) {
+    const authority = object.parse(published)['authority'];
+    const { ZmqSiteAuthoritySchema } =
+      await import('../../packages/ugv-profile/src/zmq-site-profile.js');
+    evidence.push(
+      await renewZmqSiteBinding(siteGovernance, ZmqSiteAuthoritySchema.parse(authority)),
+    );
+  }
   assert.equal(object.parse(await fixtureCommand('status'))['commands'], 0);
   let bindingWrites = 0;
   const mutatedFetch: typeof fetch = async (url, options) => {
@@ -468,10 +557,15 @@ try {
   };
   await assert.rejects(
     () =>
-      materializeZmqProvider(
-        { ...governance, bindingId: 'zmq-rejected-binding', runId: runId + '-drift' },
-        { fetch: mutatedFetch },
-      ),
+      site
+        ? materializeZmqSiteProvider(
+            { ...siteGovernance, bindingId: 'zmq-rejected-binding', runId: runId + '-drift' },
+            { fetch: mutatedFetch },
+          )
+        : materializeZmqProvider(
+            { ...governance, bindingId: 'zmq-rejected-binding', runId: runId + '-drift' },
+            { fetch: mutatedFetch },
+          ),
     /ZMQ_(?:TOOL_CONTRACT|RESOURCE_BINDING)_MISMATCH/,
   );
   assert.equal(bindingWrites, 0);
@@ -593,6 +687,219 @@ try {
       (status) => z.array(object).parse(status['active']).length === 0,
     );
   }
+  if (site) {
+    for (const name of [
+      'vehicle_zmq_camera',
+      'vehicle_zmq_area_recon',
+      'vehicle_zmq_circular_recon',
+      'simulation_apply_effect',
+    ] as const) {
+      process.stdout.write('Run native control Task: ' + name + '\n');
+      const common = inspectionInput();
+      const input =
+        name === 'vehicle_zmq_camera'
+          ? {
+              resourceId,
+              timeWindow: common.timeWindow,
+              operation: { name: 'camera.zoom', params: { zoom_ratio: 2, zoom_timeout_ms: 1000 } },
+            }
+          : name === 'vehicle_zmq_area_recon'
+            ? common
+            : name === 'vehicle_zmq_circular_recon'
+              ? {
+                  resourceId,
+                  timeWindow: common.timeWindow,
+                  params: {
+                    scan_mode: 'circular',
+                    yaw_center_rad: null,
+                    yaw_span_rad: null,
+                    pitch_rad: 0,
+                    yaw_speed_rad_s: 0.2,
+                    cycle_count: 1,
+                    task_timeout_ms: 10000,
+                    search_strategy: 'recognize',
+                  },
+                }
+              : {
+                  resourceId,
+                  timeWindow: common.timeWindow,
+                  targetId: 'object-1',
+                  targetSource: 'manual',
+                  sourceNote: 'The isolated test human selected this virtual entity.',
+                  position: { longitude_deg: 106.001, latitude_deg: 29, ellipsoid_height_m: null },
+                };
+      const before = object.parse(await fixtureCommand('status'))['commands'];
+      const taskId = await submit(name, input);
+      const waiting = await until(
+        () => task(taskId),
+        (t) => ['awaiting_plan_confirmation', 'failed'].includes(t.phase),
+      );
+      assert.equal(waiting.phase, 'awaiting_plan_confirmation', JSON.stringify(waiting));
+      assert.equal(object.parse(await fixtureCommand('status'))['commands'], before);
+      await confirm(taskId);
+      if (['vehicle_zmq_area_recon', 'vehicle_zmq_circular_recon'].includes(name)) {
+        await until(
+          async () => object.parse(await fixtureCommand('status')),
+          (state) =>
+            z
+              .array(object)
+              .parse(state['active'])
+              .some((e) => e['operationName'] === name && e['state'] === 'RUNNING'),
+        );
+        await fixtureCommand('complete');
+      }
+      const final = await until(
+        () => task(taskId),
+        (t) => ['completed', 'failed'].includes(t.phase),
+      );
+      assert.equal(final.phase, 'completed', JSON.stringify(final));
+      const report = object.parse(final.output_structured);
+      assert.ok(['completed', 'degraded'].includes(String(report['status'])));
+      if (name === 'simulation_apply_effect')
+        assert.equal(
+          object.parse(object.parse(report['providerResult'])['targetProvenance'])['kind'],
+          'manual',
+        );
+      evidence.push({ case: 'native-control-' + name, input, task: final });
+      await until(
+        async () => object.parse(await fixtureCommand('status')),
+        (state) => z.array(object).parse(state['active']).length === 0,
+      );
+    }
+    const beforePreview = object.parse(await fixtureCommand('status'))['commands'];
+    const previewId = await submit('vehicle_zmq_plan_route', {
+      resourceId,
+      start: { longitude: 106.81485 - 340 / 111320, latitude: 29.7195 - 100 / 110540 },
+      waypoints: [{ longitude: 106.81485 - 192 / 111320, latitude: 29.7195 - 100 / 110540 }],
+      density: 'adaptive',
+    });
+    const preview = await until(
+      () => task(previewId),
+      (t) => ['completed', 'failed'].includes(t.phase),
+    );
+    assert.equal(preview.phase, 'completed', JSON.stringify(preview));
+    assert.equal(
+      object.parse(object.parse(preview.output_structured)['providerResult'])['adoption'],
+      'preview_only',
+    );
+    assert.equal(object.parse(await fixtureCommand('status'))['commands'], beforePreview);
+    evidence.push({ case: 'native-route-preview-without-navigation', task: preview });
+    for (const mode of ['degraded', 'pause-resume', 'restart', 'cancel', 'timeout'] as const) {
+      process.stdout.write('Run native single-region patrol: ' + mode + '\n');
+      const input = {
+        ...inspectionInput(),
+        entryPoint: { longitude: 106.0005, latitude: 29.0005 },
+        speedLimitMps: 1,
+        obstacleAvoidance: true,
+      };
+      if (mode === 'timeout') input.timeWindow.deadline = new Date(Date.now() + 8000).toISOString();
+      const taskId = await submit('area_patrol', input);
+      const waiting = await until(
+        () => task(taskId),
+        (t) => ['awaiting_plan_confirmation', 'failed'].includes(t.phase),
+      );
+      assert.equal(waiting.phase, 'awaiting_plan_confirmation', JSON.stringify(waiting));
+      await confirm(taskId);
+      await until(
+        async () => object.parse(await fixtureCommand('status')),
+        (s) =>
+          z
+            .array(object)
+            .parse(s['active'])
+            .some((e) => e['operationName'] === 'vehicle_zmq_navigate' && e['state'] === 'RUNNING'),
+      );
+      const motionDispatches = object.parse(await fixtureCommand('status'))[
+        'chassisMotionDispatches'
+      ];
+      if (mode === 'pause-resume') {
+        const current = await task(taskId);
+        await a2a({ taskId, contextId: current.context_id, metadata: { sdar_action: 'pause' } });
+        await until(
+          () => task(taskId),
+          (t) => t.phase === 'paused',
+        );
+        await until(
+          async () => object.parse(await fixtureCommand('status')),
+          (s) =>
+            z
+              .array(object)
+              .parse(s['active'])
+              .some((e) => e['state'] === 'PAUSED'),
+        );
+        assert.equal(
+          object.parse(await fixtureCommand('status'))['chassisMotionDispatches'],
+          motionDispatches,
+        );
+        await a2a({ taskId, contextId: current.context_id, metadata: { sdar_action: 'resume' } });
+        await until(
+          async () => object.parse(await fixtureCommand('status')),
+          (s) =>
+            z
+              .array(object)
+              .parse(s['active'])
+              .some((e) => e['state'] === 'RUNNING'),
+        );
+        assert.equal(
+          object.parse(await fixtureCommand('status'))['chassisMotionDispatches'],
+          motionDispatches,
+        );
+      }
+      if (mode === 'restart') {
+        const ports = {
+          a2aPort: Number(new URL(runtime.a2a.baseUrl).port),
+          managementPort: Number(new URL(runtime.management.baseUrl).port),
+        };
+        await runtime.close();
+        runtime = undefined;
+        runtime = await startServerRuntime({ ...runtimeOptions, ...ports, applyMigrations: false });
+        assert.equal(
+          object.parse(await fixtureCommand('status'))['chassisMotionDispatches'],
+          motionDispatches,
+        );
+      }
+      if (mode === 'cancel') await cancelA2ATestTaskAtUrl(runtime.a2a.baseUrl, taskId);
+      else if (mode !== 'timeout') {
+        await fixtureCommand('finish');
+        await until(
+          async () => object.parse(await fixtureCommand('status')),
+          (s) =>
+            z
+              .array(object)
+              .parse(s['active'])
+              .some(
+                (e) =>
+                  e['operationName'] === 'vehicle_zmq_inspect_area' && e['state'] === 'RUNNING',
+              ),
+        );
+        await fixtureCommand('inspect', 'empty');
+      }
+      const final = await until(
+        () => task(taskId),
+        (t) => ['completed', 'failed', 'canceled'].includes(t.phase),
+      );
+      assert.equal(
+        final.phase,
+        mode === 'cancel' ? 'canceled' : 'completed',
+        JSON.stringify(final),
+      );
+      assert.equal(
+        object.parse(final.output_structured)['status'],
+        mode === 'cancel' ? 'cancelled' : mode === 'timeout' ? 'failed' : 'degraded',
+      );
+      const children = await pool.query(
+        "SELECT task_id,selected_skill_id,phase,output_structured FROM agent_task WHERE request_metadata->'io.sdar/governedChildTask'->>'parentTaskId'=$1 ORDER BY created_at",
+        [taskId],
+      );
+      assert.equal(children.rows.length, mode === 'cancel' || mode === 'timeout' ? 1 : 2);
+      evidence.push({ case: 'native-patrol-' + mode, input, task: final, children: children.rows });
+      await until(
+        async () => object.parse(await fixtureCommand('status')),
+        (s) => z.array(object).parse(s['active']).length === 0,
+      );
+    }
+    assert.ok(mcpCalls.every((call) => object.parse(call)['hasAuthorization'] === false));
+    evidence.push({ case: 'anonymous-mcp-no-client-authorization', requestCount: mcpCalls.length });
+  }
   const generation = await pool.query<{ stage: string; count: string }>(
     "SELECT stage,count(*)::text AS count FROM model_invocation WHERE stage IN ('intent','goal','goal_planning','skill_selection','skill_input_resolution','workflow_planning','goal_evaluation','execution_decision') GROUP BY stage",
   );
@@ -713,7 +1020,10 @@ try {
   }
   succeeded = true;
 } catch (error) {
-  evidence.push({ failure: error instanceof Error ? error.stack : String(error) });
+  evidence.push({
+    failure: error instanceof Error ? error.stack : String(error),
+    code: error !== null && typeof error === 'object' && 'code' in error ? error.code : undefined,
+  });
   process.stderr.write(String(error) + '\n');
   process.exitCode = 1;
   if (control && pool) {
@@ -770,6 +1080,8 @@ try {
       remote:
         'SELECT remote_task_id,agent_task_id,protocol_status,local_state,last_safe_error_code FROM remote_task_binding',
       workflow: 'SELECT instance_id,status,result_json,errors_json FROM workflow_instance',
+      controls: 'SELECT * FROM workflow_control',
+      rounds: 'SELECT * FROM workflow_control_round',
       events: 'SELECT task_id,event_type,summary FROM runtime_event ORDER BY event_timestamp',
       modelInvocations: 'SELECT stage,status,error_code FROM model_invocation',
       evidenceIssues:
@@ -786,10 +1098,15 @@ try {
     evidence.push({ retainedRuntimeSnapshot: snapshot });
   }
   globalThis.fetch = originalFetch;
+  PostgresNodeControlEvidenceSource.prototype.load = originalControlLoad;
+  NodeControlFrozenMcpCatalogClient.prototype.discover = originalDiscovery;
+  McpCapabilityEvidenceProjector.prototype.projectTask = originalMcpProjection;
   if (oldAck === undefined) delete process.env['ALLOW_UGV_SIMULATION_SIDE_EFFECTS'];
   else process.env['ALLOW_UGV_SIMULATION_SIDE_EFFECTS'] = oldAck;
   if (oldSimulation === undefined) delete process.env['UGV_SIMULATION_RUN_ID'];
   else process.env['UGV_SIMULATION_RUN_ID'] = oldSimulation;
+  if (oldLive === undefined) delete process.env['ALLOW_UGV_LIVE_SIDE_EFFECTS'];
+  else process.env['ALLOW_UGV_LIVE_SIDE_EFFECTS'] = oldLive;
   const cleanup = async (name: string, action: () => Promise<unknown>) => {
     try {
       await action();

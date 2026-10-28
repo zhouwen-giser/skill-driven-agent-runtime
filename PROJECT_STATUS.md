@@ -1,5 +1,16 @@
 # Project Status
 
+## ZMQ 匿名现场接入与单区域巡逻（2026-10-28，IN_PROGRESS）
+
+ADR-168 / execplans/ugv-zmq-site-patrol-20261027.md 记录本轮授权范围。服务身份网络规则已恢复，
+Control API、管理端和 A2A 健康返回 200，连续两个来源刷新已核实。旧控制新任务准入已通过 CAS 暂停。
+SMPP b910f93 的 19 项门禁通过并已推送；19110 候选匿名读取 13 项目录、设备状态和能力成功，无效 JWT 被拒绝。
+SDAR 新增两种精确现场 Profile、独立原生巡逻、受限父确认继承和续查入口，跨项目原生隔离联调已通过。
+真实 PostgreSQL/Redis/MCP/ZMQ 验证六项控制、预览、巡逻降级、暂停恢复、重启不重派、取消与超时，
+匿名请求无 Authorization，证据投影及清理通过；见 reports/ugv-zmq-anonymous-patrol-20261028。
+完整 SDAR 门禁正在运行，正式治理发布、候选交接及现场动作仍开放。
+当前 19100/19101 未提升为本轮控制版本；全部现场控制命令 NOT_RUN，报告完整性不作通过声明。
+
 ## ZMQ 原生治理与任务链（2026-10-25，ISOLATED_VERIFIED）
 
 12 工具的独立 Skill、Capability、Exposure 已通过实际隔离 CAS 发布与重复装配；正式 A2A → Skill → MCP → gRPC → ZeroMQ → PostgreSQL 链路已验证只读、有效空报告、来源缺失、取消和失败。修复 revision 0 首次绑定、启动取消、零预算失败收敛及证据关联；固定源码 `93cada52` 的 30 阶段完整门禁和清理均通过（2777 unit / 556 contract / 275 integration / 77 E2E），运行 `sdar-verify-90b419a7-c47d-481c-9195-77fb58fd8b0a` 输入未变化。四个候选镜像构建、离线加载及回导通过，2327 个打包文件匹配本地构建。命令、哈希和失败记录见 reports/ugv-zmq-phase5/governance-20261025。ADR-167 和 EP-ZMQ-05 记录具体范围。第五阶段整体、G0、原生巡逻后继、完整 GOWM 站点资格和现场执行仍开放，19100/19101 未切换。

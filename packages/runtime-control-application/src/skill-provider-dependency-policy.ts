@@ -1,4 +1,12 @@
 import { createHash } from 'node:crypto';
+import { ZMQ_PATROL_SKILL, ZMQ_PATROL_CAPABILITY } from '../../domain/src/zmq-area-patrol.js';
+import {
+  buildZmqPatrolSkill,
+  parseZmqPatrolChildren,
+  zmqPatrolConstraints,
+  ZMQ_PATROL_SUCCESS_CRITERIA,
+  ZMQ_PATROL_REQUIRED_EVIDENCE,
+} from '../../domain/src/zmq-patrol-contract.js';
 
 import {
   parseMcpProviderBindingPolicyOverride,
@@ -90,6 +98,11 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
   ): RuntimeSkillProviderDependencyAssessment {
     const implementation = input.implementation;
     if (
+      input.definition.capabilityId === ZMQ_PATROL_CAPABILITY ||
+      implementation.implementationId === ZMQ_PATROL_SKILL
+    )
+      return assessZmqPatrol(input);
+    if (
       input.definition.capabilityId === 'embodied.area_patrol' ||
       implementation.implementationId === 'embodied.area_patrol'
     )
@@ -161,6 +174,108 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
         ]),
       }),
     });
+  }
+}
+
+/** Independent reviewed native contract; legacy patrol pins remain unchanged. */
+function assessZmqPatrol(
+  input: RuntimeSkillProviderDependencyPolicyInput,
+): RuntimeSkillProviderDependencyAssessment {
+  try {
+    const { definition: d, implementation: i, skill } = input;
+    const resourceId = record(record(record(d.inputSchema)?.['properties'])?.['resourceId'])?.[
+      'const'
+    ];
+    const version = Number(i.implementationVersion);
+    const constraints = d.constraints ?? [];
+    const provider = constraints.find((c) => c['type'] === 'provider_binding_policy');
+    const composition = constraints.find((c) => c['type'] === 'composition_authority_policy');
+    const parsed = parseMcpProviderBindingPolicyOverride(i.providerPolicyOverride);
+    const requirement = parsed.requirements[0];
+    if (
+      !nonEmpty(resourceId) ||
+      resourceId.length > 256 ||
+      !positiveInteger(version) ||
+      i.implementationVersion !== String(version) ||
+      !provider ||
+      !requirement ||
+      parsed.mode !== 'single' ||
+      requirement.mcpToolName !== 'vehicle_zmq_inspect_area' ||
+      !exactProviderConstraint(provider, requirement, resourceId) ||
+      provider['requiredStatus'] !== 'active' ||
+      provider['requiredAvailabilityStatus'] !== 'available' ||
+      provider['requiredFreshness'] !== 'unexpired' ||
+      provider['fallback'] !== 'deny'
+    )
+      return DENIED;
+    const catalogRevision = provider['catalogRevision'],
+      catalogChecksum = provider['catalogChecksum'];
+    if (typeof catalogRevision !== 'string' || typeof catalogChecksum !== 'string') return DENIED;
+    const children = parseZmqPatrolChildren(composition?.['children']);
+    const expected = buildZmqPatrolSkill(resourceId, version, provider, children);
+    if (
+      d.capabilityId !== ZMQ_PATROL_CAPABILITY ||
+      d.status !== 'published' ||
+      !positiveInteger(d.version) ||
+      (d.version === 1 ? d.previousVersion !== undefined : d.previousVersion !== d.version - 1) ||
+      input.implementations.length !== 1 ||
+      !sameCanonical(input.implementations[0], i) ||
+      i.capabilityId !== d.capabilityId ||
+      i.capabilityVersion !== d.version ||
+      i.implementationType !== 'skill' ||
+      i.implementationId !== ZMQ_PATROL_SKILL ||
+      i.status !== 'active' ||
+      i.role !== 'primary' ||
+      i.priority !== 0 ||
+      i.activationCondition !== undefined ||
+      !positiveInteger(i.revision) ||
+      !/^[a-f0-9]{64}$/u.test(skill.packageChecksum ?? '') ||
+      !sameCanonical(skill.inputSchema, expected.inputSchema) ||
+      !sameCanonical(d.inputSchema, expected.inputSchema) ||
+      !sameCanonical(skill.outputSchema, expected.outputSchema) ||
+      !sameCanonical(d.outputSchema, expected.outputSchema) ||
+      !sameCanonical(skill.toolPolicy, expected.toolPolicy) ||
+      !sameCanonical(skill.runtimePolicy, expected.runtimePolicy) ||
+      !sameCanonical(skill.usageSpecification, expected.usageSpecification) ||
+      !sameCanonical(skill.outcomeSpecification, expected.outcomeSpecification) ||
+      !sameCanonical(constraints, zmqPatrolConstraints(resourceId, version, provider, children)) ||
+      !sameCanonical(d.supportedModes, ['plan_confirmed', 'composition']) ||
+      d.riskLevel !== 'high' ||
+      !sameCanonical(d.effects, ['effect.patrol_reported']) ||
+      !sameCanonical(d.artifacts, []) ||
+      !sameCanonical(d.successCriteria, ZMQ_PATROL_SUCCESS_CRITERIA) ||
+      !sameCanonical(d.requiredEvidence, ZMQ_PATROL_REQUIRED_EVIDENCE)
+    )
+      return DENIED;
+    return {
+      decision: 'authorized',
+      authorization: {
+        requirements: [requirement],
+        expectedBindings: [
+          {
+            mcpProviderBindingId: requirement.mcpProviderBindingId,
+            localServerId: requirement.localServerId,
+            bindingRevision: Number(provider['bindingRevision']),
+            catalogRevision,
+            catalogChecksum,
+          },
+        ],
+        policyParts: [
+          `zmq-patrol-package:${skill.packageChecksum ?? ''}`,
+          `zmq-patrol-composition:${hashCanonical({ constraints, usage: skill.usageSpecification })}`,
+        ],
+        childDependencies: children.map(
+          ({ skillId, skillVersion, capabilityId, capabilityVersion }) => ({
+            skillId,
+            skillVersion,
+            capabilityId,
+            capabilityVersion,
+          }),
+        ),
+      },
+    };
+  } catch {
+    return DENIED;
   }
 }
 

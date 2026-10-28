@@ -1,3 +1,13 @@
+import {
+  isGovernedPatrol,
+  ZMQ_PATROL_CHILDREN,
+  ZMQ_PATROL_SKILL,
+} from '../../../../packages/domain/src/zmq-area-patrol.js';
+import { prepareNativeZmqWorkflow } from '../../../../packages/ugv-profile/src/zmq-workflow.js';
+import {
+  nativeZmqCatalogProfile,
+  assertNativeZmqExecutionContext,
+} from '../../../../packages/domain/src/zmq-site-capability.js';
 import type { GovernedChildTaskPort } from '../../../../packages/application/src/governed-child-task.js';
 import { areaReportChildExecutionStatus } from '../area-report-terminal.js';
 import {
@@ -258,7 +268,12 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
           canonicalJson(instance.input['skillInput']) !== canonicalJson(binding.inputSnapshot)
         )
           throw Error('ZMQ_RESULT_INPUT_AUTHORITY_INVALID');
-        return projectNativeZmqResult(nativeTool, result, binding.inputSnapshot['resourceId']);
+        return projectNativeZmqResult(
+          nativeTool,
+          result,
+          binding.inputSnapshot['resourceId'],
+          nativeZmqCatalogProfile(binding.constraintSnapshot),
+        );
       }
       if (
         plan?.definition?.skillUsagePolicy?.skill.skillId === 'embodied.inspect_area' &&
@@ -266,9 +281,12 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
       )
         return projectInspectionResult(result);
       if (
-        plan?.definition?.skillUsagePolicy?.skill.skillId === 'embodied.area_patrol' &&
-        plan.definition.skillUsagePolicy.skill.skillVersion >= 2 &&
-        instance
+        isGovernedPatrol(
+          plan?.definition?.skillUsagePolicy?.skill.skillId,
+          plan?.definition?.skillUsagePolicy?.skill.skillVersion,
+        ) &&
+        instance &&
+        plan
       ) {
         const task = await tasks.findByPlanId(plan.planId);
         if (!task) throw Error('PATROL_PARENT_TASK_NOT_FOUND');
@@ -337,14 +355,17 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
           typeof binding.inputSnapshot['resourceId'] !== 'string' ||
           !isRecord(instance?.input) ||
           canonicalJson(instance.input['skillInput']) !== canonicalJson(binding.inputSnapshot) ||
-          executionContext.mode !== 'simulation' ||
-          !executionContext.simulationId ||
           canonicalJson(
             zmqToolArguments(
               nativeTool,
               binding.inputSnapshot,
               binding.inputSnapshot['resourceId'],
               schemaValidator,
+              assertNativeZmqExecutionContext(
+                binding.constraintSnapshot,
+                executionContext,
+                nativeTool,
+              ),
             ),
           ) !== canonicalJson(arguments_)
         )
@@ -356,6 +377,9 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
                 ? binding.inputSnapshot['timeWindow']
                 : undefined,
               clock.now(),
+              nativeZmqCatalogProfile(binding.constraintSnapshot) === 'zmq_v1_0_1_12'
+                ? 30000
+                : 60000,
             );
       } else if (ZMQ_NATIVE_CONTROLS.has(tool.toolName))
         throw Error('ZMQ_NATIVE_SKILL_AUTHORITY_REQUIRED');
@@ -1140,14 +1164,17 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
       const node = plan?.definition?.nodes.find((candidate) => candidate.nodeId === parentNodeId);
       if (
         plan?.confirmationStatus !== 'confirmed' ||
-        policy?.skill.skillId !== 'embodied.area_patrol' ||
-        policy.skill.skillVersion < 2 ||
+        !policy ||
+        !isGovernedPatrol(policy.skill.skillId, policy.skill.skillVersion) ||
         node?.type !== 'skill_call' ||
         node.skillId !== skillId
       )
         return false;
       const declared = policy.childPolicies.filter((child) => child.child.skillId === skillId);
-      if (declared.length !== 1 || !['embodied.move_to', 'embodied.inspect_area'].includes(skillId))
+      if (
+        declared.length !== 1 ||
+        !['embodied.move_to', 'embodied.inspect_area', ...ZMQ_PATROL_CHILDREN].includes(skillId)
+      )
         return false;
       const declaredChild = declared[0];
       if (!declaredChild) return false;
@@ -1270,13 +1297,20 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
       const plan = instance && (await workflowPlans.findPlan(instance.planId));
       if (
         plan?.confirmationStatus === 'confirmed' &&
-        plan.definition?.skillUsagePolicy?.skill.skillId === 'embodied.area_patrol' &&
-        plan.definition.skillUsagePolicy.skill.skillVersion >= 2
+        isGovernedPatrol(
+          plan.definition?.skillUsagePolicy?.skill.skillId,
+          plan.definition?.skillUsagePolicy?.skill.skillVersion,
+        )
       ) {
         return {
-          strategy: input.allowedStrategies.includes('continue')
-            ? ('continue' as const)
-            : ('terminate' as const),
+          strategy:
+            plan.definition?.skillUsagePolicy?.skill.skillId === ZMQ_PATROL_SKILL &&
+            input.gotoNodeId === 'usage_failure' &&
+            input.allowedStrategies.includes('goto')
+              ? ('goto' as const)
+              : input.allowedStrategies.includes('continue')
+                ? ('continue' as const)
+                : ('terminate' as const),
           summary: `Preserved child failure ${input.error.code}; no physical redispatch is permitted.`,
         };
       }
@@ -1512,6 +1546,12 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
   });
   const skillCallWorkflowService = new SkillCallWorkflowService({
     governedChildren: {
+      recordParentConfirmation: (task, authority) =>
+        dependencies.governedPatrolChildren.value?.recordParentConfirmation?.(task, authority) ??
+        Promise.resolve(),
+      confirmInherited: (planId) =>
+        dependencies.governedPatrolChildren.value?.confirmInherited?.(planId) ??
+        Promise.resolve(false),
       prepare: (input) =>
         dependencies.governedPatrolChildren.value?.prepare(input) ?? Promise.resolve(undefined),
       attach: (input) =>
@@ -1609,6 +1649,33 @@ export function composeExecution(dependencies: composeExecutionDependencies) {
         candidate.modeDecision,
         composition,
       );
+      const nativeName = zmqToolForSkill(skill.skillId);
+      if (nativeName) {
+        if (
+          !task ||
+          binding?.requestedCapabilityId !== zmqCapabilityId(nativeName) ||
+          canonicalJson(binding.inputSnapshot) !== canonicalJson(value)
+        )
+          throw Error('ZMQ_CHILD_INPUT_AUTHORITY_REQUIRED');
+        const context = await taskCapabilities.resolveRuntimeExecutionContext(task.taskId);
+        assertNativeZmqExecutionContext(binding.constraintSnapshot, context, nativeName);
+        return {
+          applicabilityStatus: candidate.applicability.status,
+          prepared: prepareNativeZmqWorkflow(
+            {
+              skill,
+              candidate,
+              interpretation,
+              goalContract,
+              workflowDefinitionId,
+              workflowVersion: skill.version,
+            },
+            value,
+            schemaValidator,
+            clock.now(),
+          ),
+        };
+      }
       if (ugvAgentProfile && isHistoricalUgvPointSkill(skill.skillId, skill.version)) {
         if (!task || !dependencies.ugvMoveBindingResolver)
           throw Error('COMPOSED_MOVE_BINDING_REQUIRED');

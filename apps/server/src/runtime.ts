@@ -652,6 +652,7 @@ export async function startServerRuntime(
       );
     if (ugvAgentProfile)
       governedPatrolChildren.value = createGovernedPatrolChildTasks({
+        confirmations: governedControlAuthorityRepository,
         calls: skillCallWorkflows,
         commands: taskCommands,
         service: service.value,

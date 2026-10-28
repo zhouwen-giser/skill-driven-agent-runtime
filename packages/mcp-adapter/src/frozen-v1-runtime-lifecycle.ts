@@ -110,6 +110,11 @@ export class FrozenV1RuntimeLifecycleAdapter implements FrozenTaskLifecycleRunti
     return Object.freeze({ acknowledged: true as const, protocolRevision: '2026-07-28' });
   }
 
+  async control(input: Parameters<NonNullable<FrozenTaskLifecycleRuntimePort['control']>>[0]) {
+    await this.#client(input).controlTask(input.remoteTaskId, input.action);
+    return Object.freeze({ acknowledged: true as const, protocolRevision: '2026-07-28' });
+  }
+
   #client(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
     const key = clientKey(input);
     const existing = this.#clients.get(key);

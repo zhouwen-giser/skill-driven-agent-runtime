@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-28 — Anonymous native ZMQ site integration (in progress)
+
+Add separate exact readonly/control 13-tool profiles and v2 source-qualified reports. Add deterministic
+single-region navigation/inspection composition, exact child governance, retained restricted human
+confirmation and original-deadline enforcement. Extend existing scoped child lifecycle persistence.
+Provide tagged Docker network reconciliation and renewal without automatic contract approval.
+SMPP anonymous candidate and real isolated cross-project task chains pass, including pause/resume,
+restart without motion redispatch, cancellation, timeout and evidence projection. Full SDAR gate and
+field acceptance remain pending.
+
 ## 2026-10-15 — inspection dispatch timing review
 
 - Recheck a genuine retained Catalog advance inside the PostgreSQL Binding transaction before aligning Registry lineage; retain counter-only rejection, history and idempotency.

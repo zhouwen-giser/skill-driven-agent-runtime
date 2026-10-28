@@ -1050,6 +1050,48 @@ describe('Workflow execution application service', () => {
     expect(onExternalWaitPrepared).toHaveBeenCalledOnce();
     expect(onExternalWaitActivated).toHaveBeenCalledOnce();
     expect(instances.instances.at(-1)).toMatchObject({ status: 'waiting_external' });
+    await expect(service.pauseForPlan(validPlan.planId, true)).resolves.toMatchObject({
+      status: 'paused',
+      pendingConfirmation: { kind: 'task_pause' },
+    });
+    await expect(
+      service.continueExternal({
+        instanceId: 'instance-remote',
+        continuationAttemptId: 'attempt-while-paused',
+        resolution: {
+          kind: 'completed',
+          waitId: 'wait-remote-1',
+          nodeRunId: 'instance-remote~result~1',
+          result: 'must defer',
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_INSTANCE_NOT_WAITING_EXTERNAL' });
+    await expect(
+      service.resumePauseForPlan(
+        validPlan.planId,
+        300,
+        {
+          agentTaskId: 'other-task',
+          contextId: 'context-remote',
+          workflowControlId: 'control-remote',
+        },
+        true,
+      ),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_CONTINUATION_AUTHORITY_STALE' });
+    await expect(
+      service.resumePauseForPlan(
+        validPlan.planId,
+        300,
+        {
+          agentTaskId: 'task-remote',
+          contextId: 'context-remote',
+          workflowControlId: 'control-remote',
+        },
+        true,
+      ),
+    ).resolves.toMatchObject({ disposition: 'resumed', instance: { status: 'waiting_external' } });
+    expect(execute).toHaveBeenCalledOnce();
+    expect(continueExternal).not.toHaveBeenCalled();
     await expect(
       service.continueExternal({
         instanceId: 'instance-remote',

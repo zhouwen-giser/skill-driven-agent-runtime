@@ -13,6 +13,12 @@ export interface PatrolChildEvidence {
   }>[];
   readonly trajectorySourceRefs?: readonly string[];
   readonly missingEvidence: readonly string[];
+  readonly remoteTasks?: readonly Readonly<{
+    taskId: string;
+    executionId: string;
+    providerId: string;
+    operationName: string;
+  }>[];
 }
 
 export function parseAreaPatrolInput(value: unknown) {

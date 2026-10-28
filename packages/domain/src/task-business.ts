@@ -384,8 +384,8 @@ export function projectTaskBusiness(
       'provider_trajectory_has_no_per_sample_receive_time',
       'provider_retained_samples_may_be_sampled',
     );
-  const properties = context.summary.properties;
-  const last = properties?.['trajectoryLast'];
+  const properties = context.summary.properties ?? {};
+  const last = properties['trajectoryLast'];
   const source = isRecord(last) ? last['observedAt'] : undefined;
   const time =
     input.sourceTimeQualified === true &&
@@ -467,8 +467,26 @@ export function projectTaskBusiness(
         }),
     sdarReceivedAt: input.receivedAt,
     projectedAt: input.projectedAt,
-    contextDigest: hashCanonicalEvidenceJson(context),
+    contextDigest: taskBusinessContextDigest(context),
   });
+}
+
+/** Native effect Context is an untrusted source document; its private identity hash stays
+ * in retained source content, never relaxed into the Canonical Evidence field allowlist. */
+export function taskBusinessContextDigest(
+  context: TaskBusinessView['context'],
+): `sha256:${string}` {
+  const properties = context.summary.properties ?? {};
+  const result = properties['executionResult'];
+  if (
+    context.identity.operationName === 'simulation_apply_effect' &&
+    properties['schemaVersion'] === 'ugv.zmq-context-summary/1' &&
+    isRecord(result) &&
+    result['schemaVersion'] === 'ugv.zmq-effect-result/2' &&
+    result['qualification'] === 'site_control'
+  )
+    return hashSourceArtifactJson(context as unknown as EvidenceJsonValue);
+  return hashCanonicalEvidenceJson(context);
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

@@ -1,0 +1,25 @@
+services:
+  runtime:
+    image: ${SDAR_ZMQ_SITE_IMAGE:?fixed image ID required}
+    network_mode: host
+    restart: 'no'
+    command: [node, deploy/development/entrypoint.mjs, runtime]
+    volumes:
+      - ${SDAR_ZMQ_SITE_CONFIG:?private environment file required}:/run/sdar/environment.json:ro
+      - ${SDAR_ZMQ_SITE_PACKAGES:?isolated packages directory required}:/app/development-packages
+  control-api:
+    image: ${SDAR_ZMQ_SITE_IMAGE:?fixed image ID required}
+    network_mode: host
+    restart: 'no'
+    command: [node, deploy/development/entrypoint.mjs, api]
+    volumes:
+      - ${SDAR_ZMQ_SITE_CONFIG:?private environment file required}:/run/sdar/environment.json:ro
+      - ${SDAR_ZMQ_SITE_PACKAGES:?isolated packages directory required}:/app/development-packages
+  control-worker:
+    image: ${SDAR_ZMQ_SITE_IMAGE:?fixed image ID required}
+    network_mode: host
+    restart: 'no'
+    command: [node, deploy/development/entrypoint.mjs, worker]
+    volumes:
+      - ${SDAR_ZMQ_SITE_CONFIG:?private environment file required}:/run/sdar/environment.json:ro
+      - ${SDAR_ZMQ_SITE_PACKAGES:?isolated packages directory required}:/app/development-packages

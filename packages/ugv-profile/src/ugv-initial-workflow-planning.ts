@@ -1,3 +1,4 @@
+import { assertNativeZmqExecutionContext } from '../../domain/src/zmq-site-capability.js';
 import { canonicalHash } from '../../application/src/mcp-task-readiness.js';
 import type { AsyncLocalStorage } from 'node:async_hooks';
 import type {
@@ -20,6 +21,8 @@ import type { UgvMoveTaskBindingResolver } from './ugv-move-binding.js';
 import { UgvMoveWorkflowCandidateGuard, prepareUgvMoveWorkflowPlan } from './ugv-move-workflow.js';
 import { prepareNativeZmqWorkflow } from './zmq-workflow.js';
 import { zmqToolForSkill, zmqCapabilityId } from '../../domain/src/index.js';
+import { ZMQ_PATROL_SKILL, ZMQ_PATROL_CAPABILITY } from '../../domain/src/zmq-area-patrol.js';
+import { prepareZmqPatrolWorkflow } from './zmq-patrol-workflow.js';
 
 /** UGV admission and constraint scope only; formal Workflow/Task writers are absent. */
 export class UgvInitialWorkflowPlanningPolicy implements TaskPlanningProfilePolicy {
@@ -38,6 +41,31 @@ export class UgvInitialWorkflowPlanningPolicy implements TaskPlanningProfilePoli
     input: Parameters<TaskPlanningProfilePolicy['prepareUsage']>[0],
   ): Promise<TaskPlanningUsageEvidence | undefined> {
     const { skill, candidate, interpretation, workflowDefinitionId, workflowVersion, task } = input;
+    if (skill.skillId === ZMQ_PATROL_SKILL) {
+      const { bindings, inputs, clock, schemas } = this.#dependencies;
+      const binding = await bindings.findBinding(task.task.taskId);
+      const resolution = task.skillInputResolution;
+      const persisted = resolution && (await inputs.find(resolution.resolutionId));
+      const executionContext = await bindings.resolveRuntimeExecutionContext(task.task.taskId);
+      if (
+        !binding ||
+        !resolution ||
+        !persisted ||
+        !schemas ||
+        binding.requestedCapabilityId !== ZMQ_PATROL_CAPABILITY ||
+        executionContext?.mode !== 'live' ||
+        executionContext.simulationId != null ||
+        canonicalHash(binding.inputSnapshot) !== canonicalHash(persisted.structuredInput) ||
+        canonicalHash(binding.inputSnapshot) !== canonicalHash(resolution.structuredInput) ||
+        !schemas.validate(skill.inputSchema, binding.inputSnapshot).valid
+      )
+        throw Error('ZMQ_PATROL_INPUT_AUTHORITY_REQUIRED');
+      return {
+        applicabilityStatus: candidate.applicability.status,
+        executionContext,
+        prepared: prepareZmqPatrolWorkflow(input, binding.inputSnapshot, clock.now()),
+      };
+    }
     const nativeTool = zmqToolForSkill(skill.skillId);
     if (nativeTool !== undefined) {
       const { schemas, bindings, inputs, clock } = this.#dependencies;
@@ -58,8 +86,8 @@ export class UgvInitialWorkflowPlanningPolicy implements TaskPlanningProfilePoli
       )
         throw Error('ZMQ_SKILL_INPUT_AUTHORITY_CONFLICT');
       const executionContext = await bindings.resolveRuntimeExecutionContext(task.task.taskId);
-      if (executionContext?.mode !== 'simulation' || !executionContext.simulationId)
-        throw Error('ZMQ_SIMULATION_CONTEXT_REQUIRED');
+      if (!executionContext) throw Error('ZMQ_EXECUTION_CONTEXT_REQUIRED');
+      assertNativeZmqExecutionContext(binding.constraintSnapshot, executionContext, nativeTool);
       return {
         applicabilityStatus: candidate.applicability.status,
         prepared: prepareNativeZmqWorkflow(input, binding.inputSnapshot, schemas, clock.now()),

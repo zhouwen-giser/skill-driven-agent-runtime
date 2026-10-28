@@ -99,6 +99,36 @@ describe('Frozen MCP Catalog canonical authority', () => {
 });
 
 describe('NodeControlFrozenMcpCatalogClient governed Runtime authority', () => {
+  it('uses frozen Catalog ordering for the actual planner prefix keys while preserving configuration hashes', async () => {
+    const snapshot = protocolSnapshot();
+    const tools = [
+      tool({
+        requestHash: { type: 'string' },
+        requestedWaypoints: { type: 'array', items: { type: 'number' } },
+      }),
+    ];
+    const expected = deriveFrozenMcpCatalogAuthority(snapshot, tools, 1);
+    const configurationChecksum = hashConfigurationRequest(
+      frozenMcpCatalogDocument(snapshot, tools) as JsonValue,
+    );
+    expect(configurationChecksum).not.toBe(expected.catalogChecksum);
+    const client = new NodeControlFrozenMcpCatalogClient(['provider.example.test'], {
+      discover: () => Promise.resolve({ snapshot, tools }),
+    } as unknown as FrozenV1RegistryAdapter);
+    await expect(
+      client.discover({
+        localServerId: 'provider-1',
+        endpointRef: 'https://provider.example.test/mcp',
+        credentialRef: MCP_UNAUTHENTICATED_CREDENTIAL_REF,
+        bindingRevision: 1,
+        observedAt: timestamp,
+        snapshotId: 'native-planner-catalog',
+      }),
+    ).resolves.toMatchObject({ catalogChecksum: expected.catalogChecksum });
+    expect(hashConfigurationRequest(frozenMcpCatalogDocument(snapshot, tools) as JsonValue)).toBe(
+      configurationChecksum,
+    );
+  });
   it('omits Authorization for the one explicit unauthenticated Runtime authority', async () => {
     const snapshot = protocolSnapshot();
     const discover = vi.fn(() =>
