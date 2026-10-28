@@ -64,3 +64,14 @@ unexpired deadline; it sends only the declared TaskExecution resume method. Star
 exact child-wait ancestors of a durable remote receipt. This does not recover an ordinary running
 graph or retry an uncertain physical dispatch. Deadline-triggered device cancellation remains a
 failed owning Task. Immutable Agent Card revisions retain independent status histories.
+
+## Lifecycle command rejection and schema metadata
+
+An invalid pause/resume is a rejected command, not the outcome of its existing Task. Return an
+A2A agent Message carrying the same Task/Context identity and `io.sdar/controlAction` with action,
+status=rejected and stable code. Keep authoritative Task phase and physical dispatch unchanged.
+This receipt is separate from later GET/subscription projections, which remain canonical.
+
+Canonical evidence allows `authorizationContextHash: {type: "string"}` only as JSON Schema
+properties metadata. This never permits an actual authorization hash, schema default/example or
+bare root value. The historical SHA256-pattern schema exception and redaction guards remain.

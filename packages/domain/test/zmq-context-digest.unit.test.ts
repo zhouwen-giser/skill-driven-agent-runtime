@@ -62,11 +62,20 @@ describe('native effect source context identity', () => {
     ).not.toThrow();
     for (const value of [
       'a'.repeat(64),
+      { type: 'string' },
       { type: 'string', default: 'a'.repeat(64) },
       { type: 'string', examples: ['a'.repeat(64)] },
     ])
       expect(() => hashCanonicalEvidenceJson({ authorizationContextHash: value })).toThrow(
         'Forbidden evidence field',
       );
+    for (const value of [
+      'a'.repeat(64),
+      { type: 'string', default: 'a'.repeat(64) },
+      { type: 'string', examples: ['a'.repeat(64)] },
+    ])
+      expect(() =>
+        hashCanonicalEvidenceJson({ properties: { authorizationContextHash: value } }),
+      ).toThrow('Forbidden evidence field');
   });
 });

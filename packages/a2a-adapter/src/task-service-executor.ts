@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import type { TaskService, TaskStateNotifier } from '../../application/src/index.js';
 import type { TaskProjectionArtifact } from '../../application/src/task-projection.js';
-import type { AgentTask } from '../../domain/src/index.js';
+import { DomainError, type AgentTask } from '../../domain/src/index.js';
 import { governedControlPrincipalForA2AUser } from './authenticated-confirm-user.js';
 import { buildStatusUpdate } from './compatibility.js';
 import {
@@ -76,15 +76,53 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
         followUp.action === 'provide_input'
           ? governedControlPrincipalForA2AUser(request.context.user)
           : undefined;
-      const updated = await this.#tasks.followUp({
-        taskId: request.taskId,
-        ...followUp,
-        ...(confirmationPrincipal === undefined
-          ? {}
-          : {
-              confirmationAuthority: Object.freeze({ principal: confirmationPrincipal }),
+      let updated: AgentTask;
+      try {
+        updated = await this.#tasks.followUp({
+          taskId: request.taskId,
+          ...followUp,
+          ...(confirmationPrincipal === undefined
+            ? {}
+            : {
+                confirmationAuthority: Object.freeze({ principal: confirmationPrincipal }),
+              }),
+        });
+      } catch (error) {
+        if (
+          !['pause', 'resume'].includes(followUp.action) ||
+          !(error instanceof DomainError) ||
+          error.code !== 'TASK_PHASE_TRANSITION_INVALID'
+        )
+          throw error;
+        // A rejected command is not the outcome of the already running device Task.
+        const current = await this.#tasks.get(request.taskId);
+        eventBus.publish(
+          AgentEvent.message(
+            Message.fromJSON({
+              messageId: `${request.userMessage.messageId}:control-rejected`,
+              taskId: current.taskId,
+              contextId: current.contextId,
+              role: 'ROLE_AGENT',
+              parts: [
+                {
+                  text: 'The lifecycle command is invalid for the current Task state.',
+                  mediaType: 'text/plain',
+                },
+              ],
+              metadata: {
+                'io.sdar/controlAction': {
+                  action: followUp.action,
+                  status: 'rejected',
+                  code: error.code,
+                  message: 'The lifecycle command is invalid for the current Task state.',
+                },
+              },
             }),
-      });
+          ),
+        );
+        eventBus.finished();
+        return;
+      }
       eventBus.publish(
         AgentEvent.task(
           withUserHistory(await this.#project(updated), request.userMessage, request.task),

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { SendMessageRequest, TaskState, type StreamResponse } from '@a2a-js/sdk';
+import { Message, SendMessageRequest, TaskState, type StreamResponse } from '@a2a-js/sdk';
 import {
   AgentEvent,
   InMemoryTaskStore,
@@ -16,7 +16,7 @@ import { ObservedRequestHandler } from '../src/observed-request-handler.js';
 import { buildAgentCard } from '../src/compatibility.js';
 import { toA2ATask } from '../src/task-mapping.js';
 
-function setup() {
+function setup(rejectFollowUp = false) {
   let task: AgentTask = {
     ...createAgentTask({
       taskId: 'task-observe',
@@ -35,6 +35,28 @@ function setup() {
   const writes = vi.spyOn(store, 'save');
   const executor: AgentExecutor = {
     execute: vi.fn<AgentExecutor['execute']>((request, bus) => {
+      if (rejectFollowUp && request.task !== undefined) {
+        bus.publish(
+          AgentEvent.message(
+            Message.fromJSON({
+              messageId: `${request.userMessage.messageId}:control-rejected`,
+              taskId: task.taskId,
+              contextId: task.contextId,
+              role: 'ROLE_AGENT',
+              parts: [{ text: 'Invalid resume.', mediaType: 'text/plain' }],
+              metadata: {
+                'io.sdar/controlAction': {
+                  action: 'resume',
+                  status: 'rejected',
+                  code: 'TASK_PHASE_TRANSITION_INVALID',
+                },
+              },
+            }),
+          ),
+        );
+        bus.finished();
+        return Promise.resolve();
+      }
       task = { ...task, taskId: request.taskId, contextId: request.contextId };
       bus.publish(AgentEvent.task(toA2ATask(task, interaction)));
       bus.finished();
@@ -86,6 +108,45 @@ async function collect(stream: AsyncGenerator<StreamResponse, void, undefined>) 
   return events;
 }
 describe('SDK public handler projection observer', () => {
+  it.each(['blocking', 'streaming'] as const)(
+    'preserves a %s command rejection separately from the running Task projection',
+    async (mode) => {
+      const s = setup(true);
+      const initial = await s.handler.sendMessage(
+        {
+          ...request(),
+          configuration: { ...requiredFixture(request().configuration), returnImmediately: true },
+        },
+        context,
+      );
+      if (!('id' in initial)) throw new Error('TASK_REQUIRED');
+      const before = s.writes.mock.calls.length;
+      const receipt =
+        mode === 'blocking'
+          ? await s.handler.sendMessage(request(initial.id), context)
+          : (await collect(s.handler.sendMessageStream(request(initial.id), context)))[0]?.payload;
+      const message =
+        mode === 'blocking'
+          ? receipt
+          : receipt !== undefined && '$case' in receipt && receipt.$case === 'message'
+            ? receipt.value
+            : undefined;
+      expect(message).toMatchObject({
+        taskId: initial.id,
+        metadata: {
+          'io.sdar/controlAction': { status: 'rejected', code: 'TASK_PHASE_TRANSITION_INVALID' },
+        },
+      });
+      expect(s.task().phase).toBe('executing');
+      // The SDK records the incoming follow-up in history before calling the executor.
+      expect(s.writes).toHaveBeenCalledTimes(before + 1);
+      expect(
+        (await s.handler.getTask({ id: initial.id, tenant: '', historyLength: undefined }, context))
+          .status?.state,
+      ).toBe(TaskState.TASK_STATE_WORKING);
+      s.notifier.close();
+    },
+  );
   it('sends one initial Task and the complete artifact before final status, beyond the synchronous window', async () => {
     const s = setup();
     const stream = s.handler.sendMessageStream(request(), context);

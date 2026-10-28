@@ -19,6 +19,7 @@ import {
 import {
   createAgentTask,
   createConversationContext,
+  DomainError,
   type AgentTask,
 } from '../../domain/src/index.js';
 import {
@@ -28,6 +29,67 @@ import {
 import { createGovernedControlA2AAuthentication } from '../src/authenticated-confirm-user.js';
 
 describe('TaskServiceAgentExecutor notification wait', () => {
+  it('returns a rejected lifecycle command without failing the existing physical Task', async () => {
+    const tasks = new FakeTasks('executing');
+    const { task } = await tasks.submit({
+      taskId: 'task-invalid-resume',
+      contextId: 'context-executor',
+      messageText: 'Existing task.',
+      metadata: {},
+    });
+    tasks.followUp = () =>
+      Promise.reject(
+        new DomainError('TASK_PHASE_TRANSITION_INVALID', 'Task phase transition is not allowed.'),
+      );
+    const previous = Task.fromJSON({
+      id: task.taskId,
+      contextId: task.contextId,
+      status: { state: 'TASK_STATE_WORKING' },
+      history: [],
+      artifacts: [],
+    });
+    const message = Message.fromJSON({
+      messageId: 'invalid-resume-command',
+      taskId: task.taskId,
+      contextId: task.contextId,
+      role: 'ROLE_USER',
+      parts: [{ text: 'Resume.', mediaType: 'text/plain' }],
+      metadata: { sdar_action: 'resume' },
+    });
+    const executor = new TaskServiceAgentExecutor({
+      tasks,
+      notifier: new InMemoryTaskStateNotifier(),
+    });
+    const { bus, events } = eventCollector();
+    await expect(
+      executor.execute(
+        new RequestContext(
+          message,
+          task.taskId,
+          task.contextId,
+          new ServerCallContext({ requestedVersion: '1.0' }),
+          previous,
+        ),
+        bus,
+      ),
+    ).resolves.toBeUndefined();
+    expect(statuses(events)).toEqual([]);
+    expect(events.some((event) => event.kind === 'task')).toBe(false);
+    const result = events.find((event) => event.kind === 'message');
+    expect(result?.kind === 'message' ? result.data : undefined).toMatchObject({
+      taskId: task.taskId,
+      contextId: task.contextId,
+    });
+    expect(result?.kind === 'message' ? result.data.metadata : undefined).toMatchObject({
+      'io.sdar/controlAction': {
+        action: 'resume',
+        status: 'rejected',
+        code: 'TASK_PHASE_TRANSITION_INVALID',
+      },
+    });
+    expect((await tasks.get(task.taskId)).phase).toBe('executing');
+    executor.close();
+  });
   it.each([
     ['completed', TaskState.TASK_STATE_COMPLETED],
     ['awaiting_user_input', TaskState.TASK_STATE_INPUT_REQUIRED],

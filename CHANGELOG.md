@@ -8,7 +8,9 @@ confirmation and original-deadline enforcement. Extend existing scoped child lif
 Provide tagged Docker network reconciliation and renewal without automatic contract approval.
 SMPP anonymous candidate and real isolated cross-project task chains pass, including pause/resume,
 restart without motion redispatch, cancellation, timeout and evidence projection. Full SDAR gate and
-field acceptance remain pending.
+field acceptance remain pending. Invalid lifecycle commands return a separate A2A rejection Message
+without failing the existing physical Task. Restrict hash-schema metadata exceptions to Schema
+properties; retain actual-value redaction. Independent candidate publishes 14 governed entries.
 
 ## 2026-10-15 — inspection dispatch timing review
 

@@ -8,7 +8,8 @@ SMPP b910f93 的 19 项门禁通过并已推送；19110 候选匿名读取 13 �
 SDAR 新增两种精确现场 Profile、独立原生巡逻、受限父确认继承和续查入口，跨项目原生隔离联调已通过。
 真实 PostgreSQL/Redis/MCP/ZMQ 验证六项控制、预览、巡逻降级、暂停恢复、重启不重派、取消与超时，
 匿名请求无 Authorization，证据投影及清理通过；见 reports/ugv-zmq-anonymous-patrol-20261028。
-完整 SDAR 门禁正在运行，正式治理发布、候选交接及现场动作仍开放。
+独立存储 SDAR 候选 11098/11099/10191 健康，direct 匿名 Binding 和 14 项实际治理发布已完成。
+生命周期拒绝公开回执及证据 Schema 边界补测通过；完整 SDAR 门禁、正式 PMS Binding、交接及现场动作仍开放。
 当前 19100/19101 未提升为本轮控制版本；全部现场控制命令 NOT_RUN，报告完整性不作通过声明。
 
 ## ZMQ 原生治理与任务链（2026-10-25，ISOLATED_VERIFIED）

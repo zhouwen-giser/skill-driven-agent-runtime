@@ -396,7 +396,7 @@ function canonicalize(value: unknown, depth: number, active: Set<object>, path: 
     }
     return `{${entries
       .map(([key, item]) => {
-        if (isForbiddenEvidenceField(key, item)) {
+        if (isForbiddenEvidenceField(key, item, path)) {
           throw new EvidenceContractError(
             'EVIDENCE_FORBIDDEN_FIELD',
             `Forbidden evidence field ${key}.`,
@@ -411,11 +411,23 @@ function canonicalize(value: unknown, depth: number, active: Set<object>, path: 
   }
 }
 
-function isForbiddenEvidenceField(key: string, value: unknown): boolean {
+function isForbiddenEvidenceField(key: string, value: unknown, parentPath: string): boolean {
   const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/gu, '');
   // Public JSON Schema metadata declares this hash's format; it contains no authorization value.
   // Only the exact declaration is admitted. Values, defaults, examples and additional keys reject.
   if (normalized === 'authorizationcontexthash' && isSha256HashSchema(value)) return false;
+  // Native Provider schemas use a plain string declaration under JSON Schema properties.
+  // The same object outside a property declaration is not evidence authority.
+  if (
+    normalized === 'authorizationcontexthash' &&
+    parentPath.endsWith('.properties') &&
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 1 &&
+    (value as Record<string, unknown>)['type'] === 'string'
+  )
+    return false;
   // This is an availability enum from the Control authority, never secret material or a locator.
   if (
     normalized === 'secretstatus' &&
@@ -434,9 +446,6 @@ function isForbiddenEvidenceField(key: string, value: unknown): boolean {
 function isSha256HashSchema(value: unknown): boolean {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const descriptor = value as Readonly<Record<string, unknown>>;
-  // Native site-control v2 declares this opaque hash as a plain string schema.
-  // This exact metadata object cannot carry a hash value, example or default.
-  if (Object.keys(descriptor).length === 1 && descriptor['type'] === 'string') return true;
   return (
     Object.keys(descriptor).sort().join(',') === 'pattern,type' &&
     descriptor['type'] === 'string' &&

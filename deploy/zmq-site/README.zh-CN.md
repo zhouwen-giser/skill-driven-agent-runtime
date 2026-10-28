@@ -80,3 +80,15 @@ docker compose --project-name sdar-zmq-anonymous-candidate -f deploy/zmq-site/co
 
 此候选配置不接管生产存储。进入正式现场验证窗口时，先保存任务/队列空闲证据、暂停原消费者，
 再采用专门审核的生产存储配置；保持同一队列的唯一消费者。镜像替换不会自动执行 bootstrap 或设备动作。
+
+### 生命周期拒绝回执
+
+对正在执行的任务发送 resume 等非法状态操作时，A2A 返回独立 Agent Message，保留 taskId/contextId，
+metadata 示例为：
+
+```json
+{"io.sdar/controlAction":{"action":"resume","status":"rejected","code":"TASK_PHASE_TRANSITION_INVALID","message":"The lifecycle command is invalid for the current Task state."}}
+```
+
+此回执表示该次操作被拒绝；原 Task 的 GET/订阅继续返回其真实状态，不发送设备恢复命令。
+客户端应同时支持正式 A2A 的 Task 和 Message 响应，不能把操作拒绝转换成原任务失败。

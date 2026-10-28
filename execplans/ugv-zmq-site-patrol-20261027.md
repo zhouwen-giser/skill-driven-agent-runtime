@@ -25,8 +25,8 @@ Native patrol has exactly two confirmed children, bounded by the original deadli
 - [x] Restore SDAR pinned dependencies offline without lockfile changes.
 - [x] SMPP site_anonymous implemented; 19-command gate passed; b910f93 committed/pushed.
 - [x] Restore 46 tagged service-specific rules; verify 10091/10998/10999 and two distinct source refreshes.
-- [ ] Implement exact 1.1.0/1.2.0 profiles, live identity, governance and renewal.
-- [ ] Implement native single-area patrol, lifecycle and truthful evidence aggregation.
+- [x] Implement exact 1.1.0/1.2.0 profiles, live identity, governance and renewal.
+- [x] Implement native single-area patrol, lifecycle and truthful evidence aggregation.
 - [ ] Run both repositories' required gates and isolated PostgreSQL/Redis/ZMQ task chains.
 - [ ] Build fixed candidate images and deployment packages; verify anonymous readonly access.
 - [ ] Operator confirms and executes field acceptance via formal A2A task chain.
@@ -122,3 +122,28 @@ verification, exit 0 and cleanup empty. Four inspection outcomes, camera, both r
 manual virtual effect, preview, patrol degradation/pause-resume/restart/cancel/timeout and Canonical
 Evidence projection pass. All recorded MCP requests omit Authorization. Failed earlier attempts
 remain retained. Full frozen SDAR gate is running; no field or formal control completion is claimed.
+
+## Review closure and candidate findings (2026-10-28)
+
+- Resume while already executing is rejected before transport. A2A now returns a separate agent
+  Message with `io.sdar/controlAction` rejection metadata; canonical Task projection stays running.
+  A Task metadata receipt would be overwritten by the authoritative projection. The official SDK
+  blocking and streaming paths have explicit regressions. No device resume call is made.
+- Canonical evidence permits a bare authorizationContextHash string schema only in a JSON Schema
+  properties dictionary. Real values, defaults, examples and bare root objects remain forbidden;
+  the existing evidence-domain security tests are unchanged and pass.
+- Preserve immutable recorded console-validation bytes and declare their Node globals in ESLint.
+  Production declaration output gives the deterministic patrol definition a required named type.
+- Four complete-gate attempts remain NOT_PASS, including discovered lint, declaration, environment
+  inventory and overly broad schema-guard defects; the superseded fourth run cleaned up its owned
+  fixtures. These failures are retained. Focused latest regression: four files / 44 tests PASS.
+- Independent-storage SDAR candidate is running at 11098/11099/10191 with direct anonymous
+  control13 Binding and 14 actual governed publications. No physical Task has been submitted.
+  Initial API projection errors preceded Runtime migrations; 29 issues subsequently resolved and
+  current unresolved issue count is zero. Candidate health alone is not field acceptance.
+- SMPP fixed candidate images and the anonymous formal readonly rollback target are deployed;
+  real HTTP login, device, local Task list and retained report reads pass on candidate and LAN.
+  SMPP candidate bundle SHA256 c0f0e42fa05250b09c74163c3bd8348bc040ef822b43b4a1da5c3d1949ab594c.
+
+Software full-gate completion, latest candidate image, formal PMS Binding, field confirmation,
+production queue handoff and promotion remain open until their evidence receipts exist.

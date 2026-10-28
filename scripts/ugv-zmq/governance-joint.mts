@@ -195,7 +195,7 @@ async function json(url: string, body?: unknown) {
     throw Error('OWNED_HTTP_FAILED:' + response.status + ':' + JSON.stringify(value));
   return value;
 }
-async function a2a(message: Record<string, unknown>) {
+async function a2a(message: Record<string, unknown>, returnImmediately = true) {
   if (!runtime) throw Error('OWNED_RUNTIME_REQUIRED');
   const response = await fetch(runtime.a2a.baseUrl + '/a2a/v1/message:send', {
     method: 'POST',
@@ -213,13 +213,14 @@ async function a2a(message: Record<string, unknown>) {
           ],
           ...message,
         },
-        configuration: { returnImmediately: true },
+        configuration: { returnImmediately },
       }),
     ),
   });
   const body: unknown = await response.json();
   if (!response.ok) throw Error('OWNED_A2A_FAILED:' + JSON.stringify(body));
-  return object.parse(object.parse(body)['task']);
+  const payload = object.parse(body);
+  return object.parse(payload['task'] ?? payload['message']);
 }
 async function task(taskId: string) {
   if (!pool) throw Error('OWNED_POOL_REQUIRED');
@@ -820,10 +821,29 @@ try {
               'io.sdar/taskExecution/tasks/resume',
           ).length;
         const beforeInvalidResume = resumeCalls();
-        await assert.rejects(() =>
-          a2a({ taskId, contextId: current.context_id, metadata: { sdar_action: 'resume' } }),
+        const invalidResume = await a2a(
+          { taskId, contextId: current.context_id, metadata: { sdar_action: 'resume' } },
+          false,
         );
+        assert.equal(invalidResume['taskId'], taskId);
+        assert.equal(invalidResume['role'], 'ROLE_AGENT');
+        assert.deepEqual(
+          object.parse(object.parse(invalidResume['metadata'])['io.sdar/controlAction']),
+          {
+            action: 'resume',
+            status: 'rejected',
+            code: 'TASK_PHASE_TRANSITION_INVALID',
+            message: 'The lifecycle command is invalid for the current Task state.',
+          },
+        );
+        assert.equal((await task(taskId)).phase, 'executing');
         assert.equal(resumeCalls(), beforeInvalidResume);
+        evidence.push({
+          case: 'invalid-resume-command-rejected-without-task-failure',
+          taskId,
+          response: invalidResume,
+          additionalResumeCalls: resumeCalls() - beforeInvalidResume,
+        });
         await a2a({ taskId, contextId: current.context_id, metadata: { sdar_action: 'pause' } });
         await until(
           () => task(taskId),
