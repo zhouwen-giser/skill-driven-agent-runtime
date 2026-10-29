@@ -1,3 +1,4 @@
+import { resolveZmqRegionHeights } from './zmq-region-defaults.js';
 import {
   nativeZmqCatalogProfile,
   projectSiteZmqResult,
@@ -114,7 +115,10 @@ export function nativeZmqDispatchInput(
   if (!record(timeWindow) || typeof timeWindow['earliestStart'] !== 'string')
     fail('ZMQ_TIME_WINDOW_INVALID');
   nativeZmqTaskExecution(timeWindow, timeWindow['earliestStart']);
-  return structuredClone(args);
+  return profile === 'zmq_v1_3_0_site_control_13' &&
+    ['vehicle_zmq_area_recon', 'vehicle_zmq_inspect_area'].includes(name)
+    ? resolveZmqRegionHeights(args)
+    : structuredClone(args);
 }
 
 /** Public reporting wrapper: preserve the original Provider result and never infer spatial completeness. */

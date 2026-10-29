@@ -68,7 +68,7 @@ const config = z
     databaseUrl: z.url(),
     redisPort: z.number().int().positive(),
     runId: z.string().regex(/^zmqgov-[a-f0-9]+$/),
-    catalogProfile: z.literal('zmq_v1_2_0_site_control_13').optional(),
+    catalogProfile: z.enum(['zmq_v1_2_0_site_control_13', 'zmq_v1_3_0_site_control_13']).optional(),
   })
   .strict()
   .parse(JSON.parse(await readFile(file, 'utf8')));
@@ -271,7 +271,11 @@ try {
       ],
       {
         cwd: site ? process.cwd() : source,
-        env: { ...process.env, SMPP_ZMQ_GOVERNANCE_FIXTURE_CONFIG: fixtureConfig },
+        env: {
+          ...process.env,
+          SMPP_ZMQ_GOVERNANCE_FIXTURE_CONFIG: fixtureConfig,
+          SMPP_ZMQ_JOINT_PROFILE: config.catalogProfile ?? '',
+        },
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       },
     );
@@ -513,7 +517,7 @@ try {
     nodeControlBearerToken: token,
     runtimeManagementBaseUrl: runtime.management.baseUrl,
     runId,
-    catalogProfile: 'zmq_v1_2_0_site_control_13' as const,
+    catalogProfile: config.catalogProfile ?? ('zmq_v1_2_0_site_control_13' as const),
     providerId,
     resourceId,
     localServerId: governance.localServerId,
@@ -610,6 +614,8 @@ try {
       { longitude: 106, latitude: 29.001, ellipsoidHeightM: 10 },
     ],
   };
+  if (config.catalogProfile === 'zmq_v1_3_0_site_control_13')
+    for (const p of area.vertices) Reflect.deleteProperty(p, 'ellipsoidHeightM');
   const inspectionInput = () => ({
     resourceId,
     area,
@@ -790,7 +796,7 @@ try {
       const input = {
         ...inspectionInput(),
         entryPoint: { longitude: 106.0005, latitude: 29.0005 },
-        speedLimitMps: 1,
+        speedLimitMps: config.catalogProfile === 'zmq_v1_3_0_site_control_13' ? 60 / 3.6 : 1,
         obstacleAvoidance: true,
       };
       if (mode === 'timeout') input.timeWindow.deadline = new Date(Date.now() + 8000).toISOString();

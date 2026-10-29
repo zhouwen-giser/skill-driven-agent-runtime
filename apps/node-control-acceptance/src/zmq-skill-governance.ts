@@ -173,7 +173,9 @@ async function governZmqSkillSet(
     : ZMQ_NATIVE_TOOLS;
   const names = [
     ...nativeNames,
-    ...(profile === 'zmq_v1_2_0_site_control_13' ? ['area_patrol' as const] : []),
+    ...(profile === 'zmq_v1_2_0_site_control_13' || profile === 'zmq_v1_3_0_site_control_13'
+      ? ['area_patrol' as const]
+      : []),
   ];
   for (const name of names) {
     const patrol = name === 'area_patrol';
@@ -219,7 +221,7 @@ async function governZmqSkillSet(
     const latest = versions.sort((x, y) => y.version - x.version)[0];
     const buildSkill = (version: number) => {
       const built = patrol
-        ? buildZmqPatrolSkill(a.resourceId, version, provider, children)
+        ? buildZmqPatrolSkill(a.resourceId, version, provider, children, profile)
         : buildNativeZmqSkill(a, toolName, tool, version);
       // All source values are validated JSON schemas; dictionaries stay finite JSON data.
       return {
@@ -315,7 +317,13 @@ async function governZmqSkillSet(
                 },
               ],
         constraints: patrol
-          ? (zmqPatrolConstraints(a.resourceId, skillVersion, provider, children) as JsonObject[])
+          ? (zmqPatrolConstraints(
+              a.resourceId,
+              skillVersion,
+              provider,
+              children,
+              profile,
+            ) as JsonObject[])
           : [
               provider as JsonObject,
               {

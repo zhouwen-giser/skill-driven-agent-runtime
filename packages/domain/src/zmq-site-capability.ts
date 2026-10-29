@@ -1,5 +1,6 @@
 import { ZMQ_NATIVE_CONTROLS, type ZmqNativeTool } from './zmq-capability.js';
-export type ZmqSiteProfile = 'zmq_v1_1_0_readonly_13' | 'zmq_v1_2_0_site_control_13';
+export type ZmqSiteProfile =
+  'zmq_v1_1_0_readonly_13' | 'zmq_v1_2_0_site_control_13' | 'zmq_v1_3_0_site_control_13';
 const record = (v: unknown): v is Readonly<Record<string, unknown>> =>
   v !== null && typeof v === 'object' && !Array.isArray(v);
 export function nativeZmqCatalogProfile(constraints: readonly Readonly<Record<string, unknown>>[]) {
@@ -10,7 +11,8 @@ export function nativeZmqCatalogProfile(constraints: readonly Readonly<Record<st
   if (
     a['version'] === 2 &&
     (a['catalogProfile'] === 'zmq_v1_1_0_readonly_13' ||
-      a['catalogProfile'] === 'zmq_v1_2_0_site_control_13')
+      a['catalogProfile'] === 'zmq_v1_2_0_site_control_13' ||
+      a['catalogProfile'] === 'zmq_v1_3_0_site_control_13')
   )
     return a['catalogProfile'];
   throw Error('ZMQ_CATALOG_PROFILE_UNREVIEWED');
@@ -81,7 +83,7 @@ export function projectSiteZmqResult(
       missing.add(item);
   }
   if (ZMQ_NATIVE_CONTROLS.has(name)) {
-    if (profile !== 'zmq_v1_2_0_site_control_13')
+    if (profile !== 'zmq_v1_2_0_site_control_13' && profile !== 'zmq_v1_3_0_site_control_13')
       throw Error('ZMQ_SITE_READONLY_CONTROL_FORBIDDEN');
     if (!failed && !canceled && !['completed', 'succeeded'].includes(state))
       missing.add('NATIVE_TERMINAL_SUCCESS_UNCONFIRMED');

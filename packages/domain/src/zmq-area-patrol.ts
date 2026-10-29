@@ -1,9 +1,23 @@
+import { resolveZmqRegionHeights } from './zmq-region-defaults.js';
 import { z } from 'zod';
 import { nativeZmqTaskExecution } from './zmq-capability.js';
 import { patrolPointInArea, type PatrolChildEvidence } from './area-patrol.js';
 
 export const ZMQ_PATROL_SKILL = 'ugv.zmq.area_patrol';
 export const ZMQ_PATROL_CAPABILITY = 'vehicle.ugv.zmq.area_patrol';
+export function resolveZmqPatrolProfile(value: unknown) {
+  if (value === 'zmq_v1_3_0_site_control_13') return value;
+  if (value === undefined || value === 'zmq_v1_2_0_site_control_13')
+    return 'zmq_v1_2_0_site_control_13';
+  throw Error('ZMQ_PATROL_COMPOSITION_PROFILE_INVALID');
+}
+export function zmqPatrolCatalogProfile(
+  constraints: readonly Readonly<Record<string, unknown>>[] | undefined,
+) {
+  return resolveZmqPatrolProfile(
+    constraints?.find((c) => c['type'] === 'composition_authority_policy')?.['catalogProfile'],
+  );
+}
 export const ZMQ_PATROL_CHILDREN = [
   'ugv.zmq.vehicle_zmq_navigate',
   'ugv.zmq.vehicle_zmq_inspect_area',
@@ -44,11 +58,42 @@ const inputSchema = z
       .strict(),
   })
   .strict();
-export function zmqPatrolInputSchema(resourceId: string) {
-  return z.toJSONSchema(inputSchema.extend({ resourceId: z.literal(resourceId) }));
+export function zmqPatrolInputSchema(resourceId: string, profile = 'zmq_v1_2_0_site_control_13') {
+  const schema =
+    profile === 'zmq_v1_3_0_site_control_13'
+      ? inputSchema.extend({
+          area: inputSchema.shape.area.extend({
+            vertices: z
+              .array(
+                position
+                  .extend({
+                    ellipsoidHeightM: z.number().optional(),
+                    ellipsoidHeightSource: z.enum(['provided', 'default_zero']).optional(),
+                  })
+                  .strict(),
+              )
+              .length(4),
+          }),
+        })
+      : inputSchema;
+  return z.toJSONSchema(schema.safeExtend({ resourceId: z.literal(resourceId) }));
 }
-export function parseZmqPatrolInput(value: unknown) {
-  const parsed = inputSchema.safeParse(value);
+export function parseZmqPatrolInput(value: unknown, profile = 'zmq_v1_2_0_site_control_13') {
+  const resolved =
+    profile === 'zmq_v1_3_0_site_control_13' ? resolveZmqRegionHeights(value) : undefined;
+  const validationInput = resolved
+    ? {
+        ...resolved,
+        area: {
+          ...resolved.area,
+          vertices: resolved.area.vertices.map(({ ellipsoidHeightSource, ...p }) => {
+            void ellipsoidHeightSource;
+            return p;
+          }),
+        },
+      }
+    : value;
+  const parsed = inputSchema.safeParse(validationInput);
   if (!parsed.success) throw Error('ZMQ_PATROL_INPUT_INVALID');
   const input = parsed.data;
   const points = input.area.vertices.map((p) => ({ x: p.longitude, y: p.latitude }));
@@ -70,12 +115,28 @@ export function parseZmqPatrolInput(value: unknown) {
     throw Error('ZMQ_PATROL_ENTRY_OUTSIDE_AREA');
   if (Date.parse(input.timeWindow.deadline) <= Date.parse(input.timeWindow.earliestStart))
     throw Error('ZMQ_PATROL_TIME_WINDOW_INVALID');
-  return input;
+  return resolved
+    ? {
+        ...input,
+        area: {
+          ...input.area,
+          vertices: input.area.vertices.map((p, i) => ({
+            ...p,
+            ellipsoidHeightSource:
+              resolved.area.vertices[i]?.ellipsoidHeightSource ?? ('provided' as const),
+          })),
+        },
+      }
+    : input;
 }
 
 /** A pure mapping used by compilation, child admission and report verification. */
-export function zmqPatrolChildInput(value: unknown, childSkillId: string) {
-  const input = parseZmqPatrolInput(value);
+export function zmqPatrolChildInput(
+  value: unknown,
+  childSkillId: string,
+  profile = 'zmq_v1_2_0_site_control_13',
+) {
+  const input = parseZmqPatrolInput(value, profile);
   const common = { resourceId: input.resourceId, timeWindow: input.timeWindow };
   if (childSkillId === ZMQ_PATROL_CHILDREN[0])
     return {
@@ -92,18 +153,26 @@ export function zmqPatrolChildInput(value: unknown, childSkillId: string) {
   if (childSkillId === ZMQ_PATROL_CHILDREN[1]) return { ...common, area: input.area };
   throw Error('ZMQ_PATROL_CHILD_NOT_ADMITTED');
 }
-export function assertZmqPatrolDeadline(value: unknown, now: string) {
-  return nativeZmqTaskExecution(parseZmqPatrolInput(value).timeWindow, now, 60000);
+export function assertZmqPatrolDeadline(
+  value: unknown,
+  now: string,
+  profile = 'zmq_v1_2_0_site_control_13',
+) {
+  return nativeZmqTaskExecution(parseZmqPatrolInput(value, profile).timeWindow, now, 60000);
 }
 const record = (v: unknown): v is Readonly<Record<string, unknown>> =>
   v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /** MCP completion alone cannot unlock inspection. This reads the retained native outcome. */
-export function zmqPatrolNavigationSucceeded(value: unknown, resourceId: string): boolean {
+export function zmqPatrolNavigationSucceeded(
+  value: unknown,
+  resourceId: string,
+  profile = 'zmq_v1_2_0_site_control_13',
+): boolean {
   if (
     !record(value) ||
     value['schemaVersion'] !== 'sdar.zmq-skill-report/2' ||
-    value['catalogProfile'] !== 'zmq_v1_2_0_site_control_13' ||
+    value['catalogProfile'] !== profile ||
     value['resourceId'] !== resourceId ||
     value['toolName'] !== 'vehicle_zmq_navigate' ||
     !['completed', 'degraded'].includes(String(value['status']))
@@ -120,8 +189,12 @@ export function zmqPatrolNavigationSucceeded(value: unknown, resourceId: string)
 }
 
 /** Only persisted, scoped child evidence may enter this aggregator. Requested routes are never evidence. */
-export function aggregateZmqPatrol(value: unknown, children: readonly PatrolChildEvidence[]) {
-  const input = parseZmqPatrolInput(value);
+export function aggregateZmqPatrol(
+  value: unknown,
+  children: readonly PatrolChildEvidence[],
+  profile = 'zmq_v1_2_0_site_control_13',
+) {
+  const input = parseZmqPatrolInput(value, profile);
   if (
     children.length > 2 ||
     new Set(children.map((c) => c.skillId)).size !== children.length ||
@@ -139,14 +212,14 @@ export function aggregateZmqPatrol(value: unknown, children: readonly PatrolChil
   }
   const navigationSucceeded =
     navigation?.phase === 'completed' &&
-    zmqPatrolNavigationSucceeded(navigation.result, input.resourceId);
+    zmqPatrolNavigationSucceeded(navigation.result, input.resourceId, profile);
   if (!navigationSucceeded) missing.add('NAVIGATION_SUCCESS_AND_STOP_UNCONFIRMED');
   let native: Readonly<Record<string, unknown>> | undefined;
   if (inspection?.result) {
     const report = inspection.result;
     if (
       report['schemaVersion'] !== 'sdar.zmq-skill-report/2' ||
-      report['catalogProfile'] !== 'zmq_v1_2_0_site_control_13' ||
+      report['catalogProfile'] !== profile ||
       report['toolName'] !== 'vehicle_zmq_inspect_area' ||
       report['resourceId'] !== input.resourceId ||
       !record(report['providerResult'])
@@ -202,6 +275,15 @@ export function aggregateZmqPatrol(value: unknown, children: readonly PatrolChil
   const failed = children.some((c) => c.phase === 'failed' || c.result?.['status'] === 'failed');
   return {
     schemaVersion: 'sdar.zmq-patrol-report/1',
+    ...(profile === 'zmq_v1_3_0_site_control_13'
+      ? {
+          parameterResolution: {
+            policy: 'missing_height_zero',
+            requestedArea: (value as Record<string, unknown>)['area'],
+            effectiveArea: input.area,
+          },
+        }
+      : {}),
     resourceId: input.resourceId,
     status: canceled ? 'cancelled' : failed ? 'failed' : 'degraded',
     navigationSucceeded,

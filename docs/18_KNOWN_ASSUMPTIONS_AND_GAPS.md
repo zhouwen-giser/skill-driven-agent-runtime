@@ -767,3 +767,12 @@ Old binding anchors are closed. Physically deleting them would additionally dele
 Six field actions and patrol remain NOT_RUN, pending explicit heights/entry/speed and operator
 A2A confirmation. Protocol coverage/trajectory/full-stream gaps remain explicit. See
 reports/ugv-zmq-successor-20261029/FINAL_ACCEPTANCE.json and the active ExecPlan.
+
+## ZMQ 1.3.0 regional default, 2026-10-29
+
+The operator explicitly selected missing regional height => WGS84 ellipsoid height 0 meters.
+This is an input policy, not measured terrain. The exact successor catalog and patrol resolve
+and freeze it before confirmation and report provenance. Native rejection remains a field gap.
+Unknown simulation-target height remains nullable. Speed is confirmed as 60 km/h, not km/s.
+The site currently reports stale chassis localization; navigation/patrol field readiness must be
+verified again from fresh receptions and cannot be inferred from model or requested coordinates.

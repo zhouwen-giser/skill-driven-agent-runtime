@@ -1,3 +1,4 @@
+import { zmqPatrolCatalogProfile } from '../../../packages/domain/src/zmq-area-patrol.js';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   GovernedControlConfirmationService,
@@ -154,7 +155,11 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       throw Error('COMPOSED_CHILD_PARENT_AUTHORITY_STALE');
     if (parent.selectedSkillId === ZMQ_PATROL_SKILL) {
       const binding = await capabilities.findBinding(parent.taskId);
-      assertZmqPatrolDeadline(binding?.inputSnapshot, clock.now());
+      assertZmqPatrolDeadline(
+        binding?.inputSnapshot,
+        clock.now(),
+        zmqPatrolCatalogProfile(binding?.constraintSnapshot),
+      );
     }
     return { parent, plan, link };
   }
@@ -172,7 +177,11 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       !['prepared', 'running', 'waiting'].includes(attempt.status)
     )
       throw Error('ZMQ_PATROL_PARENT_CONFIRMATION_SCOPE_INVALID');
-    const timing = assertZmqPatrolDeadline(binding.inputSnapshot, clock.now());
+    const timing = assertZmqPatrolDeadline(
+      binding.inputSnapshot,
+      clock.now(),
+      zmqPatrolCatalogProfile(binding.constraintSnapshot),
+    );
     const composition = binding.constraintSnapshot.filter(
       (c) => c['type'] === 'composition_authority_policy',
     );
@@ -189,7 +198,11 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       throw Error('ZMQ_PATROL_PARENT_CONFIRMATION_SCOPE_INVALID');
     const childInputs = ZMQ_PATROL_CHILDREN.map((id) => ({
       skillId: id,
-      input: zmqPatrolChildInput(binding.inputSnapshot, id),
+      input: zmqPatrolChildInput(
+        binding.inputSnapshot,
+        id,
+        zmqPatrolCatalogProfile(binding.constraintSnapshot),
+      ),
     }));
     return {
       scope: {
@@ -329,7 +342,11 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
         throw Error('COMPOSED_PARENT_INPUT_AUTHORITY_MISSING');
       const nativePatrol = policy.skill.skillId === ZMQ_PATROL_SKILL;
       const mapped: Record<string, unknown> = nativePatrol
-        ? zmqPatrolChildInput(parentInput, input.skill.skillId)
+        ? zmqPatrolChildInput(
+            parentInput,
+            input.skill.skillId,
+            zmqPatrolCatalogProfile(binding?.constraintSnapshot),
+          )
         : {};
       const declaration = declared[0];
       if (!declaration) throw Error('COMPOSED_CHILD_MAPPING_UNSUPPORTED');
@@ -343,7 +360,11 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
       if (canonicalHash(mapped) !== canonicalHash(input.value))
         throw Error('COMPOSED_CHILD_INPUT_MAPPING_MISMATCH');
       if (nativePatrol) {
-        assertZmqPatrolDeadline(parentInput, clock.now());
+        assertZmqPatrolDeadline(
+          parentInput,
+          clock.now(),
+          zmqPatrolCatalogProfile(binding?.constraintSnapshot),
+        );
         if (input.skill.skillId === ZMQ_PATROL_CHILDREN[1]) {
           const previous = (
             await tasks.listGovernedChildren(parent.taskId, input.parentPlan.planId)
@@ -368,10 +389,17 @@ export function createGovernedPatrolChildTasks(dependencies: Dependencies): Gove
             !navigation.planId ||
             !(await nativeTask(navigation.planId)) ||
             canonicalHash(navigationBinding.inputSnapshot) !==
-              canonicalHash(zmqPatrolChildInput(parentInput, ZMQ_PATROL_CHILDREN[0])) ||
+              canonicalHash(
+                zmqPatrolChildInput(
+                  parentInput,
+                  ZMQ_PATROL_CHILDREN[0],
+                  zmqPatrolCatalogProfile(binding?.constraintSnapshot),
+                ),
+              ) ||
             !zmqPatrolNavigationSucceeded(
               navigation.output?.structured,
               String(record(parentInput)?.['resourceId']),
+              zmqPatrolCatalogProfile(binding?.constraintSnapshot),
             )
           )
             throw Error('ZMQ_PATROL_NAVIGATION_NOT_CONFIRMED');

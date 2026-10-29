@@ -5,7 +5,11 @@ export const ZmqSiteConfiguration = z
     nodeControlBearerToken: z.string().min(16),
     runtimeManagementBaseUrl: z.url(),
     runId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
-    catalogProfile: z.enum(['zmq_v1_1_0_readonly_13', 'zmq_v1_2_0_site_control_13']),
+    catalogProfile: z.enum([
+      'zmq_v1_1_0_readonly_13',
+      'zmq_v1_2_0_site_control_13',
+      'zmq_v1_3_0_site_control_13',
+    ]),
     providerId: z.string().min(1),
     resourceId: z.string().min(1),
     localServerId: z.string().min(1),

@@ -1,3 +1,4 @@
+import { resolveZmqPatrolProfile } from '../../domain/src/zmq-area-patrol.js';
 import { createHash } from 'node:crypto';
 import { ZMQ_PATROL_SKILL, ZMQ_PATROL_CAPABILITY } from '../../domain/src/zmq-area-patrol.js';
 import {
@@ -212,7 +213,10 @@ function assessZmqPatrol(
       catalogChecksum = provider['catalogChecksum'];
     if (typeof catalogRevision !== 'string' || typeof catalogChecksum !== 'string') return DENIED;
     const children = parseZmqPatrolChildren(composition?.['children']);
-    const expected = buildZmqPatrolSkill(resourceId, version, provider, children);
+    const profile = resolveZmqPatrolProfile(composition?.['catalogProfile']);
+    if (!['zmq_v1_2_0_site_control_13', 'zmq_v1_3_0_site_control_13'].includes(profile))
+      return DENIED;
+    const expected = buildZmqPatrolSkill(resourceId, version, provider, children, profile);
     if (
       d.capabilityId !== ZMQ_PATROL_CAPABILITY ||
       d.status !== 'published' ||
@@ -238,7 +242,10 @@ function assessZmqPatrol(
       !sameCanonical(skill.runtimePolicy, expected.runtimePolicy) ||
       !sameCanonical(skill.usageSpecification, expected.usageSpecification) ||
       !sameCanonical(skill.outcomeSpecification, expected.outcomeSpecification) ||
-      !sameCanonical(constraints, zmqPatrolConstraints(resourceId, version, provider, children)) ||
+      !sameCanonical(
+        constraints,
+        zmqPatrolConstraints(resourceId, version, provider, children, profile),
+      ) ||
       !sameCanonical(d.supportedModes, ['plan_confirmed', 'composition']) ||
       d.riskLevel !== 'high' ||
       !sameCanonical(d.effects, ['effect.patrol_reported']) ||

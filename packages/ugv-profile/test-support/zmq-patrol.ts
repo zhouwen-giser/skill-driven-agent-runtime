@@ -20,7 +20,7 @@ import {
   type SkillModeInterpretation,
 } from '../../domain/src/index.js';
 export const patrolNow = '2026-10-28T00:00:00.000Z';
-export function patrolFixture() {
+export function patrolFixture(profile = 'zmq_v1_2_0_site_control_13') {
   const resourceId = 'vehicle:ugv1';
   const input = {
     resourceId,
@@ -61,7 +61,7 @@ export function patrolFixture() {
     requiredFreshness: 'unexpired',
     fallback: 'deny',
   };
-  const skill = buildZmqPatrolSkill(resourceId, 1, provider, children);
+  const skill = buildZmqPatrolSkill(resourceId, 1, provider, children, profile);
   const definition = createNodeCapabilityDefinition({
     capabilityId: ZMQ_PATROL_CAPABILITY,
     version: 1,
@@ -74,7 +74,7 @@ export function patrolFixture() {
     artifacts: [],
     successCriteria: [...ZMQ_PATROL_SUCCESS_CRITERIA] as JsonObject[],
     requiredEvidence: [...ZMQ_PATROL_REQUIRED_EVIDENCE] as JsonObject[],
-    constraints: zmqPatrolConstraints(resourceId, 1, provider, children) as JsonObject[],
+    constraints: zmqPatrolConstraints(resourceId, 1, provider, children, profile) as JsonObject[],
     supportedModes: ['plan_confirmed', 'composition'],
     riskLevel: 'high',
     status: 'published',

@@ -1,3 +1,4 @@
+import { resolveZmqPatrolProfile } from '../../domain/src/zmq-area-patrol.js';
 import type {
   ResultProcessor,
   SkillRepository,
@@ -427,11 +428,18 @@ function assertUgvAgentProfileSkillDeclaration(skill: SkillVersion): void {
     const provider = policy?.['providerBinding'];
     if (!isRecord(provider) || typeof policy?.['resourceId'] !== 'string')
       throw Error('ZMQ_PATROL_DECLARATION_INVALID');
+    if (
+      !['zmq_v1_2_0_site_control_13', 'zmq_v1_3_0_site_control_13'].includes(
+        resolveZmqPatrolProfile(policy['catalogProfile']),
+      )
+    )
+      throw Error('ZMQ_PATROL_DECLARATION_INVALID');
     const expected = buildZmqPatrolSkill(
       policy['resourceId'],
       skill.version,
       provider,
       parseZmqPatrolChildren(policy['children']),
+      resolveZmqPatrolProfile(policy['catalogProfile']),
     );
     for (const key of [
       'inputSchema',

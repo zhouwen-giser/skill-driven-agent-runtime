@@ -28,7 +28,16 @@ const load = (path) => import(pathToFileURL(resolve(source, path)).href);
 const { controlSiteFixture } = await load('tests/ugv-zmq-provider/site-control-fixture.ts');
 const { emptyReport } = await load('tests/ugv-zmq-observer/helpers.ts');
 const { until } = await load('tests/ugv-zmq-control-postgres/harness.ts');
-const f = await controlSiteFixture(c.databaseUrl, 'site_anonymous');
+const f = await controlSiteFixture(
+  c.databaseUrl,
+  'site_anonymous',
+  process.env.SMPP_ZMQ_JOINT_PROFILE === 'zmq_v1_3_0_site_control_13'
+    ? 'zmq_v1_3_0_site_control_13'
+    : undefined,
+);
+f.provider.engine.events.on('fault', (code, detail) =>
+  process.stderr.write(JSON.stringify({ event: 'isolated_control_fault', code, detail }) + '\n'),
+);
 let closing = false;
 async function close() {
   if (closing) return;

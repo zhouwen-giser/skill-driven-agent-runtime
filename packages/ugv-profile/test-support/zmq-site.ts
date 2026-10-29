@@ -33,7 +33,12 @@ export function siteFixture(profile: ZmqSiteCatalogProfile = 'zmq_v1_2_0_site_co
     providerCatalog: {
       providerId: 'site-provider',
       providerType: 'isr.vehicle.ugv.zmq',
-      providerVersion: profile === 'zmq_v1_1_0_readonly_13' ? '1.1.0' : '1.2.0',
+      providerVersion:
+        profile === 'zmq_v1_1_0_readonly_13'
+          ? '1.1.0'
+          : profile === 'zmq_v1_3_0_site_control_13'
+            ? '1.3.0'
+            : '1.2.0',
       manifestHash: 'a'.repeat(64),
     },
   };

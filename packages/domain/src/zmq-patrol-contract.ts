@@ -152,9 +152,10 @@ export function zmqPatrolUsage(value: readonly ZmqPatrolChildAuthority[]) {
 const strings = { type: 'array', items: { type: 'string' } } as const;
 const jsonValue = { $ref: '#/$defs/zmqPatrolJsonValue' } as const;
 const jsonObject = { type: 'object', additionalProperties: jsonValue } as const;
-export function zmqPatrolOutputSchema(resourceId: string) {
+export function zmqPatrolOutputSchema(resourceId: string, profile = 'zmq_v1_2_0_site_control_13') {
   const properties = {
     schemaVersion: { const: 'sdar.zmq-patrol-report/1' },
+    ...(profile === 'zmq_v1_3_0_site_control_13' ? { parameterResolution: jsonObject } : {}),
     resourceId: { const: resourceId },
     status: { enum: ['completed', 'degraded', 'failed', 'cancelled'] },
     navigationSucceeded: { type: 'boolean' },
@@ -232,6 +233,7 @@ export function zmqPatrolConstraints(
   version: number,
   provider: Readonly<Record<string, unknown>>,
   children: readonly ZmqPatrolChildAuthority[],
+  profile = 'zmq_v1_2_0_site_control_13',
 ) {
   parseZmqPatrolChildren(children);
   return [
@@ -266,7 +268,7 @@ export function zmqPatrolConstraints(
       version: 2,
       maximumSubregions: 1,
       requiredTrajectory: 'retained_actual_navigation',
-      catalogProfile: 'zmq_v1_2_0_site_control_13',
+      catalogProfile: profile,
       children,
     },
     { type: 'runtime_execution_mode_policy', mode: 'live' },
@@ -277,6 +279,7 @@ export function buildZmqPatrolSkill(
   version: number,
   provider: Readonly<Record<string, unknown>>,
   children: readonly ZmqPatrolChildAuthority[],
+  profile = 'zmq_v1_2_0_site_control_13',
 ) {
   const outcome = {
     schemaVersion: '1.0' as const,
@@ -289,7 +292,7 @@ export function buildZmqPatrolSkill(
       requestedCapabilityId: ZMQ_PATROL_CAPABILITY,
       resourceId,
       providerBinding: provider,
-      catalogProfile: 'zmq_v1_2_0_site_control_13',
+      catalogProfile: profile,
       children,
       maximumSubregions: 1,
       maximumChildElapsedMs: 300000,
@@ -319,8 +322,8 @@ export function buildZmqPatrolSkill(
       'Execute exactly navigation then inspection under immutable parent confirmation.',
     outputInstruction:
       'Return retained child task identities, actual evidence and missing subregions.',
-    inputSchema: zmqPatrolInputSchema(resourceId),
-    outputSchema: zmqPatrolOutputSchema(resourceId),
+    inputSchema: zmqPatrolInputSchema(resourceId, profile),
+    outputSchema: zmqPatrolOutputSchema(resourceId, profile),
     toolPolicy: { required: [], optional: [], forbidden: [] },
     runtimePolicy: ZMQ_PATROL_RUNTIME_POLICY,
     usageSpecification: zmqPatrolUsage(children),

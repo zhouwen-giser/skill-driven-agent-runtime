@@ -10,7 +10,11 @@ import { reviewedZmqCatalog } from './zmq-catalogs.js';
 const id = z.string().trim().min(1),
   checksum = z.string().regex(/^[a-f0-9]{64}$/);
 const common = {
-  catalogProfile: z.enum(['zmq_v1_1_0_readonly_13', 'zmq_v1_2_0_site_control_13']),
+  catalogProfile: z.enum([
+    'zmq_v1_1_0_readonly_13',
+    'zmq_v1_2_0_site_control_13',
+    'zmq_v1_3_0_site_control_13',
+  ]),
   bindingId: id,
   providerId: id,
   resourceId: id,
@@ -54,7 +58,12 @@ export function buildZmqSiteConsumerCandidate(
   const a = ZmqSiteAuthoritySchema.parse(authority);
   if (!Number.isFinite(Date.parse(now)) || Date.parse(a.validUntil) <= Date.parse(now))
     throw Error('ZMQ_AUTHORITY_EXPIRED');
-  const version = a.catalogProfile === 'zmq_v1_1_0_readonly_13' ? '1.1.0' : '1.2.0';
+  const version =
+    a.catalogProfile === 'zmq_v1_1_0_readonly_13'
+      ? '1.1.0'
+      : a.catalogProfile === 'zmq_v1_3_0_site_control_13'
+        ? '1.3.0'
+        : '1.2.0';
   if (
     discovery.protocolVersion !== '2026-07-28' ||
     discovery.providerCatalog?.providerType !== 'isr.vehicle.ugv.zmq' ||
@@ -69,7 +78,7 @@ export function buildZmqSiteConsumerCandidate(
     throw Error('ZMQ_CATALOG_AUTHORITY_MISMATCH');
   const contractSha256 = zmqContractChecksum(reviewedZmqCatalog(a.catalogProfile));
   const executableTools = tools
-    .filter((t) => version === '1.2.0' || !ZMQ_NATIVE_CONTROLS.has(t.toolName))
+    .filter((t) => version !== '1.1.0' || !ZMQ_NATIVE_CONTROLS.has(t.toolName))
     .map((t) => t.toolName);
   return {
     schemaVersion: 'sdar.ugv-zmq-site-consumer-candidate/1',

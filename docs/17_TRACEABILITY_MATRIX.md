@@ -1749,3 +1749,14 @@ Full gate and real-storage receipts are pending under the active anonymous ZMQ E
 
 Receipts: reports/ugv-zmq-successor-20261029; full run fc32df30-5083-4dd2-9285-abe53e9af4f4,
 runtime input 8cdfcbc9… unchanged. See the active ExecPlan for commands, artifact and output hashes.
+
+## 2026-10-29 ZMQ 1.3.0 regional default increment (IN_PROGRESS)
+
+| Requirement                           | Implementation                                                                 | Verification                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------- |
+| Exact native 1.3.0 authority          | reviewed catalog, site authority, governance                                   | zmq-v13.unit; full gate pending                   |
+| Concrete default before confirmation  | zmq-region-defaults, native dispatch/workflow, patrol workflow                 | omitted/zero/nonzero/null, child plan equivalence |
+| Honest provenance and legacy history  | v13 Provider report, parent requested/effective region, unchanged old catalogs | native joint and field evidence pending           |
+| Controlled field and formal promotion | exclusive candidate consumer, real PMS successor, existing A2A confirmation    | NOT_RUN; no complete report claim                 |
+
+See ADR-169 and execplans/ugv-zmq-zero-height-field-20261029.md.

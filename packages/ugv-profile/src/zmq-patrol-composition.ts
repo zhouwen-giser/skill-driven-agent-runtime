@@ -1,3 +1,4 @@
+import { resolveZmqPatrolProfile } from '../../domain/src/zmq-area-patrol.js';
 import type { SkillCompositionInputMappingPolicy } from '../../application/src/skill-composition.js';
 import { ZMQ_PATROL_SKILL, ZMQ_PATROL_CHILDREN } from '../../domain/src/zmq-area-patrol.js';
 import {
@@ -73,6 +74,7 @@ export const nativeZmqPatrolInputMappingPolicy: SkillCompositionInputMappingPoli
       parent.version,
       provider,
       children,
+      resolveZmqPatrolProfile(goal['catalogProfile']),
     );
     for (const key of [
       'inputSchema',
@@ -112,8 +114,11 @@ export const nativeZmqPatrolInputMappingPolicy: SkillCompositionInputMappingPoli
       ),
     );
     if (
-      authority.catalogProfile !== 'zmq_v1_2_0_site_control_13' ||
+      !['zmq_v1_2_0_site_control_13', 'zmq_v1_3_0_site_control_13'].includes(
+        authority.catalogProfile,
+      ) ||
       authority.resourceId !== goal['resourceId'] ||
+      authority.catalogProfile !== goal['catalogProfile'] ||
       [
         ['bindingId', 'mcpProviderBindingId'],
         ['localServerId', 'localServerId'],

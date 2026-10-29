@@ -1,3 +1,5 @@
+import { zmqPatrolCatalogProfile } from '../../../packages/domain/src/zmq-area-patrol.js';
+import type { ZmqSiteProfile } from '../../../packages/domain/src/zmq-site-capability.js';
 import {
   isGovernedPatrol,
   isPatrolCapability,
@@ -145,7 +147,11 @@ export class PatrolEvidenceReader {
         throw Error('PATROL_CHILD_MAPPING_AUTHORITY_INVALID');
       const nativePatrol = policy.skill.skillId === ZMQ_PATROL_SKILL;
       const mapped: Record<string, unknown> = nativePatrol
-        ? zmqPatrolChildInput(original, child.selectedSkillId ?? '')
+        ? zmqPatrolChildInput(
+            original,
+            child.selectedSkillId ?? '',
+            zmqPatrolCatalogProfile(binding.constraintSnapshot),
+          )
         : {};
       for (const mapping of nativePatrol ? [] : mappings) {
         let value: unknown = original;
@@ -195,6 +201,9 @@ export class PatrolEvidenceReader {
               child.taskId,
               original['resourceId'],
               name,
+              authority[0]['catalogProfile'] === 'zmq_v1_3_0_site_control_13'
+                ? 'zmq_v1_3_0_site_control_13'
+                : 'zmq_v1_2_0_site_control_13',
             ) ?? result;
       }
       if (!result && child.selectedSkillId === 'embodied.inspect_area') {
@@ -291,7 +300,11 @@ export class PatrolEvidenceReader {
       });
     }
     return policy.skill.skillId === ZMQ_PATROL_SKILL
-      ? aggregateZmqPatrol(binding.inputSnapshot, reports)
+      ? aggregateZmqPatrol(
+          binding.inputSnapshot,
+          reports,
+          zmqPatrolCatalogProfile(binding.constraintSnapshot),
+        )
       : aggregateAreaPatrol(binding.inputSnapshot, reports);
   }
 }
@@ -300,6 +313,7 @@ export function readRetainedZmqPatrolChildResult(
   taskId: string,
   resourceId: unknown,
   toolName: 'vehicle_zmq_navigate' | 'vehicle_zmq_inspect_area',
+  profile: ZmqSiteProfile = 'zmq_v1_2_0_site_control_13',
 ) {
   if (
     typeof resourceId !== 'string' ||
@@ -319,7 +333,7 @@ export function readRetainedZmqPatrolChildResult(
         : 'ugv.zmq-inspection-result/2')
   )
     throw Error('ZMQ_PATROL_RETAINED_REPORT_IDENTITY_INVALID');
-  return projectSiteZmqResult(toolName, raw, resourceId, 'zmq_v1_2_0_site_control_13');
+  return projectSiteZmqResult(toolName, raw, resourceId, profile);
 }
 export function readRetainedInspectionResult(
   projection: TaskBusinessProjection,

@@ -1,3 +1,4 @@
+import { zmqPatrolCatalogProfile } from '../../../packages/domain/src/zmq-area-patrol.js';
 import {
   ZMQ_PATROL_CAPABILITY,
   parseZmqPatrolInput,
@@ -51,7 +52,8 @@ export function createAreaReportInitialAdmission(
       if (!raw || typeof raw !== 'object' || Array.isArray(raw))
         throw Error('AREA_REPORT_INPUT_AUTHORITY_INVALID');
       const input = raw as Record<string, unknown>;
-      if (binding.requestedCapabilityId === ZMQ_PATROL_CAPABILITY) parseZmqPatrolInput(raw);
+      if (binding.requestedCapabilityId === ZMQ_PATROL_CAPABILITY)
+        parseZmqPatrolInput(raw, zmqPatrolCatalogProfile(binding.constraintSnapshot));
       else if (binding.requestedCapabilityId === 'embodied.area_patrol') parseAreaPatrolInput(raw);
       if (zmqToolForCapability(binding.requestedCapabilityId) !== undefined)
         nativeZmqDispatchInput(binding);

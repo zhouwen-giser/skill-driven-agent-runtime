@@ -73,7 +73,11 @@ export async function materializeZmqSiteProvider(
       v.discovery.providerCatalog?.providerId !== c.providerId ||
       v.discovery.providerCatalog.providerType !== 'isr.vehicle.ugv.zmq' ||
       v.discovery.providerCatalog.providerVersion !==
-        (c.catalogProfile === 'zmq_v1_1_0_readonly_13' ? '1.1.0' : '1.2.0')
+        (c.catalogProfile === 'zmq_v1_1_0_readonly_13'
+          ? '1.1.0'
+          : c.catalogProfile === 'zmq_v1_3_0_site_control_13'
+            ? '1.3.0'
+            : '1.2.0')
     )
       throw Error('ZMQ_PROVIDER_AUTHORITY_MISMATCH');
     assertZmqCatalogContract(v.tools, c.resourceId, c.catalogProfile);

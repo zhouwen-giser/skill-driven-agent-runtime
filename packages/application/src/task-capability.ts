@@ -1,3 +1,4 @@
+import { zmqPatrolCatalogProfile } from '../../domain/src/zmq-area-patrol.js';
 import {
   isPatrolCapability,
   ZMQ_PATROL_CAPABILITY,
@@ -1938,7 +1939,7 @@ export interface PatrolCapabilityEvidenceSource {
 
 function patrolContextObservations(binding: TaskCapabilityBinding) {
   if (binding.requestedCapabilityId === ZMQ_PATROL_CAPABILITY)
-    parseZmqPatrolInput(binding.inputSnapshot);
+    parseZmqPatrolInput(binding.inputSnapshot, zmqPatrolCatalogProfile(binding.constraintSnapshot));
   else parseAreaPatrolInput(binding.inputSnapshot);
   return ['area-boundary', 'time-window', 'area-partition'].map((requirementId) =>
     Object.freeze({

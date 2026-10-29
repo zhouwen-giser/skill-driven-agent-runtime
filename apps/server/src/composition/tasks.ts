@@ -226,7 +226,9 @@ export async function composeTasks(dependencies: composeTasksDependencies) {
       name !== undefined &&
       ZMQ_NATIVE_CONTROLS.has(name) &&
       binding !== undefined &&
-      nativeZmqCatalogProfile(binding.constraintSnapshot) === 'zmq_v1_2_0_site_control_13'
+      ['zmq_v1_2_0_site_control_13', 'zmq_v1_3_0_site_control_13'].includes(
+        nativeZmqCatalogProfile(binding.constraintSnapshot),
+      )
     );
   }
   async function controlNativeRemote(task: AgentTask, action: 'pause' | 'resume') {

@@ -1,3 +1,4 @@
+import { resolveZmqRegionHeights } from '../../domain/src/zmq-region-defaults.js';
 import { reviewedZmqCatalog, type ZmqCatalogProfile } from './zmq-catalogs.js';
 import { createHash } from 'node:crypto';
 import type { JsonSchemaValidator } from '../../application/src/ports.js';
@@ -228,7 +229,10 @@ export function zmqToolArguments(
     });
     if (!signs.every((s) => s === 1) && !signs.every((s) => s === -1)) fail('ZMQ_AREA_INVALID');
   }
-  return args;
+  return profile === 'zmq_v1_3_0_site_control_13' &&
+    ['vehicle_zmq_area_recon', 'vehicle_zmq_inspect_area'].includes(toolName)
+    ? resolveZmqRegionHeights(args)
+    : args;
 }
 /** No received-frame empty report can establish complete area patrol. */
 export function projectZmqInspection(value: unknown) {

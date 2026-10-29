@@ -2617,3 +2617,10 @@ Physical controls, patrol acceptance and raw-observation deletion remain unappro
 - Pass both complete gates and the 21-case joint run. Field controls/patrol and raw-archive deletion remain pending.
 
 Evidence: reports/ugv-zmq-successor-20261029/FINAL_ACCEPTANCE.json.
+
+## 2026-10-29 — ZMQ 1.3.0 (in progress)
+
+- Add exact 13-tool successor with optional regional zero height, concrete pre-confirmation input
+  and per-point provenance. Preserve existing catalogs and nullable unknown simulation target height.
+- Native patrol uses the matching successor child versions and honest default/coverage evidence.
+- Software and operator field qualification remain separate; formal control not yet promoted.

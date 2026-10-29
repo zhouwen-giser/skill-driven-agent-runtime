@@ -1,3 +1,4 @@
+import { resolveZmqPatrolProfile } from '../../domain/src/zmq-area-patrol.js';
 import { prepareSkillUsagePlan } from '../../application/src/skill-usage-planning.js';
 import {
   parseZmqPatrolInput,
@@ -15,8 +16,11 @@ export function prepareZmqPatrolWorkflow(
   value: unknown,
   now: string,
 ): ReturnType<typeof prepareSkillUsagePlan> & { deterministicDefinition: WorkflowDefinition } {
-  const patrolInput = parseZmqPatrolInput(value);
-  assertZmqPatrolDeadline(value, now);
+  const profile = resolveZmqPatrolProfile(
+    input.skill.outcomeSpecification?.taskGoalPolicy['catalogProfile'],
+  );
+  const patrolInput = parseZmqPatrolInput(value, profile);
+  assertZmqPatrolDeadline(value, now, profile);
   const prepared = prepareSkillUsagePlan(input);
   const definition = prepared.deterministicDefinition;
   if (
@@ -63,7 +67,7 @@ export function prepareZmqPatrolWorkflow(
           node.type === 'skill_call'
             ? {
                 ...node,
-                input: zmqPatrolChildInput(value, node.skillId) as WorkflowBoundValue,
+                input: zmqPatrolChildInput(value, node.skillId, profile) as WorkflowBoundValue,
               }
             : node.type === 'error_handler' && node.handledNodeId === navigation.nodeId
               ? { ...node, gotoNodeId: 'usage_failure' }
