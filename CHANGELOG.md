@@ -2624,3 +2624,14 @@ Evidence: reports/ugv-zmq-successor-20261029/FINAL_ACCEPTANCE.json.
   and per-point provenance. Preserve existing catalogs and nullable unknown simulation target height.
 - Native patrol uses the matching successor child versions and honest default/coverage evidence.
 - Software and operator field qualification remain separate; formal control not yet promoted.
+
+## 2026-10-29 — ZMQ 1.3.0 software verified, field partial
+
+- Complete frozen 30-step gate and 21-case PG/Redis/MCP/native-ZMQ joint verification pass.
+- Record real A2A field action evidence separately from degraded, failed and unknown reports;
+  preserve unsupported zoom, unknown regional ACK/route stop and invalid/absent effect targets.
+- Restore verified anonymous readonly via real PMS Binding revision 3 and seven governed v4
+  publications with renewal; withdraw control/patrol and stop candidate consumers/writer.
+- Retain current history/keys/account/storage; audit exact-scope canceled-parent callback
+  disposition without modifying catalog guards, provider results or physical-stop facts.
+- Full field control, patrol and formal control promotion remain open.

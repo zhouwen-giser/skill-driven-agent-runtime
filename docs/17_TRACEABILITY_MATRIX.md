@@ -1750,13 +1750,16 @@ Full gate and real-storage receipts are pending under the active anonymous ZMQ E
 Receipts: reports/ugv-zmq-successor-20261029; full run fc32df30-5083-4dd2-9285-abe53e9af4f4,
 runtime input 8cdfcbc9… unchanged. See the active ExecPlan for commands, artifact and output hashes.
 
-## 2026-10-29 ZMQ 1.3.0 regional default increment (IN_PROGRESS)
+## 2026-10-29 ZMQ 1.3.0 regional default increment (FIELD_PARTIAL)
 
-| Requirement                           | Implementation                                                                 | Verification                                      |
-| ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------- |
-| Exact native 1.3.0 authority          | reviewed catalog, site authority, governance                                   | zmq-v13.unit; full gate pending                   |
-| Concrete default before confirmation  | zmq-region-defaults, native dispatch/workflow, patrol workflow                 | omitted/zero/nonzero/null, child plan equivalence |
-| Honest provenance and legacy history  | v13 Provider report, parent requested/effective region, unchanged old catalogs | native joint and field evidence pending           |
-| Controlled field and formal promotion | exclusive candidate consumer, real PMS successor, existing A2A confirmation    | NOT_RUN; no complete report claim                 |
+| Requirement                              | Implementation                                                             | Verification                                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Exact native 1.3.0 authority             | reviewed catalog, site authority, governance                               | zmq-v13.unit; full frozen 30/30 PASS, run 1ebeaebe-51c7-4455-86d9-fbd7a33cd068                                                  |
+| Concrete default before confirmation     | zmq-region-defaults, native dispatch/workflow, patrol workflow             | omitted/zero/nonzero/null, 60 km/h conversion, child-plan equivalence; 21 native joint cases PASS                               |
+| Honest provenance and legacy history     | Provider wrapper and parent requested/effective region, unchanged catalogs | joint PASS; formal history/HTTP report reads PASS; default_zero and manual/null provenance retained                             |
+| Controlled field and formal promotion    | exclusive consumer, real PMS successor, exact A2A confirmation             | actual field PARTIAL: action/degraded separated; unsupported/unknown/invalid-target evidence retained; no control promotion     |
+| Anonymous readonly rollback              | seven governed successors v4, Binding revision 3 and renewal               | ten final checks PASS; readonly A2A Task 48a54723-3a0b-41f4-982d-2636dbda518b completed; control/patrol CAS suspended           |
+| Terminal callback management disposition | exact-row snapshot/lock quarantine, canceled parents only                  | result/error/authority hashes preserved; no FK/trigger/catalog-guard changes; general automatic orphan finalization gap remains |
 
-See ADR-169 and execplans/ugv-zmq-zero-height-field-20261029.md.
+See ADR-169, execplans/ugv-zmq-zero-height-field-20261029.md and
+reports/ugv-zmq-zero-height-field-20261029/REPORT.md plus FINAL_ACCEPTANCE.json.

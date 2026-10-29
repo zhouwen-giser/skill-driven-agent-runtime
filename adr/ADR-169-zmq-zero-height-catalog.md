@@ -22,3 +22,10 @@ A2A action evidence, exclusive consumers/writer leases and real PMS lineage.
 
 Validation: v13 unit/contract/PG/ZMQ/browser and joint scenarios plus the full evidence gate.
 ExecPlan: execplans/ugv-zmq-zero-height-field-20261029.md. Current status: IN_PROGRESS.
+
+Field decision application: software gates pass 30/30 and native joint 21 cases; actual field
+outcomes remain partial. Formal control is not promoted. Controls/patrol are CAS-suspended,
+real PMS Binding successor revision 3 restores seven readonly versions 4 with renewal.
+Operator-default zero height and manual/null target provenance remain unchanged by failures.
+Latest localization recovery does not revise unknown historical outcomes. No baseline or
+upstream wire contract was changed. See the field acceptance report for exact Tasks and gaps.

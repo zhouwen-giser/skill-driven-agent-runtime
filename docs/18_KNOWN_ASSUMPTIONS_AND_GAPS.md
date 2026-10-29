@@ -776,3 +776,20 @@ and freeze it before confirmation and report provenance. Native rejection remain
 Unknown simulation-target height remains nullable. Speed is confirmed as 60 km/h, not km/s.
 The site currently reports stale chassis localization; navigation/patrol field readiness must be
 verified again from fresh receptions and cannot be inferred from model or requested coordinates.
+
+### 2026-10-29 field results and readonly recovery
+
+Software gates pass 30/30 SDAR, 21/21 SMPP and 21 native joint cases; field qualification remains
+partial. Zoom UNSUPPORTED, regional configure ACK unknown, route stationary stop unknown,
+manual target TARGET_NOT_FOUND, observation target absent and unexecuted patrol are explicit
+gaps. Latest 19:06 Beijing localization is fresh again, but does not rewrite the earlier route
+result. Source producer epoch/timebase and complete discovery/coverage/trajectory remain
+unattested. Formal stays anonymous readonly; Binding revision 3, seven successors v4 renew.
+
+Canceled parents with invalidated continuation snapshots can leave terminal callbacks pending
+and block catalog replacement. Two exact field rows were administratively quarantined under
+snapshot CAS/locks, preserving original parent/result/authority hashes and all guards; no
+application-wide automatic orphan-finalization change is claimed. The issue needs a separately
+verified general lifecycle correction before treating arbitrary catalog rollback as automatic.
+
+Evidence: reports/ugv-zmq-zero-height-field-20261029/REPORT.md and FINAL_ACCEPTANCE.json.
